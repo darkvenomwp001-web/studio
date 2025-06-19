@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, LogOut, UserPlus, Settings, Bell } from 'lucide-react'; // Added Bell
+import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, LogOut, UserPlus, Settings, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -42,7 +42,7 @@ export default function Header() {
 
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
-  if (!mounted) { // Basic skeleton loader for header during SSR or initial client mount
+  if (!mounted) { 
     return (
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -51,8 +51,8 @@ export default function Header() {
              <span className="text-2xl font-headline font-bold text-foreground">D4RKV3NOM</span>
            </Link>
            <div className="flex items-center gap-2">
-             <div className="h-10 w-10 p-2 animate-pulse"><div className="h-6 w-6 bg-muted rounded-full" /></div> {/* Bell placeholder */}
-             <div className="h-10 w-10 p-2 animate-pulse"><div className="h-7 w-7 bg-muted rounded-full" /></div> {/* Avatar placeholder */}
+             <div className="h-10 w-10 p-2 animate-pulse"><div className="h-6 w-6 bg-muted rounded-full" /></div>
+             <div className="h-10 w-10 p-2 animate-pulse"><div className="h-7 w-7 bg-muted rounded-full" /></div>
            </div>
         </div>
       </header>
@@ -68,6 +68,20 @@ export default function Header() {
     }
   };
 
+  const getNotificationIconMini = (type: NotificationType['type']) => {
+    switch (type) {
+      case 'new_follower':
+        return <UserPlus className="h-3 w-3"/>;
+      case 'new_chapter':
+      case 'story_update':
+        return <BookOpenText className="h-3 w-3"/>;
+      case 'announcement':
+         return <Bell className="h-3 w-3 text-accent-foreground"/>;
+      default:
+        return <Bell className="h-3 w-3"/>;
+    }
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -82,13 +96,13 @@ export default function Header() {
             <NavLink href="/stories"><BookOpenText className="h-5 w-5" /> Stories</NavLink>
             <NavLink href="/write"><Edit3 className="h-5 w-5" /> Write</NavLink>
             <NavLink href="/messages"><MessageCircle className="h-5 w-5" /> Messages</NavLink>
+            <NavLink href="/ai-assistant"><Brain className="h-5 w-5" /> AI Assistant</NavLink>
           </div>
           
           <Button variant="ghost" size="icon" onClick={handleSearchIconClick} aria-label="Search">
             <Search className="h-5 w-5" />
           </Button>
 
-          {/* Notifications Dropdown - Visible if user is logged in */}
           {!loading && user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -104,33 +118,30 @@ export default function Header() {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+              <DropdownMenuContent align="end" className="w-80 max-h-96">
                 <DropdownMenuLabel className="flex justify-between items-center">
                   Notifications
-                  <Link href="/notifications" className="text-xs text-primary hover:underline">View All</Link>
+                  <Link href="/notifications" passHref>
+                    <Button variant="link" className="p-0 h-auto text-xs text-primary hover:underline">View All</Button>
+                  </Link>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <div className="max-h-80 overflow-y-auto">
                 {notifications.length > 0 ? (
-                  notifications.map(notif => (
+                  notifications.slice(0, 5).map(notif => ( // Show only latest 5 in dropdown
                     <DropdownMenuItem 
                         key={notif.id} 
                         onClick={() => handleNotificationClick(notif)}
                         className={`cursor-pointer flex items-start gap-2 ${!notif.isRead ? 'font-semibold' : ''}`}
                     >
-                        {notif.actor?.avatarUrl && (
+                        {notif.actor?.avatarUrl ? (
                             <Avatar className="h-6 w-6 mt-0.5">
-                                <AvatarImage src={notif.actor.avatarUrl} alt={notif.actor.username} data-ai-hint="profile person" />
+                                <AvatarImage src={notif.actor.avatarUrl} alt={notif.actor.username} data-ai-hint="profile person"/>
                                 <AvatarFallback>{notif.actor.username.substring(0,1).toUpperCase()}</AvatarFallback>
                             </Avatar>
-                        )}
-                        {!notif.actor?.avatarUrl && notif.type !== 'announcement' && (
-                            <div className="h-6 w-6 mt-0.5 bg-muted rounded-full flex items-center justify-center text-xs">
-                                {notif.type === 'new_follower' ? <UserPlus className="h-3 w-3"/> : <BookOpenText className="h-3 w-3"/>}
-                            </div>
-                        )}
-                         {!notif.actor && notif.type === 'announcement' && (
-                            <div className="h-6 w-6 mt-0.5 bg-accent rounded-full flex items-center justify-center text-xs">
-                                <Bell className="h-3 w-3 text-accent-foreground"/>
+                        ) : (
+                            <div className={`h-6 w-6 mt-0.5 rounded-full flex items-center justify-center text-xs ${notif.type === 'announcement' ? 'bg-accent text-accent-foreground' : 'bg-muted'}`}>
+                               {getNotificationIconMini(notif.type)}
                             </div>
                         )}
                       <div className="flex-1">
@@ -143,11 +154,11 @@ export default function Header() {
                 ) : (
                   <DropdownMenuItem disabled>No new notifications</DropdownMenuItem>
                 )}
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
 
-          {/* User Profile Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="User Menu">
@@ -155,7 +166,7 @@ export default function Header() {
                     <div className="h-7 w-7 bg-muted rounded-full animate-pulse" />
                 ) : user && user.avatarUrl ? (
                     <Avatar className="h-7 w-7">
-                        <AvatarImage src={user.avatarUrl} alt={displayName || 'User'} data-ai-hint="profile person" />
+                        <AvatarImage src={user.avatarUrl} alt={displayName || 'User'} data-ai-hint="profile person"/>
                         <AvatarFallback>{displayName ? displayName.substring(0,1).toUpperCase() : 'U'}</AvatarFallback>
                     </Avatar>
                 ) : user ? ( 
@@ -170,6 +181,15 @@ export default function Header() {
             <DropdownMenuContent align="end">
               {!loading && user ? (
                 <>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{displayName}</p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="flex items-center gap-2">
                       <UserCircle className="h-4 w-4" /> Profile
@@ -192,6 +212,9 @@ export default function Header() {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/messages" className="flex items-center gap-2"><MessageCircle className="h-4 w-4" /> Messages</Link>
+                  </DropdownMenuItem>
+                   <DropdownMenuItem asChild className="md:hidden">
+                    <Link href="/ai-assistant" className="flex items-center gap-2"><Brain className="h-4 w-4" /> AI Assistant</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={signOutFirebase} className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
@@ -217,9 +240,11 @@ export default function Header() {
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/stories" className="flex items-center gap-2"><BookOpenText className="h-4 w-4" /> Stories</Link>
                   </DropdownMenuItem>
-                   {/* Add other mobile nav links if user is not logged in and they should see them */}
+                  <DropdownMenuItem asChild className="md:hidden">
+                    <Link href="/ai-assistant" className="flex items-center gap-2"><Brain className="h-4 w-4" /> AI Assistant</Link>
+                  </DropdownMenuItem>
                 </>
-              ) : ( // Still loading state
+              ) : ( 
                 <DropdownMenuItem disabled>
                     <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                 </DropdownMenuItem>
@@ -231,3 +256,4 @@ export default function Header() {
     </header>
   );
 }
+
