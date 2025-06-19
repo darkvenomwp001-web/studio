@@ -8,8 +8,8 @@ body {
 
 @layer base {
   :root {
-    --background: 210 20% 95%; /* Light Alice Blue-like */
-    --foreground: 210 50% 10%; /* Dark Blue/Grey */
+    --background: 210 20% 95%; 
+    --foreground: 210 50% 10%; 
 
     --muted: 210 20% 88%;
     --muted-foreground: 210 30% 30%;
@@ -17,20 +17,20 @@ body {
     --popover: 210 20% 95%;
     --popover-foreground: 210 50% 10%;
 
-    --card: 210 20% 98%; /* Slightly lighter than background for depth */
+    --card: 210 20% 98%; 
     --card-foreground: 210 50% 10%;
 
     --border: 210 20% 80%;
     --input: 210 20% 85%;
 
-    --primary: 210 60% 50%; /* #3399FF */
-    --primary-foreground: 210 60% 95%; /* Light color for contrast on primary */
+    --primary: 210 60% 50%; 
+    --primary-foreground: 210 60% 95%; 
 
-    --secondary: 180 50% 70%; /* Lighter shade of accent */
+    --secondary: 180 50% 70%; 
     --secondary-foreground: 180 50% 15%;
 
-    --accent: 180 50% 40%; /* #33BDBD */
-    --accent-foreground: 180 50% 95%; /* Light color for contrast on accent */
+    --accent: 180 50% 40%; 
+    --accent-foreground: 180 50% 95%; 
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
@@ -39,15 +39,13 @@ body {
 
     --radius: 0.5rem;
 
-    /* Chart colors can be adjusted to fit the new theme */
     --chart-1: 210 60% 50%;
     --chart-2: 180 50% 40%;
     --chart-3: 25 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    /* Sidebar specific colors - can mirror main theme or have distinct styling */
-    --sidebar-background: 210 20% 92%; /* Slightly different from main bg */
+    --sidebar-background: 210 20% 92%;
     --sidebar-foreground: 210 50% 15%;
     --sidebar-primary: 210 60% 50%;
     --sidebar-primary-foreground: 210 60% 95%;
@@ -58,50 +56,48 @@ body {
   }
 
   .dark {
-    --background: 210 15% 10%; /* Dark Blue/Grey */
-    --foreground: 210 20% 90%; /* Light Grey/Blue */
+    --background: 210 10% 8%; /* Very dark blue-grey, Wattpad-like */
+    --foreground: 210 15% 92%; /* Light grey/blue for high contrast */
 
-    --muted: 210 15% 20%;
-    --muted-foreground: 210 20% 70%;
+    --muted: 210 10% 18%; /* Darker muted */
+    --muted-foreground: 210 15% 65%; /* Muted text, legible */
 
-    --popover: 210 15% 10%;
-    --popover-foreground: 210 20% 90%;
+    --popover: 210 10% 8%; /* Consistent with dark background */
+    --popover-foreground: 210 15% 92%;
 
-    --card: 210 15% 12%; /* Slightly lighter than dark background */
-    --card-foreground: 210 20% 90%;
+    --card: 210 10% 11%; /* Slightly lighter than background for depth */
+    --card-foreground: 210 15% 92%;
 
-    --border: 210 15% 30%;
-    --input: 210 15% 25%;
+    --border: 210 10% 25%; /* Darker border */
+    --input: 210 10% 22%; /* Darker input */
 
-    --primary: 210 60% 55%; /* Slightly lighter for dark bg */
-    --primary-foreground: 210 60% 10%; /* Darker for light text on primary */
+    --primary: 210 60% 55%; 
+    --primary-foreground: 210 60% 10%; 
 
-    --secondary: 180 50% 35%; /* Darker shade of accent */
+    --secondary: 180 50% 35%; 
     --secondary-foreground: 180 50% 85%;
 
-    --accent: 180 50% 45%; /* Slightly lighter accent for dark bg */
-    --accent-foreground: 180 50% 10%; /* Darker for light text on accent */
+    --accent: 180 50% 45%; 
+    --accent-foreground: 180 50% 10%; 
     
     --destructive: 0 63% 40%;
     --destructive-foreground: 0 0% 98%;
 
     --ring: 210 60% 55%;
     
-    /* Chart colors for dark theme */
     --chart-1: 210 60% 55%;
     --chart-2: 180 50% 45%;
     --chart-3: 25 70% 50%;
     --chart-4: 280 60% 55%;
     --chart-5: 340 70% 50%;
 
-    /* Sidebar specific colors for dark theme */
-    --sidebar-background: 210 15% 8%; 
-    --sidebar-foreground: 210 20% 88%;
+    --sidebar-background: 210 10% 7%; 
+    --sidebar-foreground: 210 15% 90%;
     --sidebar-primary: 210 60% 55%;
     --sidebar-primary-foreground: 210 60% 10%;
     --sidebar-accent: 180 50% 45%;
     --sidebar-accent-foreground: 180 50% 10%;
-    --sidebar-border: 210 15% 28%;
+    --sidebar-border: 210 10% 28%;
     --sidebar-ring: 210 60% 55%;
   }
 }

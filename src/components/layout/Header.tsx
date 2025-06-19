@@ -2,10 +2,9 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, Sun, Moon, LogOut, UserPlus } from 'lucide-react';
+import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, LogOut, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import {
   DropdownMenu,
@@ -14,7 +13,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth.tsx';
 
 const NavLink = ({ href, children, icon }: { href: string; children: React.ReactNode; icon?: React.ReactNode }) => (
   <Link href={href} passHref>
@@ -27,14 +26,9 @@ const NavLink = ({ href, children, icon }: { href: string; children: React.React
 
 export default function Header() {
   const [mounted, setMounted] = useState(false);
-  const { theme, setTheme } = useTheme();
   const { user, logout, loading } = useAuth();
 
   useEffect(() => setMounted(true), []);
-
-  const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
-  };
   
   if (!mounted) {
     return (
@@ -45,10 +39,6 @@ export default function Header() {
              <span className="text-2xl font-headline font-bold text-foreground">D4RKV3NOM</span>
            </Link>
            <div className="flex items-center gap-2">
-             {/* Simplified placeholders to avoid layout shifts with actual icons */}
-             <div className="h-10 w-10 p-2">
-                <div className="h-5 w-5 bg-muted rounded-sm animate-pulse" />
-             </div>
              <div className="h-10 w-10 p-2">
                 <div className="h-6 w-6 bg-muted rounded-full animate-pulse" />
             </div>
@@ -76,14 +66,11 @@ export default function Header() {
         <nav className="flex items-center gap-2">
           <div className="hidden md:flex items-center gap-1">
             <NavLink href="/"><Home className="h-5 w-5" /> Home</NavLink>
+            <NavLink href="/stories"><BookOpenText className="h-5 w-5" /> Stories</NavLink>
             <NavLink href="/write"><Edit3 className="h-5 w-5" /> Write</NavLink>
             <NavLink href="/messages"><MessageCircle className="h-5 w-5" /> Messages</NavLink>
           </div>
           
-          <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
-            {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-          </Button>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="User Menu">
@@ -111,6 +98,9 @@ export default function Header() {
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/" className="flex items-center gap-2"><Home className="h-4 w-4" /> Home</Link>
                   </DropdownMenuItem>
+                   <DropdownMenuItem asChild className="md:hidden">
+                    <Link href="/stories" className="flex items-center gap-2"><BookOpenText className="h-4 w-4" /> Stories</Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/write" className="flex items-center gap-2"><Edit3 className="h-4 w-4" /> Write</Link>
                   </DropdownMenuItem>
@@ -137,6 +127,9 @@ export default function Header() {
                   <DropdownMenuSeparator className="md:hidden"/>
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/" className="flex items-center gap-2"><Home className="h-4 w-4" /> Home</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="md:hidden">
+                    <Link href="/stories" className="flex items-center gap-2"><BookOpenText className="h-4 w-4" /> Stories</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/write" className="flex items-center gap-2"><Edit3 className="h-4 w-4" /> Write</Link>
