@@ -11,15 +11,15 @@ import {
   onAuthStateChanged,
   signOut,
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  updateProfile as updateFirebaseProfile, // Renamed to avoid conflict
-  updateEmail as updateFirebaseEmail, // Renamed
-  updatePassword as updateFirebasePassword, // Renamed
+  signInWithEmailAndPassword as firebaseSignInWithEmailAndPassword, // Renamed to avoid conflict
+  updateProfile as updateFirebaseProfile, 
+  updateEmail as updateFirebaseEmail, 
+  updatePassword as updateFirebasePassword, 
   type User as FirebaseUser,
   type AuthError
 } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import { placeholderUsers } from '@/lib/placeholder-data'; // For initial mock role
+import { placeholderUsers } from '@/lib/placeholder-data'; 
 
 interface SignUpData {
   username: string;
@@ -28,13 +28,12 @@ interface SignUpData {
 }
 
 interface SignInData {
-  email: string;
+  emailOrUsername: string; // Updated to accept email or username
   passwordOne: string;
 }
 
-// Define AppUser with all properties including optional ones like role
 interface AppUser extends AppUserType {
-  email?: string; // Ensure email is part of AppUser
+  email?: string; 
   displayName?: string;
   role?: 'reader' | 'writer';
 }
@@ -73,19 +72,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (firebaseUser) {
         let userRole: 'reader' | 'writer' | undefined = undefined;
         let userBio: string | undefined = undefined;
+        let appUsername = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous User';
+
         try {
           const storedUserDetails = sessionStorage.getItem(`userDetails-${firebaseUser.uid}`);
           if (storedUserDetails) {
             const details = JSON.parse(storedUserDetails);
             userRole = details.role;
             userBio = details.bio;
+            if(details.username) appUsername = details.username; // Prefer stored username if available
           }
         } catch (e) { console.error("Error parsing stored user details", e); }
 
         const appUser: AppUser = {
           id: firebaseUser.uid,
-          username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous User',
-          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous User',
+          username: appUsername,
+          displayName: firebaseUser.displayName || appUsername,
           avatarUrl: firebaseUser.photoURL || undefined,
           email: firebaseUser.email || undefined,
           bio: userBio || placeholderUsers.find(pu => pu.id === firebaseUser.uid)?.bio || undefined, 
@@ -97,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
         setUser(appUser);
         if (!sessionStorage.getItem(`userDetails-${firebaseUser.uid}`)) {
-            sessionStorage.setItem(`userDetails-${firebaseUser.uid}`, JSON.stringify({ role: appUser.role, bio: appUser.bio }));
+            sessionStorage.setItem(`userDetails-${firebaseUser.uid}`, JSON.stringify({ role: appUser.role, bio: appUser.bio, username: appUser.username }));
         }
       } else {
         setUser(null);
@@ -111,14 +113,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (loading) return;
 
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
-    const isPublicRoute = PUBLIC_ROUTES.includes(pathname) || pathname === '/'; // Allow homepage for unauthenticated too now
+    // Allow access to root ('/') for unauthenticated users as well
+    const isPublicOrAuthRoute = isAuthRoute || PUBLIC_ROUTES.includes(pathname) || pathname === '/';
 
-    if (user) { // User is authenticated
+
+    if (user) { 
       if (isAuthRoute) {
         router.push(DEFAULT_REDIRECT_AUTHENTICATED);
       }
-    } else { // User is not authenticated
-      if (!isAuthRoute && !isPublicRoute) { // If not an auth route AND not a public route
+    } else { 
+      if (!isPublicOrAuthRoute) { 
         router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
       }
     }
@@ -150,19 +154,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       case 'auth/user-not-found':
       case 'auth/wrong-password':
       case 'auth/invalid-credential':
-        friendlyMessage = "Invalid email or password. Please check your credentials.";
+        friendlyMessage = "Invalid email/username or password. Please check your credentials.";
         title = "Sign-In Failed";
         break;
       case 'auth/popup-closed-by-user':
         title = "Google Sign-In Cancelled";
-        friendlyMessage = "Google Sign-In was cancelled or the popup was closed. Please try again. Ensure pop-ups are allowed for this site in your browser settings. Ad-blockers or other extensions might also interfere.";
+        friendlyMessage = "Google Sign-In was cancelled or the popup was closed. Please try again. Ensure pop-ups are allowed for this site in your browser settings, and check if any ad-blockers or extensions might be interfering.";
         break;
       case 'auth/popup-blocked':
         title = "Google Sign-In Blocked";
         friendlyMessage = "Google Sign-In popup was blocked by your browser. Please allow pop-ups for this site and try again.";
         break;
       case 'auth/account-exists-with-different-credential':
-        title = "Account Link Required";
+        title = "Account Linking Required";
         friendlyMessage = "This email is already associated with an account created via a different method (e.g., Email/Password). For Google Sign-In to access this existing account, your Firebase project's 'User account linking' setting (in Authentication -> Settings) MUST be configured to 'Link accounts that use the same email address'. If this error persists, please double-check that Firebase setting. Alternatively, sign in using your original method.";
         break;
       case 'auth/network-request-failed':
@@ -186,8 +190,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await signInWithPopup(auth, provider);
       const firebaseUser = result.user;
-      // Check if this is a new user being created via Google implicit sign-up
-      // `getAdditionalUserInfo(result).isNewUser` could be used here if needed
       toast({ title: "Google Sign-In Successful", description: `Welcome, ${firebaseUser.displayName || firebaseUser.email}! Redirecting...` });
     } catch (error) {
       handleAuthError(error as AuthError, "Google Sign-In");
@@ -201,14 +203,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       if (userCredential.user) {
-        await updateFirebaseProfile(userCredential.user, { displayName: username });
+        await updateFirebaseProfile(userCredential.user, { displayName: username }); // Use username as displayName
         const defaultRole = 'reader';
         const defaultBio = "";
-        sessionStorage.setItem(`userDetails-${userCredential.user.uid}`, JSON.stringify({ role: defaultRole, bio: defaultBio }));
+        sessionStorage.setItem(`userDetails-${userCredential.user.uid}`, JSON.stringify({ role: defaultRole, bio: defaultBio, username: username }));
          setUser(prevUser => ({
-            ...(prevUser as AppUser), // Cast to ensure properties are expected
+            ...(prevUser as AppUser),
             id: userCredential.user.uid,
-            username: username,
+            username: username, 
             displayName: username,
             email: email,
             role: defaultRole,
@@ -224,10 +226,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithEmailPassword = async ({ email, passwordOne }: SignInData) => {
+  const signInWithEmailPassword = async ({ emailOrUsername, passwordOne }: SignInData) => {
     setAuthLoading(true);
+    let emailToUse = emailOrUsername;
+
+    // Mocked username to email resolution
+    // In a real app, this would be a secure backend call to your database.
+    if (!emailOrUsername.includes('@')) {
+      const foundUser = placeholderUsers.find(pUser => pUser.username.toLowerCase() === emailOrUsername.toLowerCase());
+      if (foundUser && foundUser.email) {
+        emailToUse = foundUser.email;
+      } else {
+        // If username not found in mock data, we can't get an email.
+        // Firebase signInWithEmailAndPassword needs an email.
+        // We'll let Firebase handle the "invalid-credential" or "user-not-found" based on `emailToUse` (which would still be the username).
+        // Or, we can show a more specific "username not found" error here.
+        // For simplicity in this mock, we'll let Firebase try with the username as email if no @ is present.
+        // A better mock would be to explicitly fail here if username lookup fails.
+        console.warn("Attempting to sign in with username. Mocked lookup used. For production, use a database.");
+      }
+    }
+    
     try {
-      await signInWithEmailAndPassword(auth, email, passwordOne);
+      await firebaseSignInWithEmailAndPassword(auth, emailToUse, passwordOne);
       toast({ title: "Sign In Successful", description: "You are now signed in. Redirecting..." });
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-In");
@@ -238,13 +259,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOutFirebase = async () => {
     setAuthLoading(true);
-    const currentUserId = user?.id;
     try {
       await signOut(auth);
-      if (currentUserId) {
-        // Clear specific user's details, or could clear all user-related session storage if preferred
-        // sessionStorage.removeItem(`userDetails-${currentUserId}`);
-      }
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
     } catch (error) {
       handleAuthError(error as AuthError, "Sign Out");
@@ -260,10 +276,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setAuthLoading(true);
     try {
-      const { displayName, avatarUrl, bio, role, username } = updates; // Added username
+      const { displayName, avatarUrl, bio, role, username } = updates; 
       const profileUpdates: { displayName?: string | null; photoURL?: string | null } = {};
       
-      // Firebase Auth profile only directly supports displayName and photoURL
       if (displayName !== undefined) profileUpdates.displayName = displayName;
       if (avatarUrl !== undefined) profileUpdates.photoURL = avatarUrl;
 
@@ -276,12 +291,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const updatedUser = { 
           ...prevUser, 
           ...(displayName !== undefined && { displayName }),
-          ...(username !== undefined && { username }), // Update local username
+          ...(username !== undefined && { username }), 
           ...(avatarUrl !== undefined && { avatarUrl }),
           ...(bio !== undefined && { bio }),
           ...(role !== undefined && { role }),
         };
-        sessionStorage.setItem(`userDetails-${updatedUser.id}`, JSON.stringify({ role: updatedUser.role, bio: updatedUser.bio }));
+        // Also update username in session storage if it changed
+        sessionStorage.setItem(`userDetails-${updatedUser.id}`, JSON.stringify({ role: updatedUser.role, bio: updatedUser.bio, username: updatedUser.username }));
         return updatedUser;
       });
 
@@ -299,6 +315,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setAuthLoading(true);
+    // In a real app, call updateFirebaseEmail(auth.currentUser, newEmail)
+    // This often requires recent re-authentication.
     setUser(prev => prev ? ({ ...prev, email: newEmail }) : null);
     toast({ title: "Email Update (Mock)", description: `Email would be updated to ${newEmail}. Re-authentication is typically required for actual change.` });
     setAuthLoading(false);
@@ -310,6 +328,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setAuthLoading(true);
+    // In a real app, call updateFirebasePassword(auth.currentUser, newPassword)
+    // This often requires recent re-authentication (current password).
     toast({ title: "Password Update (Mock)", description: "Password would be updated. Re-authentication is typically required for actual change." });
     setAuthLoading(false);
   };

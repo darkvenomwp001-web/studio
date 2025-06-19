@@ -12,25 +12,26 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { LogIn, Loader2 } from "lucide-react" // Removed UserPlus as Google sign-in now handles implicit sign-up
+import { LogIn, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth";
 import { FormEvent, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SignInPage() {
-  const { signInWithGoogle, signInWithEmailPassword, authLoading, loading: initialAuthLoading } = useAuth();
-  const [email, setEmail] = useState('');
+  const { signInWithEmailPassword, signInWithGoogle, authLoading, loading: initialAuthLoading } = useAuth();
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const { toast } = useToast();
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!email || !password) {
-      toast({ title: "Input Required", description: "Please enter both email and password.", variant: "destructive" });
+    if (!emailOrUsername || !password) {
+      toast({ title: "Input Required", description: "Please enter both email/username and password.", variant: "destructive" });
       return;
     }
-    await signInWithEmailPassword({ email, passwordOne: password });
+    // The signInWithEmailPassword function in useAuth now handles if it's an email or username
+    await signInWithEmailPassword({ emailOrUsername, passwordOne: password });
   };
 
   const handleGoogleSignIn = async () => {
@@ -43,19 +44,19 @@ export default function SignInPage() {
     <Card className="w-full max-w-sm shadow-2xl">
       <CardHeader className="text-center">
         <CardTitle className="text-3xl font-headline text-primary">Welcome Back!</CardTitle>
-        <CardDescription>Sign in or create an account to continue.</CardDescription>
+        <CardDescription>Sign in to continue.</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="emailOrUsername">Email or Username</Label>
             <Input 
-              id="email" 
-              type="email" 
-              placeholder="you@example.com" 
+              id="emailOrUsername" 
+              type="text" // Changed from "email" to "text"
+              placeholder="you@example.com or YourUsername" 
               required 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={emailOrUsername}
+              onChange={(e) => setEmailOrUsername(e.target.value)}
               disabled={isAnyLoading} 
             />
           </div>
@@ -77,7 +78,7 @@ export default function SignInPage() {
             />
           </div>
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6" disabled={isAnyLoading}>
-            {authLoading && !initialAuthLoading && !email && !password ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><LogIn className="mr-2 h-5 w-5" /> Sign In with Email</>}
+            {authLoading && !initialAuthLoading && !emailOrUsername && !password ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><LogIn className="mr-2 h-5 w-5" /> Sign In</>}
           </Button>
           
           <div className="relative my-4">
@@ -91,19 +92,18 @@ export default function SignInPage() {
             </div>
           </div>
           <Button variant="outline" className="w-full" type="button" onClick={handleGoogleSignIn} disabled={isAnyLoading}>
-            {authLoading && !initialAuthLoading && (email || password) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign in with Google"}
+            {authLoading && !initialAuthLoading && (emailOrUsername || password) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign in with Google"}
           </Button>
         </CardContent>
       </form>
       <CardFooter className="text-center text-sm">
         <p className="text-muted-foreground w-full">
-          New to D4RKV3NOM?{' '}
+          New to LitVerse?{' '}
           <Link href="/auth/signup" className={`font-semibold text-primary hover:underline ${isAnyLoading ? 'pointer-events-none text-muted-foreground' : ''}`}>
-            Sign Up with Email
+            Sign Up
           </Link>
         </p>
       </CardFooter>
     </Card>
   )
 }
-
