@@ -7,7 +7,7 @@ import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, Lo
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useEffect, useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,13 +31,28 @@ export default function Header() {
   const { user, logout, loading } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   useEffect(() => setMounted(true), []);
   
+  useEffect(() => {
+    if (pathname === '/search') {
+      const currentQuery = searchParams.get('q');
+      if (currentQuery) {
+        setSearchQuery(currentQuery);
+      } else {
+        setSearchQuery(''); // Clear if no query on search page
+      }
+    }
+  }, [pathname, searchParams]);
+
   const handleSearch = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    } else {
+      router.push('/search'); // Navigate to search page even if query is empty
     }
   };
 
