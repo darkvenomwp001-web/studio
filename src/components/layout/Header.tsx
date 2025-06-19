@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -5,7 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, LogOut, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,9 +29,18 @@ const NavLink = ({ href, children, icon }: { href: string; children: React.React
 export default function Header() {
   const [mounted, setMounted] = useState(false);
   const { user, logout, loading } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
 
   useEffect(() => setMounted(true), []);
   
+  const handleSearch = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
   if (!mounted) {
     return (
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -57,10 +68,17 @@ export default function Header() {
         </Link>
 
         <div className="flex flex-1 items-center justify-center px-8 md:px-16 lg:px-24">
-          <div className="relative w-full max-w-md">
-            <Input type="search" placeholder="Search stories, authors, tags..." className="pl-10" />
+          <form onSubmit={handleSearch} className="relative w-full max-w-md">
+            <Input 
+              type="search" 
+              placeholder="Search stories, authors, tags..." 
+              className="pl-10" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
             <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-          </div>
+             <button type="submit" className="sr-only">Search</button>
+          </form>
         </div>
 
         <nav className="flex items-center gap-2">
