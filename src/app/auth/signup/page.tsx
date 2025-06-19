@@ -19,7 +19,7 @@ import { FormEvent, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SignUpPage() {
-  const { signInWithGoogle, signUpWithEmailPassword, authLoading, loading: initialAuthLoading } = useAuth();
+  const { signUpWithEmailPassword, authLoading, loading: initialAuthLoading } = useAuth();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [passwordOne, setPasswordOne] = useState('');
@@ -42,11 +42,6 @@ export default function SignUpPage() {
     }
     await signUpWithEmailPassword({ username, email, passwordOne });
   };
-
-  const handleGoogleSignUp = async () => {
-    // Firebase handles sign-up implicitly if user doesn't exist with Google Sign-In
-    await signInWithGoogle(); 
-  }
 
   const isAnyLoading = authLoading || initialAuthLoading;
 
@@ -110,7 +105,7 @@ export default function SignUpPage() {
             />
           </div>
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6" disabled={isAnyLoading}>
-            {authLoading && !initialAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><UserPlus className="mr-2 h-5 w-5" /> Sign Up</>}
+            {authLoading && !initialAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><UserPlus className="mr-2 h-5 w-5" /> Sign Up with Email</>}
           </Button>
           
            <div className="relative my-4">
@@ -119,23 +114,21 @@ export default function SignUpPage() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-card px-2 text-muted-foreground">
-                Or sign up with
+                Already have an account?
               </span>
             </div>
           </div>
-          <Button variant="outline" className="w-full" type="button" onClick={handleGoogleSignUp} disabled={isAnyLoading}> 
-             {authLoading && !initialAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign up with Google"}
+          <Button variant="outline" className="w-full" type="button" onClick={() => window.location.href='/auth/signin'} disabled={isAnyLoading}> 
+             Go to Sign In
           </Button>
         </CardContent>
       </form>
       <CardFooter className="text-center text-sm">
          <p className="text-muted-foreground w-full">
-          Already have an account?{' '}
-          <Link href="/auth/signin" className={`font-semibold text-primary hover:underline ${isAnyLoading ? 'pointer-events-none text-muted-foreground' : ''}`}>
-            Sign In
-          </Link>
+          By signing up, you agree to our Terms and Privacy Policy.
         </p>
       </CardFooter>
     </Card>
   )
 }
+

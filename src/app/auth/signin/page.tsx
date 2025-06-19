@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { LogIn, Loader2 } from "lucide-react"
+import { LogIn, Loader2 } from "lucide-react" // Removed UserPlus as Google sign-in now handles implicit sign-up
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth";
 import { FormEvent, useState } from "react";
@@ -43,7 +43,7 @@ export default function SignInPage() {
     <Card className="w-full max-w-sm shadow-2xl">
       <CardHeader className="text-center">
         <CardTitle className="text-3xl font-headline text-primary">Welcome Back!</CardTitle>
-        <CardDescription>Sign in to continue your D4RKV3NOM journey.</CardDescription>
+        <CardDescription>Sign in or create an account to continue.</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
@@ -77,7 +77,7 @@ export default function SignInPage() {
             />
           </div>
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6" disabled={isAnyLoading}>
-            {authLoading && !initialAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><LogIn className="mr-2 h-5 w-5" /> Sign In</>}
+            {authLoading && !initialAuthLoading && !email && !password ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><LogIn className="mr-2 h-5 w-5" /> Sign In with Email</>}
           </Button>
           
           <div className="relative my-4">
@@ -91,18 +91,19 @@ export default function SignInPage() {
             </div>
           </div>
           <Button variant="outline" className="w-full" type="button" onClick={handleGoogleSignIn} disabled={isAnyLoading}>
-            {authLoading && !initialAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign in with Google"}
+            {authLoading && !initialAuthLoading && (email || password) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign in with Google"}
           </Button>
         </CardContent>
       </form>
       <CardFooter className="text-center text-sm">
         <p className="text-muted-foreground w-full">
-          Don&apos;t have an account?{' '}
+          New to D4RKV3NOM?{' '}
           <Link href="/auth/signup" className={`font-semibold text-primary hover:underline ${isAnyLoading ? 'pointer-events-none text-muted-foreground' : ''}`}>
-            Sign Up
+            Sign Up with Email
           </Link>
         </p>
       </CardFooter>
     </Card>
   )
 }
+
