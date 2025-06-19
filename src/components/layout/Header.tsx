@@ -51,7 +51,7 @@ export default function Header() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2">
           <BookOpenText className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-headline font-bold text-foreground">LitVerse</span>
+          <span className="text-2xl font-headline font-bold text-foreground">D4RKV3NOM</span>
         </Link>
 
         <div className="flex flex-1 items-center justify-center px-8 md:px-16 lg:px-24">
