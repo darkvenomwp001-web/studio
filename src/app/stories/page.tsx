@@ -117,10 +117,14 @@ export default function StoriesPage() {
           </h2>
           {/* <Link href="/stories/popular" passHref><Button variant="link" className="text-primary">View All <ArrowRight className="ml-1 h-4 w-4" /></Button></Link> */}
         </div>
-        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2">
-          {popularStories.map(story => (
-            <CompactStoryCard key={`popular-${story.id}`} story={story} />
-          ))}
+        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+          {popularStories.length > 0 ? (
+            popularStories.map(story => (
+              <CompactStoryCard key={`popular-${story.id}`} story={story} />
+            ))
+          ) : (
+            <p className="text-muted-foreground">No popular stories to display.</p>
+          )}
         </div>
       </section>
 
@@ -132,10 +136,14 @@ export default function StoriesPage() {
           </h2>
           {/* <Link href="/stories/new" passHref><Button variant="link" className="text-primary">View All <ArrowRight className="ml-1 h-4 w-4" /></Button></Link> */}
         </div>
-        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2">
-          {newReleases.map(story => (
-            <CompactStoryCard key={`new-${story.id}`} story={story} />
-          ))}
+        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+          {newReleases.length > 0 ? (
+            newReleases.map(story => (
+              <CompactStoryCard key={`new-${story.id}`} story={story} />
+            ))
+          ) : (
+            <p className="text-muted-foreground">No new releases to display.</p>
+          )}
         </div>
       </section>
       
@@ -147,28 +155,35 @@ export default function StoriesPage() {
           </h2>
           {/* <Link href="/stories/community" passHref><Button variant="link" className="text-primary">View All <ArrowRight className="ml-1 h-4 w-4" /></Button></Link> */}
         </div>
-        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2">
-          {communityPicks.map(story => (
-            <CompactStoryCard key={`community-${story.id}`} story={story} />
-          ))}
+        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+          {communityPicks.length > 0 ? (
+            communityPicks.map(story => (
+              <CompactStoryCard key={`community-${story.id}`} story={story} />
+            ))
+          ) : (
+             <p className="text-muted-foreground">No community picks to display.</p>
+          )}
         </div>
       </section>
 
 
       {/* Genre Sections */}
       {uniqueGenres.map(genre => {
-        const genreStories = getStoriesByGenre(genre);
-        if (genreStories.length === 0) return null;
+        const genreStories = getStoriesByGenre(genre, 10); // Explicitly get up to 10 stories
         return (
           <section key={genre} className="container mx-auto px-4">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-headline font-semibold text-foreground">{genre}</h2>
               {/* <Link href={`/stories/genre/${genre.toLowerCase()}`} passHref><Button variant="link" className="text-primary">View All <ArrowRight className="ml-1 h-4 w-4" /></Button></Link> */}
             </div>
-            <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2">
-              {genreStories.map(story => (
-                <CompactStoryCard key={`${genre}-${story.id}`} story={story} />
-              ))}
+            <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+              {genreStories.length > 0 ? (
+                genreStories.map(story => (
+                  <CompactStoryCard key={`${genre}-${story.id}`} story={story} />
+                ))
+              ) : (
+                <p className="text-muted-foreground">No stories in {genre} yet.</p>
+              )}
             </div>
           </section>
         );
@@ -176,3 +191,4 @@ export default function StoriesPage() {
     </div>
   );
 }
+
