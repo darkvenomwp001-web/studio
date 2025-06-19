@@ -7,8 +7,7 @@ import type { User as AppUser } from '@/types';
 import { auth } from '@/lib/firebase';
 import { 
   GoogleAuthProvider, 
-  signInWithRedirect, // Changed from signInWithPopup
-  getRedirectResult,   // Added for processing redirect
+  signInWithPopup, // Reverted to signInWithPopup
   onAuthStateChanged, 
   signOut,
   createUserWithEmailAndPassword,
@@ -78,26 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  // Effect to process Google Sign-In redirect result
-  useEffect(() => {
-    const processRedirect = async () => {
-      setAuthLoading(true);
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          // User signed in. `onAuthStateChanged` will handle setting user state.
-          toast({ title: "Google Sign-In Successful", description: `Welcome, ${result.user.displayName || result.user.email}!` });
-        }
-      } catch (error) {
-        handleAuthError(error as AuthError, "Google Sign-In (redirect)");
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-    processRedirect();
-  }, []);
-
-
   useEffect(() => {
     if (loading) return; 
 
@@ -126,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         friendlyMessage = "The email address is not valid.";
         break;
       case 'auth/operation-not-allowed':
-        friendlyMessage = "Email/password accounts are not enabled. This could also indicate an issue with the redirect configuration.";
+        friendlyMessage = "Email/password accounts are not enabled. Please contact support.";
         break;
       case 'auth/weak-password':
         friendlyMessage = "The password is too weak. Please choose a stronger password of at least 6 characters.";
@@ -140,20 +119,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         friendlyMessage = "Invalid email or password. Please check your credentials.";
         break;
       case 'auth/popup-closed-by-user':
-        friendlyMessage = "Google Sign-In popup was closed. Please try again and complete the sign-in process. Ensure popups are not blocked by your browser.";
+        friendlyMessage = "Google Sign-In popup was closed before completion. Please try again and ensure popups are allowed and not closed prematurely.";
         break;
-      case 'auth/cancelled-popup-request':
+      case 'auth/cancelled-popup-request': // Fallthrough
       case 'auth/popup-blocked':
-          friendlyMessage = "Google Sign-In popup was blocked or cancelled. Please ensure popups are allowed for this site and try again.";
+          friendlyMessage = "Google Sign-In popup was blocked or cancelled. Please ensure popups are allowed for this site and try again. You might need to check your browser settings or ad-blockers.";
           break;
       case 'auth/account-exists-with-different-credential':
-        friendlyMessage = "An account already exists with this email address using a different sign-in method (e.g., Email/Password). Please sign in using that method or use a different Google account.";
+        friendlyMessage = "An account already exists with this email address but was created using a different sign-in method (e.g., Email/Password). Please sign in using that original method, or use a different Google account.";
         break;
       case 'auth/network-request-failed':
         friendlyMessage = "A network error occurred. Please check your internet connection and try again.";
         break;
       case 'auth/unauthorized-domain':
-        friendlyMessage = "This domain is not authorized for Firebase Authentication. Please check your Firebase project settings (Authentication -> Settings -> Authorized domains) and add the domain your app is running on (e.g., localhost for development, or your deployed app's domain). This is also required for redirect URLs.";
+        friendlyMessage = "This domain is not authorized for Firebase Authentication. Please check your Firebase project settings (Authentication -> Settings -> Authorized domains) and add the domain your app is running on (e.g., localhost).";
         break;
       case 'auth/invalid-api-key':
         friendlyMessage = "The API Key provided for Firebase is invalid. Please check your .env file and Firebase project settings.";
@@ -168,19 +147,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      // We don't await signInWithRedirect as it navigates away
-      await signInWithRedirect(auth, provider);
-      // Toasting success here might be premature as navigation occurs.
-      // Success is handled by getRedirectResult.
-      // We can toast that redirection is in progress.
-      toast({ title: "Redirecting to Google", description: "Please complete your sign-in with Google."});
+      const result = await signInWithPopup(auth, provider);
+      // If signInWithPopup is successful, onAuthStateChanged will handle the user state update.
+      // The main useEffect will handle redirection based on the new user state.
+      toast({ title: "Google Sign-In Successful", description: `Welcome, ${result.user.displayName || result.user.email}!` });
     } catch (error) {
-      // This catch block might not be hit if the error occurs after redirection,
-      // but it's good practice for immediate errors.
-      handleAuthError(error as AuthError, "Google Sign-In (initiation)");
-      setAuthLoading(false); // Only set to false if redirect didn't initiate
+      handleAuthError(error as AuthError, "Google Sign-In");
+    } finally {
+      setAuthLoading(false);
     }
-    // authLoading will be set to false in the getRedirectResult effect or if an immediate error occurs.
   };
 
   const signUpWithEmailPassword = async ({ email, passwordOne, username }: SignUpData) => {
@@ -189,17 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: username });
-        // Manually update local user state for faster UI update
-        const appUser: AppUser = {
-            id: userCredential.user.uid,
-            username: userCredential.user.displayName || username,
-            avatarUrl: userCredential.user.photoURL || undefined,
-            bio: undefined, writtenStories: [], readingList: [], followersCount: 0, followingCount: 0,
-        };
-        setUser(appUser); // This might cause a quick UI update before onAuthStateChanged
+        // onAuthStateChanged will pick this up.
       }
       toast({ title: "Sign Up Successful", description: "Your account has been created. Welcome!" });
-      // Redirection handled by main useEffect
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-Up");
     } finally {
@@ -210,19 +177,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithEmailPassword = async ({ email, passwordOne }: SignInData) => {
     setAuthLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, passwordOne);
-      // Manually update local user state for faster UI update
-        if (userCredential.user) {
-            const appUser: AppUser = {
-                id: userCredential.user.uid,
-                username: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'Anonymous User',
-                avatarUrl: userCredential.user.photoURL || undefined,
-                bio: undefined, writtenStories: [], readingList: [], followersCount: 0, followingCount: 0,
-            };
-            setUser(appUser); // This might cause a quick UI update before onAuthStateChanged
-        }
+      await signInWithEmailAndPassword(auth, email, passwordOne);
+      // onAuthStateChanged will pick this up.
       toast({ title: "Sign In Successful", description: "You are now signed in." });
-      // Redirection handled by main useEffect
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-In");
     } finally {
@@ -236,7 +193,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut(auth);
       setUser(null); 
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
-      // Redirection to sign-in page is handled by the useEffect
     } catch (error) {
       handleAuthError(error as AuthError, "Sign Out");
     } finally {
