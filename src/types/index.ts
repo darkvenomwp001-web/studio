@@ -2,7 +2,7 @@
 export interface Story {
   id: string;
   title: string;
-  author: User; 
+  author: UserSummary; 
   genre: string;
   coverImageUrl?: string;
   dataAiHint?: string; 
@@ -25,23 +25,27 @@ export interface Chapter {
   publishedDate?: string; 
 }
 
-export interface User {
+export interface UserSummary {
   id: string;
   username: string;
-  displayName?: string; // Added for main name
   avatarUrl?: string;
+  displayName?: string;
+}
+
+export interface User extends UserSummary {
   bio?: string;
-  role?: 'reader' | 'writer'; // Added role
+  role?: 'reader' | 'writer';
   writtenStories?: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'status'>[]; 
   readingList?: Pick<Story, 'id' | 'title' | 'coverImageUrl'>[];
   followersCount?: number;
   followingCount?: number;
-  email?: string; // Already present from FirebaseUser mapping
+  followingIds?: string[]; // IDs of users this user is following
+  email?: string;
 }
 
 export interface Comment {
   id: string;
-  user: Pick<User, 'id' | 'username' | 'avatarUrl'>;
+  user: UserSummary;
   storyId: string;
   chapterId?: string; 
   parentId?: string; 
@@ -52,16 +56,26 @@ export interface Comment {
 
 export interface Message {
   id: string;
-  sender: Pick<User, 'id' | 'username' | 'avatarUrl'>;
-  receiver: Pick<User, 'id' | 'username' | 'avatarUrl'>;
+  sender: UserSummary;
+  receiver: UserSummary;
   content: string;
   timestamp: string; 
   isRead?: boolean;
 }
 
 export interface Conversation {
-  id: string;
-  participants: Pick<User, 'id' | 'username' | 'avatarUrl'>[];
+  id: 'conv1' | 'conv2'; // Making it more specific for placeholder data
+  participants: UserSummary[];
   lastMessage: Message;
   unreadCount?: number;
+}
+
+export interface NotificationType {
+  id: string;
+  type: 'new_follower' | 'new_chapter' | 'story_update' | 'announcement' | 'comment_reply' | 'mention';
+  message: string;
+  link?: string; // e.g., to a story, profile, or comment
+  timestamp: string;
+  isRead: boolean;
+  actor?: UserSummary; // User who performed the action
 }

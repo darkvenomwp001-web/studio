@@ -1,15 +1,30 @@
 
+'use client'; // Required for using hooks like useAuth
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2 } from 'lucide-react';
 import StoryCard from '@/components/shared/StoryCard';
 import { placeholderStories, placeholderUsers } from '@/lib/placeholder-data';
-import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 
 export default function HomePage() {
+  const { user, loading } = useAuth(); // Get user and loading state
   const trendingStories = placeholderStories.slice(0, 4);
   const featuredAuthors = placeholderUsers.slice(0, 4);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // If not loading and no user, the AuthProvider's useEffect will handle redirection.
+  // However, content can be conditionally rendered or specific to unauthenticated users if desired.
+  // For this PRD, we assume redirection happens, so content below is for when user might be present OR for public view.
 
   return (
     <div className="space-y-16">
