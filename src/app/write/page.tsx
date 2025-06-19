@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit2, Trash2, FileText, Eye } from 'lucide-react';
@@ -5,21 +7,54 @@ import { placeholderStories, placeholderUsers } from '@/lib/placeholder-data';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from 'react';
+import type { Story } from '@/types';
+
 
 // Mock function to get current user's stories.
-async function getUserStories() {
-  const currentUser = placeholderUsers[0]; // Assume current user
+// In a real app this would fetch from an API or use a hook.
+async function getUserStoriesClient(): Promise<Story[]> {
+  // This is a simplified mock. In a real client component,
+  // you'd likely use `useEffect` and `useState` to fetch/manage data.
+  // Or better, use a data fetching library like SWR or React Query.
+  const currentUser = placeholderUsers[0]; // Assume current user for now
   return placeholderStories.filter(story => story.author.id === currentUser.id);
 }
 
-export default async function WriteDashboardPage() {
-  const userStories = await getUserStories();
+export default function WriteDashboardPage() {
+  const [userStories, setUserStories] = useState<Story[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadStories() {
+      setIsLoading(true);
+      const stories = await getUserStoriesClient();
+      setUserStories(stories);
+      setIsLoading(false);
+    }
+    loadStories();
+  }, []);
+
+  if (isLoading) {
+    // Basic loading state, can be improved with skeletons
+    return (
+      <div className="space-y-8">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pb-6 border-b">
+          <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">My Writing Dashboard</h1>
+          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md" disabled>
+            <PlusCircle className="mr-2 h-5 w-5" /> Start a New Story
+          </Button>
+        </div>
+        <p className="text-center text-muted-foreground py-10">Loading your stories...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pb-6 border-b">
         <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">My Writing Dashboard</h1>
-        <Link href="/write/edit" passHref> {/* Will be /write/new or similar */}
+        <Link href="/write/edit" passHref>
           <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">
             <PlusCircle className="mr-2 h-5 w-5" /> Start a New Story
           </Button>
@@ -61,7 +96,7 @@ export default async function WriteDashboardPage() {
                 <Link href={`/stories/${story.id}`} passHref>
                   <Button variant="outline" size="sm"><Eye className="mr-1.5 h-4 w-4" /> View</Button>
                 </Link>
-                <Link href={`/write/edit?storyId=${story.id}`} passHref> {/* Placeholder for actual edit page */}
+                <Link href={`/write/edit?storyId=${story.id}`} passHref>
                   <Button variant="default" size="sm"><Edit2 className="mr-1.5 h-4 w-4" /> Edit</Button>
                 </Link>
                 <Button variant="destructive" size="sm" onClick={() => alert('Delete functionality not implemented.')}>
