@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { BookOpenText } from 'lucide-react';
 
@@ -9,7 +10,7 @@ export default function Footer() {
           <div>
             <Link href="/" className="flex items-center gap-2 mb-4">
               <BookOpenText className="h-7 w-7 text-primary" />
-              <span className="text-xl font-headline font-bold text-foreground">LitVerse</span>
+              <span className="text-xl font-headline font-bold text-foreground">D4RKV3NOM</span>
             </Link>
             <p className="text-sm text-muted-foreground">
               Discover, write, and connect with a global community of readers and writers.
@@ -34,7 +35,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="mt-8 pt-8 border-t border-border/40 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} LitVerse. All rights reserved.
+          © {new Date().getFullYear()} D4RKV3NOM. All rights reserved.
         </div>
       </div>
     </footer>

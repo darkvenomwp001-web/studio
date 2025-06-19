@@ -10,27 +10,48 @@ import {
   signInWithPopup, 
   onAuthStateChanged, 
   signOut,
-  type User as FirebaseUser 
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+  type User as FirebaseUser,
+  type AuthError
 } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
+
+interface SignUpData {
+  username?: string; // Username is optional here, displayName in Firebase
+  email: string;
+  passwordOne: string;
+}
+
+interface SignInData {
+  email: string;
+  passwordOne: string;
+}
 
 interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
+  authLoading: boolean; // Specific loading state for auth operations
   signInWithGoogle: () => Promise<void>;
+  signUpWithEmailPassword: (data: SignUpData) => Promise<void>;
+  signInWithEmailPassword: (data: SignInData) => Promise<void>;
   signOutFirebase: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
-const DEFAULT_REDIRECT_AUTHENTICATED = '/'; // Redirect to homepage after login
+const DEFAULT_REDIRECT_AUTHENTICATED = '/'; 
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // For initial auth state check
+  const [authLoading, setAuthLoading] = useState(false); // For specific auth actions like sign-in/up
   const router = useRouter();
   const pathname = usePathname();
+  const { toast } = useToast();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
@@ -38,12 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (firebaseUser) {
         const appUser: AppUser = {
           id: firebaseUser.uid,
-          username: firebaseUser.displayName || 'Anonymous User',
+          username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
           avatarUrl: firebaseUser.photoURL || undefined,
-          // Firebase doesn't provide bio, followersCount, etc. by default.
-          // These would typically be fetched from your app's database (e.g., Firestore)
-          // after a user logs in, using firebaseUser.uid as the key.
-          // For this prototype, we'll leave them undefined.
           bio: undefined, 
           writtenStories: [],
           readingList: [],
@@ -56,60 +73,122 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (loading) {
-      return; // Don't do anything while loading
-    }
+    if (loading) return;
 
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
-    if (user) { // User is authenticated
-      if (isAuthRoute) { // and trying to access an auth page (signin/signup)
-        router.push(DEFAULT_REDIRECT_AUTHENTICATED); // Redirect to homepage
+    if (user) {
+      if (isAuthRoute) {
+        router.push(DEFAULT_REDIRECT_AUTHENTICATED);
       }
-      // If user is authenticated and on a non-auth page, they can stay.
-    } else { // User is NOT authenticated
-      if (!isAuthRoute) { // and trying to access a protected page
-        router.push(DEFAULT_REDIRECT_UNAUTHENTICATED); // Redirect to signin page
+    } else {
+      if (!isAuthRoute) {
+        router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
       }
-      // If user is not authenticated and on an auth page, they can stay.
     }
   }, [user, loading, pathname, router]);
 
+  const handleAuthError = (error: AuthError) => {
+    console.error("Firebase Auth Error:", error.code, error.message);
+    let friendlyMessage = "An unexpected error occurred. Please try again.";
+    switch (error.code) {
+      case 'auth/email-already-in-use':
+        friendlyMessage = "This email address is already in use by another account.";
+        break;
+      case 'auth/invalid-email':
+        friendlyMessage = "The email address is not valid.";
+        break;
+      case 'auth/operation-not-allowed':
+        friendlyMessage = "Email/password accounts are not enabled.";
+        break;
+      case 'auth/weak-password':
+        friendlyMessage = "The password is too weak. Please choose a stronger password.";
+        break;
+      case 'auth/user-disabled':
+        friendlyMessage = "This user account has been disabled.";
+        break;
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential': // Catches user-not-found and wrong-password in newer SDKs
+        friendlyMessage = "Invalid email or password. Please check your credentials.";
+        break;
+      case 'auth/popup-closed-by-user':
+        friendlyMessage = "Google Sign-In popup was closed before completion.";
+        break;
+      case 'auth/cancelled-popup-request':
+      case 'auth/popup-blocked':
+          friendlyMessage = "Google Sign-In popup was blocked by the browser. Please allow popups for this site.";
+          break;
+      default:
+        friendlyMessage = error.message || friendlyMessage;
+    }
+    toast({ title: "Authentication Error", description: friendlyMessage, variant: "destructive" });
+  };
+
   const signInWithGoogle = async () => {
-    setLoading(true);
+    setAuthLoading(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // onAuthStateChanged will handle setting the user.
-      // The useEffect above will handle redirection once user state is updated.
+      toast({ title: "Success", description: "Signed in with Google successfully!" });
+      // onAuthStateChanged handles user state and redirection
     } catch (error) {
-      console.error("Error signing in with Google:", error);
-      // Optionally, show a toast message to the user here
-      setLoading(false); // Ensure loading is false on error so UI isn't stuck
+      handleAuthError(error as AuthError);
+    } finally {
+      setAuthLoading(false);
     }
-    // setLoading will be managed by the onAuthStateChanged listener's effect
+  };
+
+  const signUpWithEmailPassword = async ({ email, passwordOne, username }: SignUpData) => {
+    setAuthLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
+      if (userCredential.user && username) {
+        await updateProfile(userCredential.user, { displayName: username });
+        // Refresh user state if necessary, though onAuthStateChanged should pick it up
+         setUser(prevUser => prevUser ? {...prevUser, username: username } : null);
+      }
+      toast({ title: "Success", description: "Account created successfully! You are now signed in." });
+      // onAuthStateChanged handles user state and redirection
+    } catch (error) {
+      handleAuthError(error as AuthError);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+  
+  const signInWithEmailPassword = async ({ email, passwordOne }: SignInData) => {
+    setAuthLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, passwordOne);
+      toast({ title: "Success", description: "Signed in successfully!" });
+      // onAuthStateChanged handles user state and redirection
+    } catch (error) {
+      handleAuthError(error as AuthError);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const signOutFirebase = async () => {
-    setLoading(true);
+    setAuthLoading(true);
     try {
       await signOut(auth);
-      // onAuthStateChanged will set user to null.
-      // The useEffect above will handle redirection.
+      toast({ title: "Signed Out", description: "You have been signed out." });
+      // onAuthStateChanged handles user state and redirection to sign-in
     } catch (error) {
-      console.error("Error signing out:", error);
-      // Optionally, show a toast message
-      setLoading(false);
+      handleAuthError(error as AuthError);
+    } finally {
+      setAuthLoading(false);
     }
   };
   
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOutFirebase }}>
+    <AuthContext.Provider value={{ user, loading, authLoading, signInWithGoogle, signUpWithEmailPassword, signInWithEmailPassword, signOutFirebase }}>
       {children}
     </AuthContext.Provider>
   );
