@@ -36,14 +36,16 @@ export default function SignUpPage() {
       toast({ title: "Password Mismatch", description: "Passwords do not match.", variant: "destructive" });
       return;
     }
-    // Basic password strength check (example)
     if (passwordOne.length < 6) {
         toast({ title: "Weak Password", description: "Password should be at least 6 characters long.", variant: "destructive" });
         return;
     }
-
     await signUpWithEmailPassword({ username, email, passwordOne });
   };
+
+  const handleGoogleSignUp = async () => {
+    await signInWithGoogle(); // Firebase handles sign-up implicitly if user doesn't exist
+  }
 
   const isAnyLoading = authLoading || initialAuthLoading;
 
@@ -107,7 +109,7 @@ export default function SignUpPage() {
             />
           </div>
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6" disabled={isAnyLoading}>
-            {authLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><UserPlus className="mr-2 h-5 w-5" /> Sign Up</>}
+            {authLoading && !initialAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><UserPlus className="mr-2 h-5 w-5" /> Sign Up</>}
           </Button>
           
            <div className="relative my-4">
@@ -120,8 +122,8 @@ export default function SignUpPage() {
               </span>
             </div>
           </div>
-          <Button variant="outline" className="w-full" type="button" onClick={signInWithGoogle} disabled={isAnyLoading}> 
-             {authLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign up with Google"}
+          <Button variant="outline" className="w-full" type="button" onClick={handleGoogleSignUp} disabled={isAnyLoading}> 
+             {authLoading && !initialAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign up with Google"}
           </Button>
         </CardContent>
       </form>

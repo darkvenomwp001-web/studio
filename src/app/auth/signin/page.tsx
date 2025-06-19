@@ -33,6 +33,10 @@ export default function SignInPage() {
     await signInWithEmailPassword({ email, passwordOne: password });
   };
 
+  const handleGoogleSignIn = async () => {
+    await signInWithGoogle();
+  }
+
   const isAnyLoading = authLoading || initialAuthLoading;
 
   return (
@@ -73,7 +77,7 @@ export default function SignInPage() {
             />
           </div>
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6" disabled={isAnyLoading}>
-            {authLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><LogIn className="mr-2 h-5 w-5" /> Sign In</>}
+            {authLoading && !initialAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><LogIn className="mr-2 h-5 w-5" /> Sign In</>}
           </Button>
           
           <div className="relative my-4">
@@ -86,8 +90,8 @@ export default function SignInPage() {
               </span>
             </div>
           </div>
-          <Button variant="outline" className="w-full" type="button" onClick={signInWithGoogle} disabled={isAnyLoading}>
-            {authLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign in with Google"}
+          <Button variant="outline" className="w-full" type="button" onClick={handleGoogleSignIn} disabled={isAnyLoading}>
+            {authLoading && !initialAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign in with Google"}
           </Button>
         </CardContent>
       </form>
