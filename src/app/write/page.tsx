@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit2, Trash2, FileText, Eye, Loader2 } from 'lucide-react';
-import { placeholderStories, placeholderUsers } from '@/lib/placeholder-data';
+import { placeholderStories, deleteStoryAndSave, initializeUserStoryLists } from '@/lib/placeholder-data';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
@@ -24,12 +24,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 
-async function getUserStoriesClient(userId: string | undefined): Promise<Story[]> {
-  if (!userId) return [];
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 300)); 
-  return placeholderStories.filter(story => story.author.id === userId);
-}
 
 export default function WriteDashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -39,36 +33,36 @@ export default function WriteDashboardPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    async function loadStories() {
-      if (user && !authLoading) {
-        setIsLoadingStories(true);
-        const stories = await getUserStoriesClient(user.id);
-        setUserStories(stories);
-        setIsLoadingStories(false);
-      } else if (!authLoading && !user) {
-        // If auth is done loading and there's no user, no stories to load.
-        setIsLoadingStories(false);
-        setUserStories([]);
-      }
+    // Ensure user story lists are up-to-date based on the global placeholderStories,
+    // which are loaded from localStorage by placeholder-data.ts itself.
+    if (typeof window !== 'undefined') {
+        initializeUserStoryLists(); 
     }
-    loadStories();
-  }, [user, authLoading]);
+    
+    if (user && !authLoading) {
+      setIsLoadingStories(true);
+      // Filter the current global placeholderStories array (which includes localStorage data)
+      const stories = placeholderStories.filter(story => story.author.id === user.id);
+      setUserStories(stories);
+      setIsLoadingStories(false);
+    } else if (!authLoading && !user) {
+      setIsLoadingStories(false);
+      setUserStories([]);
+    }
+  }, [user, authLoading]); // Re-run when user or authLoading changes. placeholderStories is global.
 
   const handleDeleteStory = () => {
     if (!storyToDelete) return;
-
-    // Simulate deleting from backend/state
-    setUserStories(prevStories => prevStories.filter(story => story.id !== storyToDelete.id));
     
-    // Optional: To make placeholderStories reflect deletion for the session (advanced mock)
-    const storyIndex = placeholderStories.findIndex(s => s.id === storyToDelete.id);
-    if (storyIndex > -1) {
-       placeholderStories.splice(storyIndex, 1); // Remove the story from the mock data source
-    }
+    deleteStoryAndSave(storyToDelete.id); // This updates localStorage and the global placeholderStories
+
+    // For immediate UI update, filter the local state. 
+    // Subsequent renders will get the updated list from global placeholderStories.
+    setUserStories(prevStories => prevStories.filter(story => story.id !== storyToDelete.id));
 
     toast({
       title: "Story Deleted",
-      description: `"${storyToDelete.title}" has been permanently deleted.`,
+      description: `"${storyToDelete.title}" has been permanently deleted (from this browser's storage).`,
     });
     setStoryToDelete(null); // Close dialog
   };
@@ -195,7 +189,7 @@ export default function WriteDashboardPage() {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the
-              story "{storyToDelete.title}" and all its chapters.
+              story "{storyToDelete.title}" and all its chapters (from this browser's storage).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

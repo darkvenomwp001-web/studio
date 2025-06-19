@@ -1,6 +1,9 @@
 
 import type { Story, User, Comment, Conversation, Message, NotificationType, UserSummary } from '@/types';
 
+const LOCAL_STORAGE_STORIES_KEY = 'd4rkv3nom_user_stories';
+
+// Initial placeholder users (keep as is)
 export const placeholderUsers: User[] = [
   {
     id: 'user1FirebaseUid', // Simulate Firebase UID
@@ -89,9 +92,9 @@ const summarizeUser = (user: User): UserSummary => ({
   avatarUrl: user.avatarUrl,
 });
 
-
-export const placeholderStories: Story[] = [
-  {
+// Base stories that are always present
+const basePlaceholderStories: Story[] = [
+ {
     id: 'story1',
     title: 'The Last Stargazer',
     author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
@@ -362,18 +365,89 @@ export const placeholderStories: Story[] = [
   },
 ];
 
-placeholderUsers.forEach(user => {
-  user.writtenStories = placeholderStories
-    .filter(story => story.author.id === user.id)
-    .map(story => ({ id: story.id, title: story.title, coverImageUrl: story.coverImageUrl, status: story.status }));
-  
-  const userWrittenStoryIds = new Set(user.writtenStories.map(s => s.id));
-  user.readingList = placeholderStories
-    .filter(story => !userWrittenStoryIds.has(story.id))
-    .sort(() => 0.5 - Math.random()) 
-    .slice(0, 3) 
-    .map(story => ({ id: story.id, title: story.title, coverImageUrl: story.coverImageUrl }));
-});
+// Function to load stories from localStorage and merge/override initial placeholders
+const loadStoriesFromLocalStorage = (): Story[] => {
+  if (typeof window === 'undefined') {
+    return [...basePlaceholderStories]; // Return a copy to avoid modifying the original
+  }
+  try {
+    const storedStoriesString = localStorage.getItem(LOCAL_STORAGE_STORIES_KEY);
+    if (storedStoriesString) {
+      const storedStories: Story[] = JSON.parse(storedStoriesString);
+      // Merge strategy: User's localStorage stories take precedence for their own creations,
+      // and base stories fill in the rest.
+      const storyMap = new Map<string, Story>();
+      basePlaceholderStories.forEach(story => storyMap.set(story.id, story));
+      storedStories.forEach(story => storyMap.set(story.id, story)); // Overwrites or adds user's stories
+      return Array.from(storyMap.values());
+    }
+  } catch (error) {
+    console.error("Error loading stories from localStorage:", error);
+  }
+  return [...basePlaceholderStories]; // Return a copy
+};
+
+// Main exported stories array - initialized with localStorage data
+export let placeholderStories: Story[] = loadStoriesFromLocalStorage();
+
+// Function to save the current state of stories to localStorage
+export const saveStoriesToLocalStorage = (storiesToSave: Story[]) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    localStorage.setItem(LOCAL_STORAGE_STORIES_KEY, JSON.stringify(storiesToSave));
+    // Update the in-memory placeholderStories as well to ensure consistency within the session
+    placeholderStories = [...storiesToSave]; 
+    // After saving, re-initialize user story lists in case authors changed or stories were added/removed
+    initializeUserStoryLists();
+  } catch (error) {
+    console.error("Error saving stories to localStorage:", error);
+  }
+};
+
+// Function to update or add a single story and save
+export const upsertStoryAndSave = (storyToUpsert: Story) => {
+  const currentStories = loadStoriesFromLocalStorage(); // Get the latest from localStorage + base
+  const storyIndex = currentStories.findIndex(s => s.id === storyToUpsert.id);
+  let newStoriesArray;
+  if (storyIndex > -1) {
+    newStoriesArray = [...currentStories];
+    newStoriesArray[storyIndex] = storyToUpsert;
+  } else {
+    newStoriesArray = [...currentStories, storyToUpsert];
+  }
+  saveStoriesToLocalStorage(newStoriesArray);
+};
+
+// Function to delete a story and save
+export const deleteStoryAndSave = (storyIdToDelete: string) => {
+  const currentStories = loadStoriesFromLocalStorage(); // Get the latest
+  const newStoriesArray = currentStories.filter(s => s.id !== storyIdToDelete);
+  saveStoriesToLocalStorage(newStoriesArray);
+};
+
+export const initializeUserStoryLists = () => {
+  // Ensure placeholderStories is the most up-to-date version (from localStorage or initial)
+  const currentGlobalStories = placeholderStories; // Use the already loaded global array
+
+  placeholderUsers.forEach(user => {
+    user.writtenStories = currentGlobalStories // Use the globally potentially updated list
+      .filter(story => story.author.id === user.id)
+      .map(story => ({ id: story.id, title: story.title, coverImageUrl: story.coverImageUrl, status: story.status }));
+    
+    const userWrittenStoryIds = new Set(user.writtenStories.map(s => s.id));
+    user.readingList = currentGlobalStories // Use the globally potentially updated list
+      .filter(story => !userWrittenStoryIds.has(story.id))
+      .sort(() => 0.5 - Math.random()) 
+      .slice(0, 3) 
+      .map(story => ({ id: story.id, title: story.title, coverImageUrl: story.coverImageUrl }));
+  });
+};
+
+// Initialize user story lists once after placeholderStories is potentially loaded from localStorage
+// This ensures that user objects have their story lists populated correctly from the start.
+initializeUserStoryLists();
 
 
 export const placeholderComments: Comment[] = [
@@ -484,5 +558,3 @@ export const placeholderNotifications: NotificationType[] = [
     isRead: true,
   },
 ];
-
-    

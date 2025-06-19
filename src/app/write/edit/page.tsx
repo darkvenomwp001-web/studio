@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { placeholderStories } from '@/lib/placeholder-data'; 
+import { placeholderStories, upsertStoryAndSave, initializeUserStoryLists } from '@/lib/placeholder-data'; 
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
@@ -52,7 +52,7 @@ export default function WriteEditorPage() {
   const [storyDetails, setStoryDetails] = useState<Story | null>(null);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
 
-  // Internal IDs for new stories/chapters before they are "saved" to placeholderData
+  // Internal IDs for new stories/chapters before they are "saved"
   const [internalStoryId, setInternalStoryId] = useState('');
   const [internalChapterId, setInternalChapterId] = useState('');
   
@@ -69,8 +69,17 @@ export default function WriteEditorPage() {
   const [tags, setTags] = useState('');
 
   useEffect(() => {
+    // placeholderStories is now loaded from localStorage by placeholder-data.ts itself.
+    // Initialize user story lists if they haven't been populated from the potentially updated placeholderStories
+    if (typeof window !== 'undefined') {
+        initializeUserStoryLists();
+    }
+
     let story: Story | undefined;
     let chapter: Chapter | undefined;
+
+    const newStoryTempId = `story-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newChapterTempId = `chapter-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
     if (queryStoryId) {
       story = placeholderStories.find(s => s.id === queryStoryId);
@@ -81,36 +90,32 @@ export default function WriteEditorPage() {
         setGenre(story.genre.toLowerCase() || 'fantasy');
         setTags(story.tags.join(', '));
         
-        // For now, let's assume we're editing the first chapter or a new one
-        // A more robust system would allow selecting a chapter to edit.
         chapter = story.chapters[0]; 
         if (chapter) {
           setChapterTitle(chapter.title);
           setContent(chapter.content);
           setInternalChapterId(chapter.id);
-          setCurrentChapterIndex(0); // Assuming first chapter
+          setCurrentChapterIndex(0); 
         } else {
           setChapterTitle('New Chapter 1');
           setContent('Start writing your amazing chapter here...');
-          setInternalChapterId(`chapter-${Date.now()}`);
+          setInternalChapterId(newChapterTempId);
           setCurrentChapterIndex(0);
         }
       } else {
-        // Story ID in query but not found, treat as new or redirect
         toast({ title: "Error", description: "Story not found. Starting new story.", variant: "destructive" });
         setStoryTitle('New Story Title');
         setChapterTitle('Chapter 1');
         setContent('Start writing your amazing story here...');
-        setInternalStoryId(`story-${Date.now()}`);
-        setInternalChapterId(`chapter-${Date.now()}`);
+        setInternalStoryId(newStoryTempId);
+        setInternalChapterId(newChapterTempId);
       }
     } else {
-      // No storyId, so it's a new story
       setStoryTitle('New Story Title');
       setChapterTitle('Chapter 1');
       setContent('Start writing your amazing story here...');
-      setInternalStoryId(`story-${Date.now()}`);
-      setInternalChapterId(`chapter-${Date.now()}`);
+      setInternalStoryId(newStoryTempId);
+      setInternalChapterId(newChapterTempId);
     }
   }, [queryStoryId, toast]);
 
@@ -121,60 +126,64 @@ export default function WriteEditorPage() {
   }, [content]);
   
   useEffect(() => {
-    if (content.length > 0 && (content !== storyDetails?.chapters[currentChapterIndex]?.content || chapterTitle !== storyDetails?.chapters[currentChapterIndex]?.title || storyTitle !== storyDetails?.title)) {
+    if (content.length > 0 && (storyDetails ? (content !== storyDetails.chapters.find(c => c.id === internalChapterId)?.content || chapterTitle !== storyDetails.chapters.find(c => c.id === internalChapterId)?.title || storyTitle !== storyDetails.title) : true)) {
       setAutoSaveStatus('Saving...');
       const timer = setTimeout(() => {
-        setAutoSaveStatus('Saved');
-        // Actual save logic would go here in a real app
-      }, 1500);
+        // Simulating save, actual save happens on button click
+        if (autoSaveStatus === 'Saving...') setAutoSaveStatus('Saved');
+      }, 2500);
       return () => clearTimeout(timer);
-    } else {
+    } else if (storyDetails && content === storyDetails.chapters.find(c => c.id === internalChapterId)?.content && chapterTitle === storyDetails.chapters.find(c => c.id === internalChapterId)?.title && storyTitle === storyDetails.title) {
         setAutoSaveStatus('No Changes');
     }
-  }, [content, storyTitle, chapterTitle, storyDetails, currentChapterIndex]);
+  }, [content, storyTitle, chapterTitle, storyDetails, internalChapterId, autoSaveStatus]);
 
   const handleSaveDraft = () => {
-    if (!internalStoryId || !internalChapterId) {
-        toast({ title: "Error", description: "Cannot save draft without story/chapter identifiers.", variant: "destructive"});
+    if (!internalStoryId || !internalChapterId || !user) {
+        toast({ title: "Error", description: "Cannot save draft without story/chapter identifiers or user info.", variant: "destructive"});
         return;
     }
     VersionHistoryManager.addVersion(internalStoryId, internalChapterId, content, chapterTitle);
     setAutoSaveStatus('Saving...');
     
-    // Mock: Update placeholderStories if it's an existing story or add if new
-    const storyExistsIndex = placeholderStories.findIndex(s => s.id === internalStoryId);
-    if (storyExistsIndex > -1) {
-        const updatedStory = { ...placeholderStories[storyExistsIndex] };
-        updatedStory.title = storyTitle;
-        updatedStory.genre = genre;
-        updatedStory.tags = tags.split(',').map(t => t.trim()).filter(Boolean);
-        updatedStory.lastUpdated = new Date().toISOString();
+    const existingStoryFromGlobal = placeholderStories.find(s => s.id === internalStoryId);
+    let storyToSave: Story;
 
-        const chapterExistsIndex = updatedStory.chapters.findIndex(c => c.id === internalChapterId);
-        if (chapterExistsIndex > -1) {
-            updatedStory.chapters[chapterExistsIndex] = {
-                ...updatedStory.chapters[chapterExistsIndex],
-                title: chapterTitle,
-                content: content,
-            };
-        } else { // New chapter in existing story
-            updatedStory.chapters.push({
+    if (existingStoryFromGlobal) {
+        let chapterExists = false;
+        const updatedChapters = existingStoryFromGlobal.chapters.map(ch => {
+            if (ch.id === internalChapterId) {
+                chapterExists = true;
+                return { ...ch, title: chapterTitle, content: content, /* publishedDate remains same for draft */ };
+            }
+            return ch;
+        });
+        if (!chapterExists) { 
+            updatedChapters.push({
                 id: internalChapterId,
                 title: chapterTitle,
                 content: content,
-                order: updatedStory.chapters.length + 1,
-                publishedDate: new Date().toISOString() // For draft, could be undefined until published
+                order: updatedChapters.length + 1,
+                // publishedDate is undefined for a new draft chapter
             });
         }
-        placeholderStories[storyExistsIndex] = updatedStory;
-    } else { // New story
-        const newStory: Story = {
+        storyToSave = {
+            ...existingStoryFromGlobal,
+            title: storyTitle,
+            genre: genre,
+            tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+            lastUpdated: new Date().toISOString(),
+            chapters: updatedChapters,
+            author: existingStoryFromGlobal.author, 
+        };
+    } else { 
+        storyToSave = {
             id: internalStoryId,
             title: storyTitle,
-            author: { id: user!.id, username: user!.username, displayName: user!.displayName || user!.username, avatarUrl: user!.avatarUrl },
+            author: { id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl },
             genre: genre,
-            coverImageUrl: 'https://placehold.co/300x450.png', // Default cover for new
-            summary: 'A new story by ' + (user!.displayName || user!.username), // Default summary
+            coverImageUrl: 'https://placehold.co/512x800.png', 
+            summary: 'A new story by ' + (user.displayName || user.username), 
             tags: tags.split(',').map(t => t.trim()).filter(Boolean),
             chapters: [{
                 id: internalChapterId,
@@ -182,43 +191,64 @@ export default function WriteEditorPage() {
                 content: content,
                 order: 1,
             }],
-            status: 'Draft',
+            status: 'Draft', 
             lastUpdated: new Date().toISOString(),
         };
-        placeholderStories.push(newStory);
-        setStoryDetails(newStory); // So subsequent saves update this new story
     }
+    
+    upsertStoryAndSave(storyToSave); 
+    setStoryDetails(storyToSave); 
 
     setTimeout(() => {
       setAutoSaveStatus('Saved');
-      toast({ title: "Draft Saved!", description: "Your changes and a new version have been saved." });
+      toast({ title: "Draft Saved!", description: "Your changes and a new version have been saved to browser storage." });
     }, 500);
   };
   
   const handlePublish = () => {
-    if (!user) {
-        toast({title: "Error", description: "You must be logged in to publish.", variant: "destructive"});
+    if (!user || !internalStoryId || !internalChapterId) {
+        toast({title: "Error", description: "You must be logged in and have story details to publish.", variant: "destructive"});
         return;
     }
-    // Similar logic to save draft, but update status and notify
-    const storyExistsIndex = placeholderStories.findIndex(s => s.id === internalStoryId);
-    if (storyExistsIndex > -1) {
-        placeholderStories[storyExistsIndex].status = 'Ongoing'; // Or 'Completed' based on logic
-        placeholderStories[storyExistsIndex].lastUpdated = new Date().toISOString();
-        // Update chapter publish date if relevant
-        const chapterExistsIndex = placeholderStories[storyExistsIndex].chapters.findIndex(c => c.id === internalChapterId);
-        if (chapterExistsIndex > -1) {
-            placeholderStories[storyExistsIndex].chapters[chapterExistsIndex].publishedDate = new Date().toISOString();
+    
+    const existingStoryFromGlobal = placeholderStories.find(s => s.id === internalStoryId);
+    let storyToPublish: Story;
+
+    if (existingStoryFromGlobal) {
+        let chapterExists = false;
+        const updatedChapters = existingStoryFromGlobal.chapters.map(ch => {
+            if (ch.id === internalChapterId) {
+                chapterExists = true;
+                return { ...ch, title: chapterTitle, content: content, publishedDate: new Date().toISOString() };
+            }
+            return ch;
+        });
+         if (!chapterExists) { 
+            updatedChapters.push({
+                id: internalChapterId,
+                title: chapterTitle,
+                content: content,
+                order: updatedChapters.length + 1,
+                publishedDate: new Date().toISOString()
+            });
         }
-         setStoryDetails(placeholderStories[storyExistsIndex]); // Refresh local story details
-    } else {
-        // If publishing a new story directly
-         const newStory: Story = {
+        storyToPublish = {
+            ...existingStoryFromGlobal,
+            title: storyTitle,
+            genre: genre,
+            tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+            status: 'Ongoing', 
+            lastUpdated: new Date().toISOString(),
+            chapters: updatedChapters,
+            author: existingStoryFromGlobal.author, 
+        };
+    } else { 
+         storyToPublish = {
             id: internalStoryId,
             title: storyTitle,
             author: { id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl },
             genre: genre,
-            coverImageUrl: 'https://placehold.co/300x450.png',
+            coverImageUrl: 'https://placehold.co/512x800.png',
             summary: 'A new story by ' + (user.displayName || user.username),
             tags: tags.split(',').map(t => t.trim()).filter(Boolean),
             chapters: [{
@@ -231,18 +261,19 @@ export default function WriteEditorPage() {
             status: 'Ongoing',
             lastUpdated: new Date().toISOString(),
         };
-        placeholderStories.push(newStory);
-        setStoryDetails(newStory);
     }
 
-    toast({ title: "Chapter Published!", description: `"${chapterTitle}" from "${storyTitle}" is now live.` });
+    upsertStoryAndSave(storyToPublish); 
+    setStoryDetails(storyToPublish); 
+
+    toast({ title: "Chapter Published!", description: `"${chapterTitle}" from "${storyTitle}" is now live (in this browser session).` });
     addNotification({
       type: 'new_chapter',
       message: `${user.displayName || user.username} published a new chapter "${chapterTitle}" for "${storyTitle}".`,
       link: `/stories/${internalStoryId}`,
       actor: {id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl }
     });
-    router.push(`/write`); // Redirect to dashboard after publish
+    router.push(`/write`); 
   };
 
 
@@ -421,8 +452,10 @@ export default function WriteEditorPage() {
               </div>
               <div>
                 <Label htmlFor="cover-image" className="block text-sm font-medium">Cover Image (URL for Mock)</Label>
-                <Input id="cover-image" type="text" placeholder="https://placehold.co/300x450.png" className="text-sm" />
-                {/* In real app, this would be <Input type="file" /> */}
+                <Input id="cover-image" type="text" placeholder="https://placehold.co/512x800.png" className="text-sm" 
+                  value={storyDetails?.coverImageUrl || ''}
+                  onChange={(e) => setStoryDetails(prev => prev ? {...prev, coverImageUrl: e.target.value} : null)}
+                />
               </div>
             </div>
           </div>
@@ -432,7 +465,7 @@ export default function WriteEditorPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Ready to Publish?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will make your chapter "{chapterTitle}" from "{storyTitle}" visible to readers.
+              This will make your chapter "{chapterTitle}" from "{storyTitle}" visible to readers (in this browser session).
               Are you sure you want to publish?
             </AlertDialogDescription>
           </AlertDialogHeader>
