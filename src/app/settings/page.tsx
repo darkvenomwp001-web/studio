@@ -11,11 +11,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, UserCog, Image as ImageIcon, KeyRound, Mail, Save } from 'lucide-react';
+import { Loader2, UserCog, Save, KeyRound, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
-  const { user, loading: authLoading, updateUserProfile, updateUserEmail_mock, updateUserPassword_mock } = useAuth();
+  const { user, loading: authLoadingGlobal, authLoading: specificAuthLoading, updateUserProfile, updateUserEmailFirebase, updateUserPasswordFirebase } = useAuth();
   const { toast } = useToast();
 
   const [displayName, setDisplayName] = useState('');
@@ -25,15 +25,16 @@ export default function SettingsPage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   
-  const [currentPassword, setCurrentPassword] = useState('');
+  const [currentPasswordForEmail, setCurrentPasswordForEmail] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  
+  const [currentPasswordForPwChange, setCurrentPasswordForPwChange] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [passwordForEmailChange, setPasswordForEmailChange] = useState('');
 
   const [isProfileUpdating, setIsProfileUpdating] = useState(false);
-  const [isAccountUpdating, setIsAccountUpdating] = useState(false);
-
+  const [isEmailUpdating, setIsEmailUpdating] = useState(false);
+  const [isPasswordUpdating, setIsPasswordUpdating] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -42,7 +43,7 @@ export default function SettingsPage() {
       setBio(user.bio || '');
       setRole(user.role || 'reader');
       setAvatarPreview(user.avatarUrl || null);
-      setNewEmail(user.email || '');
+      setNewEmail(user.email || ''); // Initialize with current email
     }
   }, [user]);
 
@@ -63,29 +64,14 @@ export default function SettingsPage() {
     if (!user) return;
     setIsProfileUpdating(true);
 
-    // In a real app, if avatarFile exists, upload it to Firebase Storage first
-    // then get the downloadURL to save in user.avatarUrl
     let newAvatarUrl = user.avatarUrl;
     if (avatarFile) {
-      // Mocking upload: In real app, this would be an async upload call
-      // For now, we'll just use the preview URL if it's a data URI or a new placeholder.
-      // This is a simplification. Real upload is more complex.
-      newAvatarUrl = avatarPreview || user.avatarUrl; // Using the preview for mock
-       toast({title: "Avatar Updated (Mock)", description: "In a real app, this would upload to storage."});
+      // Mocking upload - in a real app, upload to Firebase Storage
+      newAvatarUrl = avatarPreview || user.avatarUrl; 
+      toast({title: "Avatar Updated (Mock)", description: "Avatar preview updated. Real upload to storage would happen here."});
     }
     
-    await updateUserProfile({ 
-        displayName, 
-        // username: username, // Firebase Auth doesn't have a separate 'username'. Usually displayName is used.
-                               // If you need a distinct username, store it in Firestore/RTDB.
-                               // For this example, we assume 'username' from our AppUser model is distinct if needed,
-                               // but not directly updatable on Firebase Auth user object itself via updateProfile.
-                               // We'll update it in our local user object.
-        username, // this will update the local context if your AppUser type has it
-        avatarUrl: newAvatarUrl, 
-        bio, 
-        role 
-    });
+    await updateUserProfile({ displayName, username, avatarUrl: newAvatarUrl, bio, role });
     setIsProfileUpdating(false);
   };
 
@@ -95,23 +81,21 @@ export default function SettingsPage() {
         toast({title: "Input Missing", description: "New email cannot be empty.", variant: "destructive"});
         return;
     }
-    // Password for email change is often required for re-authentication
-    if (!passwordForEmailChange.trim()) {
+    if (!currentPasswordForEmail.trim()) {
         toast({title: "Password Required", description: "Please enter your current password to change email.", variant: "destructive"});
         return;
     }
-    setIsAccountUpdating(true);
-    // Mock function for now
-    await updateUserEmail_mock(newEmail);
-    // In real app, re-authentication with passwordForEmailChange might be needed here first.
-    // Then call actual updateFirebaseEmail(auth.currentUser, newEmail)
-    setIsAccountUpdating(false);
-    setPasswordForEmailChange('');
+    setIsEmailUpdating(true);
+    const success = await updateUserEmailFirebase(newEmail, currentPasswordForEmail);
+    if (success) {
+      setCurrentPasswordForEmail(''); // Clear password field on success
+    }
+    setIsEmailUpdating(false);
   };
 
   const handlePasswordUpdate = async (e: FormEvent) => {
     e.preventDefault();
-    if (!currentPassword || !newPassword || !confirmNewPassword) {
+    if (!currentPasswordForPwChange || !newPassword || !confirmNewPassword) {
         toast({title: "Input Missing", description: "All password fields are required.", variant: "destructive"});
         return;
     }
@@ -123,18 +107,17 @@ export default function SettingsPage() {
         toast({title: "Weak Password", description: "New password must be at least 6 characters.", variant: "destructive"});
         return;
     }
-    setIsAccountUpdating(true);
-    // Mock function for now
-    await updateUserPassword_mock(newPassword);
-    // In real app, re-authentication with currentPassword might be needed here first.
-    // Then call actual updateFirebasePassword(auth.currentUser, newPassword)
-    setIsAccountUpdating(false);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmNewPassword('');
+    setIsPasswordUpdating(true);
+    const success = await updateUserPasswordFirebase(currentPasswordForPwChange, newPassword);
+    if (success) {
+      setCurrentPasswordForPwChange('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    }
+    setIsPasswordUpdating(false);
   };
 
-  if (authLoading && !user) {
+  if (authLoadingGlobal && !user) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -143,8 +126,10 @@ export default function SettingsPage() {
   }
 
   if (!user) {
-    return <div className="text-center py-10">Please log in to access settings.</div>;
+    return <div className="text-center py-10">Please log in to access settings. Redirecting...</div>;
   }
+  
+  const anySubmitting = isProfileUpdating || isEmailUpdating || isPasswordUpdating || specificAuthLoading;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -179,28 +164,28 @@ export default function SettingsPage() {
                       <AvatarImage src={avatarPreview || `https://placehold.co/128x128.png`} alt={displayName} data-ai-hint="profile person" />
                       <AvatarFallback className="text-3xl">{displayName?.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
-                    <Input id="avatarUpload" type="file" accept="image/*" onChange={handleAvatarChange} className="text-sm file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-muted file:text-muted-foreground hover:file:bg-primary/10" />
+                    <Input id="avatarUpload" type="file" accept="image/*" onChange={handleAvatarChange} className="text-sm file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-muted file:text-muted-foreground hover:file:bg-primary/10" disabled={anySubmitting} />
                     <Label htmlFor="avatarUpload" className="text-xs text-muted-foreground">JPG, PNG, GIF. Max 2MB.</Label>
                   </div>
                   <div className="space-y-4 flex-1 w-full">
                     <div>
                       <Label htmlFor="displayName">Display Name</Label>
-                      <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your full name" />
+                      <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your full name" disabled={anySubmitting} />
                     </div>
                     <div>
                       <Label htmlFor="username">Username</Label>
-                      <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Your unique username" />
+                      <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Your unique username" disabled={anySubmitting} />
                       <p className="text-xs text-muted-foreground mt-1">Your D4RKV3NOM URL: D4RKV3NOM.com/user/{username || 'yourusername'}</p>
                     </div>
                   </div>
                 </div>
                 <div>
                   <Label htmlFor="bio">Bio</Label>
-                  <Textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell us a little about yourself..." rows={4} />
+                  <Textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell us a little about yourself..." rows={4} disabled={anySubmitting} />
                 </div>
                  <div>
                   <Label htmlFor="role">I am a...</Label>
-                  <Select value={role} onValueChange={(value: 'reader' | 'writer') => setRole(value)}>
+                  <Select value={role} onValueChange={(value: 'reader' | 'writer') => setRole(value)} disabled={anySubmitting}>
                     <SelectTrigger id="role">
                       <SelectValue placeholder="Select your primary role" />
                     </SelectTrigger>
@@ -212,7 +197,7 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button type="submit" disabled={isProfileUpdating} className="bg-primary hover:bg-primary/90">
+                <Button type="submit" disabled={anySubmitting || isProfileUpdating} className="bg-primary hover:bg-primary/90">
                   {isProfileUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save Profile Changes
                 </Button>
@@ -227,26 +212,26 @@ export default function SettingsPage() {
               <form onSubmit={handleEmailUpdate}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-accent" /> Update Email</CardTitle>
-                  <CardDescription>Change the email address associated with your account. This will require re-authentication in a real application.</CardDescription>
+                  <CardDescription>Change the email address associated with your account. This requires your current password for verification.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="currentEmail">Current Email</Label>
-                    <Input id="currentEmail" type="email" value={user.email || ''} disabled readOnly />
+                    <Label htmlFor="currentEmailDisabled">Current Email</Label>
+                    <Input id="currentEmailDisabled" type="email" value={user.email || ''} disabled />
                   </div>
                   <div>
                     <Label htmlFor="newEmail">New Email Address</Label>
-                    <Input id="newEmail" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="your.new.email@example.com" />
+                    <Input id="newEmail" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="your.new.email@example.com" disabled={anySubmitting}/>
                   </div>
-                   <div>
-                    <Label htmlFor="passwordForEmail">Current Password (for verification)</Label>
-                    <Input id="passwordForEmail" type="password" value={passwordForEmailChange} onChange={(e) => setPasswordForEmailChange(e.target.value)} placeholder="Enter current password" />
+                  <div>
+                    <Label htmlFor="currentPasswordForEmail">Current Password (for verification)</Label>
+                    <Input id="currentPasswordForEmail" type="password" value={currentPasswordForEmail} onChange={(e) => setCurrentPasswordForEmail(e.target.value)} placeholder="Enter current password" disabled={anySubmitting} />
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" variant="outline" disabled={isAccountUpdating}>
-                    {isAccountUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Update Email (Mock)
+                  <Button type="submit" variant="outline" disabled={anySubmitting || isEmailUpdating}>
+                    {isEmailUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Update Email
                   </Button>
                 </CardFooter>
               </form>
@@ -256,26 +241,26 @@ export default function SettingsPage() {
               <form onSubmit={handlePasswordUpdate}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-accent" /> Change Password</CardTitle>
-                  <CardDescription>Update your account password. This will require re-authentication in a real application.</CardDescription>
+                  <CardDescription>Update your account password. This requires your current password.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="currentPassword">Current Password</Label>
-                    <Input id="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="••••••••" />
+                    <Label htmlFor="currentPasswordForPwChange">Current Password</Label>
+                    <Input id="currentPasswordForPwChange" type="password" value={currentPasswordForPwChange} onChange={(e) => setCurrentPasswordForPwChange(e.target.value)} placeholder="••••••••" disabled={anySubmitting} />
                   </div>
                   <div>
                     <Label htmlFor="newPassword">New Password</Label>
-                    <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password (min. 6 characters)" />
+                    <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password (min. 6 characters)" disabled={anySubmitting} />
                   </div>
                   <div>
                     <Label htmlFor="confirmNewPassword">Confirm New Password</Label>
-                    <Input id="confirmNewPassword" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} placeholder="Confirm new password" />
+                    <Input id="confirmNewPassword" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} placeholder="Confirm new password" disabled={anySubmitting} />
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" variant="outline" disabled={isAccountUpdating}>
-                    {isAccountUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Change Password (Mock)
+                  <Button type="submit" variant="outline" disabled={anySubmitting || isPasswordUpdating}>
+                    {isPasswordUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Change Password
                   </Button>
                 </CardFooter>
               </form>
