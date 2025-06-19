@@ -83,7 +83,7 @@ export default function Header() {
         </Link>
 
         <div className="flex flex-1 items-center justify-center px-8 md:px-16 lg:px-24">
-          <form onSubmit={handleSearch} className="relative w-full max-w-md">
+          <form onSubmit={handleSearch} className="relative w-full max-w-lg"> {/* Changed max-w-md to max-w-lg */}
             <Input 
               type="search" 
               placeholder="Search stories, authors, tags..." 
