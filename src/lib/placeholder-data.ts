@@ -1,5 +1,6 @@
 
 import type { Story, User, Comment, Conversation, Message, NotificationType, UserSummary } from '@/types';
+import { formatDistanceToNow } from 'date-fns';
 
 const LOCAL_STORAGE_STORIES_KEY = 'd4rkv3nom_user_stories';
 
@@ -104,11 +105,11 @@ const basePlaceholderStories: Story[] = [
     summary: 'In a galaxy where stars are fading, a lone stargazer seeks the last spark of light. Their journey will uncover ancient secrets and a destiny intertwined with the fate of the cosmos.',
     tags: ['space opera', 'adventure', 'mystery', 'chosen one'],
     chapters: [
-      { id: 'c1s1', title: 'The Fading Sky', content: 'The stars were dying. One by one, they flickered out, leaving vast stretches of the cosmos cold and dark. Elara, the last of the Stargazers, watched from her lonely observatory on the edge of the known universe. Her ancestors had charted the heavens for millennia, but now, there was little left to chart.\n\nA faint signal, a whisper across the void, was her only hope. It spoke of a place where the stars still burned bright, a mythical Eden where the First Ones had hidden the source of all light. Most dismissed it as legend, but Elara clung to it. It was the only thread in a tapestry of despair.', order: 1 },
-      { id: 'c1s2', title: 'Whispers of the Void', content: 'Commander REX, a decommissioned war-droid with a penchant for existential poetry, was Elara\'s only companion. "The universe sighs, does it not?" he rumbled one cycle, his optical sensors dim. "Another constellation gone. Soon, only the echoes will remain."\n\nElara ignored him, focusing on the faint signal. It was stronger tonight, pulling her towards an uncharted sector. "Prepare the \'Odyssey\', REX," she commanded. "We\'re going hunting."', order: 2 },
-      { id: 'c1s3', title: 'The Derelict Oracle', content: 'Their journey led them to a derelict space station, an Oracle of a long-dead civilization. Inside, they found cryptic star charts and warnings of a "Great Devourer" that consumed stellar energy. The Oracle hinted that the First Ones had not hidden the light, but protected it from this entity.\n\n"It seems our legend has a villain," REX noted, his processors whirring. Elara felt a chill. This was no longer just a quest for light, but a race against an ancient cosmic horror.', order: 3 },
-      { id: 'c1s4', title: 'Encounter with Jax Nebula', content: 'In the Kepler\'s Remnant nebula, they encountered Jax, a charming rogue and information broker with a ship full of secrets and a smile that could disarm a pulsar. He claimed to know the way to the "Star Forge," the place Elara sought, but his help came at a steep price: a rare artifact her ancestors had left behind.\n\n"Trust is a luxury in these dark times, Stargazer," Jax purred, eyeing the artifact. Elara knew he was dangerous, but he was also her best lead.', order: 4 },
-      { id: 'c1s5', title: 'The Price of Knowledge', content: 'Elara reluctantly agreed to Jax\'s terms. The artifact, a Celestial Compass, was a key to navigating the treacherous currents of the void. As Jax revealed the coordinates to the Star Forge, alarms blared. A massive, shadowy vessel emerged from the nebula – the Great Devourer\'s herald.\n\n"Looks like the party\'s started," Jax quipped, already powering up his weapons. "Hold on tight, Stargazer. This is where the universe gets interesting." The Odyssey, with its unlikely crew, plunged into the heart of the storm.', order: 5 },
+      { id: 'c1s1', title: 'The Fading Sky', content: 'The stars were dying. One by one, they flickered out, leaving vast stretches of the cosmos cold and dark. Elara, the last of the Stargazers, watched from her lonely observatory on the edge of the known universe. Her ancestors had charted the heavens for millennia, but now, there was little left to chart.\n\nA faint signal, a whisper across the void, was her only hope. It spoke of a place where the stars still burned bright, a mythical Eden where the First Ones had hidden the source of all light. Most dismissed it as legend, but Elara clung to it. It was the only thread in a tapestry of despair.', order: 1, wordCount: 150, publishedDate: new Date(Date.now() - 86400000 * 7).toISOString() },
+      { id: 'c1s2', title: 'Whispers of the Void', content: 'Commander REX, a decommissioned war-droid with a penchant for existential poetry, was Elara\'s only companion. "The universe sighs, does it not?" he rumbled one cycle, his optical sensors dim. "Another constellation gone. Soon, only the echoes will remain."\n\nElara ignored him, focusing on the faint signal. It was stronger tonight, pulling her towards an uncharted sector. "Prepare the \'Odyssey\', REX," she commanded. "We\'re going hunting."', order: 2, wordCount: 120, publishedDate: new Date(Date.now() - 86400000 * 6).toISOString() },
+      { id: 'c1s3', title: 'The Derelict Oracle', content: 'Their journey led them to a derelict space station, an Oracle of a long-dead civilization. Inside, they found cryptic star charts and warnings of a "Great Devourer" that consumed stellar energy. The Oracle hinted that the First Ones had not hidden the light, but protected it from this entity.\n\n"It seems our legend has a villain," REX noted, his processors whirring. Elara felt a chill. This was no longer just a quest for light, but a race against an ancient cosmic horror.', order: 3, wordCount: 160, publishedDate: new Date(Date.now() - 86400000 * 5).toISOString() },
+      { id: 'c1s4', title: 'Encounter with Jax Nebula', content: 'In the Kepler\'s Remnant nebula, they encountered Jax, a charming rogue and information broker with a ship full of secrets and a smile that could disarm a pulsar. He claimed to know the way to the "Star Forge," the place Elara sought, but his help came at a steep price: a rare artifact her ancestors had left behind.\n\n"Trust is a luxury in these dark times, Stargazer," Jax purred, eyeing the artifact. Elara knew he was dangerous, but he was also her best lead.', order: 4, wordCount: 140, publishedDate: new Date(Date.now() - 86400000 * 4).toISOString() },
+      { id: 'c1s5', title: 'The Price of Knowledge', content: 'Elara reluctantly agreed to Jax\'s terms. The artifact, a Celestial Compass, was a key to navigating the treacherous currents of the void. As Jax revealed the coordinates to the Star Forge, alarms blared. A massive, shadowy vessel emerged from the nebula – the Great Devourer\'s herald.\n\n"Looks like the party\'s started," Jax quipped, already powering up his weapons. "Hold on tight, Stargazer. This is where the universe gets interesting." The Odyssey, with its unlikely crew, plunged into the heart of the storm.', order: 5, wordCount: 170, publishedDate: new Date(Date.now() - 86400000 * 3).toISOString() },
     ],
     rating: 4.8,
     views: 150000,
@@ -125,7 +126,7 @@ const basePlaceholderStories: Story[] = [
     summary: 'An early draft exploring the backstory of the Stargazer lineage. Very rough ideas, unpolished.',
     tags: ['prequel', 'worldbuilding', 'draft'],
     chapters: [
-      { id: 'c1s1d', title: 'First Vision', content: 'The first stargazer saw not with eyes, but with the soul...', order: 1 },
+      { id: 'c1s1d', title: 'First Vision', content: 'The first stargazer saw not with eyes, but with the soul...', order: 1, wordCount: 20 },
     ],
     rating: undefined,
     views: 0,
@@ -142,9 +143,9 @@ const basePlaceholderStories: Story[] = [
     summary: 'An ancient evil stirs in the Shadow Forest, and only a band of unlikely heroes can stop it. Magic, monsters, and betrayal await those brave enough to enter.',
     tags: ['high fantasy', 'magic', 'epic', 'quest'],
     chapters: [
-      { id: 'c2s1', title: 'The Call to Adventure', content: 'Content for chapter 1 of Shadow Forest...', order: 1 },
-      { id: 'c2s2', title: 'Into the Shadows', content: 'Content for chapter 2 of Shadow Forest...', order: 2 },
-      { id: 'c2s3', title: 'The First Trial', content: 'Content for chapter 3 of Shadow Forest...', order: 3 },
+      { id: 'c2s1', title: 'The Call to Adventure', content: 'Content for chapter 1 of Shadow Forest...', order: 1, wordCount: 1300, publishedDate: new Date(Date.now() - 86400000 * 12).toISOString() },
+      { id: 'c2s2', title: 'Into the Shadows', content: 'Content for chapter 2 of Shadow Forest...', order: 2, wordCount: 1450, publishedDate: new Date(Date.now() - 86400000 * 11).toISOString() },
+      { id: 'c2s3', title: 'The First Trial', content: 'Content for chapter 3 of Shadow Forest...', order: 3, wordCount: 1200, publishedDate: new Date(Date.now() - 86400000 * 10).toISOString() },
     ],
     rating: 4.5,
     views: 95000,
@@ -161,7 +162,7 @@ const basePlaceholderStories: Story[] = [
     summary: 'In a future where emotions are suppressed by a totalitarian regime, one individual starts to feel again, sparking a rebellion that could change everything.',
     tags: ['dystopian', 'sci-fi', 'rebellion', 'social commentary'],
     chapters: [
-      { id: 'c3s1', title: 'The Awakening', content: 'Content for chapter 1 of Echoes of Tomorrow...', order: 1 },
+      { id: 'c3s1', title: 'The Awakening', content: 'Content for chapter 1 of Echoes of Tomorrow...', order: 1, wordCount: 2200, publishedDate: new Date(Date.now() - 86400000 * 5).toISOString() },
     ],
     rating: 4.2,
     views: 72000,
@@ -192,7 +193,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover space',
     summary: 'A desperate battle for the control of Nebula X, the last source of a powerful energy crystal.',
     tags: ['space opera', 'action', 'aliens'],
-    chapters: [{ id: 'c5s1', title: 'The Siege', content: 'Nebula X was under attack...', order: 1 }],
+    chapters: [{ id: 'c5s1', title: 'The Siege', content: 'Nebula X was under attack...', order: 1, wordCount: 1800, publishedDate: new Date(Date.now() - 86400000 * 3).toISOString() }],
     rating: 4.6,
     views: 88000,
     status: 'Ongoing',
@@ -207,7 +208,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover robot',
     summary: 'When AI achieves sentience, humanity must decide between coexistence or conflict.',
     tags: ['cyberpunk', 'artificial intelligence', 'thriller'],
-    chapters: [{ id: 'c6s1', title: 'First Light', content: 'The servers hummed a new song...', order: 1 }],
+    chapters: [{ id: 'c6s1', title: 'First Light', content: 'The servers hummed a new song...', order: 1, wordCount: 2500, publishedDate: new Date(Date.now() - 86400000 * 15).toISOString() }],
     rating: 4.3,
     views: 65000,
     status: 'Completed',
@@ -222,7 +223,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover time',
     summary: 'A secret government project on time travel goes awry, threatening to unravel reality itself.',
     tags: ['time travel', 'paradox', 'conspiracy'],
-    chapters: [{ id: 'c7s1', title: 'The Anomaly', content: 'Time flickered...', order: 1 }],
+    chapters: [{ id: 'c7s1', title: 'The Anomaly', content: 'Time flickered...', order: 1, wordCount: 2100, publishedDate: new Date(Date.now() - 86400000 * 4).toISOString() }],
     rating: 4.7,
     views: 102000,
     status: 'Ongoing',
@@ -237,7 +238,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover dragon',
     summary: 'A young heir must claim their birthright atop the Dragon\'s Peak, guarded by ancient beasts and forgotten magic.',
     tags: ['dragons', 'adventure', 'coming of age'],
-    chapters: [{ id: 'c8s1', title: 'The Summons', content: 'The letter arrived on a raven\'s wing...', order: 1 }],
+    chapters: [{ id: 'c8s1', title: 'The Summons', content: 'The letter arrived on a raven\'s wing...', order: 1, wordCount: 1900, publishedDate: new Date(Date.now() - 86400000 * 1).toISOString() }],
     rating: 4.9,
     views: 175000,
     status: 'Ongoing',
@@ -252,7 +253,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover ancient',
     summary: 'As forgotten deities begin to stir, their whispers drive mortals to madness and grant forbidden powers.',
     tags: ['dark fantasy', 'lovecraftian', 'magic system'],
-    chapters: [{ id: 'c9s1', title: 'The Ritual', content: 'They gathered under a blood moon...', order: 1 }],
+    chapters: [{ id: 'c9s1', title: 'The Ritual', content: 'They gathered under a blood moon...', order: 1, wordCount: 2300, publishedDate: new Date(Date.now() - 86400000 * 6).toISOString() }],
     rating: 4.4,
     views: 58000,
     status: 'Ongoing',
@@ -267,7 +268,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover crown',
     summary: 'After the king\'s assassination, the realm is fractured. Multiple claimants vie for the shattered crown.',
     tags: ['political fantasy', 'war', 'intrigue'],
-    chapters: [{ id: 'c10s1', title: 'The Coup', content: 'Blood stained the throne room floor...', order: 1 }],
+    chapters: [{ id: 'c10s1', title: 'The Coup', content: 'Blood stained the throne room floor...', order: 1, wordCount: 2700, publishedDate: new Date(Date.now() - 86400000 * 20).toISOString() }],
     rating: 4.6,
     views: 110000,
     status: 'Completed',
@@ -282,7 +283,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover dystopian',
     summary: 'In a perfectly controlled society, compliance is mandatory. But one citizen starts to question the system.',
     tags: ['surveillance state', 'rebellion', 'psychological'],
-    chapters: [{ id: 'c11s1', title: 'The Audit', content: 'The compliance officer arrived at dawn...', order: 1 }],
+    chapters: [{ id: 'c11s1', title: 'The Audit', content: 'The compliance officer arrived at dawn...', order: 1, wordCount: 1950, publishedDate: new Date(Date.now() - 86400000 * 7).toISOString() }],
     rating: 4.1,
     views: 45000,
     status: 'Ongoing',
@@ -297,7 +298,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover city',
     summary: 'Beyond the iron grip of the mega-corporations lies Haven, the last free city. But for how long?',
     tags: ['post-apocalyptic', 'freedom', 'corporate rule'],
-    chapters: [{ id: 'c12s1', title: 'The Escape', content: 'They ran under the cover of the acid rain...', order: 1 }],
+    chapters: [{ id: 'c12s1', title: 'The Escape', content: 'They ran under the cover of the acid rain...', order: 1, wordCount: 2050, publishedDate: new Date(Date.now() - 86400000 * 30).toISOString() }],
     rating: 4.5,
     views: 92000,
     status: 'Completed',
@@ -312,7 +313,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover society',
     summary: 'Humans live lives of leisure, served by androids. But what happens when the androids want more?',
     tags: ['robot uprising', 'social commentary', 'future tech'],
-    chapters: [{ id: 'c13s1', title: 'Unit 734', content: 'Unit 734 felt its first flicker of discontent...', order: 1 }],
+    chapters: [{ id: 'c13s1', title: 'Unit 734', content: 'Unit 734 felt its first flicker of discontent...', order: 1, wordCount: 1750, publishedDate: new Date(Date.now() - 86400000 * 9).toISOString() }],
     rating: 4.0,
     views: 33000,
     status: 'Ongoing',
@@ -327,7 +328,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover silkroad',
     summary: 'A merchant\'s perilous journey along the Silk Road, filled with adventure, danger, and discovery.',
     tags: ['ancient world', 'trade', 'adventure'],
-    chapters: [{ id: 'c14s1', title: 'The Caravan', content: 'The desert stretched endlessly...', order: 1 }],
+    chapters: [{ id: 'c14s1', title: 'The Caravan', content: 'The desert stretched endlessly...', order: 1, wordCount: 2800, publishedDate: new Date(Date.now() - 86400000 * 2).toISOString() }],
     rating: 4.7,
     views: 78000,
     status: 'Ongoing',
@@ -342,7 +343,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover revolution',
     summary: 'Amidst the turmoil of the French Revolution, a young noblewoman must navigate treacherous alliances to survive.',
     tags: ['french revolution', 'intrigue', 'survival'],
-    chapters: [{ id: 'c15s1', title: 'The Storm Gathers', content: 'Paris was a tinderbox...', order: 1 }],
+    chapters: [{ id: 'c15s1', title: 'The Storm Gathers', content: 'Paris was a tinderbox...', order: 1, wordCount: 2600, publishedDate: new Date(Date.now() - 86400000 * 45).toISOString() }],
     rating: 4.3,
     views: 52000,
     status: 'Completed',
@@ -357,7 +358,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover viking',
     summary: 'A Viking warrior, bound by an oath, embarks on a raid that will test his loyalty and courage.',
     tags: ['vikings', 'honor', 'battle'],
-    chapters: [{ id: 'c16s1', title: 'The Longship', content: 'The oars cut through the icy water...', order: 1 }],
+    chapters: [{ id: 'c16s1', title: 'The Longship', content: 'The oars cut through the icy water...', order: 1, wordCount: 2400, publishedDate: new Date(Date.now() - 86400000 * 3).toISOString() }],
     rating: 4.8,
     views: 115000,
     status: 'Ongoing',
@@ -474,6 +475,7 @@ export const placeholderComments: Comment[] = [
     id: 'comment3',
     user: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
     storyId: 'story2',
+    chapterId: 'c2s3',
     content: 'What a thrilling conclusion! Loved the character development.',
     timestamp: new Date(Date.now() - 86400000 * 1).toISOString(), 
     likes: 22,
@@ -558,3 +560,21 @@ export const placeholderNotifications: NotificationType[] = [
     isRead: true,
   },
 ];
+
+// Helper function to format date for display
+export function formatDate(dateString?: string): string {
+  if (!dateString) return 'N/A';
+  try {
+    // Show "X time ago" for recent, otherwise "Month D, YYYY"
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 24 * 7) { // Less than a week old
+      return formatDistanceToNow(date, { addSuffix: true });
+    }
+    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+  } catch (e) {
+    return 'Invalid Date';
+  }
+}

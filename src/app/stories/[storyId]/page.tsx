@@ -1,78 +1,50 @@
 
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuPortal
-} from "@/components/ui/dropdown-menu";
-import {
-  ArrowLeft,
-  ArrowRight,
-  BookCopy,
-  MessageSquare,
-  ThumbsUp,
-  Share2,
-  X,
-  ListOrdered,
-  Settings2,
-  Loader2,
   BookOpen,
-  Users,
-  Sun,
-  Moon,
-  Volume2,
-  Sparkles
+  Eye,
+  Heart,
+  MessageSquare,
+  ListOrdered,
+  BookCopy,
+  Share2,
+  Loader2,
+  Info,
+  Edit
 } from 'lucide-react';
-import CommentSection from '@/components/comments/CommentSection';
-import { placeholderStories } from '@/lib/placeholder-data';
-import type { Story } from '@/types';
+import { placeholderStories, formatDate } from '@/lib/placeholder-data'; // Ensure formatDate is exported
+import type { Story, Chapter } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 async function getStoryData(storyId: string): Promise<Story | undefined> {
-  await new Promise(resolve => setTimeout(resolve, 300));
+  // In a real app, fetch from API. For mock, find in placeholderStories (which includes localStorage data).
+  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network delay
   return placeholderStories.find(story => story.id === storyId);
 }
 
-const mockStoryCharacters = (storyTitle?: string) => {
-    if (!storyTitle) return [];
-    if (storyTitle.includes("Stargazer")) return [{id: "char1", name: "Elara Vayne"}, {id: "char2", name: "Commander REX"}, {id: "char3", name: "The Oracle"}, {id: "char4", name: "Jax Nebula"}];
-    if (storyTitle.includes("Shadow Forest")) return [{id: "char3", name: "Kaelen"}, {id: "char4", name: "Lyra the Sorceress"}];
-    return [{id: "charGen1", name: "Protagonist"}, {id: "charGen2", name: "Antagonist"}];
-}
-
-
-export default function StoryPage() {
+export default function StoryOverviewPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const { toast } = useToast();
   const storyId = params.storyId as string;
 
   const [story, setStory] = useState<Story | null>(null);
-  const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const [tocVisible, setTocVisible] = useState(false);
-  const [mockReadingProgress, setMockReadingProgress] = useState(0);
-
-  const contentRef = useRef<HTMLDivElement>(null);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   useEffect(() => {
     if (storyId) {
@@ -80,74 +52,30 @@ export default function StoryPage() {
       getStoryData(storyId).then(data => {
         if (data) {
           setStory(data);
-          if (data.chapters && data.chapters.length > 0) {
-            setCurrentChapterIndex(0);
-          }
         } else {
-          router.push('/404'); // Or a dedicated not found page for stories
+          // router.push('/404'); // Or a dedicated not found page for stories
+          console.warn("Story not found, router push to 404 would happen here.");
         }
         setIsLoading(false);
       });
     }
   }, [storyId, router]);
 
-  useEffect(() => {
-    if (story && story.chapters.length > 0) {
-      const progress = ((currentChapterIndex + 1) / story.chapters.length) * 100;
-      setMockReadingProgress(Math.min(100, Math.max(0, progress)));
-    } else {
-      setMockReadingProgress(0);
-    }
-  }, [currentChapterIndex, story]);
-
-  const currentChapter = story?.chapters[currentChapterIndex];
-  const characters = story ? mockStoryCharacters(story.title) : [];
-
-  const toggleMainControls = () => {
-    setControlsVisible(prev => !prev);
-    if (tocVisible) setTocVisible(false); 
-  };
-  
-  const toggleToc = () => {
-    setTocVisible(prev => !prev);
-    if (!prev && !controlsVisible) { // If TOC is being opened and controls are hidden
-      setControlsVisible(true);
-    }
-  };
-
-  const navigateToChapter = (index: number) => {
-    if (story && index >= 0 && index < story.chapters.length) {
-      setCurrentChapterIndex(index);
-      setTocVisible(false); 
-      setControlsVisible(false); 
-      contentRef.current?.scrollTo(0, 0);
-    }
-  };
-
   const handleAddToLibrary = () => {
-    toast({ title: 'Added to Library (Mock)', description: `"${story?.title}" has been added to your library.` });
+    if (!story) return;
+    toast({ title: 'Added to Library (Mock)', description: `"${story.title}" has been added to your library.` });
   };
-
-  const handleVote = () => {
-    toast({ title: 'Voted (Mock)', description: `You voted for "${currentChapter?.title}".` });
-  };
-
+  
   const handleShare = () => {
-    toast({ title: 'Shared (Mock)', description: `"${story?.title}" link copied to clipboard (mock).` });
+    if (!story) return;
+    navigator.clipboard.writeText(window.location.href)
+      .then(() => {
+        toast({ title: 'Link Copied!', description: `Link to "${story.title}" copied to clipboard.` });
+      })
+      .catch(() => {
+        toast({ title: 'Share (Mock)', description: `Link to "${story.title}" would be shareable here.`});
+      });
   };
-  
-  const handleAmbianceMode = (mode: string) => {
-    toast({ title: "Ambiance Mode (Mock)", description: `${mode} activated. Imagine immersive sounds and visuals!`});
-  }
-  
-  const handleCharacterClick = (characterName: string) => {
-    toast({ title: "Character Info (Mock)", description: `Details for ${characterName}: A key figure in this tale... (Actual bio would show here).`});
-  }
-
-  const scrollToComments = () => {
-    document.getElementById('comment-section')?.scrollIntoView({ behavior: 'smooth' });
-    setControlsVisible(false);
-  }
 
   if (isLoading) {
     return (
@@ -158,227 +86,168 @@ export default function StoryPage() {
   }
 
   if (!story) {
-    return <div className="text-center py-10 text-lg">Story not found.</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-center px-4">
+        <Info className="w-16 h-16 text-destructive mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Story Not Found</h1>
+        <p className="text-muted-foreground mb-6">The story you're looking for doesn't exist or may have been moved.</p>
+        <Link href="/stories" passHref>
+          <Button variant="outline">Back to Stories</Button>
+        </Link>
+      </div>
+    );
   }
-  
-  const author = story.author;
+
+  const firstChapterId = story.chapters?.[0]?.id;
+  const totalChapters = story.chapters?.length || 0;
+  const averageWordCountPerChapter = totalChapters > 0 
+    ? Math.round(story.chapters.reduce((sum, chap) => sum + (chap.wordCount || 1500), 0) / totalChapters)
+    : 1500; // Default average
+  const estimatedReadTimeMinutes = Math.max(1, Math.round((totalChapters * averageWordCountPerChapter) / 200)); // 200 WPM average
+
+  const isAuthor = user?.id === story.author.id;
+
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground overflow-hidden">
-      {/* Top Navigation Bar */}
-      <header
-        className={cn(
-          'fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b shadow-sm transition-all duration-300 ease-in-out p-2 sm:p-3 flex items-center justify-between',
-          controlsVisible ? 'translate-y-0' : '-translate-y-full',
-          tocVisible ? 'right-0 lg:right-72 md:lg:right-80' : 'right-0' // Adjusted for right sidebar
-        )}
-      >
-        <Button variant="ghost" size="icon" onClick={toggleToc} aria-label="Table of Contents">
-            <ListOrdered className="h-5 w-5" />
-        </Button>
-        <div className="truncate text-center mx-2">
-            <h1 className="text-md sm:text-lg font-headline font-semibold text-primary truncate">{story.title}</h1>
-        </div>
-        <div className="flex items-center">
-            <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Appearance Settings">
-                <Settings2 className="h-5 w-5" />
+    <div className="container mx-auto max-w-4xl py-8 px-4">
+      <div className="flex flex-col md:flex-row gap-8 items-start">
+        {/* Left Column: Cover & Actions */}
+        <div className="w-full md:w-1/3 flex flex-col items-center md:items-start">
+          <div className="relative aspect-[2/3] w-full max-w-xs md:max-w-none rounded-lg overflow-hidden shadow-2xl mb-6">
+            <Image
+              src={story.coverImageUrl || `https://placehold.co/512x800.png`}
+              alt={story.title}
+              layout="fill"
+              objectFit="cover"
+              data-ai-hint={story.dataAiHint || "book cover"}
+              priority
+            />
+          </div>
+          <div className="w-full max-w-xs md:max-w-none space-y-3">
+            {firstChapterId ? (
+              <Link href={`/stories/${story.id}/read/${firstChapterId}`} passHref className="w-full">
+                <Button size="lg" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg">
+                  <BookOpen className="mr-2 h-5 w-5" /> Read Now
                 </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Appearance</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled>Font Size (Soon)</DropdownMenuItem>
-                <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>Theme (Soon)</DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                        <DropdownMenuSubContent>
-                            <DropdownMenuItem><Sun className="mr-2 h-4 w-4" /> Light</DropdownMenuItem>
-                            <DropdownMenuItem><Moon className="mr-2 h-4 w-4" /> Dark</DropdownMenuItem>
-                            <DropdownMenuItem><BookOpen className="mr-2 h-4 w-4" /> Sepia</DropdownMenuItem>
-                        </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Ambiance Mode</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => handleAmbianceMode("Forest Sounds")}>
-                    <Volume2 className="mr-2 h-4 w-4" /> Forest Sounds
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAmbianceMode("Rainy Day")}>
-                    <Sparkles className="mr-2 h-4 w-4" /> Rainy Day
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-            </DropdownMenu>
-             <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Back">
-                <ArrowLeft className="h-5 w-5" />
-            </Button>
-        </div>
-      </header>
-
-      {/* Right Table of Contents Sidebar */}
-      <aside
-        className={cn(
-          'fixed right-0 top-0 bottom-0 z-50 w-72 md:w-80 bg-card shadow-xl p-4 transform transition-transform duration-300 ease-in-out flex flex-col',
-          tocVisible ? 'translate-x-0' : 'translate-x-full'
-        )}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-headline text-lg text-primary">Contents</h3>
-          <Button variant="ghost" size="icon" onClick={() => setTocVisible(false)}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-        <div className="aspect-[2/3] w-full relative mb-3 rounded-md overflow-hidden shadow-md bg-muted">
-          <Image
-            src={story.coverImageUrl || `https://placehold.co/512x800.png`}
-            alt={story.title}
-            layout="fill"
-            objectFit="cover"
-            data-ai-hint={story.dataAiHint || "book cover"}
-          />
-        </div>
-        <Button onClick={handleAddToLibrary} variant="outline" className="w-full mb-3">
-          <BookCopy className="mr-2 h-4 w-4" /> Add to Library
-        </Button>
-        
-        <h4 className="font-semibold text-sm mt-2 mb-1 text-muted-foreground">Chapters</h4>
-        <ScrollArea className="flex-1 mb-3 max-h-60">
-          <ul className="space-y-1">
-            {story.chapters.map((chapter, index) => (
-              <li key={chapter.id}>
-                <Button
-                  variant={index === currentChapterIndex ? 'secondary' : 'ghost'}
-                  className="w-full justify-start text-left h-auto py-1.5 px-2 text-sm"
-                  onClick={() => navigateToChapter(index)}
-                >
-                  <span className={cn("truncate", index === currentChapterIndex ? "font-semibold" : "")}>
-                    {chapter.order}. {chapter.title}
-                  </span>
-                </Button>
-              </li>
-            ))}
-             {story.chapters.length === 0 && <p className="text-xs text-muted-foreground p-2">No chapters yet.</p>}
-          </ul>
-        </ScrollArea>
-
-        {characters.length > 0 && (
-            <>
-            <h4 className="font-semibold text-sm mt-2 mb-1 text-muted-foreground">Characters</h4>
-            <ScrollArea className="flex-1 mb-2 max-h-28">
-            <ul className="space-y-1">
-                {characters.map(char => (
-                <li key={char.id}>
-                    <Button
-                    variant="ghost"
-                    className="w-full justify-start text-left h-auto py-1 px-2 text-xs"
-                    onClick={() => handleCharacterClick(char.name)}
-                    >
-                    <Users className="mr-2 h-3 w-3" /> {char.name}
-                    </Button>
-                </li>
-                ))}
-            </ul>
-            </ScrollArea>
-            </>
-        )}
-
-        {author && (
-            <Link href={`/profile/${author.id}`} className="mt-auto pt-2 border-t">
-                <div className="flex items-center gap-2 hover:bg-muted p-2 rounded-md">
-                <Avatar className="h-8 w-8">
-                    <AvatarImage src={author.avatarUrl} alt={author.username} data-ai-hint="profile person" />
-                    <AvatarFallback>{author.username.substring(0, 1).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium truncate">{author.displayName || author.username}</span>
-                </div>
-            </Link>
-        )}
-      </aside>
-
-      {/* Main Content Area */}
-      <main
-        className={cn(
-          'transition-all duration-300 ease-in-out focus:outline-none',
-          'pt-16 pb-20', 
-          tocVisible ? 'lg:mr-72 md:mr-80' : 'mr-0' // Adjusted for right sidebar
-        )}
-        onClick={(e) => {
-            // Only toggle if clicking directly on the main area, not its children (like text or images)
-            if (e.target === e.currentTarget && e.button === 0) {
-                toggleMainControls();
-            }
-        }}
-        role="button" 
-        tabIndex={0} 
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleMainControls();}}
-        aria-pressed={controlsVisible}
-        aria-label="Reading area, click to toggle controls"
-      >
-        <div ref={contentRef} className="min-h-[calc(100vh-8rem)]">
-            <article className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20">
-            {currentChapter ? (
-                <>
-                <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4">{currentChapter.title}</h2>
-                {currentChapter.content.split('\n').map((paragraph, index) => (
-                  <p key={index} className="leading-relaxed my-4">{paragraph || '\u00A0'}</p>
-                ))}
-                </>
+              </Link>
             ) : (
-                <div className="text-center py-10">
-                <p className="text-muted-foreground">Select a chapter to start reading.</p>
-                {story.chapters.length === 0 && <p className="text-muted-foreground mt-2">This story doesn't have any chapters yet.</p>}
-                </div>
+              <Button size="lg" className="w-full text-lg" disabled>
+                 <BookOpen className="mr-2 h-5 w-5" /> No Chapters Yet
+              </Button>
             )}
-            </article>
+            <Button size="lg" variant="outline" className="w-full text-lg" onClick={handleAddToLibrary}>
+              <BookCopy className="mr-2 h-5 w-5" /> Add to Library
+            </Button>
+            {isAuthor && (
+              <Link href={`/write/edit?storyId=${story.id}`} passHref className="w-full">
+                <Button size="lg" variant="outline" className="w-full text-lg border-accent text-accent hover:bg-accent/10">
+                  <Edit className="mr-2 h-5 w-5" /> Edit Story
+                </Button>
+              </Link>
+            )}
+             <Button size="lg" variant="outline" className="w-full text-lg" onClick={handleShare}>
+              <Share2 className="mr-2 h-5 w-5" /> Share
+            </Button>
+          </div>
         </div>
-        
-        <div id="comment-section" className="px-4 sm:px-6 md:px-12 pt-8 pb-24">
-            <CommentSection storyId={story.id} chapterId={currentChapter?.id} />
-        </div>
-      </main>
 
-      {/* Bottom Action Bar */}
-      <footer
-        className={cn(
-          'fixed bottom-0 left-0 z-40 bg-card/80 backdrop-blur-md border-t p-2 transform transition-transform duration-300 ease-in-out',
-          controlsVisible ? 'translate-y-0' : 'translate-y-full',
-          tocVisible ? 'right-0 lg:right-72 md:right-80' : 'right-0'  // Adjusted for right sidebar
-        )}
-      >
-        <div className="max-w-4xl mx-auto flex flex-col gap-2 px-2">
-            <div className="flex items-center gap-2 w-full">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Ch. {currentChapter?.order || 'N/A'}</span>
-                <Progress value={mockReadingProgress} className="w-full h-1.5" aria-label={`Reading progress ${mockReadingProgress.toFixed(0)}%`} />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">{mockReadingProgress.toFixed(0)}%</span>
+        {/* Right Column: Details & Chapters */}
+        <div className="w-full md:w-2/3">
+          <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground mb-1">{story.title}</h1>
+          <p className="text-md text-muted-foreground mb-4">
+            by{' '}
+            <Link href={`/profile/${story.author.id}`} className="text-primary hover:underline font-medium">
+              {story.author.displayName || story.author.username}
+            </Link>
+          </p>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-6">
+            <div className="flex items-center gap-1.5" title="Views">
+              <Eye className="w-4 h-4 text-accent" />
+              <span>{story.views ? (story.views / 1000).toFixed(1) + 'k' : '0'} reads</span>
             </div>
-            <div className="flex justify-around items-center w-full">
-                <Button variant="ghost" size="sm" onClick={() => navigateToChapter(currentChapterIndex - 1)} disabled={currentChapterIndex <= 0} aria-label="Previous Chapter">
-                    <ArrowLeft className="h-5 w-5" />
-                    <span className="ml-1 hidden sm:inline">Prev</span>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleVote} aria-label="Vote for this chapter">
-                    <ThumbsUp className="h-5 w-5" />
-                    <span className="ml-1 hidden sm:inline">Vote</span>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={scrollToComments} aria-label="View comments">
-                    <MessageSquare className="h-5 w-5" />
-                    <span className="ml-1 hidden sm:inline">Comment</span>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleShare} aria-label="Share this story">
-                    <Share2 className="h-5 w-5" />
-                    <span className="ml-1 hidden sm:inline">Share</span>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => navigateToChapter(currentChapterIndex + 1)} disabled={!story || currentChapterIndex >= story.chapters.length - 1} aria-label="Next Chapter">
-                    <span className="mr-1 hidden sm:inline">Next</span>
-                    <ArrowRight className="h-5 w-5" />
-                </Button>
+            <div className="flex items-center gap-1.5" title="Votes (Mock)">
+              <Heart className="w-4 h-4 text-accent" />
+              <span>{Math.floor((story.rating || 0) * (story.views || 0) / 5000) || 0} votes</span>
             </div>
+            <div className="flex items-center gap-1.5" title="Chapters">
+              <ListOrdered className="w-4 h-4 text-accent" />
+              <span>{totalChapters} parts</span>
+            </div>
+            <div className="flex items-center gap-1.5" title="Estimated Read Time">
+              <BookOpen className="w-4 h-4 text-accent" />
+              <span>{estimatedReadTimeMinutes} min read</span>
+            </div>
+             <Badge variant={story.status === 'Completed' ? 'secondary' : 'default'} 
+                    className={cn(
+                        story.status === 'Completed' && 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700',
+                        story.status === 'Ongoing' && 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
+                        story.status === 'Draft' && 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600'
+                    )}>
+                {story.status || 'Draft'}
+            </Badge>
+          </div>
+          
+          <div className="mb-6 prose prose-sm sm:prose-base dark:prose-invert max-w-none">
+            <h2 className="text-xl font-headline font-semibold mb-2 text-foreground">Description</h2>
+            <p className={cn(!isDescriptionExpanded && "line-clamp-5")}>
+              {story.summary || "No description available."}
+            </p>
+            {story.summary && story.summary.length > 200 && (
+                 <Button variant="link" onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="p-0 h-auto text-sm">
+                    {isDescriptionExpanded ? "Show Less" : "Show More"}
+                </Button>
+            )}
+          </div>
+
+          <div className="mb-6">
+             <h3 className="text-lg font-headline font-semibold mb-2 text-foreground">Tags</h3>
+             <div className="flex flex-wrap gap-2">
+                {story.tags.map(tag => (
+                    <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                ))}
+                {story.tags.length === 0 && <p className="text-xs text-muted-foreground">No tags for this story.</p>}
+            </div>
+          </div>
+          
+          <Separator className="my-6" />
+
+          <div>
+            <h2 className="text-xl font-headline font-semibold mb-3 text-foreground">Table of Contents ({totalChapters} Parts)</h2>
+            {story.chapters && story.chapters.length > 0 ? (
+              <ScrollArea className="max-h-[400px] pr-3"> {/* Added pr-3 for scrollbar spacing */}
+                <ul className="space-y-1">
+                  {story.chapters.sort((a, b) => a.order - b.order).map((chapter, index) => (
+                    <li key={chapter.id}>
+                      <Link href={`/stories/${story.id}/read/${chapter.id}`} passHref>
+                        <div className="block p-3 rounded-md hover:bg-muted/50 transition-colors cursor-pointer border-b last:border-b-0">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-foreground truncate">
+                              Part {chapter.order}: {chapter.title}
+                            </span>
+                            {chapter.publishedDate && (
+                              <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                                {formatDate(chapter.publishedDate)}
+                              </span>
+                            )}
+                          </div>
+                           {chapter.wordCount && (
+                              <span className="text-xs text-muted-foreground block mt-0.5">
+                                {Math.round(chapter.wordCount / 200) || 1} min read
+                              </span>
+                            )}
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
+            ) : (
+              <p className="text-muted-foreground">No chapters published yet.</p>
+            )}
+          </div>
         </div>
-      </footer>
+      </div>
     </div>
   );
 }
-        
-
-    
