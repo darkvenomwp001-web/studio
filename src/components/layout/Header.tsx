@@ -5,9 +5,8 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, LogOut, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useEffect, useState, FormEvent } from 'react';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,31 +28,12 @@ const NavLink = ({ href, children, icon }: { href: string; children: React.React
 export default function Header() {
   const [mounted, setMounted] = useState(false);
   const { user, logout, loading } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
 
   useEffect(() => setMounted(true), []);
   
-  useEffect(() => {
-    if (pathname === '/search') {
-      const currentQuery = searchParams.get('q');
-      if (currentQuery) {
-        setSearchQuery(currentQuery);
-      } else {
-        setSearchQuery(''); // Clear if no query on search page
-      }
-    }
-  }, [pathname, searchParams]);
-
-  const handleSearch = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    } else {
-      router.push('/search'); // Navigate to search page even if query is empty
-    }
+  const handleSearchIconClick = () => {
+    router.push('/search');
   };
 
   if (!mounted) {
@@ -82,20 +62,6 @@ export default function Header() {
           <span className="text-2xl font-headline font-bold text-foreground">D4RKV3NOM</span>
         </Link>
 
-        <div className="flex flex-1 items-center justify-center px-8 md:px-16 lg:px-24">
-          <form onSubmit={handleSearch} className="relative w-full max-w-lg"> {/* Changed max-w-md to max-w-lg */}
-            <Input 
-              type="search" 
-              placeholder="Search stories, authors, tags..." 
-              className="pl-10" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-             <button type="submit" className="sr-only">Search</button>
-          </form>
-        </div>
-
         <nav className="flex items-center gap-2">
           <div className="hidden md:flex items-center gap-1">
             <NavLink href="/"><Home className="h-5 w-5" /> Home</NavLink>
@@ -104,6 +70,10 @@ export default function Header() {
             <NavLink href="/messages"><MessageCircle className="h-5 w-5" /> Messages</NavLink>
           </div>
           
+          <Button variant="ghost" size="icon" onClick={handleSearchIconClick} aria-label="Search">
+            <Search className="h-5 w-5" />
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="User Menu">
