@@ -28,11 +28,11 @@ export default async function StoryPage({ params }: { params: { storyId: string 
       <header className="mb-8 p-6 bg-card rounded-lg shadow-md">
         <div className="flex flex-col md:flex-row gap-6 items-start">
           <Image
-            src={story.coverImageUrl || `https://placehold.co/200x300.png?text=${encodeURIComponent(story.title)}`}
+            src={story.coverImageUrl || `https://placehold.co/200x300.png`}
             alt={story.title}
             width={200}
             height={300}
-            className="rounded-md shadow-lg object-cover w-full md:w-1/3"
+            className="rounded-md shadow-lg object-cover w-full md:w-[200px] md:h-[300px]"
             data-ai-hint={story.dataAiHint || "book cover"}
           />
           <div className="flex-1">
@@ -93,7 +93,7 @@ export default async function StoryPage({ params }: { params: { storyId: string 
 
 
       {/* Interactive Comments Section */}
-      <CommentSection storyId={story.id} chapterId={currentChapter.id} />
+      <CommentSection storyId={story.id} chapterId={currentChapter.id || undefined} />
     </div>
   );
 }

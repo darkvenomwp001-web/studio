@@ -92,6 +92,7 @@ export const placeholderStories: Story[] = [
     summary: 'A young apprentice uncovers a dangerous secret hidden by a reclusive alchemist.',
     tags: ['mystery', 'history', 'alchemy'],
     chapters: [],
+    rating: 4.0,
     views: 30000,
     status: 'Ongoing',
     lastUpdated: new Date(Date.now() - 86400000 * 1).toISOString(), // 1 day ago

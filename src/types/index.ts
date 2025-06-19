@@ -4,6 +4,7 @@ export interface Story {
   author: User;
   genre: string;
   coverImageUrl?: string;
+  dataAiHint?: string; // Added for AI image generation hint
   summary: string;
   tags: string[];
   chapters: Chapter[];

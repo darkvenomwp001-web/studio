@@ -15,7 +15,7 @@ export default function StoryCard({ story }: StoryCardProps) {
       <Card className="h-full flex flex-col overflow-hidden hover:shadow-xl transition-shadow duration-300 ease-in-out cursor-pointer group">
         <CardHeader className="p-0 relative aspect-[2/3] overflow-hidden">
           <Image
-            src={story.coverImageUrl || `https://placehold.co/300x450.png/E0E7FF/1C3D5A?text=${encodeURIComponent(story.title)}`}
+            src={story.coverImageUrl || `https://placehold.co/300x450.png`}
             alt={story.title}
             width={300}
             height={450}

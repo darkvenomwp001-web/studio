@@ -32,7 +32,7 @@ export default async function WriteDashboardPage() {
             <Card key={story.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="relative p-0 aspect-video overflow-hidden">
                 <Image
-                  src={story.coverImageUrl || `https://placehold.co/400x225.png?text=${encodeURIComponent(story.title)}`}
+                  src={story.coverImageUrl || `https://placehold.co/400x225.png`}
                   alt={story.title}
                   width={400}
                   height={225}
