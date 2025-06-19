@@ -70,34 +70,36 @@ export default function StoriesPage() {
         >
           <CarouselContent>
             {featuredStoriesForCarousel.map((story) => (
-              <CarouselItem key={story.id}>
-                <Card className="overflow-hidden h-[400px] md:h-[500px] group relative border-none rounded-none">
+              <CarouselItem key={story.id} className="md:basis-1/2 lg:basis-1/3">
+                <Card className="overflow-hidden group relative border-none rounded-none aspect-[2/3] h-full">
                   <Image
-                    src={story.coverImageUrl || `https://placehold.co/1200x600.png`}
+                    src={story.coverImageUrl || `https://placehold.co/512x800.png`}
                     alt={story.title}
                     layout="fill"
                     objectFit="cover"
                     className="group-hover:scale-105 transition-transform duration-500 ease-in-out"
-                    data-ai-hint={story.dataAiHint || "story background"}
+                    data-ai-hint={story.dataAiHint || "book cover"}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent" />
-                  <CardContent className="absolute bottom-0 left-0 p-6 md:p-10 w-full z-10">
-                    <h3 className="text-3xl md:text-4xl font-headline font-bold text-white mb-2 line-clamp-2">{story.title}</h3>
-                    <p className="text-md text-gray-200 mb-3">By {story.author.displayName || story.author.username}</p>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {story.tags.slice(0, 3).map(tag => (
-                        <Badge key={tag} variant="secondary" className="text-xs bg-white/20 text-white backdrop-blur-sm border-none">{tag}</Badge>
-                      ))}
-                    </div>
-                    <div className="flex gap-3">
-                      <Link href={`/stories/${story.id}`} passHref>
-                        <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                          <BookOpen className="mr-2 h-5 w-5" /> Read Now
+                  <CardContent className="absolute bottom-0 left-0 p-6 md:p-8 w-full z-10 flex flex-col justify-end h-full">
+                    <div>
+                      <h3 className="text-2xl md:text-3xl font-headline font-bold text-white mb-1 line-clamp-2">{story.title}</h3>
+                      <p className="text-sm text-gray-200 mb-2">By {story.author.displayName || story.author.username}</p>
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {story.tags.slice(0, 2).map(tag => (
+                          <Badge key={tag} variant="secondary" className="text-xs bg-white/20 text-white backdrop-blur-sm border-none">{tag}</Badge>
+                        ))}
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Link href={`/stories/${story.id}`} passHref>
+                          <Button size="default" className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto">
+                            <BookOpen className="mr-2 h-4 w-4" /> Read Now
+                          </Button>
+                        </Link>
+                        <Button size="default" variant="outline" className="bg-black/30 text-white border-white/50 hover:bg-white/20 hover:text-white w-full sm:w-auto" onClick={() => handleAddToLibrary(story.title)}>
+                          <LibrarySquare className="mr-2 h-4 w-4" /> Add to Library
                         </Button>
-                      </Link>
-                      <Button size="lg" variant="outline" className="bg-black/30 text-white border-white/50 hover:bg-white/20 hover:text-white" onClick={() => handleAddToLibrary(story.title)}>
-                        <LibrarySquare className="mr-2 h-5 w-5" /> Add to Library
-                      </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

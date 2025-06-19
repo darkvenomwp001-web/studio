@@ -20,9 +20,9 @@ export default function HomePage() {
   const storySpotlight = placeholderStories[Math.floor(Math.random() * placeholderStories.length)]; // Random story for spotlight
 
   const popularGenres = [
-    { name: "Fantasy", icon: Swords, blurb: "Epic quests & magical realms await.", dataAiHint: "dragon castle", cover: "https://placehold.co/400x250.png" },
-    { name: "Sci-Fi", icon: Rocket, blurb: "Explore galaxies & future tech.", dataAiHint: "space station", cover: "https://placehold.co/400x250.png"},
-    { name: "Romance", icon: HeartIcon, blurb: "Heartfelt connections & love stories.", dataAiHint: "couple sunset", cover: "https://placehold.co/400x250.png"},
+    { name: "Fantasy", icon: Swords, blurb: "Epic quests & magical realms await.", dataAiHint: "dragon castle", cover: "https://placehold.co/512x800.png" },
+    { name: "Sci-Fi", icon: Rocket, blurb: "Explore galaxies & future tech.", dataAiHint: "space station", cover: "https://placehold.co/512x800.png"},
+    { name: "Romance", icon: HeartIcon, blurb: "Heartfelt connections & love stories.", dataAiHint: "couple sunset", cover: "https://placehold.co/512x800.png"},
   ];
 
   const communityPulseItems = [
@@ -76,13 +76,13 @@ export default function HomePage() {
           </h2>
           <Card className="w-full max-w-4xl mx-auto overflow-hidden shadow-2xl hover:shadow-primary/20 transition-all duration-300 group">
             <div className="md:flex">
-              <div className="md:flex-shrink-0 md:w-1/3 relative">
+              <div className="md:flex-shrink-0 md:w-1/3 relative aspect-[2/3]">
                 <Image
-                  src={storySpotlight.coverImageUrl || `https://placehold.co/400x600.png`}
+                  src={storySpotlight.coverImageUrl || `https://placehold.co/512x800.png`}
                   alt={storySpotlight.title}
-                  width={400}
-                  height={600}
-                  className="object-cover w-full h-64 md:h-full group-hover:scale-105 transition-transform duration-500"
+                  layout="fill"
+                  objectFit="cover"
+                  className="group-hover:scale-105 transition-transform duration-500"
                   data-ai-hint={storySpotlight.dataAiHint || "book cover epic"}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent md:bg-gradient-to-r"></div>
@@ -140,7 +140,7 @@ export default function HomePage() {
             const GenreIcon = genre.icon;
             return (
               <Card key={genre.name} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
-                <CardHeader className="p-0 relative h-40 md:h-48">
+                <CardHeader className="p-0 relative aspect-[3/2] md:aspect-video">
                   <Image src={genre.cover} alt={genre.name} layout="fill" objectFit="cover" data-ai-hint={genre.dataAiHint} className="group-hover:scale-105 transition-transform" />
                   <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-4 text-center">
                     <GenreIcon className="h-12 w-12 text-white mb-2 drop-shadow-lg" />

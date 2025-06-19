@@ -13,7 +13,7 @@ export default function CompactStoryCard({ story }: CompactStoryCardProps) {
       <div className="flex-shrink-0 w-36 md:w-40 group cursor-pointer">
         <div className="aspect-[2/3] relative rounded-md overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200 bg-muted">
           <Image
-            src={story.coverImageUrl || `https://placehold.co/200x300.png`}
+            src={story.coverImageUrl || `https://placehold.co/512x800.png`}
             alt={story.title}
             layout="fill"
             objectFit="cover"

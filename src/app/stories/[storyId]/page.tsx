@@ -170,11 +170,11 @@ export default function StoryPage() {
         className={cn(
           'fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b shadow-sm transition-all duration-300 ease-in-out p-2 sm:p-3 flex items-center justify-between',
           controlsVisible ? 'translate-y-0' : '-translate-y-full',
-          tocVisible ? 'lg:right-72 md:lg:right-80 right-0' : 'right-0'
+          tocVisible ? 'right-0 lg:right-72 md:lg:right-80' : 'right-0' // Adjusted for right sidebar
         )}
       >
-        <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Back to Story Details">
-          <ArrowLeft className="h-5 w-5" />
+        <Button variant="ghost" size="icon" onClick={toggleToc} aria-label="Table of Contents">
+            <ListOrdered className="h-5 w-5" />
         </Button>
         <div className="truncate text-center mx-2">
             <h1 className="text-md sm:text-lg font-headline font-semibold text-primary truncate">{story.title}</h1>
@@ -210,8 +210,8 @@ export default function StoryPage() {
                 </DropdownMenuItem>
             </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="ghost" size="icon" onClick={toggleToc} aria-label="Table of Contents">
-                <ListOrdered className="h-5 w-5" />
+             <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Back">
+                <ArrowLeft className="h-5 w-5" />
             </Button>
         </div>
       </header>
@@ -229,9 +229,9 @@ export default function StoryPage() {
             <X className="h-5 w-5" />
           </Button>
         </div>
-        <div className="aspect-[2/3] w-full relative mb-3 rounded-md overflow-hidden shadow-md">
+        <div className="aspect-[2/3] w-full relative mb-3 rounded-md overflow-hidden shadow-md bg-muted">
           <Image
-            src={story.coverImageUrl || `https://placehold.co/200x300.png`}
+            src={story.coverImageUrl || `https://placehold.co/512x800.png`}
             alt={story.title}
             layout="fill"
             objectFit="cover"
@@ -301,9 +301,10 @@ export default function StoryPage() {
         className={cn(
           'transition-all duration-300 ease-in-out focus:outline-none',
           'pt-16 pb-20', 
-          tocVisible ? 'lg:mr-72 md:lg:mr-80' : 'mr-0' 
+          tocVisible ? 'lg:mr-72 md:mr-80' : 'mr-0' // Adjusted for right sidebar
         )}
         onClick={(e) => {
+            // Only toggle if clicking directly on the main area, not its children (like text or images)
             if (e.target === e.currentTarget && e.button === 0) {
                 toggleMainControls();
             }
@@ -319,8 +320,8 @@ export default function StoryPage() {
             {currentChapter ? (
                 <>
                 <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4">{currentChapter.title}</h2>
-                {currentChapter.content.split('\n').map((paragraph, index) => ( // Ensure split by newline character
-                  <p key={index} className="leading-relaxed my-4">{paragraph}</p>
+                {currentChapter.content.split('\n').map((paragraph, index) => (
+                  <p key={index} className="leading-relaxed my-4">{paragraph || '\u00A0'}</p>
                 ))}
                 </>
             ) : (
@@ -342,7 +343,7 @@ export default function StoryPage() {
         className={cn(
           'fixed bottom-0 left-0 z-40 bg-card/80 backdrop-blur-md border-t p-2 transform transition-transform duration-300 ease-in-out',
           controlsVisible ? 'translate-y-0' : 'translate-y-full',
-          tocVisible ? 'lg:right-72 md:lg:right-80 right-0' : 'right-0' 
+          tocVisible ? 'right-0 lg:right-72 md:right-80' : 'right-0'  // Adjusted for right sidebar
         )}
       >
         <div className="max-w-4xl mx-auto flex flex-col gap-2 px-2">

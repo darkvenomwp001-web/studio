@@ -16,11 +16,11 @@ export default function StoryCard({ story }: StoryCardProps) {
       <Card className="h-full flex flex-col overflow-hidden hover:shadow-xl transition-shadow duration-300 ease-in-out cursor-pointer group bg-card">
         <CardHeader className="p-0 relative aspect-[2/3] overflow-hidden">
           <Image
-            src={story.coverImageUrl || `https://placehold.co/300x450.png`}
+            src={story.coverImageUrl || `https://placehold.co/512x800.png`}
             alt={story.title}
-            width={300}
-            height={450}
-            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300 ease-in-out"
+            layout="fill"
+            objectFit="cover"
+            className="group-hover:scale-105 transition-transform duration-300 ease-in-out"
             data-ai-hint={story.dataAiHint || "book cover"}
           />
           {story.status === 'Completed' && (
@@ -62,3 +62,4 @@ export default function StoryCard({ story }: StoryCardProps) {
     </Link>
   );
 }
+

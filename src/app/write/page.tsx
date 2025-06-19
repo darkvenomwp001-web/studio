@@ -61,40 +61,28 @@ export default function WriteDashboardPage() {
     setUserStories(prevStories => prevStories.filter(story => story.id !== storyToDelete.id));
     
     // Optional: To make placeholderStories reflect deletion for the session (advanced mock)
-    // const storyIndex = placeholderStories.findIndex(s => s.id === storyToDelete.id);
-    // if (storyIndex > -1) {
-    //   placeholderStories.splice(storyIndex, 1);
-    // }
+    const storyIndex = placeholderStories.findIndex(s => s.id === storyToDelete.id);
+    if (storyIndex > -1) {
+       placeholderStories.splice(storyIndex, 1); // Remove the story from the mock data source
+    }
 
     toast({
       title: "Story Deleted",
-      description: `"${storyToDelete.title}" has been deleted.`,
+      description: `"${storyToDelete.title}" has been permanently deleted.`,
     });
     setStoryToDelete(null); // Close dialog
   };
   
-  const getStatusBadgeVariant = (status?: 'Ongoing' | 'Completed' | 'Draft') => {
-    switch (status) {
-      case 'Completed':
-        return 'secondary'; // Typically green or distinct 'done' color
-      case 'Ongoing':
-        return 'default'; // Primary color
-      case 'Draft':
-        return 'outline'; // Muted/less prominent
-      default:
-        return 'outline';
-    }
-  };
    const getStatusBadgeClasses = (status?: 'Ongoing' | 'Completed' | 'Draft') => {
     switch (status) {
       case 'Completed':
-        return 'bg-green-600 hover:bg-green-700 text-white border-green-700';
+        return 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
       case 'Ongoing':
-        return 'bg-yellow-500 hover:bg-yellow-600 text-black border-yellow-600';
+        return 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700';
       case 'Draft':
-        return 'bg-gray-500 hover:bg-gray-600 text-white border-gray-600';
+        return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-700/50 dark:text-gray-300 dark:border-gray-600';
       default:
-        return 'text-muted-foreground';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -141,19 +129,19 @@ export default function WriteDashboardPage() {
         {userStories.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {userStories.map(story => (
-              <Card key={story.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader className="relative p-0 aspect-[16/10] overflow-hidden">
+              <Card key={story.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow bg-card">
+                <CardHeader className="relative p-0 aspect-[2/3] overflow-hidden">
                   <Image
-                    src={story.coverImageUrl || `https://placehold.co/400x250.png`}
+                    src={story.coverImageUrl || `https://placehold.co/512x800.png`}
                     alt={story.title}
-                    width={400}
-                    height={250}
-                    className="object-cover w-full h-full"
-                    data-ai-hint={story.dataAiHint || "abstract illustration"}
+                    layout="fill"
+                    objectFit="cover"
+                    className="w-full h-full"
+                    data-ai-hint={story.dataAiHint || "book cover abstract"}
                   />
                   <Badge 
-                    variant={getStatusBadgeVariant(story.status)} 
-                    className={`absolute top-2 right-2 text-xs px-2 py-1 ${getStatusBadgeClasses(story.status)}`}
+                    variant={'outline'}
+                    className={`absolute top-2 right-2 text-xs px-2 py-1 font-semibold ${getStatusBadgeClasses(story.status)}`}
                   >
                       {story.status || 'Draft'}
                   </Badge>
