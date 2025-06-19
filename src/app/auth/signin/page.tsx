@@ -65,7 +65,7 @@ export default function SignInPage() {
   const isAnyLoading = authLoading || initialAuthLoading;
 
   return (
-    <>
+    <AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
       <Card className="w-full max-w-sm shadow-2xl">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-headline text-primary">Welcome Back!</CardTitle>
@@ -99,7 +99,6 @@ export default function SignInPage() {
                     type="button"
                     variant="link"
                     className={`p-0 h-auto text-xs text-primary hover:underline ${isAnyLoading ? 'pointer-events-none text-muted-foreground' : ''}`}
-                    onClick={() => setIsResetDialogOpen(true)}
                   >
                     Forgot password?
                   </Button>
@@ -144,34 +143,32 @@ export default function SignInPage() {
         </CardFooter>
       </Card>
 
-      <AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Forgot Your Password?</AlertDialogTitle>
-            <AlertDialogDescription>
-              No worries! Enter your email address below and we&apos;ll send you a link to reset your password.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-2 py-2">
-            <Label htmlFor="reset-email">Email Address</Label>
-            <Input
-              id="reset-email"
-              type="email"
-              placeholder="you@example.com"
-              value={resetEmail}
-              onChange={(e) => setResetEmail(e.target.value)}
-              disabled={authLoading}
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={authLoading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePasswordResetRequest} disabled={authLoading || !resetEmail.trim()}>
-              {authLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Send Reset Link
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Forgot Your Password?</AlertDialogTitle>
+          <AlertDialogDescription>
+            No worries! Enter your email address below and we&apos;ll send you a link to reset your password.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="space-y-2 py-2">
+          <Label htmlFor="reset-email">Email Address</Label>
+          <Input
+            id="reset-email"
+            type="email"
+            placeholder="you@example.com"
+            value={resetEmail}
+            onChange={(e) => setResetEmail(e.target.value)}
+            disabled={authLoading}
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={authLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handlePasswordResetRequest} disabled={authLoading || !resetEmail.trim()}>
+            {authLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Send Reset Link
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
