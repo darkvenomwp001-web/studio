@@ -30,6 +30,7 @@ export interface UserSummary {
   username: string;
   avatarUrl?: string;
   displayName?: string;
+  dataAiHint?: string;
 }
 
 export interface User extends UserSummary {
@@ -40,6 +41,7 @@ export interface User extends UserSummary {
   followersCount?: number;
   followingCount?: number;
   followingIds?: string[]; // IDs of users this user is following
+  followers?: UserSummary[]; // Users who follow this user (for mock)
   email?: string;
 }
 

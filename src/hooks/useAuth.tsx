@@ -22,7 +22,7 @@ import {
   type AuthError
 } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import { placeholderUsers, placeholderNotifications } from '@/lib/placeholder-data'; // Assuming placeholderNotifications is added
+import { placeholderUsers, placeholderNotifications } from '@/lib/placeholder-data';
 
 interface AppUser extends AppUserType {
   email?: string;
@@ -35,9 +35,9 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   authLoading: boolean;
-  notifications: NotificationType[]; // Added for mock notifications
-  addNotification: (notification: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => void; // Added
-  markNotificationAsRead: (notificationId: string) => void; // Added
+  notifications: NotificationType[];
+  addNotification: (notification: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => void;
+  markNotificationAsRead: (notificationId: string) => void;
   signInWithGoogle: () => Promise<void>;
   signUpWithEmailPassword: (data: { username: string; email: string; passwordOne: string; }) => Promise<void>;
   signInWithEmailPassword: (data: { emailOrUsername: string; passwordOne: string; }) => Promise<void>;
@@ -53,8 +53,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
-const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search']; // Allow homepage, stories, search for unauth users
-const DEFAULT_REDIRECT_AUTHENTICATED = '/profile'; // Default redirect for authenticated users if they hit auth routes
+const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search', '/profile/']; // Allow homepage, stories, search, and public profiles
+const DEFAULT_REDIRECT_AUTHENTICATED = '/profile';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -70,56 +70,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
       if (firebaseUser) {
-        let userRole: 'reader' | 'writer' | undefined = undefined;
-        let userBio: string | undefined = undefined;
+        // Base details from Firebase
         let appUsername = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous User';
-        let userFollowingIds: string[] = [];
+        let appDisplayName = firebaseUser.displayName || appUsername;
+        let appAvatarUrl = firebaseUser.photoURL;
+        let appEmail = firebaseUser.email || undefined;
 
+        // Details from sessionStorage (custom username, bio, role, social)
+        let userRole: 'reader' | 'writer' | undefined = 'reader';
+        let userBio: string | undefined = "No bio yet.";
+        let userFollowingIds: string[] = [];
+        let userFollowersCount = 0;
+        
         try {
-          const storedUserDetails = sessionStorage.getItem(`userDetails-${firebaseUser.uid}`);
-          if (storedUserDetails) {
-            const details = JSON.parse(storedUserDetails);
-            userRole = details.role;
-            userBio = details.bio;
-            if(details.username) appUsername = details.username;
-            userFollowingIds = details.followingIds || [];
-          } else {
-             // Fallback to placeholder if no session storage (e.g. first load)
-            const pUser = placeholderUsers.find(pu => pu.id === firebaseUser.uid || pu.email === firebaseUser.email);
-            if (pUser) {
-                userRole = pUser.role;
-                userBio = pUser.bio;
-                appUsername = pUser.username;
-                userFollowingIds = pUser.followingIds || [];
-            }
+          const storedUserDetailsString = sessionStorage.getItem(`userDetails-${firebaseUser.uid}`);
+          if (storedUserDetailsString) {
+            const storedUserDetails = JSON.parse(storedUserDetailsString);
+            userRole = storedUserDetails.role || userRole;
+            userBio = storedUserDetails.bio || userBio;
+            if (storedUserDetails.username) appUsername = storedUserDetails.username; // Custom username overrides
+            if (storedUserDetails.displayName) appDisplayName = storedUserDetails.displayName; // Custom display name
+            userFollowingIds = storedUserDetails.followingIds || [];
+            // followersCount is not reliably stored/updated in session for this mock, better to get from placeholder if exists
           }
         } catch (e) { console.error("Error parsing stored user details from sessionStorage", e); }
-        
-        const pUserMatch = placeholderUsers.find(pu => pu.id === firebaseUser.uid || pu.email === firebaseUser.email);
 
+        // Fallback to placeholderUsers for initial social stats or if no session data
+        const pUserMatch = placeholderUsers.find(pu => pu.id === firebaseUser.uid || pu.email === firebaseUser.email);
+        if (pUserMatch) {
+          if (!sessionStorage.getItem(`userDetails-${firebaseUser.uid}`)) { // If no session details yet, use placeholder as base
+            userRole = pUserMatch.role || userRole;
+            userBio = pUserMatch.bio || userBio;
+            appUsername = pUserMatch.username || appUsername; // Placeholder username can be a good default
+            appDisplayName = pUserMatch.displayName || appDisplayName;
+            appAvatarUrl = appAvatarUrl || pUserMatch.avatarUrl;
+          }
+          userFollowersCount = pUserMatch.followersCount || 0; // Get initial follower count
+           // Ensure followingIds from session take precedence if they exist, else from placeholder
+          userFollowingIds = sessionStorage.getItem(`userDetails-${firebaseUser.uid}`) ? userFollowingIds : (pUserMatch.followingIds || []);
+        }
+        
         const appUser: AppUser = {
           id: firebaseUser.uid,
           username: appUsername,
-          displayName: firebaseUser.displayName || appUsername,
-          avatarUrl: firebaseUser.photoURL || pUserMatch?.avatarUrl,
-          email: firebaseUser.email || undefined,
-          bio: userBio || pUserMatch?.bio || "No bio yet.",
-          role: userRole || pUserMatch?.role || 'reader',
-          followersCount: pUserMatch?.followersCount || 0,
-          followingCount: userFollowingIds.length, // Derive from followingIds
+          displayName: appDisplayName,
+          avatarUrl: appAvatarUrl || `https://placehold.co/100x100.png?text=${appUsername.charAt(0).toUpperCase()}`,
+          email: appEmail,
+          bio: userBio,
+          role: userRole,
+          followersCount: userFollowersCount,
+          followingCount: userFollowingIds.length,
           followingIds: userFollowingIds,
-          writtenStories: pUserMatch?.writtenStories || [],
-          readingList: pUserMatch?.readingList || [],
+          writtenStories: pUserMatch?.writtenStories || [], // Mocked
+          readingList: pUserMatch?.readingList || [], // Mocked
         };
         setUser(appUser);
-        setNotifications(placeholderNotifications.filter(n => n.link?.includes(appUser.id) || n.type === 'announcement' || n.actor?.id === appUser.id).slice(0,5)); // Mock: filter some relevant notifications
+
+        // Persist potentially merged/defaulted details back to sessionStorage
+        const sessionDetailsToStore = { 
+            role: appUser.role, 
+            bio: appUser.bio, 
+            username: appUser.username, 
+            displayName: appUser.displayName,
+            followingIds: appUser.followingIds 
+        };
+        sessionStorage.setItem(`userDetails-${firebaseUser.uid}`, JSON.stringify(sessionDetailsToStore));
         
-        // Ensure sessionStorage is up-to-date
-        const sessionDetailsToStore = { role: appUser.role, bio: appUser.bio, username: appUser.username, followingIds: appUser.followingIds };
-        if (!sessionStorage.getItem(`userDetails-${firebaseUser.uid}`) || 
-            JSON.stringify(sessionDetailsToStore) !== sessionStorage.getItem(`userDetails-${firebaseUser.uid}`)) {
-            sessionStorage.setItem(`userDetails-${firebaseUser.uid}`, JSON.stringify(sessionDetailsToStore));
-        }
+        // Mock notifications - filter some relevant notifications for the current user
+        setNotifications(
+          placeholderNotifications.filter(n => {
+            const isRecipient = n.link?.includes(`/profile/${appUser.id}`) || // e.g. new follower for this user
+                                (n.type === 'comment_reply' && n.message.includes(appUser.displayName || appUser.username)); 
+            const isGlobal = n.type === 'announcement';
+            const isOwnActionRelevant = n.actor?.id === appUser.id && (n.type === 'new_chapter' || n.type === 'story_update');
+            return isRecipient || isGlobal || isOwnActionRelevant;
+          }).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0,10)
+        );
 
       } else {
         setUser(null);
@@ -134,16 +160,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (loading) return;
 
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
-     // Check if the current path starts with any of the public routes (e.g. /stories/[storyId])
-    const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route) && (route !== '/' || pathname === '/'));
+    const isPublicRouteAccessible = PUBLIC_ROUTES.some(route => {
+        if (route.endsWith('/')) { // For routes like /profile/
+            return pathname.startsWith(route);
+        }
+        return route === pathname; // For exact matches like / or /stories
+    });
 
-
-    if (user) { // User is logged in
+    if (user) {
       if (isAuthRoute) {
         router.push(DEFAULT_REDIRECT_AUTHENTICATED);
       }
-    } else { // User is not logged in
-      if (!isAuthRoute && !isPublicRoute) {
+    } else {
+      if (!isAuthRoute && !isPublicRouteAccessible) {
         router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
       }
     }
@@ -193,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         break;
       case 'auth/account-exists-with-different-credential':
         title = "Account Linking Required";
-        friendlyMessage = "An account already exists with this email address, but was created using a different sign-in method (e.g., Email/Password). For Google Sign-In to access this existing account, your Firebase project's 'User account linking' setting (Authentication -> Settings) MUST be configured to 'Link accounts that use the same email address'. Please verify this setting in your Firebase Console. Alternatively, sign in using your original method.";
+        friendlyMessage = "An account already exists with this email, but was created with a different sign-in method (e.g., Email/Password). To use Google Sign-In for this account, your Firebase project's 'User account linking' setting (Authentication -> Settings) MUST be configured to 'Link accounts that use the same email address'. Please verify this setting in your Firebase Console. Alternatively, sign in using your original method.";
         break;
       case 'auth/network-request-failed':
         friendlyMessage = "A network error occurred. Please check your internet connection and try again.";
@@ -219,6 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
+      // User details will be processed by onAuthStateChanged
       toast({ title: "Google Sign-In Successful", description: `Welcome, ${result.user.displayName || result.user.email}! Redirecting...` });
     } catch (error) {
       handleAuthError(error as AuthError, "Google Sign-In");
@@ -233,55 +263,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       if (userCredential.user) {
         await updateFirebaseProfile(userCredential.user, { displayName: username });
+        // Store initial custom details in sessionStorage for onAuthStateChanged to pick up
         const defaultRole = 'reader';
-        const defaultBio = "New user exploring LitVerse!";
-        const defaultFollowingIds: string[] = [];
-        const sessionDetails = { role: defaultRole, bio: defaultBio, username: username, followingIds: defaultFollowingIds };
+        const defaultBio = "New user exploring D4RKV3NOM!";
+        const initialFollowingIds: string[] = [];
+        const sessionDetails = { 
+            username: username, // Store the chosen username
+            displayName: username, // Also set displayName in session
+            role: defaultRole, 
+            bio: defaultBio, 
+            followingIds: initialFollowingIds 
+        };
         sessionStorage.setItem(`userDetails-${userCredential.user.uid}`, JSON.stringify(sessionDetails));
-        
-        // Update placeholder users array (mock)
-        const newUserIndex = placeholderUsers.findIndex(u => u.id === userCredential.user.uid || u.email === email);
-        if (newUserIndex === -1) {
-            placeholderUsers.push({
-                id: userCredential.user.uid,
-                username: username,
-                displayName: username,
-                email: email,
-                role: defaultRole,
-                bio: defaultBio,
-                avatarUrl: userCredential.user.photoURL || `https://placehold.co/100x100.png?text=${username.charAt(0)}`,
-                followersCount: 0,
-                followingCount: 0,
-                followingIds: defaultFollowingIds,
-            });
-        } else {
-            // This case should ideally not happen if email is unique, but good for robustness
-            placeholderUsers[newUserIndex] = {
-                ...placeholderUsers[newUserIndex],
-                id: userCredential.user.uid, // ensure ID is Firebase UID
-                username: username,
-                displayName: username,
-                email: email, // ensure email is correct
-                role: defaultRole,
-                bio: defaultBio,
-                avatarUrl: userCredential.user.photoURL || placeholderUsers[newUserIndex].avatarUrl,
-                followingIds: defaultFollowingIds,
-            };
-        }
-
-        setUser(prevUser => ({
-            ...(prevUser as AppUser),
-            id: userCredential.user.uid,
-            username: username,
-            displayName: username,
-            email: email,
-            role: defaultRole,
-            bio: defaultBio,
-            avatarUrl: userCredential.user.photoURL || undefined,
-            followersCount: 0,
-            followingCount: 0,
-            followingIds: defaultFollowingIds,
-        }));
+        // onAuthStateChanged will handle setting the user state
       }
       toast({ title: "Sign Up Successful", description: "Your account has been created. Welcome!" });
     } catch (error) {
@@ -295,7 +289,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     let emailToUse = emailOrUsername;
 
-    if (!emailOrUsername.includes('@')) {
+    if (!emailOrUsername.includes('@')) { // Assume it's a username
       const foundUser = placeholderUsers.find(pUser => pUser.username.toLowerCase() === emailOrUsername.toLowerCase());
       if (foundUser && foundUser.email) {
         emailToUse = foundUser.email;
@@ -303,7 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthLoading(false);
         toast({
           title: "Sign-In Failed",
-          description: `Username "${emailOrUsername}" not found. Please check your username or sign in with your email address.`,
+          description: `Username "${emailOrUsername}" not found. Please check your username or sign in with your email address. (Note: Username lookup is currently based on pre-defined mock data).`,
           variant: "destructive",
         });
         return;
@@ -312,6 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     try {
       await firebaseSignInWithEmailAndPassword(auth, emailToUse, passwordOne);
+      // onAuthStateChanged will handle setting the user state
       toast({ title: "Sign In Successful", description: "You are now signed in. Redirecting..." });
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-In");
@@ -323,8 +318,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOutFirebase = async () => {
     setAuthLoading(true);
     try {
-      // No need to remove userDetails from sessionStorage, onAuthStateChanged handles user to null
       await signOut(auth);
+      // sessionStorage.removeItem('userDetails-...'); // Not strictly needed as onAuthStateChanged handles user to null
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
     } catch (error) {
       handleAuthError(error as AuthError, "Sign Out");
@@ -343,31 +338,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { displayName, avatarUrl, bio, role, username, followingIds } = updates;
       
       const profileUpdatesForFirebase: { displayName?: string | null; photoURL?: string | null } = {};
-      if (displayName !== undefined) profileUpdatesForFirebase.displayName = displayName;
-      if (avatarUrl !== undefined) profileUpdatesForFirebase.photoURL = avatarUrl;
+      // Only update displayName in Firebase if it's explicitly part of 'updates'
+      // and different from current Firebase displayName (or if current is null)
+      if (displayName !== undefined && displayName !== auth.currentUser.displayName) {
+          profileUpdatesForFirebase.displayName = displayName;
+      }
+      if (avatarUrl !== undefined && avatarUrl !== auth.currentUser.photoURL) {
+          profileUpdatesForFirebase.photoURL = avatarUrl;
+      }
 
       if (Object.keys(profileUpdatesForFirebase).length > 0) {
         await updateFirebaseProfile(auth.currentUser, profileUpdatesForFirebase);
       }
       
+      // Update local user state and sessionStorage
       setUser(prevUser => {
         if (!prevUser) return null;
         const updatedUser = {
           ...prevUser,
           ...(displayName !== undefined && { displayName }),
-          ...(username !== undefined && { username }),
+          ...(username !== undefined && { username }), // custom username
           ...(avatarUrl !== undefined && { avatarUrl }),
           ...(bio !== undefined && { bio }),
           ...(role !== undefined && { role }),
           ...(followingIds !== undefined && { followingIds, followingCount: followingIds.length }),
         };
-        // Update sessionStorage with new details
-        sessionStorage.setItem(`userDetails-${updatedUser.id}`, JSON.stringify({ 
+        
+        const sessionDetailsToStore = { 
             role: updatedUser.role, 
             bio: updatedUser.bio, 
             username: updatedUser.username,
+            displayName: updatedUser.displayName, 
             followingIds: updatedUser.followingIds 
-        }));
+        };
+        sessionStorage.setItem(`userDetails-${updatedUser.id}`, JSON.stringify(sessionDetailsToStore));
         return updatedUser;
       });
 
@@ -403,7 +407,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setAuthLoading(true);
     try {
-        // No direct re-auth attempt here as Firebase updateEmail handles it
         await updateFirebaseEmail(firebaseUser, newEmail);
         setUser(prev => prev ? ({ ...prev, email: newEmail }) : null);
         toast({ title: "Email Updated", description: `Your email has been successfully updated to ${newEmail}. You might need to sign in again.` });
@@ -412,8 +415,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       if (error.code === 'auth/requires-recent-login') {
         toast({ title: "Re-authentication Required", description: "Please enter your current password to verify and try again.", variant: "destructive" });
-        // Here you might want to prompt the user for currentPasswordForReAuth again or handle it in the UI
-        // For now, we assume currentPasswordForReAuth was the one provided.
         const reauthenticated = await reauthenticate(currentPasswordForReAuth);
         if (reauthenticated) {
           try {
@@ -442,7 +443,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setAuthLoading(true);
     try {
-        // No direct re-auth attempt here as Firebase updatePassword handles it
         await updateFirebasePassword(firebaseUser, newPasswordVal);
         toast({ title: "Password Updated", description: "Your password has been successfully changed." });
         setAuthLoading(false);
@@ -450,7 +450,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
         if (error.code === 'auth/requires-recent-login') {
         toast({ title: "Re-authentication Required", description: "Please enter your current password to verify and try again.", variant: "destructive" });
-        // Assuming currentPasswordForReAuth was the one provided for re-auth attempt
         const reauthenticated = await reauthenticate(currentPasswordForReAuth);
         if (reauthenticated) {
           try {
@@ -491,7 +490,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       timestamp: new Date().toISOString(),
       isRead: false,
     };
-    setNotifications(prev => [newNotif, ...prev].slice(0, 10)); // Keep max 10 notifications for demo
+    setNotifications(prev => [newNotif, ...prev].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10));
   };
 
   const markNotificationAsRead = (notificationId: string) => {
@@ -501,51 +500,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const followUser = async (targetUserId: string) => {
     if (!user) return;
     setAuthLoading(true);
-    // Mock: Update current user's following list
-    const newFollowingIds = [...(user.followingIds || []), targetUserId];
+    
+    const newFollowingIds = Array.from(new Set([...(user.followingIds || []), targetUserId]));
     setUser(prev => prev ? { 
         ...prev, 
         followingIds: newFollowingIds, 
         followingCount: newFollowingIds.length 
     } : null);
     
-    // Mock: Update target user's followers count in placeholderUsers
+    const currentSessionDetails = JSON.parse(sessionStorage.getItem(`userDetails-${user.id}`) || '{}');
+    currentSessionDetails.followingIds = newFollowingIds;
+    sessionStorage.setItem(`userDetails-${user.id}`, JSON.stringify(currentSessionDetails));
+    
+    // Mock: Update target user's followers count in placeholderUsers (for demo display if target profile is viewed)
+    // This is a mock and doesn't affect a real backend.
     const targetUserIndex = placeholderUsers.findIndex(u => u.id === targetUserId);
     if (targetUserIndex !== -1) {
-      placeholderUsers[targetUserIndex].followersCount = (placeholderUsers[targetUserIndex].followersCount || 0) + 1;
+      // To avoid double-counting if already followed in mock data, check first
+      // This part is tricky with mock data; a real backend would handle atomicity.
+      // For simplicity in mock, we just increment.
+      const alreadyFollowedInMock = placeholderUsers[targetUserIndex].followers?.some(f => f.id === user.id);
+      if (!alreadyFollowedInMock) {
+          placeholderUsers[targetUserIndex].followersCount = (placeholderUsers[targetUserIndex].followersCount || 0) + 1;
+          // Add to mock follower list if that exists
+          if(placeholderUsers[targetUserIndex].followers){
+            placeholderUsers[targetUserIndex].followers?.push({id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl});
+          } else {
+            placeholderUsers[targetUserIndex].followers = [{id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl}];
+          }
+      }
     }
-     // Persist current user's updated followingIds to sessionStorage
-    if(user){
-        const storedUserDetails = sessionStorage.getItem(`userDetails-${user.id}`);
-        let details = storedUserDetails ? JSON.parse(storedUserDetails) : {};
-        details.followingIds = newFollowingIds;
-        sessionStorage.setItem(`userDetails-${user.id}`, JSON.stringify(details));
-    }
-
-    // Mock: Add a notification for the target user
-    const targetUser = placeholderUsers.find(u => u.id === targetUserId);
-    if (targetUser) {
-        // This notification would normally be generated server-side and pushed
-        // For mock, if the targetUser is the current user (viewing their own profile action, which shouldn't happen for follow),
-        // or for a demo, we can add it to the current user's notification list.
-        // In a real scenario, this notification would be for the `targetUser`.
+    
+    const targetUserDetails = placeholderUsers.find(u=>u.id === targetUserId);
+    if (targetUserDetails) {
         addNotification({
             type: 'new_follower',
             message: `${user.displayName || user.username} started following you.`,
-            link: `/profile/${user.id}`,
+            link: `/profile/${user.id}`, // Link to the follower's profile
             actor: {id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl}
+            // This notification should ideally be for targetUserId, but for demo, current user also sees it if they are the target
         });
-        // If we had a way to send notifications to *other* users in this mock, it would go here.
     }
 
-    toast({title: "Followed", description: `You are now following ${placeholderUsers.find(u=>u.id === targetUserId)?.displayName || 'user'}.`});
+    toast({title: "Followed", description: `You are now following ${targetUserDetails?.displayName || 'user'}.`});
     setAuthLoading(false);
   };
 
   const unfollowUser = async (targetUserId: string) => {
     if (!user) return;
     setAuthLoading(true);
-    // Mock: Update current user's following list
+    
     const newFollowingIds = (user.followingIds || []).filter(id => id !== targetUserId);
     setUser(prev => prev ? { 
         ...prev, 
@@ -553,20 +557,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         followingCount: newFollowingIds.length 
     } : null);
 
+    const currentSessionDetails = JSON.parse(sessionStorage.getItem(`userDetails-${user.id}`) || '{}');
+    currentSessionDetails.followingIds = newFollowingIds;
+    sessionStorage.setItem(`userDetails-${user.id}`, JSON.stringify(currentSessionDetails));
+
     // Mock: Update target user's followers count in placeholderUsers
     const targetUserIndex = placeholderUsers.findIndex(u => u.id === targetUserId);
     if (targetUserIndex !== -1) {
       placeholderUsers[targetUserIndex].followersCount = Math.max(0, (placeholderUsers[targetUserIndex].followersCount || 0) - 1);
+       if(placeholderUsers[targetUserIndex].followers){
+            placeholderUsers[targetUserIndex].followers = placeholderUsers[targetUserIndex].followers?.filter(f => f.id !== user.id);
+        }
     }
-     // Persist current user's updated followingIds to sessionStorage
-    if(user){
-        const storedUserDetails = sessionStorage.getItem(`userDetails-${user.id}`);
-        let details = storedUserDetails ? JSON.parse(storedUserDetails) : {};
-        details.followingIds = newFollowingIds;
-        sessionStorage.setItem(`userDetails-${user.id}`, JSON.stringify(details));
-    }
-
-    toast({title: "Unfollowed", description: `You have unfollowed ${placeholderUsers.find(u=>u.id === targetUserId)?.displayName || 'user'}.`});
+    const targetUserDetails = placeholderUsers.find(u=>u.id === targetUserId);
+    toast({title: "Unfollowed", description: `You have unfollowed ${targetUserDetails?.displayName || 'user'}.`});
     setAuthLoading(false);
   };
 

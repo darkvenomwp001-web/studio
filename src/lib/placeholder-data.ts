@@ -3,59 +3,89 @@ import type { Story, User, Comment, Conversation, Message, NotificationType, Use
 
 export const placeholderUsers: User[] = [
   {
-    id: 'user1',
+    id: 'user1FirebaseUid', // Simulate Firebase UID
     username: 'CosmicReader',
     displayName: 'Alex Cosmos',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://placehold.co/100x100.png?text=AC',
+    dataAiHint: "profile person",
     bio: 'Lover of all things sci-fi and fantasy. Aspiring author. Exploring new worlds through words and code.',
     followersCount: 1250,
-    followingCount: 300,
-    followingIds: ['user2'],
+    followingCount: 2,
+    followingIds: ['user2FirebaseUid', 'user3FirebaseUid'],
     role: 'writer',
     email: 'cosmic@example.com',
   },
   {
-    id: 'user2',
+    id: 'user2FirebaseUid', // Simulate Firebase UID
     username: 'StoryWeaver',
     displayName: 'Bella Story',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://placehold.co/100x100.png?text=BS',
+    dataAiHint: "profile person",
     bio: 'Weaving tales one chapter at a time. Coffee addict. Always looking for the next great read.',
     followersCount: 850,
-    followingCount: 150,
-    followingIds: ['user1', 'user3'],
+    followingCount: 1,
+    followingIds: ['user1FirebaseUid'],
     role: 'reader',
     email: 'storyweaver@example.com',
   },
   {
-    id: 'user3',
+    id: 'user3FirebaseUid', // Simulate Firebase UID
     username: 'JaneDoeWrites',
     displayName: 'Jane Doe',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://placehold.co/100x100.png?text=JD',
+    dataAiHint: "profile person",
     bio: 'Exploring new worlds through words. Thriller and mystery enthusiast.',
     followersCount: 500,
-    followingCount: 70,
-    followingIds: [],
+    followingCount: 1,
+    followingIds: ['user1FirebaseUid'],
     role: 'writer',
     email: 'jane.writes@example.com',
   },
   {
-    id: 'user4', // Adding a new user for more interactions
+    id: 'user4FirebaseUid', // Simulate Firebase UID
     username: 'ReaderGuy',
     displayName: 'Sam Reads',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://placehold.co/100x100.png?text=SR',
+    dataAiHint: "profile person",
     bio: 'Just here to read amazing stories!',
     followersCount: 50,
-    followingCount: 120,
-    followingIds: ['user1', 'user2', 'user3'],
+    followingCount: 3,
+    followingIds: ['user1FirebaseUid', 'user2FirebaseUid', 'user3FirebaseUid'],
     role: 'reader',
     email: 'readerguy@example.com',
   },
+  { // User who might have signed up with Google, minimal initial data
+    id: 'googleUser1Uid',
+    username: 'gleslie', // Derived or set post-signup
+    displayName: 'Google Leslie', // From Google profile
+    avatarUrl: 'https://placehold.co/100x100.png?text=GL',
+    dataAiHint: "profile person",
+    bio: 'Just joined via Google!',
+    followersCount: 5,
+    followingCount: 1,
+    followingIds: ['user1FirebaseUid'],
+    role: 'reader',
+    email: 'google.leslie@example.com',
+  },
+  { // Another user for searching
+    id: 'anotherUserUid',
+    username: 'MysteryFan',
+    displayName: 'Mike Y. Sterry',
+    avatarUrl: 'https://placehold.co/100x100.png?text=MS',
+    dataAiHint: "profile person",
+    bio: 'Loves a good whodunit.',
+    followersCount: 78,
+    followingCount: 12,
+    followingIds: ['user3FirebaseUid'],
+    role: 'reader',
+    email: 'mike.sterry@example.com',
+  }
 ];
 
 const summarizeUser = (user: User): UserSummary => ({
   id: user.id,
   username: user.username,
-  displayName: user.displayName,
+  displayName: user.displayName || user.username,
   avatarUrl: user.avatarUrl,
 });
 
@@ -64,7 +94,7 @@ export const placeholderStories: Story[] = [
   {
     id: 'story1',
     title: 'The Last Stargazer',
-    author: summarizeUser(placeholderUsers[0]),
+    author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
     genre: 'Sci-Fi',
     coverImageUrl: 'https://placehold.co/300x450.png',
     dataAiHint: 'galaxy stars',
@@ -82,7 +112,7 @@ export const placeholderStories: Story[] = [
   {
     id: 'story2',
     title: 'Chronicles of the Shadow Forest',
-    author: summarizeUser(placeholderUsers[1]),
+    author: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
     genre: 'Fantasy',
     coverImageUrl: 'https://placehold.co/300x450.png',
     dataAiHint: 'enchanted forest',
@@ -101,7 +131,7 @@ export const placeholderStories: Story[] = [
   {
     id: 'story3',
     title: 'Echoes of Tomorrow',
-    author: summarizeUser(placeholderUsers[0]),
+    author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
     genre: 'Dystopian',
     coverImageUrl: 'https://placehold.co/300x450.png',
     dataAiHint: 'futuristic city',
@@ -118,13 +148,13 @@ export const placeholderStories: Story[] = [
   {
     id: 'story4',
     title: 'The Alchemist\'s Secret',
-    author: summarizeUser(placeholderUsers[2]),
+    author: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
     genre: 'Historical Fiction',
     coverImageUrl: 'https://placehold.co/300x450.png',
     dataAiHint: 'old library',
     summary: 'Set in Renaissance Florence, a young apprentice uncovers a dangerous secret hidden by a reclusive alchemist, leading to a thrilling chase across the city.',
     tags: ['mystery', 'history', 'alchemy', 'renaissance'],
-    chapters: [], // No chapters yet for this one, implying it's newly started or just a summary.
+    chapters: [],
     rating: 4.0,
     views: 30000,
     status: 'Ongoing',
@@ -137,7 +167,7 @@ placeholderUsers.forEach(user => {
     .filter(story => story.author.id === user.id)
     .map(story => ({ id: story.id, title: story.title, coverImageUrl: story.coverImageUrl, status: story.status }));
   user.readingList = placeholderStories
-    .filter(story => story.id !== user.writtenStories?.find(ws => ws.id === story.id)?.id) // Simple mock: not their own stories
+    .filter(story => !user.writtenStories?.some(ws => ws.id === story.id))
     .slice(0, 2)
     .map(story => ({ id: story.id, title: story.title, coverImageUrl: story.coverImageUrl }));
 });
@@ -146,29 +176,29 @@ placeholderUsers.forEach(user => {
 export const placeholderComments: Comment[] = [
   {
     id: 'comment1',
-    user: summarizeUser(placeholderUsers[1]),
+    user: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
     storyId: 'story1',
     chapterId: 'c1s1',
     content: 'This is an amazing start! Can\'t wait for the next chapter.',
-    timestamp: new Date(Date.now() - 3600000 * 5).toISOString(), // 5 hours ago
+    timestamp: new Date(Date.now() - 3600000 * 5).toISOString(), 
     likes: 15,
   },
   {
     id: 'comment2',
-    user: summarizeUser(placeholderUsers[0]),
+    user: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
     storyId: 'story1',
     chapterId: 'c1s1',
     parentId: 'comment1',
     content: 'Thank you! Working on it right now.',
-    timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), // 4 hours ago
+    timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), 
     likes: 5,
   },
   {
     id: 'comment3',
-    user: summarizeUser(placeholderUsers[2]),
+    user: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
     storyId: 'story2',
     content: 'What a thrilling conclusion! Loved the character development.',
-    timestamp: new Date(Date.now() - 86400000 * 1).toISOString(), // 1 day ago
+    timestamp: new Date(Date.now() - 86400000 * 1).toISOString(), 
     likes: 22,
   },
 ];
@@ -176,16 +206,16 @@ export const placeholderComments: Comment[] = [
 export const placeholderMessages: Message[] = [
   {
     id: 'msg1',
-    sender: summarizeUser(placeholderUsers[0]),
-    receiver: summarizeUser(placeholderUsers[1]),
+    sender: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
+    receiver: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
     content: 'Hey! Loved your latest chapter on "Chronicles of the Shadow Forest". Want to co-author something sometime?',
     timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
     isRead: true,
   },
   {
     id: 'msg2',
-    sender: summarizeUser(placeholderUsers[1]),
-    receiver: summarizeUser(placeholderUsers[0]),
+    sender: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
+    receiver: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
     content: 'Thanks so much! That sounds interesting. What did you have in mind?',
     timestamp: new Date(Date.now() - 3600000 * 1).toISOString(),
     isRead: false,
@@ -195,17 +225,17 @@ export const placeholderMessages: Message[] = [
 export const placeholderConversations: Conversation[] = [
   {
     id: 'conv1',
-    participants: [summarizeUser(placeholderUsers[0]), summarizeUser(placeholderUsers[1])],
+    participants: [summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!), summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!)],
     lastMessage: placeholderMessages[1],
     unreadCount: 1,
   },
   {
     id: 'conv2',
-    participants: [summarizeUser(placeholderUsers[0]), summarizeUser(placeholderUsers[2])],
+    participants: [summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!), summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!)],
     lastMessage: {
       id: 'msg3',
-      sender: summarizeUser(placeholderUsers[2]),
-      receiver: summarizeUser(placeholderUsers[0]),
+      sender: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
+      receiver: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
       content: 'Just checking in on the release schedule for "Echoes of Tomorrow".',
       timestamp: new Date(Date.now() - 86400000 * 3).toISOString(),
       isRead: true,
@@ -219,35 +249,35 @@ export const placeholderNotifications: NotificationType[] = [
   {
     id: 'notif1',
     type: 'new_follower',
-    actor: summarizeUser(placeholderUsers[2]),
-    message: `${placeholderUsers[2].displayName} started following you.`,
-    link: `/profile/${placeholderUsers[2].id}`,
-    timestamp: new Date(Date.now() - 3600000 * 1).toISOString(), // 1 hour ago
+    actor: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
+    message: `${placeholderUsers.find(u => u.id === 'user3FirebaseUid')?.displayName} started following you.`,
+    link: `/profile/${placeholderUsers.find(u => u.id === 'user3FirebaseUid')?.id}`,
+    timestamp: new Date(Date.now() - 3600000 * 1).toISOString(), 
     isRead: false,
   },
   {
     id: 'notif2',
     type: 'new_chapter',
-    actor: summarizeUser(placeholderUsers[0]),
-    message: `${placeholderUsers[0].displayName} published a new chapter for "The Last Stargazer": Chapter 2 - Whispers of the Void.`,
-    link: `/stories/story1`, // Link to the story
-    timestamp: new Date(Date.now() - 3600000 * 3).toISOString(), // 3 hours ago
+    actor: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
+    message: `${placeholderUsers.find(u => u.id === 'user1FirebaseUid')?.displayName} published a new chapter for "The Last Stargazer": Chapter 2 - Whispers of the Void.`,
+    link: `/stories/story1`, 
+    timestamp: new Date(Date.now() - 3600000 * 3).toISOString(), 
     isRead: false,
   },
   {
     id: 'notif3',
     type: 'comment_reply',
-    actor: summarizeUser(placeholderUsers[1]),
-    message: `${placeholderUsers[1].displayName} replied to your comment on "Chronicles of the Shadow Forest".`,
-    link: `/stories/story2`, // Link to the story/comment
-    timestamp: new Date(Date.now() - 86400000 * 1).toISOString(), // 1 day ago
+    actor: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
+    message: `${placeholderUsers.find(u => u.id === 'user2FirebaseUid')?.displayName} replied to your comment on "Chronicles of the Shadow Forest".`,
+    link: `/stories/story2`, 
+    timestamp: new Date(Date.now() - 86400000 * 1).toISOString(), 
     isRead: true,
   },
    {
     id: 'notif4',
     type: 'announcement',
-    message: `Welcome to the new LitVerse platform! Explore and enjoy the new features.`,
-    timestamp: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
+    message: `Welcome to the new D4RKV3NOM platform! Explore and enjoy the new features.`,
+    timestamp: new Date(Date.now() - 86400000 * 2).toISOString(), 
     isRead: true,
   },
 ];
