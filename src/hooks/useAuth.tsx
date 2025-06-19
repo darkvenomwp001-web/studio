@@ -19,7 +19,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 interface SignUpData {
-  username?: string; // Username is optional here, displayName in Firebase
+  username: string; // Username is required for app-specific logic
   email: string;
   passwordOne: string;
 }
@@ -31,8 +31,8 @@ interface SignInData {
 
 interface AuthContextType {
   user: AppUser | null;
-  loading: boolean;
-  authLoading: boolean; // Specific loading state for auth operations
+  loading: boolean; // Initial auth state check loading
+  authLoading: boolean; // Specific loading state for auth operations (sign-in, sign-up)
   signInWithGoogle: () => Promise<void>;
   signUpWithEmailPassword: (data: SignUpData) => Promise<void>;
   signInWithEmailPassword: (data: SignInData) => Promise<void>;
@@ -47,8 +47,8 @@ const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true); // For initial auth state check
-  const [authLoading, setAuthLoading] = useState(false); // For specific auth actions like sign-in/up
+  const [loading, setLoading] = useState(true); 
+  const [authLoading, setAuthLoading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (firebaseUser) {
         const appUser: AppUser = {
           id: firebaseUser.uid,
-          username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous User',
           avatarUrl: firebaseUser.photoURL || undefined,
           bio: undefined, 
           writtenStories: [],
@@ -92,8 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, loading, pathname, router]);
 
-  const handleAuthError = (error: AuthError) => {
-    console.error("Firebase Auth Error:", error.code, error.message);
+  const handleAuthError = (error: AuthError, operation?: string) => {
+    console.error(`Firebase Auth Error during ${operation || 'operation'}:`, error.code, error.message);
     let friendlyMessage = "An unexpected error occurred. Please try again.";
     switch (error.code) {
       case 'auth/email-already-in-use':
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         break;
       case 'auth/user-not-found':
       case 'auth/wrong-password':
-      case 'auth/invalid-credential': // Catches user-not-found and wrong-password in newer SDKs
+      case 'auth/invalid-credential':
         friendlyMessage = "Invalid email or password. Please check your credentials.";
         break;
       case 'auth/popup-closed-by-user':
@@ -123,8 +123,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       case 'auth/popup-blocked':
           friendlyMessage = "Google Sign-In popup was blocked by the browser. Please allow popups for this site.";
           break;
+      case 'auth/account-exists-with-different-credential':
+        friendlyMessage = "An account already exists with this email address using a different sign-in method. Try signing in with that method.";
+        break;
+      case 'auth/network-request-failed':
+        friendlyMessage = "A network error occurred. Please check your internet connection and try again.";
+        break;
       default:
         friendlyMessage = error.message || friendlyMessage;
+        console.error("Unhandled Firebase Auth Error:", error.code, error.message);
     }
     toast({ title: "Authentication Error", description: friendlyMessage, variant: "destructive" });
   };
@@ -133,11 +140,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      toast({ title: "Success", description: "Signed in with Google successfully!" });
-      // onAuthStateChanged handles user state and redirection
+      const result = await signInWithPopup(auth, provider);
+      // onAuthStateChanged will handle setting the user state and redirection.
+      // We show a success toast here for immediate feedback.
+      toast({ title: "Google Sign-In Successful", description: `Welcome, ${result.user.displayName || result.user.email}!` });
     } catch (error) {
-      handleAuthError(error as AuthError);
+      handleAuthError(error as AuthError, "Google Sign-In");
     } finally {
       setAuthLoading(false);
     }
@@ -147,15 +155,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
-      if (userCredential.user && username) {
+      if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: username });
-        // Refresh user state if necessary, though onAuthStateChanged should pick it up
-         setUser(prevUser => prevUser ? {...prevUser, username: username } : null);
+        // Manually update the local user state's username part as onAuthStateChanged might not immediately reflect displayName update
+        setUser(prevUser => ({
+            ...(prevUser || { id: userCredential.user.uid, avatarUrl: userCredential.user.photoURL || undefined }), // Spread previous or basic user
+            username: username, // Explicitly set username
+            // ensure all AppUser fields are present
+            bio: prevUser?.bio,
+            writtenStories: prevUser?.writtenStories || [],
+            readingList: prevUser?.readingList || [],
+            followersCount: prevUser?.followersCount || 0,
+            followingCount: prevUser?.followingCount || 0,
+        } as AppUser));
       }
-      toast({ title: "Success", description: "Account created successfully! You are now signed in." });
-      // onAuthStateChanged handles user state and redirection
+      toast({ title: "Sign Up Successful", description: "Your account has been created and you are now signed in." });
+      // onAuthStateChanged will ensure consistency, but redirection is handled by the useEffect hook.
     } catch (error) {
-      handleAuthError(error as AuthError);
+      handleAuthError(error as AuthError, "Email/Password Sign-Up");
     } finally {
       setAuthLoading(false);
     }
@@ -165,10 +182,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, passwordOne);
-      toast({ title: "Success", description: "Signed in successfully!" });
-      // onAuthStateChanged handles user state and redirection
+      toast({ title: "Sign In Successful", description: "You are now signed in." });
+      // onAuthStateChanged handles user state and redirection.
     } catch (error) {
-      handleAuthError(error as AuthError);
+      handleAuthError(error as AuthError, "Email/Password Sign-In");
     } finally {
       setAuthLoading(false);
     }
@@ -178,10 +195,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
       await signOut(auth);
-      toast({ title: "Signed Out", description: "You have been signed out." });
-      // onAuthStateChanged handles user state and redirection to sign-in
+      toast({ title: "Signed Out", description: "You have been successfully signed out." });
+      // onAuthStateChanged will set user to null, and redirection is handled by the useEffect hook.
     } catch (error) {
-      handleAuthError(error as AuthError);
+      handleAuthError(error as AuthError, "Sign Out");
     } finally {
       setAuthLoading(false);
     }
