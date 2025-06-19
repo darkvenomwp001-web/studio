@@ -61,11 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: firebaseUser.uid,
           username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous User',
           avatarUrl: firebaseUser.photoURL || undefined,
-          bio: undefined,
-          writtenStories: [],
-          readingList: [],
-          followersCount: 0,
-          followingCount: 0,
+          bio: undefined, // You might want to fetch this from Firestore/RTDB if you store it
+          writtenStories: [], // Placeholder, fetch from DB
+          readingList: [], // Placeholder, fetch from DB
+          followersCount: 0, // Placeholder, fetch/calculate
+          followingCount: 0, // Placeholder, fetch/calculate
         };
         setUser(appUser);
       } else {
@@ -81,11 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
-    if (user) {
+    if (user) { // User is authenticated
       if (isAuthRoute) {
         router.push(DEFAULT_REDIRECT_AUTHENTICATED);
       }
-    } else {
+    } else { // User is not authenticated
       if (!isAuthRoute) {
         router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
       }
@@ -119,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       case 'auth/wrong-password':
       case 'auth/invalid-credential':
         friendlyMessage = "Invalid email or password. Please check your credentials.";
+        title = "Sign-In Failed";
         break;
       case 'auth/popup-closed-by-user':
         title = "Google Sign-In Cancelled";
@@ -130,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         break;
       case 'auth/account-exists-with-different-credential':
         title = "Account Exists With Different Sign-In Method";
-        friendlyMessage = "An account already exists with this email address but was created using a different sign-in method (e.g., Email/Password). Please sign in using your original method. If you expect Google Sign-In to link to this email, check your Firebase project's 'User account linking' settings in the Firebase Console to ensure it's configured to link accounts or prevent duplicates for the same email.";
+        friendlyMessage = "An account already exists with this email address but was created using a different sign-in method (e.g., Email/Password). To sign in with Google and link to this existing account, your Firebase project's 'User account linking' settings must be configured to 'Link accounts that use the same email address'. Please check your Firebase Console (Authentication -> Settings -> User account linking) to enable this. Otherwise, sign in using your original method or use a different Google account.";
         break;
       case 'auth/network-request-failed':
         friendlyMessage = "A network error occurred. Please check your internet connection and try again.";
@@ -153,7 +154,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await signInWithPopup(auth, provider);
       const firebaseUser = result.user;
-      // onAuthStateChanged will handle setting user state and triggering redirection.
+      // onAuthStateChanged will handle setting user state and triggering redirection logic.
+      // A success toast can be shown here if desired, but the redirection is primary.
       toast({ title: "Google Sign-In Successful", description: `Welcome, ${firebaseUser.displayName || firebaseUser.email}! Redirecting...` });
     } catch (error) {
       handleAuthError(error as AuthError, "Google Sign-In");
