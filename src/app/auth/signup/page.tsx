@@ -14,18 +14,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { UserPlus } from "lucide-react"
 import Link from "next/link"
-import { useAuth } from "@/hooks/useAuth"; // Corrected import path
-import { FormEvent } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { FormEvent, useState } from "react";
 
 export default function SignUpPage() {
-  const { signInWithGoogle, loading } = useAuth();
+  const { signInWithGoogle, loading: googleLoading } = useAuth();
+  const [emailPasswordLoading, setEmailPasswordLoading] = useState(false);
 
-  // Email/Password form submission is disabled for now
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // Email/password signup logic would go here if re-enabled
-     alert("Email/password sign-up is currently disabled. Please use Google Sign-Up.");
+    setEmailPasswordLoading(true);
+    // Firebase email/password sign-up logic would go here.
+    // For now, we'll keep the alert.
+    alert("Email/password sign-up is not yet implemented with Firebase. Please use Google Sign-Up.");
+    setEmailPasswordLoading(false);
   };
+
+  const isAnyLoading = googleLoading || emailPasswordLoading;
 
   return (
     <Card className="w-full max-w-sm shadow-2xl">
@@ -37,24 +42,24 @@ export default function SignUpPage() {
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
-            <Input id="username" name="username" placeholder="YourCreativeName" required disabled />
+            <Input id="username" name="username" placeholder="YourCreativeName" required disabled={isAnyLoading} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" placeholder="you@example.com" required disabled />
+            <Input id="email" name="email" type="email" placeholder="you@example.com" required disabled={isAnyLoading} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" placeholder="••••••••" required disabled />
+            <Input id="password" name="password" type="password" placeholder="••••••••" required disabled={isAnyLoading} />
           </div>
            <div className="space-y-2">
             <Label htmlFor="confirm-password">Confirm Password</Label>
-            <Input id="confirm-password" name="confirmPassword" type="password" placeholder="••••••••" required disabled />
+            <Input id="confirm-password" name="confirmPassword" type="password" placeholder="••••••••" required disabled={isAnyLoading} />
           </div>
-          <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6" disabled>
-            <UserPlus className="mr-2 h-5 w-5" /> Sign Up
+          <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6" disabled={isAnyLoading}>
+            {emailPasswordLoading ? "Processing..." : <><UserPlus className="mr-2 h-5 w-5" /> Sign Up</>}
           </Button>
-          <p className="text-xs text-center text-muted-foreground">Email/Password sign-up is temporarily disabled.</p>
+          <p className="text-xs text-center text-muted-foreground">Email/Password sign-up is not yet fully implemented.</p>
            <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
@@ -65,15 +70,15 @@ export default function SignUpPage() {
               </span>
             </div>
           </div>
-          <Button variant="outline" className="w-full" type="button" onClick={signInWithGoogle} disabled={loading}> 
-             {loading ? "Signing up..." : "Sign up with Google"}
+          <Button variant="outline" className="w-full" type="button" onClick={signInWithGoogle} disabled={isAnyLoading}> 
+             {googleLoading ? "Signing up..." : "Sign up with Google"}
           </Button>
         </CardContent>
       </form>
       <CardFooter className="text-center text-sm">
          <p className="text-muted-foreground w-full">
           Already have an account?{' '}
-          <Link href="/auth/signin" className="font-semibold text-primary hover:underline">
+          <Link href="/auth/signin" className={`font-semibold text-primary hover:underline ${isAnyLoading ? 'pointer-events-none text-muted-foreground' : ''}`}>
             Sign In
           </Link>
         </p>
