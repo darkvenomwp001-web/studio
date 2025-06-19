@@ -23,7 +23,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
-const DEFAULT_REDIRECT_AUTHENTICATED = '/';
+const DEFAULT_REDIRECT_AUTHENTICATED = '/'; // Redirect to homepage after login
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -40,8 +40,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: firebaseUser.uid,
           username: firebaseUser.displayName || 'Anonymous User',
           avatarUrl: firebaseUser.photoURL || undefined,
-          // Add other fields from your AppUser type as needed, potentially fetched from your DB
-          // For now, we only map basic info from Firebase
+          // Firebase doesn't provide bio, followersCount, etc. by default.
+          // These would typically be fetched from your app's database (e.g., Firestore)
+          // after a user logs in, using firebaseUser.uid as the key.
+          // For this prototype, we'll leave them undefined.
+          bio: undefined, 
+          writtenStories: [],
+          readingList: [],
+          followersCount: 0,
+          followingCount: 0,
         };
         setUser(appUser);
       } else {
@@ -55,19 +62,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading) {
-      return;
+      return; // Don't do anything while loading
     }
 
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
-    if (user) {
-      if (isAuthRoute) {
-        router.push(DEFAULT_REDIRECT_AUTHENTICATED);
+    if (user) { // User is authenticated
+      if (isAuthRoute) { // and trying to access an auth page (signin/signup)
+        router.push(DEFAULT_REDIRECT_AUTHENTICATED); // Redirect to homepage
       }
-    } else {
-      if (!isAuthRoute) {
-        router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
+      // If user is authenticated and on a non-auth page, they can stay.
+    } else { // User is NOT authenticated
+      if (!isAuthRoute) { // and trying to access a protected page
+        router.push(DEFAULT_REDIRECT_UNAUTHENTICATED); // Redirect to signin page
       }
+      // If user is not authenticated and on an auth page, they can stay.
     }
   }, [user, loading, pathname, router]);
 
@@ -76,27 +85,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // onAuthStateChanged will handle setting the user and redirection
-      // No need to manually push here, as the effect above will handle it once user state changes
+      // onAuthStateChanged will handle setting the user.
+      // The useEffect above will handle redirection once user state is updated.
     } catch (error) {
       console.error("Error signing in with Google:", error);
-      // Potentially show a toast message to the user
-      setLoading(false); // Ensure loading is false on error
+      // Optionally, show a toast message to the user here
+      setLoading(false); // Ensure loading is false on error so UI isn't stuck
     }
-    // setLoading(false) will be handled by onAuthStateChanged's effect
+    // setLoading will be managed by the onAuthStateChanged listener's effect
   };
 
   const signOutFirebase = async () => {
+    setLoading(true);
     try {
       await signOut(auth);
-      // onAuthStateChanged will set user to null, triggering redirect effect
+      // onAuthStateChanged will set user to null.
+      // The useEffect above will handle redirection.
     } catch (error) {
       console.error("Error signing out:", error);
+      // Optionally, show a toast message
+      setLoading(false);
     }
   };
   
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOutFirebase: signOutFirebase }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOutFirebase }}>
       {children}
     </AuthContext.Provider>
   );
