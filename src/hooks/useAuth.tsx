@@ -53,7 +53,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
-const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search', '/profile/']; // Allow homepage, stories, search, and public profiles
+const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search', '/profile/', '/write/history']; // Allow version history too
 const DEFAULT_REDIRECT_AUTHENTICATED = '/profile';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
@@ -142,8 +142,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const isRecipient = n.link?.includes(`/profile/${appUser.id}`) || // e.g. new follower for this user
                                 (n.type === 'comment_reply' && n.message.includes(appUser.displayName || appUser.username)); 
             const isGlobal = n.type === 'announcement';
-            const isOwnActionRelevant = n.actor?.id === appUser.id && (n.type === 'new_chapter' || n.type === 'story_update');
-            return isRecipient || isGlobal || isOwnActionRelevant;
+            // For story updates/new chapters, show if current user is the actor OR if it's a general story update they might be interested in
+            const isStoryUpdateRelevant = (n.type === 'new_chapter' || n.type === 'story_update') && (n.actor?.id === appUser.id || !n.message.startsWith(appUser.displayName || appUser.username));
+
+            return isRecipient || isGlobal || isStoryUpdateRelevant;
           }).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0,10)
         );
 
@@ -161,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
     const isPublicRouteAccessible = PUBLIC_ROUTES.some(route => {
-        if (route.endsWith('/')) { // For routes like /profile/
+        if (route.endsWith('/')) { // For routes like /profile/ or /write/history/
             return pathname.startsWith(route);
         }
         return route === pathname; // For exact matches like / or /stories
@@ -484,13 +486,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const addNotification = (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
+    if (!user && notificationData.type !== 'announcement') return; // Don't add personal notifications if no user, unless it's a global announcement
+
     const newNotif: NotificationType = {
       ...notificationData,
       id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       timestamp: new Date().toISOString(),
       isRead: false,
     };
-    setNotifications(prev => [newNotif, ...prev].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10));
+    
+    // For demo, all notifications are added to current user's list
+    // In a real app, new_chapter notifications would go to followers.
+    setNotifications(prev => [newNotif, ...prev].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 15)); // Increased limit
   };
 
   const markNotificationAsRead = (notificationId: string) => {
@@ -513,16 +520,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem(`userDetails-${user.id}`, JSON.stringify(currentSessionDetails));
     
     // Mock: Update target user's followers count in placeholderUsers (for demo display if target profile is viewed)
-    // This is a mock and doesn't affect a real backend.
     const targetUserIndex = placeholderUsers.findIndex(u => u.id === targetUserId);
     if (targetUserIndex !== -1) {
-      // To avoid double-counting if already followed in mock data, check first
-      // This part is tricky with mock data; a real backend would handle atomicity.
-      // For simplicity in mock, we just increment.
       const alreadyFollowedInMock = placeholderUsers[targetUserIndex].followers?.some(f => f.id === user.id);
       if (!alreadyFollowedInMock) {
           placeholderUsers[targetUserIndex].followersCount = (placeholderUsers[targetUserIndex].followersCount || 0) + 1;
-          // Add to mock follower list if that exists
           if(placeholderUsers[targetUserIndex].followers){
             placeholderUsers[targetUserIndex].followers?.push({id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl});
           } else {
@@ -533,12 +535,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const targetUserDetails = placeholderUsers.find(u=>u.id === targetUserId);
     if (targetUserDetails) {
-        addNotification({
+      // This notification should ideally be sent TO the targetUser, not the current user.
+      // For this mock, the actor is the current user. A real system would deliver this TO targetUserId.
+        addNotification({ 
             type: 'new_follower',
-            message: `${user.displayName || user.username} started following you.`,
-            link: `/profile/${user.id}`, // Link to the follower's profile
+            message: `${user.displayName || user.username} started following ${targetUserDetails.displayName || targetUserDetails.username}.`, // Generic message for now
+            link: `/profile/${user.id}`, 
             actor: {id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl}
-            // This notification should ideally be for targetUserId, but for demo, current user also sees it if they are the target
         });
     }
 
