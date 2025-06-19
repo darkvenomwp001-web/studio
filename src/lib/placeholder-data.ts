@@ -54,10 +54,10 @@ export const placeholderUsers: User[] = [
     role: 'reader',
     email: 'readerguy@example.com',
   },
-  { // User who might have signed up with Google, minimal initial data
+  { 
     id: 'googleUser1Uid',
-    username: 'gleslie', // Derived or set post-signup
-    displayName: 'Google Leslie', // From Google profile
+    username: 'gleslie', 
+    displayName: 'Google Leslie', 
     avatarUrl: 'https://placehold.co/100x100.png?text=GL',
     dataAiHint: "profile person",
     bio: 'Just joined via Google!',
@@ -67,7 +67,7 @@ export const placeholderUsers: User[] = [
     role: 'reader',
     email: 'google.leslie@example.com',
   },
-  { // Another user for searching
+  { 
     id: 'anotherUserUid',
     username: 'MysteryFan',
     displayName: 'Mike Y. Sterry',
@@ -101,13 +101,16 @@ export const placeholderStories: Story[] = [
     summary: 'In a galaxy where stars are fading, a lone stargazer seeks the last spark of light. Their journey will uncover ancient secrets and a destiny intertwined with the fate of the cosmos.',
     tags: ['space opera', 'adventure', 'mystery', 'chosen one'],
     chapters: [
-      { id: 'c1s1', title: 'The Fading Sky', content: 'Content for chapter 1 of The Last Stargazer...', order: 1 },
-      { id: 'c1s2', title: 'Whispers of the Void', content: 'Content for chapter 2 of The Last Stargazer...', order: 2 },
+      { id: 'c1s1', title: 'The Fading Sky', content: 'The stars were dying. One by one, they flickered out, leaving vast stretches of the cosmos cold and dark. Elara, the last of the Stargazers, watched from her lonely observatory on the edge of the known universe. Her ancestors had charted the heavens for millennia, but now, there was little left to chart.\n\nA faint signal, a whisper across the void, was her only hope. It spoke of a place where the stars still burned bright, a mythical Eden where the First Ones had hidden the source of all light. Most dismissed it as legend, but Elara clung to it. It was the only thread in a tapestry of despair.', order: 1 },
+      { id: 'c1s2', title: 'Whispers of the Void', content: 'Commander REX, a decommissioned war-droid with a penchant for existential poetry, was Elara\'s only companion. "The universe sighs, does it not?" he rumbled one cycle, his optical sensors dim. "Another constellation gone. Soon, only the echoes will remain."\n\nElara ignored him, focusing on the faint signal. It was stronger tonight, pulling her towards an uncharted sector. "Prepare the \'Odyssey\', REX," she commanded. "We\'re going hunting."', order: 2 },
+      { id: 'c1s3', title: 'The Derelict Oracle', content: 'Their journey led them to a derelict space station, an Oracle of a long-dead civilization. Inside, they found cryptic star charts and warnings of a "Great Devourer" that consumed stellar energy. The Oracle hinted that the First Ones had not hidden the light, but protected it from this entity.\n\n"It seems our legend has a villain," REX noted, his processors whirring. Elara felt a chill. This was no longer just a quest for light, but a race against an ancient cosmic horror.', order: 3 },
+      { id: 'c1s4', title: 'Encounter with Jax Nebula', content: 'In the Kepler\'s Remnant nebula, they encountered Jax, a charming rogue and information broker with a ship full of secrets and a smile that could disarm a pulsar. He claimed to know the way to the "Star Forge," the place Elara sought, but his help came at a steep price: a rare artifact her ancestors had left behind.\n\n"Trust is a luxury in these dark times, Stargazer," Jax purred, eyeing the artifact. Elara knew he was dangerous, but he was also her best lead.', order: 4 },
+      { id: 'c1s5', title: 'The Price of Knowledge', content: 'Elara reluctantly agreed to Jax\'s terms. The artifact, a Celestial Compass, was a key to navigating the treacherous currents of the void. As Jax revealed the coordinates to the Star Forge, alarms blared. A massive, shadowy vessel emerged from the nebula – the Great Devourer\'s herald.\n\n"Looks like the party\'s started," Jax quipped, already powering up his weapons. "Hold on tight, Stargazer. This is where the universe gets interesting." The Odyssey, with its unlikely crew, plunged into the heart of the storm.', order: 5 },
     ],
     rating: 4.8,
     views: 150000,
     status: 'Ongoing',
-    lastUpdated: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
+    lastUpdated: new Date(Date.now() - 86400000 * 2).toISOString(), 
   },
   {
     id: 'story2',
@@ -126,7 +129,7 @@ export const placeholderStories: Story[] = [
     rating: 4.5,
     views: 95000,
     status: 'Completed',
-    lastUpdated: new Date(Date.now() - 86400000 * 10).toISOString(), // 10 days ago
+    lastUpdated: new Date(Date.now() - 86400000 * 10).toISOString(), 
   },
   {
     id: 'story3',
@@ -143,7 +146,7 @@ export const placeholderStories: Story[] = [
     rating: 4.2,
     views: 72000,
     status: 'Ongoing',
-    lastUpdated: new Date(Date.now() - 86400000 * 5).toISOString(), // 5 days ago
+    lastUpdated: new Date(Date.now() - 86400000 * 5).toISOString(), 
   },
   {
     id: 'story4',
@@ -158,9 +161,8 @@ export const placeholderStories: Story[] = [
     rating: 4.0,
     views: 30000,
     status: 'Ongoing',
-    lastUpdated: new Date(Date.now() - 86400000 * 1).toISOString(), // 1 day ago
+    lastUpdated: new Date(Date.now() - 86400000 * 1).toISOString(), 
   },
-  // Additional Sci-Fi Stories
   {
     id: 'story5',
     title: 'Guardians of Nebula X',
@@ -206,7 +208,6 @@ export const placeholderStories: Story[] = [
     status: 'Ongoing',
     lastUpdated: new Date(Date.now() - 86400000 * 4).toISOString(),
   },
-  // Additional Fantasy Stories
   {
     id: 'story8',
     title: 'Dragon\'s Peak Legacy',
@@ -252,7 +253,6 @@ export const placeholderStories: Story[] = [
     status: 'Completed',
     lastUpdated: new Date(Date.now() - 86400000 * 20).toISOString(),
   },
-  // Additional Dystopian Stories
   {
     id: 'story11',
     title: 'Sector 7 Compliance',
@@ -298,7 +298,6 @@ export const placeholderStories: Story[] = [
     status: 'Ongoing',
     lastUpdated: new Date(Date.now() - 86400000 * 9).toISOString(),
   },
-  // Additional Historical Fiction Stories
   {
     id: 'story14',
     title: 'The Silk Road Trader',
@@ -350,12 +349,12 @@ placeholderUsers.forEach(user => {
   user.writtenStories = placeholderStories
     .filter(story => story.author.id === user.id)
     .map(story => ({ id: story.id, title: story.title, coverImageUrl: story.coverImageUrl, status: story.status }));
-  // Ensure reading list doesn't include own stories and has unique items
+  
   const userWrittenStoryIds = new Set(user.writtenStories.map(s => s.id));
   user.readingList = placeholderStories
     .filter(story => !userWrittenStoryIds.has(story.id))
-    .sort(() => 0.5 - Math.random()) // Randomize for variety
-    .slice(0, 3) // Take up to 3 random stories for reading list
+    .sort(() => 0.5 - Math.random()) 
+    .slice(0, 3) 
     .map(story => ({ id: story.id, title: story.title, coverImageUrl: story.coverImageUrl }));
 });
 
@@ -469,3 +468,4 @@ export const placeholderNotifications: NotificationType[] = [
   },
 ];
 
+    

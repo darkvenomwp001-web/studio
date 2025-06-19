@@ -50,10 +50,9 @@ async function getStoryData(storyId: string): Promise<Story | undefined> {
   return placeholderStories.find(story => story.id === storyId);
 }
 
-// Mock character list for the new feature
 const mockStoryCharacters = (storyTitle?: string) => {
     if (!storyTitle) return [];
-    if (storyTitle.includes("Stargazer")) return [{id: "char1", name: "Elara Vayne"}, {id: "char2", name: "Commander REX"}];
+    if (storyTitle.includes("Stargazer")) return [{id: "char1", name: "Elara Vayne"}, {id: "char2", name: "Commander REX"}, {id: "char3", name: "The Oracle"}, {id: "char4", name: "Jax Nebula"}];
     if (storyTitle.includes("Shadow Forest")) return [{id: "char3", name: "Kaelen"}, {id: "char4", name: "Lyra the Sorceress"}];
     return [{id: "charGen1", name: "Protagonist"}, {id: "charGen2", name: "Antagonist"}];
 }
@@ -71,7 +70,7 @@ export default function StoryPage() {
   
   const [controlsVisible, setControlsVisible] = useState(true);
   const [tocVisible, setTocVisible] = useState(false);
-  const [mockReadingProgress, setMockReadingProgress] = useState(30); // Percentage
+  const [mockReadingProgress, setMockReadingProgress] = useState(0);
 
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -85,7 +84,7 @@ export default function StoryPage() {
             setCurrentChapterIndex(0);
           }
         } else {
-          router.push('/404');
+          router.push('/404'); // Or a dedicated not found page for stories
         }
         setIsLoading(false);
       });
@@ -93,10 +92,11 @@ export default function StoryPage() {
   }, [storyId, router]);
 
   useEffect(() => {
-    // Simulate reading progress update based on current chapter
     if (story && story.chapters.length > 0) {
       const progress = ((currentChapterIndex + 1) / story.chapters.length) * 100;
       setMockReadingProgress(Math.min(100, Math.max(0, progress)));
+    } else {
+      setMockReadingProgress(0);
     }
   }, [currentChapterIndex, story]);
 
@@ -105,20 +105,21 @@ export default function StoryPage() {
 
   const toggleMainControls = () => {
     setControlsVisible(prev => !prev);
-    if (tocVisible) setTocVisible(false); // Hide TOC if main controls are hidden
+    if (tocVisible) setTocVisible(false); 
   };
   
   const toggleToc = () => {
     setTocVisible(prev => !prev);
-    if (!controlsVisible && !tocVisible) setControlsVisible(true); // Show main controls if opening TOC from hidden state
-    else if (controlsVisible && !tocVisible) setControlsVisible(true); // Ensure main controls stay if TOC is opened
+    if (!prev && !controlsVisible) { // If TOC is being opened and controls are hidden
+      setControlsVisible(true);
+    }
   };
 
   const navigateToChapter = (index: number) => {
     if (story && index >= 0 && index < story.chapters.length) {
       setCurrentChapterIndex(index);
-      setTocVisible(false); // Close TOC on chapter navigation
-      setControlsVisible(false); // Hide controls for reading
+      setTocVisible(false); 
+      setControlsVisible(false); 
       contentRef.current?.scrollTo(0, 0);
     }
   };
@@ -167,53 +168,59 @@ export default function StoryPage() {
       {/* Top Navigation Bar */}
       <header
         className={cn(
-          'fixed top-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-b shadow-sm transition-transform duration-300 ease-in-out p-2 sm:p-3 flex items-center justify-between',
-          controlsVisible ? 'translate-y-0' : '-translate-y-full'
+          'fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b shadow-sm transition-all duration-300 ease-in-out p-2 sm:p-3 flex items-center justify-between',
+          controlsVisible ? 'translate-y-0' : '-translate-y-full',
+          tocVisible ? 'lg:right-72 md:lg:right-80 right-0' : 'right-0'
         )}
       >
-        <Button variant="ghost" size="icon" onClick={toggleToc} aria-label="Table of Contents">
-          <ListOrdered className="h-5 w-5" />
+        <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Back to Story Details">
+          <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="truncate text-center">
+        <div className="truncate text-center mx-2">
             <h1 className="text-md sm:text-lg font-headline font-semibold text-primary truncate">{story.title}</h1>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Appearance Settings">
-              <Settings2 className="h-5 w-5" />
+        <div className="flex items-center">
+            <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Appearance Settings">
+                <Settings2 className="h-5 w-5" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Appearance</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled>Font Size (Soon)</DropdownMenuItem>
+                <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>Theme (Soon)</DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                        <DropdownMenuSubContent>
+                            <DropdownMenuItem><Sun className="mr-2 h-4 w-4" /> Light</DropdownMenuItem>
+                            <DropdownMenuItem><Moon className="mr-2 h-4 w-4" /> Dark</DropdownMenuItem>
+                            <DropdownMenuItem><BookOpen className="mr-2 h-4 w-4" /> Sepia</DropdownMenuItem>
+                        </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Ambiance Mode</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => handleAmbianceMode("Forest Sounds")}>
+                    <Volume2 className="mr-2 h-4 w-4" /> Forest Sounds
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAmbianceMode("Rainy Day")}>
+                    <Sparkles className="mr-2 h-4 w-4" /> Rainy Day
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="ghost" size="icon" onClick={toggleToc} aria-label="Table of Contents">
+                <ListOrdered className="h-5 w-5" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Appearance</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>Font Size (Soon)</DropdownMenuItem>
-            <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Theme (Soon)</DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                    <DropdownMenuSubContent>
-                        <DropdownMenuItem><Sun className="mr-2 h-4 w-4" /> Light</DropdownMenuItem>
-                        <DropdownMenuItem><Moon className="mr-2 h-4 w-4" /> Dark</DropdownMenuItem>
-                        <DropdownMenuItem><BookOpen className="mr-2 h-4 w-4" /> Sepia</DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-            </DropdownMenuSub>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Ambiance Mode (New!)</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => handleAmbianceMode("Forest Sounds")}>
-                <Volume2 className="mr-2 h-4 w-4" /> Forest Sounds
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAmbianceMode("Rainy Day")}>
-                <Sparkles className="mr-2 h-4 w-4" /> Rainy Day
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        </div>
       </header>
 
-      {/* Left Table of Contents Sidebar */}
+      {/* Right Table of Contents Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-50 w-72 md:w-80 bg-card shadow-xl p-4 transform transition-transform duration-300 ease-in-out flex flex-col',
-          tocVisible ? 'translate-x-0' : '-translate-x-full'
+          'fixed right-0 top-0 bottom-0 z-50 w-72 md:w-80 bg-card shadow-xl p-4 transform transition-transform duration-300 ease-in-out flex flex-col',
+          tocVisible ? 'translate-x-0' : 'translate-x-full'
         )}
       >
         <div className="flex justify-between items-center mb-4">
@@ -236,7 +243,7 @@ export default function StoryPage() {
         </Button>
         
         <h4 className="font-semibold text-sm mt-2 mb-1 text-muted-foreground">Chapters</h4>
-        <ScrollArea className="flex-1 mb-3 max-h-60"> {/* Max height for chapter list */}
+        <ScrollArea className="flex-1 mb-3 max-h-60">
           <ul className="space-y-1">
             {story.chapters.map((chapter, index) => (
               <li key={chapter.id}>
@@ -257,8 +264,8 @@ export default function StoryPage() {
 
         {characters.length > 0 && (
             <>
-            <h4 className="font-semibold text-sm mt-2 mb-1 text-muted-foreground">Characters (New!)</h4>
-            <ScrollArea className="flex-1 mb-2 max-h-28"> {/* Max height for character list */}
+            <h4 className="font-semibold text-sm mt-2 mb-1 text-muted-foreground">Characters</h4>
+            <ScrollArea className="flex-1 mb-2 max-h-28">
             <ul className="space-y-1">
                 {characters.map(char => (
                 <li key={char.id}>
@@ -293,33 +300,28 @@ export default function StoryPage() {
       <main
         className={cn(
           'transition-all duration-300 ease-in-out focus:outline-none',
-          'pt-16 pb-20', // Padding for fixed top/bottom bars
-           tocVisible ? 'lg:ml-72 md:lg:ml-80' : 'ml-0' 
+          'pt-16 pb-20', 
+          tocVisible ? 'lg:mr-72 md:lg:mr-80' : 'mr-0' 
         )}
         onClick={(e) => {
-            // Only toggle if primary click on the main content area itself
             if (e.target === e.currentTarget && e.button === 0) {
                 toggleMainControls();
             }
         }}
-        role="button" // Make it keyboard accessible for toggling
-        tabIndex={0} // Make it focusable
+        role="button" 
+        tabIndex={0} 
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleMainControls();}}
         aria-pressed={controlsVisible}
         aria-label="Reading area, click to toggle controls"
       >
-        <div ref={contentRef} className="min-h-[calc(100vh-8rem)]"> {/* Ensure it's scrollable */}
+        <div ref={contentRef} className="min-h-[calc(100vh-8rem)]">
             <article className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20">
             {currentChapter ? (
                 <>
                 <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4">{currentChapter.title}</h2>
-                {currentChapter.content.split('\\n').map((paragraph, index) => (
+                {currentChapter.content.split('\n').map((paragraph, index) => ( // Ensure split by newline character
                   <p key={index} className="leading-relaxed my-4">{paragraph}</p>
                 ))}
-                {/* Example longer text for scroll testing */}
-                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
-                <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.</p>
-                 <p>Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?</p>
                 </>
             ) : (
                 <div className="text-center py-10">
@@ -330,8 +332,7 @@ export default function StoryPage() {
             </article>
         </div>
         
-        {/* Persistent Comment Section - always below content */}
-        <div id="comment-section" className="px-4 sm:px-6 md:px-12 pt-8 pb-24"> {/* Extra pb for bottom bar space */}
+        <div id="comment-section" className="px-4 sm:px-6 md:px-12 pt-8 pb-24">
             <CommentSection storyId={story.id} chapterId={currentChapter?.id} />
         </div>
       </main>
@@ -339,9 +340,9 @@ export default function StoryPage() {
       {/* Bottom Action Bar */}
       <footer
         className={cn(
-          'fixed bottom-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-t p-2 transform transition-transform duration-300 ease-in-out',
+          'fixed bottom-0 left-0 z-40 bg-card/80 backdrop-blur-md border-t p-2 transform transition-transform duration-300 ease-in-out',
           controlsVisible ? 'translate-y-0' : 'translate-y-full',
-          tocVisible ? 'lg:left-72 md:lg:left-80' : 'left-0' 
+          tocVisible ? 'lg:right-72 md:lg:right-80 right-0' : 'right-0' 
         )}
       >
         <div className="max-w-4xl mx-auto flex flex-col gap-2 px-2">
@@ -378,3 +379,5 @@ export default function StoryPage() {
   );
 }
         
+
+    
