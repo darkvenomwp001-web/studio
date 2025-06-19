@@ -42,6 +42,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
+const PROTECTED_ROUTES_REQUIRE_AUTH = ['/profile', '/write', '/messages', '/ai-assistant']; // Add any other routes that need auth
 const DEFAULT_REDIRECT_AUTHENTICATED = '/'; 
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: firebaseUser.uid,
           username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous User',
           avatarUrl: firebaseUser.photoURL || undefined,
+          // Initialize other fields as needed or fetch them from your database
           bio: undefined, 
           writtenStories: [],
           readingList: [],
@@ -77,16 +79,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading) return; // Don't redirect until initial auth check is complete
 
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
+    const isProtectedRoute = PROTECTED_ROUTES_REQUIRE_AUTH.some(route => pathname.startsWith(route));
 
-    if (user) {
+    if (user) { // User is authenticated
       if (isAuthRoute) {
         router.push(DEFAULT_REDIRECT_AUTHENTICATED);
       }
-    } else {
-      if (!isAuthRoute) {
+    } else { // User is not authenticated
+      if (isProtectedRoute && !isAuthRoute) {
         router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
       }
     }
@@ -130,8 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         friendlyMessage = "A network error occurred. Please check your internet connection and try again.";
         break;
       default:
-        friendlyMessage = `An error occurred: ${error.message}. Code: ${error.code}`;
-        console.error("Unhandled Firebase Auth Error:", error.code, error.message);
+        friendlyMessage = `An error occurred: ${error.message}. Please try again. Code: ${error.code}`;
     }
     toast({ title: "Authentication Error", description: friendlyMessage, variant: "destructive" });
   };
@@ -142,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await signInWithPopup(auth, provider);
       toast({ title: "Google Sign-In Successful", description: `Welcome, ${result.user.displayName || result.user.email}!` });
-      // onAuthStateChanged handles user state and redirection.
+      // onAuthStateChanged handles user state update and redirection logic in useEffect
     } catch (error) {
       handleAuthError(error as AuthError, "Google Sign-In");
     } finally {
@@ -155,21 +157,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       if (userCredential.user) {
+        // It's important to await updateProfile
         await updateProfile(userCredential.user, { displayName: username });
-        // Manually update the local user state's username part as onAuthStateChanged might not immediately reflect displayName update
-        // This is optimistic; onAuthStateChanged will provide the true state.
-         setUser(prevUser => ({
+        // The onAuthStateChanged listener will pick up the new user and their updated profile.
+        // For an immediate UI update if onAuthStateChanged is slow, you can optimistically update:
+        setUser({
             id: userCredential.user.uid,
+            username: username, // Use the provided username
             avatarUrl: userCredential.user.photoURL || undefined,
-            username: username, 
-            bio: prevUser?.bio,
-            writtenStories: prevUser?.writtenStories || [],
-            readingList: prevUser?.readingList || [],
-            followersCount: prevUser?.followersCount || 0,
-            followingCount: prevUser?.followingCount || 0,
-        } as AppUser));
+            bio: undefined,
+            writtenStories: [],
+            readingList: [],
+            followersCount: 0,
+            followingCount: 0,
+        });
       }
       toast({ title: "Sign Up Successful", description: "Your account has been created. Welcome!" });
+      // onAuthStateChanged handles redirection
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-Up");
     } finally {
@@ -182,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signInWithEmailAndPassword(auth, email, passwordOne);
       toast({ title: "Sign In Successful", description: "You are now signed in." });
+      // onAuthStateChanged handles redirection
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-In");
     } finally {
@@ -194,9 +199,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signOut(auth);
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
+      // onAuthStateChanged handles redirection
     } catch (error) {
       handleAuthError(error as AuthError, "Sign Out");
     } finally {
+      setUser(null); // Explicitly clear user state locally for faster UI update
       setAuthLoading(false);
     }
   };

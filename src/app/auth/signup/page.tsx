@@ -44,7 +44,8 @@ export default function SignUpPage() {
   };
 
   const handleGoogleSignUp = async () => {
-    await signInWithGoogle(); // Firebase handles sign-up implicitly if user doesn't exist
+    // Firebase handles sign-up implicitly if user doesn't exist with Google Sign-In
+    await signInWithGoogle(); 
   }
 
   const isAnyLoading = authLoading || initialAuthLoading;
