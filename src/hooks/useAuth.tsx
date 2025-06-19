@@ -119,14 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         friendlyMessage = "Invalid email or password. Please check your credentials.";
         break;
       case 'auth/popup-closed-by-user':
-        friendlyMessage = "Google Sign-In popup was closed. If this was unintentional, please try again and ensure pop-ups are allowed and not closed prematurely by your browser or an extension.";
+        friendlyMessage = "Google Sign-In was cancelled or the popup was closed before completion. Please try again. Ensure pop-ups are allowed in your browser settings and that no extensions are closing it prematurely.";
         break;
-      case 'auth/cancelled-popup-request': 
       case 'auth/popup-blocked':
-          friendlyMessage = "Google Sign-In popup was blocked or cancelled. Please ensure pop-ups are allowed for this site and try again. You might need to check your browser settings, ad-blockers, or other extensions.";
+          friendlyMessage = "Google Sign-In popup was blocked. Please ensure pop-ups are allowed for this site in your browser settings and try again. You might need to check ad-blockers or other browser extensions.";
           break;
       case 'auth/account-exists-with-different-credential':
-        friendlyMessage = "An account with this email already exists, but it uses a different sign-in method (e.g., Email/Password). To sign in with Google, your Firebase project must be configured to link accounts with the same email. Please check your Firebase project's 'Authentication -> Settings -> User account linking' options. Alternatively, sign in using your original method or use a different Google account.";
+        friendlyMessage = "An account with this email already exists using a different sign-in method (e.g., Email/Password). Please sign in using your original method. If you expect Google Sign-In to link to this account, check your Firebase project's 'User account linking' settings in the Firebase Console.";
         break;
       case 'auth/network-request-failed':
         friendlyMessage = "A network error occurred. Please check your internet connection and try again.";
@@ -149,15 +148,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await signInWithPopup(auth, provider);
       const firebaseUser = result.user;
-      const appUser: AppUser = { // Manually construct AppUser for immediate UI update
+      const appUser: AppUser = {
         id: firebaseUser.uid,
         username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous User',
         avatarUrl: firebaseUser.photoURL || undefined,
         bio: undefined, writtenStories: [], readingList: [], followersCount: 0, followingCount: 0,
       };
-      setUser(appUser); // Update local state immediately for faster UI response
+      setUser(appUser); 
       toast({ title: "Google Sign-In Successful", description: `Welcome, ${appUser.username}! Redirecting...` });
-      // Redirection will be handled by the main useEffect hook based on user state change.
+      // Redirection is handled by the main useEffect hook
     } catch (error) {
       handleAuthError(error as AuthError, "Google Sign-In");
     } finally {
@@ -177,9 +176,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatarUrl: userCredential.user.photoURL || undefined,
           bio: undefined, writtenStories: [], readingList: [], followersCount: 0, followingCount: 0,
         };
-        setUser(appUser); // Update local state immediately
+        setUser(appUser);
       }
       toast({ title: "Sign Up Successful", description: "Your account has been created. Welcome!" });
+      // Redirection is handled by the main useEffect hook
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-Up");
     } finally {
@@ -198,8 +198,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatarUrl: firebaseUser.photoURL || undefined,
           bio: undefined, writtenStories: [], readingList: [], followersCount: 0, followingCount: 0,
         };
-      setUser(appUser); // Update local state immediately
-      toast({ title: "Sign In Successful", description: "You are now signed in." });
+      setUser(appUser); 
+      toast({ title: "Sign In Successful", description: "You are now signed in. Redirecting..." });
+      // Redirection is handled by the main useEffect hook
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-In");
     } finally {
@@ -213,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut(auth);
       setUser(null); 
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
+      // Redirection is handled by the main useEffect hook
     } catch (error) {
       handleAuthError(error as AuthError, "Sign Out");
     } finally {
