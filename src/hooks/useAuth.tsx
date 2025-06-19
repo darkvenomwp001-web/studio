@@ -3,92 +3,100 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import type { User } from '@/types';
-import { placeholderUsers } from '@/lib/placeholder-data';
+import type { User as AppUser } from '@/types';
+import { auth } from '@/lib/firebase';
+import { 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  onAuthStateChanged, 
+  signOut,
+  type User as FirebaseUser 
+} from 'firebase/auth';
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   loading: boolean;
-  login: (userData?: User) => void;
-  logout: () => void;
+  signInWithGoogle: () => Promise<void>;
+  signOutFirebase: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
-const DEFAULT_REDIRECT_AUTHENTICATED = '/'; // Redirect here if logged in and tries to access auth routes
-const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin'; // Redirect here if not logged in
+const DEFAULT_REDIRECT_AUTHENTICATED = '/';
+const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
-      try {
-        const storedUser = sessionStorage.getItem('mockUser');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error("Failed to parse user from sessionStorage", error);
+      if (firebaseUser) {
+        const appUser: AppUser = {
+          id: firebaseUser.uid,
+          username: firebaseUser.displayName || 'Anonymous User',
+          avatarUrl: firebaseUser.photoURL || undefined,
+          // Add other fields from your AppUser type as needed, potentially fetched from your DB
+          // For now, we only map basic info from Firebase
+        };
+        setUser(appUser);
+      } else {
         setUser(null);
-        sessionStorage.removeItem('mockUser');
       }
       setLoading(false);
-    };
-    checkAuth();
-  }, []); // Runs once on mount to check sessionStorage
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (loading) {
-      return; // Don't do anything while loading auth state
+      return;
     }
 
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
-    if (user) { // User is authenticated
+    if (user) {
       if (isAuthRoute) {
         router.push(DEFAULT_REDIRECT_AUTHENTICATED);
       }
-    } else { // User is not authenticated
+    } else {
       if (!isAuthRoute) {
         router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
       }
     }
-  }, [user, loading, pathname, router]); // Re-run when auth state, loading status, or path changes
+  }, [user, loading, pathname, router]);
 
-  const login = (userData?: User) => {
-    // setLoading(true); // Optional: can cause flicker if login is fast
-    const userToLogin = userData || placeholderUsers[0];
-    setUser(userToLogin);
-    sessionStorage.setItem('mockUser', JSON.stringify(userToLogin));
-    setLoading(false); // Ensure loading is false after user is set for the redirect effect to work correctly
-    router.push(DEFAULT_REDIRECT_AUTHENTICATED); // Redirect to homepage
+  const signInWithGoogle = async () => {
+    setLoading(true);
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged will handle setting the user and redirection
+      // No need to manually push here, as the effect above will handle it once user state changes
+    } catch (error) {
+      console.error("Error signing in with Google:", error);
+      // Potentially show a toast message to the user
+      setLoading(false); // Ensure loading is false on error
+    }
+    // setLoading(false) will be handled by onAuthStateChanged's effect
   };
 
-  const logout = () => {
-    setUser(null);
-    sessionStorage.removeItem('mockUser');
-    router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
+  const signOutFirebase = async () => {
+    try {
+      await signOut(auth);
+      // onAuthStateChanged will set user to null, triggering redirect effect
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
-
-  // If loading, or if unauthenticated and not on an auth route (redirection pending),
-  // we could return a loader. However, to avoid conflicts with RootLayout,
-  // we'll rely on the useEffect for redirection. The brief rendering of children
-  // before redirect is usually acceptable for simple cases.
-  // For a full-page loader here, it would typically replace `children`.
-  // if (loading) return <YourGlobalLoader />;
-  // if (!user && !AUTH_ROUTES.includes(pathname) && !loading) return <YourGlobalLoader />;
-
-
+  
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOutFirebase: signOutFirebase }}>
       {children}
     </AuthContext.Provider>
   );

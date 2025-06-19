@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -9,19 +10,17 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { placeholderStories } from '@/lib/placeholder-data';
 import StoryCard from '@/components/shared/StoryCard';
-import { Edit, LogOut, Loader2, MessageSquare, UserPlus } from 'lucide-react'; // Added MessageSquare, UserPlus for completeness if profile was for other users
+import { Edit, LogOut, Loader2, MessageSquare, UserPlus } from 'lucide-react'; 
 import Image from 'next/image';
 import Link from 'next/link';
 
 export default function ProfilePage() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, signOutFirebase } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/auth/signin');
-    }
-  }, [user, loading, router]);
+  // Redirection is now handled by the AuthProvider's useEffect
+  // This useEffect is mainly for local loading state on this page if needed,
+  // or to react to user changes after initial load.
 
   if (loading) {
     return (
@@ -32,15 +31,19 @@ export default function ProfilePage() {
   }
 
   if (!user) {
+    // This case should ideally be handled by AuthProvider redirection,
+    // but as a fallback:
     return (
         <div className="flex flex-col justify-center items-center min-h-[calc(100vh-12rem)] text-center">
-            <p className="text-lg text-muted-foreground mb-4">Redirecting to sign in...</p>
+            <p className="text-lg text-muted-foreground mb-4">No user data. Redirecting...</p>
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
     );
   }
   
+  // Filter stories based on the currently authenticated user's ID
   const userWrittenStories = placeholderStories.filter(story => story.author.id === user.id);
+  // Mock reading list and activity feed for demonstration
   const readingListStories = placeholderStories.slice(0,2).map(s => ({...s, id: s.id + "-rl"})); 
   const activityFeed = [
     { id: 'act1', type: 'commented', on: 'The Last Stargazer', time: '2h ago' },
@@ -56,7 +59,7 @@ export default function ProfilePage() {
         </div>
         <div className="flex flex-col md:flex-row items-center md:items-end gap-6 pt-16 md:pt-24">
           <Avatar className="h-32 w-32 md:h-40 md:w-40 border-4 border-background shadow-xl">
-            <AvatarImage src={user.avatarUrl || `https://placehold.co/100x100.png?text=${user.username.charAt(0)}`} alt={user.username} data-ai-hint="profile person" />
+            <AvatarImage src={user.avatarUrl || `https://placehold.co/160x160.png`} alt={user.username} data-ai-hint="profile person" />
             <AvatarFallback className="text-4xl">{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-1 text-center md:text-left">
@@ -69,7 +72,7 @@ export default function ProfilePage() {
           </div>
           <div className="flex gap-2 mt-4 md:mt-0">
             <Button variant="outline"><Edit className="mr-2 h-4 w-4" /> Edit Profile</Button>
-            <Button variant="destructive" onClick={logout}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
+            <Button variant="destructive" onClick={signOutFirebase}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
           </div>
         </div>
         <div className="mt-6 pt-6 border-t border-border/60 flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-muted-foreground">

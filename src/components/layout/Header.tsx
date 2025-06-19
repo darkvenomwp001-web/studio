@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, LogOut, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from '@/hooks/useAuth.tsx';
+import { useAuth } from '@/hooks/useAuth';
 
 const NavLink = ({ href, children, icon }: { href: string; children: React.ReactNode; icon?: React.ReactNode }) => (
   <Link href={href} passHref>
@@ -27,9 +27,9 @@ const NavLink = ({ href, children, icon }: { href: string; children: React.React
 
 export default function Header() {
   const [mounted, setMounted] = useState(false);
-  const { user, logout, loading } = useAuth();
+  const { user, signOutFirebase, loading } = useAuth(); 
   const router = useRouter();
-
+  
   useEffect(() => setMounted(true), []);
   
   const handleSearchIconClick = () => {
@@ -84,7 +84,11 @@ export default function Header() {
                         <AvatarImage src={user.avatarUrl} alt={user.username} data-ai-hint="profile person" />
                         <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
                     </Avatar>
-                ) : (
+                ) : user ? ( // User exists but no avatarUrl
+                    <Avatar className="h-7 w-7">
+                       <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                ) : ( // No user
                     <UserCircle className="h-6 w-6" />
                 )}
               </Button>
@@ -111,7 +115,7 @@ export default function Header() {
                     <Link href="/messages" className="flex items-center gap-2"><MessageCircle className="h-4 w-4" /> Messages</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
+                  <DropdownMenuItem onClick={signOutFirebase} className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
                     <LogOut className="h-4 w-4" /> Sign Out
                   </DropdownMenuItem>
                 </>

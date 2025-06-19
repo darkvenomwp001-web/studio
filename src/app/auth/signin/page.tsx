@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Button } from "@/components/ui/button"
@@ -17,11 +18,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { FormEvent } from "react";
 
 export default function SignInPage() {
-  const { login } = useAuth();
+  const { signInWithGoogle, loading } = useAuth();
 
+  // Email/Password form submission is disabled for now
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    login(); 
+    // Email/password login logic would go here if re-enabled
+    alert("Email/password sign-in is currently disabled. Please use Google Sign-In.");
   };
 
   return (
@@ -34,20 +37,21 @@ export default function SignInPage() {
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="you@example.com" required />
+            <Input id="email" type="email" placeholder="you@example.com" required disabled />
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Password</Label>
-              <Link href="#" className="text-xs text-primary hover:underline">
+              <Link href="#" className="text-xs text-primary hover:underline pointer-events-none text-muted-foreground">
                 Forgot password?
               </Link>
             </div>
-            <Input id="password" type="password" placeholder="••••••••" required />
+            <Input id="password" type="password" placeholder="••••••••" required disabled />
           </div>
-          <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6">
+          <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6" disabled>
             <LogIn className="mr-2 h-5 w-5" /> Sign In
           </Button>
+          <p className="text-xs text-center text-muted-foreground">Email/Password sign-in is temporarily disabled.</p>
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
@@ -58,8 +62,8 @@ export default function SignInPage() {
               </span>
             </div>
           </div>
-          <Button variant="outline" className="w-full" type="button" onClick={() => login()}>
-            Sign in with Google
+          <Button variant="outline" className="w-full" type="button" onClick={signInWithGoogle} disabled={loading}>
+            {loading ? "Signing in..." : "Sign in with Google"}
           </Button>
         </CardContent>
       </form>
