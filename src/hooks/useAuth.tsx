@@ -95,6 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleAuthError = (error: AuthError, operation?: string) => {
     console.error(`Firebase Auth Error during ${operation || 'operation'}:`, error.code, error.message);
     let friendlyMessage = "An unexpected error occurred. Please try again.";
+    let title = "Authentication Error";
+
     switch (error.code) {
       case 'auth/email-already-in-use':
         friendlyMessage = "This email address is already in use by another account.";
@@ -117,13 +119,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         friendlyMessage = "Invalid email or password. Please check your credentials.";
         break;
       case 'auth/popup-closed-by-user':
+        title = "Google Sign-In Cancelled";
         friendlyMessage = "Google Sign-In was cancelled or the popup was closed. Please try again. Ensure pop-ups are allowed for this site in your browser settings.";
         break;
       case 'auth/popup-blocked':
-          friendlyMessage = "Google Sign-In popup was blocked. Please allow pop-ups for this site in your browser settings and try again. Ad-blockers or other extensions might also interfere.";
-          break;
+        title = "Google Sign-In Blocked";
+        friendlyMessage = "Google Sign-In popup was blocked by your browser. Please allow pop-ups for this site in your browser settings and try again. Ad-blockers or other extensions might also interfere.";
+        break;
       case 'auth/account-exists-with-different-credential':
-        friendlyMessage = "An account with this email already exists, but with a different sign-in method (e.g., Email/Password). Please sign in using your original method. If you expect Google Sign-In to link, ensure your Firebase project's 'User account linking' setting is enabled in the Firebase Console (Authentication -> Settings).";
+        title = "Account Exists With Different Sign-In Method";
+        friendlyMessage = "This email is already registered with a different sign-in method (e.g., Email/Password). Please use your original sign-in method. For Google Sign-In to link to this email, your Firebase project's 'User account linking' setting (Authentication -> Settings in Firebase Console) must be configured to link accounts or prevent duplicates for the same email.";
         break;
       case 'auth/network-request-failed':
         friendlyMessage = "A network error occurred. Please check your internet connection and try again.";
@@ -137,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       default:
         friendlyMessage = `An error occurred: ${error.message}. Please try again. (Code: ${error.code})`;
     }
-    toast({ title: "Authentication Error", description: friendlyMessage, variant: "destructive" });
+    toast({ title: title, description: friendlyMessage, variant: "destructive" });
   };
 
   const signInWithGoogle = async () => {
@@ -215,3 +220,4 @@ export function useAuth() {
   }
   return context;
 }
+
