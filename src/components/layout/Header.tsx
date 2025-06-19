@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, LogOut, UserPlus, Settings, Bell } from 'lucide-react';
+import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, LogOut, UserPlus, Settings, Bell, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -256,4 +256,3 @@ export default function Header() {
     </header>
   );
 }
-
