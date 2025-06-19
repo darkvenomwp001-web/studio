@@ -1,27 +1,47 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { placeholderUsers, placeholderStories } from '@/lib/placeholder-data';
+import { placeholderStories } from '@/lib/placeholder-data';
 import StoryCard from '@/components/shared/StoryCard';
-import { UserPlus, MessageSquare, Edit } from 'lucide-react';
+import { Edit, LogOut, Loader2, MessageSquare, UserPlus } from 'lucide-react'; // Added MessageSquare, UserPlus for completeness if profile was for other users
 import Image from 'next/image';
+import Link from 'next/link';
 
-// Mock function to get current user data. In a real app, this would come from auth context.
-async function getCurrentUserData() {
-  return placeholderUsers[0]; // Assuming the first user is the logged-in user for demo
-}
+export default function ProfilePage() {
+  const { user, loading, logout } = useAuth();
+  const router = useRouter();
 
-export default async function ProfilePage() {
-  const user = await getCurrentUserData();
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/auth/signin');
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!user) {
-    return <div className="text-center py-10">User profile not found or not logged in.</div>;
+    return (
+        <div className="flex flex-col justify-center items-center min-h-[calc(100vh-12rem)] text-center">
+            <p className="text-lg text-muted-foreground mb-4">Redirecting to sign in...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
   }
   
   const userWrittenStories = placeholderStories.filter(story => story.author.id === user.id);
-  // Placeholder for reading list and activity
-  const readingListStories = placeholderStories.slice(0,2).map(s => ({...s, id: s.id + "-rl"})); // Make IDs unique for key prop
+  const readingListStories = placeholderStories.slice(0,2).map(s => ({...s, id: s.id + "-rl"})); 
   const activityFeed = [
     { id: 'act1', type: 'commented', on: 'The Last Stargazer', time: '2h ago' },
     { id: 'act2', type: 'published a new chapter for', on: 'Echoes of Tomorrow', time: '1d ago' },
@@ -30,14 +50,13 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-8">
-      {/* Profile Header */}
       <header className="bg-card p-6 md:p-8 rounded-lg shadow-lg relative">
         <div className="absolute top-0 left-0 w-full h-32 md:h-48 bg-gradient-to-br from-primary/30 to-accent/30 rounded-t-lg -z-10">
              <Image src="https://placehold.co/1200x300.png" alt="Profile banner" layout="fill" objectFit="cover" className="rounded-t-lg opacity-50" data-ai-hint="abstract background"/>
         </div>
         <div className="flex flex-col md:flex-row items-center md:items-end gap-6 pt-16 md:pt-24">
           <Avatar className="h-32 w-32 md:h-40 md:w-40 border-4 border-background shadow-xl">
-            <AvatarImage src={user.avatarUrl} alt={user.username} data-ai-hint="profile person" />
+            <AvatarImage src={user.avatarUrl || `https://placehold.co/100x100.png?text=${user.username.charAt(0)}`} alt={user.username} data-ai-hint="profile person" />
             <AvatarFallback className="text-4xl">{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-1 text-center md:text-left">
@@ -46,16 +65,11 @@ export default async function ProfilePage() {
             <div className="mt-3 flex flex-wrap gap-2 justify-center md:justify-start">
               <Badge variant="secondary">Writer</Badge>
               <Badge variant="secondary">Reader</Badge>
-              {/* Add more badges based on user activity/achievements */}
             </div>
           </div>
           <div className="flex gap-2 mt-4 md:mt-0">
-            {/* Assuming this is the current user's profile, so "Edit Profile" */}
             <Button variant="outline"><Edit className="mr-2 h-4 w-4" /> Edit Profile</Button>
-            {/* If viewing another user's profile:
-            <Button><UserPlus className="mr-2 h-4 w-4" /> Follow</Button>
-            <Button variant="outline"><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
-            */}
+            <Button variant="destructive" onClick={logout}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
           </div>
         </div>
         <div className="mt-6 pt-6 border-t border-border/60 flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-muted-foreground">
@@ -65,7 +79,6 @@ export default async function ProfilePage() {
         </div>
       </header>
 
-      {/* Profile Content Tabs */}
       <Tabs defaultValue="works" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 gap-2 bg-muted/50 p-1 rounded-lg">
           <TabsTrigger value="works" className="font-headline data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">Works</TabsTrigger>

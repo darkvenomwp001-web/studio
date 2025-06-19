@@ -5,15 +5,16 @@ import { Toaster } from "@/components/ui/toaster";
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { cn } from '@/lib/utils';
+import { AuthProvider } from '@/hooks/useAuth';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
 
 export const metadata: Metadata = {
-  title: 'LitVerse - Your Next Literary Adventure',
+  title: 'D4RKV3NOM - Your Next Literary Adventure',
   description: 'Discover, write, and connect with a global community of readers and writers on LitVerse.',
   icons: {
-    icon: '/favicon.ico', // Placeholder, actual favicon not generated
+    icon: '/favicon.ico', 
   }
 };
 
@@ -25,10 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* The next/font optimization will handle font loading. 
-            If specific Google Fonts links were required, they'd go here.
-            Example: <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Inter:wght@100..900&display=swap" rel="stylesheet"> 
-        */}
+        
       </head>
       <body 
         className={cn(
@@ -37,14 +35,16 @@ export default function RootLayout({
           spaceGrotesk.variable
         )}
       >
-        <div className="relative flex min-h-screen flex-col">
-          <Header />
-          <main className="flex-1 container mx-auto px-4 py-8">
-            {children}
-          </main>
-          <Footer />
-        </div>
-        <Toaster />
+        <AuthProvider>
+          <div className="relative flex min-h-screen flex-col">
+            <Header />
+            <main className="flex-1 container mx-auto px-4 py-8">
+              {children}
+            </main>
+            <Footer />
+          </div>
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );
