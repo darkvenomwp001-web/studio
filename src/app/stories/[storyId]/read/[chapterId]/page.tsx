@@ -18,13 +18,14 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
-  DropdownMenuPortal
+  DropdownMenuPortal,
+  DropdownMenuTrigger // Added missing import
 } from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft,
   ArrowRight,
   BookCopy,
-  MessageSquare as MessageSquareIcon, // Renamed to avoid conflict
+  MessageSquare as MessageSquareIcon, 
   ThumbsUp,
   Share2,
   X,
@@ -41,7 +42,7 @@ import {
 } from 'lucide-react';
 import CommentSection from '@/components/comments/CommentSection';
 import { placeholderStories } from '@/lib/placeholder-data';
-import type { Story, Chapter, UserSummary as CharacterSummary } from '@/types'; // Assuming CharacterSummary might be similar to UserSummary
+import type { Story, Chapter, UserSummary as CharacterSummary } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -89,8 +90,7 @@ export default function StoryReaderPage() {
           setStory(data.story);
           setCurrentChapterIndex(data.chapterIndex);
         } else {
-          // Handle story or chapter not found, e.g., redirect or show error
-          router.push(`/stories/${storyId}`); // Go back to story overview
+          router.push(`/stories/${storyId}`); 
         }
         setIsLoading(false);
       });
@@ -104,7 +104,6 @@ export default function StoryReaderPage() {
     } else {
       setMockReadingProgress(0);
     }
-    // Scroll to top when chapter changes
     contentRef.current?.scrollTo(0, 0);
   }, [currentChapterIndex, story]);
 
@@ -128,9 +127,8 @@ export default function StoryReaderPage() {
         const targetIndex = story.chapters.findIndex(c => c.id === targetChapterId);
         if (targetIndex !== -1) {
             router.push(`/stories/${story.id}/read/${targetChapterId}`);
-            // State update will be handled by useEffect watching params
             setTocVisible(false); 
-            setControlsVisible(false); 
+            setControlsVisible(true); 
         }
     }
   };
@@ -163,7 +161,7 @@ export default function StoryReaderPage() {
 
   const scrollToComments = () => {
     document.getElementById('comment-section')?.scrollIntoView({ behavior: 'smooth' });
-    setControlsVisible(false);
+    setControlsVisible(true); // Ensure controls are visible to see the comment section easily
   }
 
   if (isLoading || !story || currentChapterIndex === -1) {
@@ -185,7 +183,7 @@ export default function StoryReaderPage() {
         className={cn(
           'fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b shadow-sm transition-all duration-300 ease-in-out p-2 sm:p-3 flex items-center justify-between w-full',
           controlsVisible ? 'translate-y-0' : '-translate-y-full',
-          tocVisible ? 'md:pr-80' : 'pr-0' 
+          tocVisible ? 'md:w-[calc(100%-20rem)]' : 'w-full' 
         )}
       >
         <div className="flex items-center">
@@ -318,10 +316,12 @@ export default function StoryReaderPage() {
       <main
         className={cn(
           'transition-all duration-300 ease-in-out focus:outline-none',
-          'pt-20 pb-24', // Increased top padding for taller header, bottom for action bar
-          tocVisible ? 'md:mr-80' : 'mr-0' 
+          'pt-20 pb-24', 
+          tocVisible ? 'md:w-[calc(100%-20rem)]' : 'w-full' 
         )}
         onClick={(e) => {
+            // Only toggle if the click is directly on the main area, not its children (like text selection)
+            // and it's a primary button click
             if (e.target === e.currentTarget && e.button === 0) {
                 toggleMainControls();
             }
@@ -332,7 +332,7 @@ export default function StoryReaderPage() {
         aria-pressed={controlsVisible}
         aria-label="Reading area, click to toggle controls"
       >
-        <div ref={contentRef} className="min-h-[calc(100vh-10rem)]"> {/* Adjusted min-height */}
+        <div ref={contentRef} className="min-h-[calc(100vh-10rem)]"> 
             <article className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20">
             {currentChapter ? (
                 <>
@@ -358,9 +358,9 @@ export default function StoryReaderPage() {
 
       <footer
         className={cn(
-          'fixed bottom-0 left-0 z-40 bg-card/80 backdrop-blur-md border-t p-2 transform transition-transform duration-300 ease-in-out w-full',
+          'fixed bottom-0 left-0 z-40 bg-card/80 backdrop-blur-md border-t p-2 transform transition-transform duration-300 ease-in-out',
           controlsVisible ? 'translate-y-0' : 'translate-y-full',
-          tocVisible ? 'md:pr-80' : 'pr-0'  
+          tocVisible ? 'md:w-[calc(100%-20rem)]' : 'w-full'  
         )}
       >
         <div className="max-w-4xl mx-auto flex flex-col gap-2 px-2">
