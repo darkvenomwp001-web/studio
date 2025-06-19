@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, BookHeart, Edit, Users } from 'lucide-react';
@@ -19,7 +20,7 @@ export default function HomePage() {
         </div>
         <div className="container mx-auto px-4 text-center relative z-10">
           <h1 className="text-4xl md:text-6xl font-headline font-extrabold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-            Welcome to LitVerse
+            Welcome to D4RKV3NOM
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
             Dive into captivating stories, unleash your creativity, and connect with a vibrant community of readers and writers. Your next literary adventure starts here.
