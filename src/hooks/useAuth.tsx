@@ -5,10 +5,10 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { useRouter, usePathname } from 'next/navigation';
 import type { User as AppUser } from '@/types';
 import { auth } from '@/lib/firebase';
-import { 
-  GoogleAuthProvider, 
+import {
+  GoogleAuthProvider,
   signInWithPopup,
-  onAuthStateChanged, 
+  onAuthStateChanged,
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -31,8 +31,8 @@ interface SignInData {
 
 interface AuthContextType {
   user: AppUser | null;
-  loading: boolean; 
-  authLoading: boolean; 
+  loading: boolean;
+  authLoading: boolean;
   signInWithGoogle: () => Promise<void>;
   signUpWithEmailPassword: (data: SignUpData) => Promise<void>;
   signInWithEmailPassword: (data: SignInData) => Promise<void>;
@@ -42,12 +42,12 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
-const DEFAULT_REDIRECT_AUTHENTICATED = '/'; 
+const DEFAULT_REDIRECT_AUTHENTICATED = '/';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true); 
+  const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -55,13 +55,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      setLoading(true); 
+      setLoading(true);
       if (firebaseUser) {
         const appUser: AppUser = {
           id: firebaseUser.uid,
           username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous User',
           avatarUrl: firebaseUser.photoURL || undefined,
-          bio: undefined, 
+          bio: undefined,
           writtenStories: [],
           readingList: [],
           followersCount: 0,
@@ -71,23 +71,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null);
       }
-      setLoading(false); 
+      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (loading) return; 
+    if (loading) return;
 
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
-    if (user) { 
+    if (user) {
       if (isAuthRoute) {
-        router.push(DEFAULT_REDIRECT_AUTHENTICATED); 
+        router.push(DEFAULT_REDIRECT_AUTHENTICATED);
       }
-    } else { 
+    } else {
       if (!isAuthRoute) {
-        router.push(DEFAULT_REDIRECT_UNAUTHENTICATED); 
+        router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
       }
     }
   }, [user, loading, pathname, router]);
@@ -100,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     switch (error.code) {
       case 'auth/email-already-in-use':
         friendlyMessage = "This email address is already in use by another account.";
+        title = "Sign-Up Failed";
         break;
       case 'auth/invalid-email':
         friendlyMessage = "The email address is not valid.";
@@ -109,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         break;
       case 'auth/weak-password':
         friendlyMessage = "The password is too weak. Please choose a stronger password of at least 6 characters.";
+        title = "Sign-Up Failed";
         break;
       case 'auth/user-disabled':
         friendlyMessage = "This user account has been disabled.";
@@ -120,15 +122,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         break;
       case 'auth/popup-closed-by-user':
         title = "Google Sign-In Cancelled";
-        friendlyMessage = "Google Sign-In was cancelled or the popup was closed. Please try again. Ensure pop-ups are allowed for this site in your browser settings.";
+        friendlyMessage = "Google Sign-In was cancelled or the popup was closed before completion. Please try again. Ensure pop-ups are allowed for this site in your browser settings.";
         break;
       case 'auth/popup-blocked':
         title = "Google Sign-In Blocked";
-        friendlyMessage = "Google Sign-In popup was blocked by your browser. Please allow pop-ups for this site in your browser settings and try again. Ad-blockers or other extensions might also interfere.";
+        friendlyMessage = "Google Sign-In popup was blocked by your browser. Please allow pop-ups for this site and try again. Ad-blockers or other extensions might also interfere.";
         break;
       case 'auth/account-exists-with-different-credential':
         title = "Account Exists With Different Sign-In Method";
-        friendlyMessage = "This email is already registered with a different sign-in method (e.g., Email/Password). Please use your original sign-in method. For Google Sign-In to link to this email, your Firebase project's 'User account linking' setting (Authentication -> Settings in Firebase Console) must be configured to link accounts or prevent duplicates for the same email.";
+        friendlyMessage = "An account already exists with this email address but was created using a different sign-in method (e.g., Email/Password). Please sign in using your original method. If you expect Google Sign-In to link to this email, check your Firebase project's 'User account linking' settings in the Firebase Console to ensure it's configured to link accounts or prevent duplicates for the same email.";
         break;
       case 'auth/network-request-failed':
         friendlyMessage = "A network error occurred. Please check your internet connection and try again.";
@@ -151,8 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await signInWithPopup(auth, provider);
       const firebaseUser = result.user;
-      // The onAuthStateChanged listener will handle setting the user state
-      // and triggering redirection via the main useEffect.
+      // onAuthStateChanged will handle setting user state and triggering redirection.
       toast({ title: "Google Sign-In Successful", description: `Welcome, ${firebaseUser.displayName || firebaseUser.email}! Redirecting...` });
     } catch (error) {
       handleAuthError(error as AuthError, "Google Sign-In");
@@ -167,8 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: username });
-        // The onAuthStateChanged listener will handle setting the user state
-        // and triggering redirection via the main useEffect.
+        // onAuthStateChanged will handle setting user state and triggering redirection.
       }
       toast({ title: "Sign Up Successful", description: "Your account has been created. Welcome!" });
     } catch (error) {
@@ -177,13 +177,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthLoading(false);
     }
   };
-  
+
   const signInWithEmailPassword = async ({ email, passwordOne }: SignInData) => {
     setAuthLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, passwordOne);
-      // The onAuthStateChanged listener will handle setting the user state
-      // and triggering redirection via the main useEffect.
+      // onAuthStateChanged will handle setting user state and triggering redirection.
       toast({ title: "Sign In Successful", description: "You are now signed in. Redirecting..." });
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-In");
@@ -196,8 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
       await signOut(auth);
-      // The onAuthStateChanged listener will set user to null
-      // and trigger redirection via the main useEffect.
+      // onAuthStateChanged will set user to null and trigger redirection.
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
     } catch (error) {
       handleAuthError(error as AuthError, "Sign Out");
@@ -205,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthLoading(false);
     }
   };
-  
+
   return (
     <AuthContext.Provider value={{ user, loading, authLoading, signInWithGoogle, signUpWithEmailPassword, signInWithEmailPassword, signOutFirebase }}>
       {children}
@@ -220,4 +218,3 @@ export function useAuth() {
   }
   return context;
 }
-
