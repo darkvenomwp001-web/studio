@@ -2,7 +2,7 @@
 export interface Story {
   id: string;
   title: string;
-  author: User; // Changed from Pick<User,...> to User for simplicity if author is fully fetched
+  author: User; 
   genre: string;
   coverImageUrl?: string;
   dataAiHint?: string; 
@@ -12,8 +12,8 @@ export interface Story {
   rating?: number;
   views?: number;
   isMature?: boolean;
-  status?: 'Ongoing' | 'Completed' | 'Draft'; // Added 'Draft'
-  lastUpdated: string; // ISO date string
+  status?: 'Ongoing' | 'Completed' | 'Draft'; 
+  lastUpdated: string; 
 }
 
 export interface Chapter {
@@ -28,13 +28,15 @@ export interface Chapter {
 export interface User {
   id: string;
   username: string;
+  displayName?: string; // Added for main name
   avatarUrl?: string;
   bio?: string;
-  writtenStories?: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'status'>[]; // Added status
+  role?: 'reader' | 'writer'; // Added role
+  writtenStories?: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'status'>[]; 
   readingList?: Pick<Story, 'id' | 'title' | 'coverImageUrl'>[];
   followersCount?: number;
   followingCount?: number;
-  // email?: string; // FirebaseUser has email, might be useful
+  email?: string; // Already present from FirebaseUser mapping
 }
 
 export interface Comment {

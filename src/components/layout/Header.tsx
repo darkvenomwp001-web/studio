@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, LogOut, UserPlus } from 'lucide-react';
+import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, LogOut, UserPlus, Settings } from 'lucide-react'; // Added Settings
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
@@ -54,6 +54,8 @@ export default function Header() {
     );
   }
 
+  const displayName = user?.displayName || user?.username;
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -81,14 +83,14 @@ export default function Header() {
                     <div className="h-6 w-6 bg-muted rounded-full animate-pulse" />
                 ) : user && user.avatarUrl ? (
                     <Avatar className="h-7 w-7">
-                        <AvatarImage src={user.avatarUrl} alt={user.username} data-ai-hint="profile person" />
-                        <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                        <AvatarImage src={user.avatarUrl} alt={displayName} data-ai-hint="profile person" />
+                        <AvatarFallback>{displayName ? displayName.substring(0,1).toUpperCase() : 'U'}</AvatarFallback>
                     </Avatar>
-                ) : user ? ( // User exists but no avatarUrl
+                ) : user ? ( 
                     <Avatar className="h-7 w-7">
-                       <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                       <AvatarFallback>{displayName ? displayName.substring(0,1).toUpperCase() : 'U'}</AvatarFallback>
                     </Avatar>
-                ) : ( // No user
+                ) : ( 
                     <UserCircle className="h-6 w-6" />
                 )}
               </Button>
@@ -99,6 +101,11 @@ export default function Header() {
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="flex items-center gap-2">
                       <UserCircle className="h-4 w-4" /> Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" /> Settings
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="md:hidden"/>

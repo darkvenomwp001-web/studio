@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { placeholderStories } from '@/lib/placeholder-data';
 import StoryCard from '@/components/shared/StoryCard';
-import { Edit, LogOut, Loader2, MessageSquare, UserPlus } from 'lucide-react'; 
+import { Settings, LogOut, Loader2, MessageSquare, UserPlus, Pencil } from 'lucide-react'; 
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -18,9 +18,6 @@ export default function ProfilePage() {
   const { user, loading, signOutFirebase } = useAuth();
   const router = useRouter();
 
-  // Redirection is now handled by the AuthProvider's useEffect
-  // This useEffect is mainly for local loading state on this page if needed,
-  // or to react to user changes after initial load.
 
   if (loading) {
     return (
@@ -31,7 +28,7 @@ export default function ProfilePage() {
   }
 
   if (!user) {
-    // This case should ideally be handled by AuthProvider redirection,
+    // This case should ideally be handled by AuthProvider redirection in useAuth,
     // but as a fallback:
     return (
         <div className="flex flex-col justify-center items-center min-h-[calc(100vh-12rem)] text-center">
@@ -41,15 +38,14 @@ export default function ProfilePage() {
     );
   }
   
-  // Filter stories based on the currently authenticated user's ID
   const userWrittenStories = placeholderStories.filter(story => story.author.id === user.id);
-  // Mock reading list and activity feed for demonstration
   const readingListStories = placeholderStories.slice(0,2).map(s => ({...s, id: s.id + "-rl"})); 
   const activityFeed = [
     { id: 'act1', type: 'commented', on: 'The Last Stargazer', time: '2h ago' },
     { id: 'act2', type: 'published a new chapter for', on: 'Echoes of Tomorrow', time: '1d ago' },
     { id: 'act3', type: 'started reading', on: 'Chronicles of the Shadow Forest', time: '3d ago' },
   ];
+  const displayName = user.displayName || user.username;
 
   return (
     <div className="space-y-8">
@@ -59,19 +55,22 @@ export default function ProfilePage() {
         </div>
         <div className="flex flex-col md:flex-row items-center md:items-end gap-6 pt-16 md:pt-24">
           <Avatar className="h-32 w-32 md:h-40 md:w-40 border-4 border-background shadow-xl">
-            <AvatarImage src={user.avatarUrl || `https://placehold.co/160x160.png`} alt={user.username} data-ai-hint="profile person" />
-            <AvatarFallback className="text-4xl">{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={user.avatarUrl || `https://placehold.co/160x160.png`} alt={displayName} data-ai-hint="profile person" />
+            <AvatarFallback className="text-4xl">{displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">{user.username}</h1>
+            <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">{displayName}</h1>
+            <p className="text-sm text-muted-foreground">@{user.username}</p>
             {user.bio && <p className="text-muted-foreground mt-1 max-w-xl">{user.bio}</p>}
             <div className="mt-3 flex flex-wrap gap-2 justify-center md:justify-start">
-              <Badge variant="secondary">Writer</Badge>
-              <Badge variant="secondary">Reader</Badge>
+              {user.role && <Badge variant={user.role === 'writer' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge>}
+              {/* <Badge variant="secondary">Reader</Badge> */}
             </div>
           </div>
           <div className="flex gap-2 mt-4 md:mt-0">
-            <Button variant="outline"><Edit className="mr-2 h-4 w-4" /> Edit Profile</Button>
+            <Link href="/settings" passHref>
+              <Button variant="outline"><Settings className="mr-2 h-4 w-4" /> Profile Settings</Button>
+            </Link>
             <Button variant="destructive" onClick={signOutFirebase}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
           </div>
         </div>
@@ -117,7 +116,7 @@ export default function ProfilePage() {
           <ul className="space-y-4">
             {activityFeed.map(activity => (
               <li key={activity.id} className="p-4 bg-card rounded-md shadow-sm text-sm">
-                <span className="font-semibold">{user.username}</span> {activity.type} <Link href="#" className="text-primary hover:underline">{activity.on}</Link>
+                <span className="font-semibold">{displayName}</span> {activity.type} <Link href="#" className="text-primary hover:underline">{activity.on}</Link>
                 <span className="text-xs text-muted-foreground ml-2">- {activity.time}</span>
               </li>
             ))}

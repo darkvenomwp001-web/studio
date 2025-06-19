@@ -3,7 +3,7 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import type { User as AppUser } from '@/types';
+import type { User as AppUserType } from '@/types'; // Renamed to avoid conflict
 import { auth } from '@/lib/firebase';
 import {
   GoogleAuthProvider,
@@ -12,11 +12,14 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile,
+  updateProfile as updateFirebaseProfile, // Renamed to avoid conflict
+  updateEmail as updateFirebaseEmail, // Renamed
+  updatePassword as updateFirebasePassword, // Renamed
   type User as FirebaseUser,
   type AuthError
 } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import { placeholderUsers } from '@/lib/placeholder-data'; // For initial mock role
 
 interface SignUpData {
   username: string;
@@ -29,6 +32,13 @@ interface SignInData {
   passwordOne: string;
 }
 
+// Define AppUser with all properties including optional ones like role
+interface AppUser extends AppUserType {
+  email?: string; // Ensure email is part of AppUser
+  displayName?: string;
+  role?: 'reader' | 'writer';
+}
+
 interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
@@ -37,11 +47,15 @@ interface AuthContextType {
   signUpWithEmailPassword: (data: SignUpData) => Promise<void>;
   signInWithEmailPassword: (data: SignInData) => Promise<void>;
   signOutFirebase: () => Promise<void>;
+  updateUserProfile: (updates: Partial<AppUser>) => Promise<void>; // For displayName, photoURL, bio, role
+  updateUserEmail_mock: (newEmail: string) => Promise<void>; // Mocked
+  updateUserPassword_mock: (newPassword: string) => Promise<void>; // Mocked
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
+const PUBLIC_ROUTES: string[] = []; // Add any other public routes here if needed
 const DEFAULT_REDIRECT_AUTHENTICATED = '/';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
@@ -57,19 +71,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
       if (firebaseUser) {
+        // Try to get stored role, or default
+        let userRole: 'reader' | 'writer' | undefined = undefined;
+        try {
+          const storedUserDetails = sessionStorage.getItem(`userDetails-${firebaseUser.uid}`);
+          if (storedUserDetails) {
+            userRole = JSON.parse(storedUserDetails).role;
+          }
+        } catch (e) { console.error("Error parsing stored user details", e); }
+
+
         const appUser: AppUser = {
           id: firebaseUser.uid,
           username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous User',
+          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous User',
           avatarUrl: firebaseUser.photoURL || undefined,
-          bio: undefined, // You might want to fetch this from Firestore/RTDB if you store it
-          writtenStories: [], // Placeholder, fetch from DB
-          readingList: [], // Placeholder, fetch from DB
-          followersCount: 0, // Placeholder, fetch/calculate
-          followingCount: 0, // Placeholder, fetch/calculate
+          email: firebaseUser.email || undefined,
+          bio: undefined, 
+          role: userRole || placeholderUsers.find(pu => pu.id === firebaseUser.uid)?.role || 'reader', // Mock or fetch
+          writtenStories: [], 
+          readingList: [], 
+          followersCount: 0, 
+          followingCount: 0, 
         };
         setUser(appUser);
+        sessionStorage.setItem(`userDetails-${firebaseUser.uid}`, JSON.stringify({ role: appUser.role, bio: appUser.bio }));
       } else {
         setUser(null);
+        // Clear any stored user details on logout
+        // Consider if you have user-specific items to clear
       }
       setLoading(false);
     });
@@ -80,13 +110,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (loading) return;
 
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
+    const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
     if (user) { // User is authenticated
       if (isAuthRoute) {
         router.push(DEFAULT_REDIRECT_AUTHENTICATED);
       }
     } else { // User is not authenticated
-      if (!isAuthRoute) {
+      if (!isAuthRoute && !isPublicRoute) {
         router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
       }
     }
@@ -123,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         break;
       case 'auth/popup-closed-by-user':
         title = "Google Sign-In Cancelled";
-        friendlyMessage = "Google Sign-In was cancelled or the popup was closed before completion. Please try again. Ensure pop-ups are allowed for this site in your browser settings.";
+        friendlyMessage = "Google Sign-In was cancelled or the popup was closed before completion. Please try again. Ensure pop-ups are allowed for this site in your browser settings. If you have multiple Google accounts, try signing out of all Google accounts in your browser and then try signing in again, or use an incognito window.";
         break;
       case 'auth/popup-blocked':
         title = "Google Sign-In Blocked";
@@ -131,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         break;
       case 'auth/account-exists-with-different-credential':
         title = "Account Exists With Different Sign-In Method";
-        friendlyMessage = "An account already exists with this email address but was created using a different sign-in method (e.g., Email/Password). To sign in with Google and link to this existing account, your Firebase project's 'User account linking' settings must be configured to 'Link accounts that use the same email address'. Please check your Firebase Console (Authentication -> Settings -> User account linking) to enable this. Otherwise, sign in using your original method or use a different Google account.";
+        friendlyMessage = "An account already exists with this email address but was created using a different sign-in method (e.g., Email/Password). To link these accounts and use Google Sign-In, please check your Firebase project's 'User account linking' settings in the Firebase Console (Authentication -> Settings -> User account linking) and ensure it's configured to 'Link accounts that use the same email address'. Otherwise, sign in using your original method or use a different Google account.";
         break;
       case 'auth/network-request-failed':
         friendlyMessage = "A network error occurred. Please check your internet connection and try again.";
@@ -154,8 +185,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await signInWithPopup(auth, provider);
       const firebaseUser = result.user;
-      // onAuthStateChanged will handle setting user state and triggering redirection logic.
-      // A success toast can be shown here if desired, but the redirection is primary.
       toast({ title: "Google Sign-In Successful", description: `Welcome, ${firebaseUser.displayName || firebaseUser.email}! Redirecting...` });
     } catch (error) {
       handleAuthError(error as AuthError, "Google Sign-In");
@@ -169,8 +198,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       if (userCredential.user) {
-        await updateProfile(userCredential.user, { displayName: username });
-        // onAuthStateChanged will handle setting user state and triggering redirection.
+        await updateFirebaseProfile(userCredential.user, { displayName: username });
+        // Persist role and bio (if any collected at sign-up)
+        const defaultRole = 'reader'; // Or based on sign-up form
+        sessionStorage.setItem(`userDetails-${userCredential.user.uid}`, JSON.stringify({ role: defaultRole, bio: "" }));
       }
       toast({ title: "Sign Up Successful", description: "Your account has been created. Welcome!" });
     } catch (error) {
@@ -184,7 +215,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, passwordOne);
-      // onAuthStateChanged will handle setting user state and triggering redirection.
       toast({ title: "Sign In Successful", description: "You are now signed in. Redirecting..." });
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-In");
@@ -197,7 +227,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
       await signOut(auth);
-      // onAuthStateChanged will set user to null and trigger redirection.
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
     } catch (error) {
       handleAuthError(error as AuthError, "Sign Out");
@@ -206,8 +235,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateUserProfile = async (updates: Partial<AppUser>) => {
+    if (!auth.currentUser) {
+      toast({ title: "Error", description: "No user logged in.", variant: "destructive" });
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const { displayName, avatarUrl, bio, role } = updates;
+      const profileUpdates: { displayName?: string | null; photoURL?: string | null } = {};
+      if (displayName !== undefined) profileUpdates.displayName = displayName;
+      if (avatarUrl !== undefined) profileUpdates.photoURL = avatarUrl;
+
+      if (Object.keys(profileUpdates).length > 0) {
+        await updateFirebaseProfile(auth.currentUser, profileUpdates);
+      }
+      
+      // Update local user state
+      setUser(prevUser => {
+        if (!prevUser) return null;
+        const updatedUser = { ...prevUser, ...updates };
+         // Persist non-auth properties like bio and role
+        sessionStorage.setItem(`userDetails-${updatedUser.id}`, JSON.stringify({ role: updatedUser.role, bio: updatedUser.bio }));
+        return updatedUser;
+      });
+
+      toast({ title: "Profile Updated", description: "Your profile information has been saved." });
+    } catch (error) {
+      handleAuthError(error as AuthError, "Profile Update");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Mocked functions for email and password updates
+  const updateUserEmail_mock = async (newEmail: string) => {
+    if (!auth.currentUser) {
+      toast({ title: "Error", description: "No user logged in.", variant: "destructive" });
+      return;
+    }
+    setAuthLoading(true);
+    // In a real app: await updateFirebaseEmail(auth.currentUser, newEmail);
+    // This often requires re-authentication.
+    // For mock:
+    setUser(prev => prev ? ({ ...prev, email: newEmail }) : null);
+    toast({ title: "Email Update (Mock)", description: `Email would be updated to ${newEmail}. Re-authentication is typically required.` });
+    setAuthLoading(false);
+  };
+
+  const updateUserPassword_mock = async (newPassword: string) => {
+     if (!auth.currentUser) {
+      toast({ title: "Error", description: "No user logged in.", variant: "destructive" });
+      return;
+    }
+    setAuthLoading(true);
+    // In a real app: await updateFirebasePassword(auth.currentUser, newPassword);
+    // This often requires re-authentication.
+    toast({ title: "Password Update (Mock)", description: "Password would be updated. Re-authentication is typically required." });
+    setAuthLoading(false);
+  };
+
+
   return (
-    <AuthContext.Provider value={{ user, loading, authLoading, signInWithGoogle, signUpWithEmailPassword, signInWithEmailPassword, signOutFirebase }}>
+    <AuthContext.Provider value={{ 
+        user, 
+        loading, 
+        authLoading, 
+        signInWithGoogle, 
+        signUpWithEmailPassword, 
+        signInWithEmailPassword, 
+        signOutFirebase,
+        updateUserProfile,
+        updateUserEmail_mock,
+        updateUserPassword_mock
+    }}>
       {children}
     </AuthContext.Provider>
   );

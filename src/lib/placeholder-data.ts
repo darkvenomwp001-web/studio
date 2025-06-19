@@ -4,26 +4,35 @@ export const placeholderUsers: User[] = [
   {
     id: 'user1',
     username: 'CosmicReader',
+    displayName: 'Alex Cosmos',
     avatarUrl: 'https://placehold.co/100x100.png',
     bio: 'Lover of all things sci-fi and fantasy. Aspiring author.',
     followersCount: 1250,
     followingCount: 300,
+    role: 'writer',
+    email: 'cosmic@example.com',
   },
   {
     id: 'user2',
     username: 'StoryWeaver',
+    displayName: 'Bella Story',
     avatarUrl: 'https://placehold.co/100x100.png',
     bio: 'Weaving tales one chapter at a time. Coffee addict.',
     followersCount: 850,
     followingCount: 150,
+    role: 'reader',
+    email: 'storyweaver@example.com',
   },
   {
     id: 'user3',
     username: 'JaneDoeWrites',
+    displayName: 'Jane Doe',
     avatarUrl: 'https://placehold.co/100x100.png',
     bio: 'Exploring new worlds through words.',
     followersCount: 500,
     followingCount: 70,
+    role: 'writer',
+    email: 'jane.writes@example.com',
   },
 ];
 
@@ -100,14 +109,14 @@ export const placeholderStories: Story[] = [
 ];
 
 placeholderUsers[0].writtenStories = [
-  { id: placeholderStories[0].id, title: placeholderStories[0].title, coverImageUrl: placeholderStories[0].coverImageUrl },
-  { id: placeholderStories[2].id, title: placeholderStories[2].title, coverImageUrl: placeholderStories[2].coverImageUrl },
+  { id: placeholderStories[0].id, title: placeholderStories[0].title, coverImageUrl: placeholderStories[0].coverImageUrl, status: placeholderStories[0].status },
+  { id: placeholderStories[2].id, title: placeholderStories[2].title, coverImageUrl: placeholderStories[2].coverImageUrl, status: placeholderStories[2].status },
 ];
 placeholderUsers[1].writtenStories = [
-  { id: placeholderStories[1].id, title: placeholderStories[1].title, coverImageUrl: placeholderStories[1].coverImageUrl },
+  { id: placeholderStories[1].id, title: placeholderStories[1].title, coverImageUrl: placeholderStories[1].coverImageUrl, status: placeholderStories[1].status },
 ];
 placeholderUsers[2].writtenStories = [
-  { id: placeholderStories[3].id, title: placeholderStories[3].title, coverImageUrl: placeholderStories[3].coverImageUrl },
+  { id: placeholderStories[3].id, title: placeholderStories[3].title, coverImageUrl: placeholderStories[3].coverImageUrl, status: placeholderStories[3].status },
 ];
 
 
