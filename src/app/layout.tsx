@@ -6,7 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { cn } from '@/lib/utils';
-import { AuthProvider } from '@/hooks/useAuth.tsx'; // Corrected import path
+import { AuthProvider } from '@/hooks/useAuth'; 
+import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
@@ -39,10 +40,11 @@ export default function RootLayout({
         <AuthProvider>
           <div className="relative flex min-h-screen flex-col">
             <Header />
-            <main className="flex-1 container mx-auto px-4 py-8">
+            <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8"> {/* Added pb-24 for bottom nav space, revert to pb-8 on md */}
               {children}
             </main>
             <Footer />
+            <BottomNavigationBar />
           </div>
           <Toaster />
         </AuthProvider>

@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpenText, Home, MessageCircle, Search, UserCircle, Edit3, LogIn, LogOut, UserPlus, Settings, Bell, Brain } from 'lucide-react';
+import { BookOpenText, Home, MessageCircle, UserCircle, Edit3, LogIn, LogOut, UserPlus, Settings, Bell, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,9 +16,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/hooks/useAuth';
-import type { NotificationType } from '@/types';
-import { Badge } from '@/components/ui/badge';
-import { formatDistanceToNow } from 'date-fns';
+// Removed NotificationType, Badge, formatDistanceToNow as Bell icon is removed from header
 
 const NavLink = ({ href, children, icon }: { href: string; children: React.ReactNode; icon?: React.ReactNode }) => (
   <Link href={href} passHref>
@@ -31,17 +29,11 @@ const NavLink = ({ href, children, icon }: { href: string; children: React.React
 
 export default function Header() {
   const [mounted, setMounted] = useState(false);
-  const { user, signOutFirebase, loading, notifications, markNotificationAsRead } = useAuth(); 
+  const { user, signOutFirebase, loading } = useAuth(); 
   const router = useRouter();
   
   useEffect(() => setMounted(true), []);
   
-  const handleSearchIconClick = () => {
-    router.push('/search');
-  };
-
-  const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
-
   if (!mounted) { 
     return (
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -51,7 +43,6 @@ export default function Header() {
              <span className="text-2xl font-headline font-bold text-foreground">D4RKV3NOM</span>
            </Link>
            <div className="flex items-center gap-2">
-             <div className="h-10 w-10 p-2 animate-pulse"><div className="h-6 w-6 bg-muted rounded-full" /></div>
              <div className="h-10 w-10 p-2 animate-pulse"><div className="h-7 w-7 bg-muted rounded-full" /></div>
            </div>
         </div>
@@ -60,27 +51,6 @@ export default function Header() {
   }
 
   const displayName = user?.displayName || user?.username;
-
-  const handleNotificationClick = (notification: NotificationType) => {
-    markNotificationAsRead(notification.id);
-    if (notification.link) {
-      router.push(notification.link);
-    }
-  };
-
-  const getNotificationIconMini = (type: NotificationType['type']) => {
-    switch (type) {
-      case 'new_follower':
-        return <UserPlus className="h-3 w-3"/>;
-      case 'new_chapter':
-      case 'story_update':
-        return <BookOpenText className="h-3 w-3"/>;
-      case 'announcement':
-         return <Bell className="h-3 w-3 text-accent-foreground"/>;
-      default:
-        return <Bell className="h-3 w-3"/>;
-    }
-  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -95,69 +65,11 @@ export default function Header() {
             <NavLink href="/"><Home className="h-5 w-5" /> Home</NavLink>
             <NavLink href="/stories"><BookOpenText className="h-5 w-5" /> Stories</NavLink>
             <NavLink href="/write"><Edit3 className="h-5 w-5" /> Write</NavLink>
-            <NavLink href="/messages"><MessageCircle className="h-5 w-5" /> Messages</NavLink>
+            <NavLink href="/messages"><MessageCircle className="h-5 w-5" /> Messages</NavLink> {/* This link stays for desktop */}
             <NavLink href="/ai-assistant"><Brain className="h-5 w-5" /> AI Assistant</NavLink>
           </div>
           
-          <Button variant="ghost" size="icon" onClick={handleSearchIconClick} aria-label="Search">
-            <Search className="h-5 w-5" />
-          </Button>
-
-          {!loading && user && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
-                  <Bell className="h-5 w-5" />
-                  {unreadNotificationsCount > 0 && (
-                    <Badge 
-                      variant="destructive" 
-                      className="absolute -top-1 -right-1 h-4 w-4 min-w-[1rem] p-0 flex items-center justify-center text-xs rounded-full"
-                    >
-                      {unreadNotificationsCount}
-                    </Badge>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 max-h-96">
-                <DropdownMenuLabel className="flex justify-between items-center">
-                  Notifications
-                  <Link href="/notifications" passHref>
-                    <Button variant="link" className="p-0 h-auto text-xs text-primary hover:underline">View All</Button>
-                  </Link>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <div className="max-h-80 overflow-y-auto">
-                {notifications.length > 0 ? (
-                  notifications.slice(0, 5).map(notif => ( // Show only latest 5 in dropdown
-                    <DropdownMenuItem 
-                        key={notif.id} 
-                        onClick={() => handleNotificationClick(notif)}
-                        className={`cursor-pointer flex items-start gap-2 ${!notif.isRead ? 'font-semibold' : ''}`}
-                    >
-                        {notif.actor?.avatarUrl ? (
-                            <Avatar className="h-6 w-6 mt-0.5">
-                                <AvatarImage src={notif.actor.avatarUrl} alt={notif.actor.username} data-ai-hint="profile person"/>
-                                <AvatarFallback>{notif.actor.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                        ) : (
-                            <div className={`h-6 w-6 mt-0.5 rounded-full flex items-center justify-center text-xs ${notif.type === 'announcement' ? 'bg-accent text-accent-foreground' : 'bg-muted'}`}>
-                               {getNotificationIconMini(notif.type)}
-                            </div>
-                        )}
-                      <div className="flex-1">
-                        <p className="text-xs leading-tight whitespace-normal">{notif.message}</p>
-                        <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(notif.timestamp), { addSuffix: true })}</p>
-                      </div>
-                       {!notif.isRead && <div className="w-2 h-2 bg-primary rounded-full self-center shrink-0"></div>}
-                    </DropdownMenuItem>
-                  ))
-                ) : (
-                  <DropdownMenuItem disabled>No new notifications</DropdownMenuItem>
-                )}
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          {/* Search and Notification icons are removed from here */}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -191,27 +103,34 @@ export default function Header() {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/profile" className="flex items-center gap-2">
+                    <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
                       <UserCircle className="h-4 w-4" /> Profile
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/settings" className="flex items-center gap-2">
+                    <Link href="/settings" className="flex items-center gap-2 cursor-pointer">
                       <Settings className="h-4 w-4" /> Settings
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="md:hidden"/>
+                  {/* Mobile specific links, now covered by bottom nav primarily */}
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/" className="flex items-center gap-2"><Home className="h-4 w-4" /> Home</Link>
                   </DropdownMenuItem>
                    <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/stories" className="flex items-center gap-2"><BookOpenText className="h-4 w-4" /> Stories</Link>
                   </DropdownMenuItem>
+                   <DropdownMenuItem asChild className="md:hidden">
+                    <Link href="/search" className="flex items-center gap-2"><Search className="h-4 w-4" /> Search</Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/write" className="flex items-center gap-2"><Edit3 className="h-4 w-4" /> Write</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/messages" className="flex items-center gap-2"><MessageCircle className="h-4 w-4" /> Messages</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="md:hidden">
+                    <Link href="/notifications" className="flex items-center gap-2"><Bell className="h-4 w-4" /> Notifications</Link>
                   </DropdownMenuItem>
                    <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/ai-assistant" className="flex items-center gap-2"><Brain className="h-4 w-4" /> AI Assistant</Link>
@@ -224,21 +143,25 @@ export default function Header() {
               ) : !loading && !user ? (
                 <>
                   <DropdownMenuItem asChild>
-                    <Link href="/auth/signin" className="flex items-center gap-2">
+                    <Link href="/auth/signin" className="flex items-center gap-2 cursor-pointer">
                       <LogIn className="h-4 w-4" /> Sign In
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/auth/signup" className="flex items-center gap-2">
+                    <Link href="/auth/signup" className="flex items-center gap-2 cursor-pointer">
                       <UserPlus className="h-4 w-4" /> Sign Up
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="md:hidden"/>
+                  {/* Mobile specific links, now covered by bottom nav primarily */}
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/" className="flex items-center gap-2"><Home className="h-4 w-4" /> Home</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/stories" className="flex items-center gap-2"><BookOpenText className="h-4 w-4" /> Stories</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="md:hidden">
+                    <Link href="/search" className="flex items-center gap-2"><Search className="h-4 w-4" /> Search</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link href="/ai-assistant" className="flex items-center gap-2"><Brain className="h-4 w-4" /> AI Assistant</Link>
