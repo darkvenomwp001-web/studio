@@ -8,8 +8,8 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
+  // CarouselNext, // Removed
+  // CarouselPrevious, // Removed
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { ArrowRight, BookOpen, LibrarySquare, TrendingUp, Sparkles, Users } from 'lucide-react';
@@ -42,11 +42,11 @@ export default function StoriesPage() {
   return (
     <div className="min-h-screen bg-background text-foreground space-y-12 py-8">
       {/* Hero Carousel Section */}
-      <section className="container mx-auto px-0 sm:px-4"> {/* Adjusted padding for full-width feel on mobile */}
+      <section className="container mx-auto px-0 sm:px-4">
         <Carousel
           plugins={[
             Autoplay({
-              delay: 5000,
+              delay: 5000, // Updated delay to 5 seconds
               stopOnInteraction: true,
             }),
           ]}
@@ -76,8 +76,7 @@ export default function StoriesPage() {
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 bg-background/70 hover:bg-primary text-foreground hover:text-primary-foreground disabled:bg-muted/50" />
-          <CarouselNext className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 bg-background/70 hover:bg-primary text-foreground hover:text-primary-foreground disabled:bg-muted/50" />
+          {/* CarouselPrevious and CarouselNext removed */}
         </Carousel>
       </section>
 
