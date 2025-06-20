@@ -18,7 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { placeholderStories, upsertStoryAndSave, deleteChapterFromStory, initializeUserStoryLists } from '@/lib/placeholder-data';
+import { placeholderStories, upsertStoryAndSave, deleteChapterFromStory, initializeUserStoryLists, formatDate } from '@/lib/placeholder-data';
 import type { Story, Chapter, UserSummary } from '@/types';
 import { cn } from '@/lib/utils';
 
