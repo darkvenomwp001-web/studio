@@ -59,18 +59,19 @@ export default function StoriesPage() {
           <CarouselContent>
             {featuredStoriesForCarousel.map((story, index) => (
               <CarouselItem key={story.id}>
-                <Link href={`/stories/${story.id}`} passHref>
-                  <a className="block overflow-hidden group relative rounded-lg aspect-[12/5] cursor-pointer bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-                    <Image
-                      src={story.coverImageUrl || `https://placehold.co/1200x500.png`} 
-                      alt={story.title} // Keep alt text for accessibility
-                      layout="fill"
-                      objectFit="cover"
-                      className="group-hover:scale-105 transition-transform duration-500 ease-in-out"
-                      data-ai-hint={story.dataAiHint || "story banner"}
-                      priority={index === 0} // Prioritize first image for LCP
-                    />
-                  </a>
+                <Link 
+                  href={`/stories/${story.id}`}
+                  className="block overflow-hidden group relative rounded-lg aspect-[12/5] cursor-pointer bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                >
+                  <Image
+                    src={story.coverImageUrl || `https://placehold.co/1200x500.png`} 
+                    alt={story.title}
+                    layout="fill"
+                    objectFit="cover"
+                    className="group-hover:scale-105 transition-transform duration-500 ease-in-out"
+                    data-ai-hint={story.dataAiHint || "story banner"}
+                    priority={index === 0}
+                  />
                 </Link>
               </CarouselItem>
             ))}
