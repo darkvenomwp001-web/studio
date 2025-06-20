@@ -184,25 +184,26 @@ export default function MessagesPage() {
       return;
     }
     setIsSearchingUsers(true);
-    setSearchedUsers([]);
+    setSearchedUsers([]); 
     try {
       const usersRef = collection(db, 'users');
-      // Query for usernames starting with searchTerm
+      
       const usernameQuery = query(
         usersRef,
         where('username', '>=', searchTerm.trim()),
         where('username', '<=', searchTerm.trim() + '\uf8ff'), 
+        orderBy('username'),
         limit(5)
       );
       const usernameSnapshot = await getDocs(usernameQuery);
       let usersFound = usernameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUserType));
 
-      // Query for displayNames starting with searchTerm, if username search yields few results
       if (usersFound.length < 5) {
         const displayNameQuery = query(
           usersRef,
           where('displayName', '>=', searchTerm.trim()),
           where('displayName', '<=', searchTerm.trim() + '\uf8ff'),
+          orderBy('displayName'),
           limit(5 - usersFound.length)
         );
         const displayNameSnapshot = await getDocs(displayNameQuery);
@@ -210,7 +211,6 @@ export default function MessagesPage() {
         usersFound = [...usersFound, ...usersByDisplayName];
       }
       
-      // Filter out current user and deduplicate
       const uniqueUsers = new Map<string, UserSummary>();
       usersFound
         .filter(u => u.id !== currentUser.id) 
@@ -224,7 +224,7 @@ export default function MessagesPage() {
       const finalResults = Array.from(uniqueUsers.values());
 
       if (finalResults.length === 0 && searchTerm.trim().length > 0) { 
-        toast({ title: "No Users Found", description: `No user found starting with "${searchTerm.trim()}".` });
+         // toast({ title: "No Users Found", description: `No user found starting with "${searchTerm.trim()}".` }); // Optional toast
       }
       setSearchedUsers(finalResults);
     } catch (error) {
@@ -257,7 +257,7 @@ export default function MessagesPage() {
       const sortedParticipantIds = [currentUser.id, targetUser.id].sort();
       const existingConvQuery = query(
         collection(db, 'conversations'),
-        where('participantIds', '==', sortedParticipantIds),
+        where('participantIds', '==', sortedParticipantIds), // Requires exact match of the sorted array
         limit(1) 
       );
       
@@ -285,16 +285,16 @@ export default function MessagesPage() {
             [targetUser.id]: targetUser,
           },
           updatedAt: serverTimestamp(),
-          lastMessage: {
+          lastMessage: { // Initial placeholder last message
             id: '',
             content: 'Conversation started.',
-            senderId: '', 
+            senderId: '', // No specific sender for "Conversation started"
             timestamp: serverTimestamp(),
           },
         };
         await setDoc(newConversationRef, newConversationData);
         
-        const newConvSnap = await getDoc(newConversationRef);
+        const newConvSnap = await getDoc(newConversationRef); // Fetch the newly created doc to get its ID and data
         if (newConvSnap.exists()) {
             setActiveConversation({id: newConvSnap.id, ...newConvSnap.data()} as Conversation);
         }
@@ -347,7 +347,6 @@ export default function MessagesPage() {
                 </Button>
               </DialogTrigger>
             </div>
-            {/* Search messages input (currently disabled) */}
             {/* <div className="relative">
               <Input type="search" placeholder="Search messages (disabled)" className="pl-10 bg-background" disabled />
               <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
@@ -365,10 +364,10 @@ export default function MessagesPage() {
                 let lastMessageDisplayTime = 'No recent messages';
                 if (lastMessageTimestampServer && typeof lastMessageTimestampServer.toDate === 'function') {
                   lastMessageDisplayTime = formatDistanceToNow(lastMessageTimestampServer.toDate(), { addSuffix: true });
-                } else if (lastMessageTimestampServer) {
+                } else if (lastMessageTimestampServer) { // Fallback for potentially stringified timestamps or other Date objects
                    try {
                       lastMessageDisplayTime = formatDistanceToNow(new Date(lastMessageTimestampServer), { addSuffix: true });
-                   } catch (e) { /* ignore */ }
+                   } catch (e) { /* ignore invalid date format */ }
                 }
                 const isActive = activeConversation?.id === conv.id;
 
@@ -376,24 +375,32 @@ export default function MessagesPage() {
                   <div 
                     key={conv.id} 
                     className={cn(
-                      `flex items-start gap-3 p-4 cursor-pointer hover:bg-muted/50`, // items-start for better alignment
+                      `flex items-start gap-3 p-4 cursor-pointer hover:bg-muted/50`, 
                       isActive ? 'bg-primary/10 border-l-4 border-primary' : ''
                     )}
                     onClick={() => handleSelectConversation(conv)}
                   >
-                    <Link href={`/profile/${otherParticipant?.id}`} onClick={(e) => e.stopPropagation()}>
+                    {otherParticipant && (
+                      <Link href={`/profile/${otherParticipant.id}`} onClick={(e) => e.stopPropagation()} passHref>
                         <Avatar className="h-12 w-12">
-                        <AvatarImage src={otherParticipant?.avatarUrl} alt={otherParticipant?.username} data-ai-hint="profile person" />
-                        <AvatarFallback>{otherParticipant?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+                          <AvatarImage src={otherParticipant.avatarUrl} alt={otherParticipant.username} data-ai-hint="profile person" />
+                          <AvatarFallback>{otherParticipant.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
                         </Avatar>
-                    </Link>
+                      </Link>
+                    )}
                     <div className="flex-1 overflow-hidden">
                       <div className="flex justify-between items-center">
-                         <Link href={`/profile/${otherParticipant?.id}`} onClick={(e) => e.stopPropagation()} className="truncate">
-                            <h3 className={cn(`font-semibold truncate hover:underline`, isActive ? 'text-primary' : 'text-foreground')}>
-                            {otherParticipant?.displayName || otherParticipant?.username || 'Unknown User'}
+                        {otherParticipant ? (
+                           <Link href={`/profile/${otherParticipant.id}`} onClick={(e) => e.stopPropagation()} className="truncate">
+                              <h3 className={cn(`font-semibold truncate hover:underline`, isActive ? 'text-primary' : 'text-foreground')}>
+                                {otherParticipant.displayName || otherParticipant.username}
+                              </h3>
+                          </Link>
+                        ) : (
+                            <h3 className={cn(`font-semibold truncate`, isActive ? 'text-primary' : 'text-foreground')}>
+                                Unknown User
                             </h3>
-                        </Link>
+                        )}
                         <span className={cn(`text-xs whitespace-nowrap`, isActive ? 'text-primary/80' : 'text-muted-foreground')}>
                           {lastMessageDisplayTime}
                         </span>
@@ -414,15 +421,21 @@ export default function MessagesPage() {
           {activeConversation ? (
             <>
               <header className="p-4 border-b bg-card flex items-center gap-3 shadow-sm">
-                <Link href={`/profile/${getOtherParticipant(activeConversation)?.id}`} passHref>
-                    <Avatar>
-                    <AvatarImage src={getOtherParticipant(activeConversation)?.avatarUrl} alt={getOtherParticipant(activeConversation)?.username} data-ai-hint="profile person" />
-                    <AvatarFallback>{getOtherParticipant(activeConversation)?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                    </Avatar>
-                </Link>
-                <Link href={`/profile/${getOtherParticipant(activeConversation)?.id}`} passHref>
-                    <h3 className="font-semibold text-lg hover:underline">{getOtherParticipant(activeConversation)?.displayName || getOtherParticipant(activeConversation)?.username || 'Unknown User'}</h3>
-                </Link>
+                {getOtherParticipant(activeConversation) && (
+                  <Link href={`/profile/${getOtherParticipant(activeConversation)!.id}`} passHref>
+                      <Avatar>
+                      <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
+                      <AvatarFallback>{getOtherParticipant(activeConversation)!.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                      </Avatar>
+                  </Link>
+                )}
+                {getOtherParticipant(activeConversation) ? (
+                  <Link href={`/profile/${getOtherParticipant(activeConversation)!.id}`} passHref>
+                      <h3 className="font-semibold text-lg hover:underline">{getOtherParticipant(activeConversation)!.displayName || getOtherParticipant(activeConversation)!.username}</h3>
+                  </Link>
+                ) : (
+                     <h3 className="font-semibold text-lg">Unknown User</h3>
+                )}
               </header>
               
               <ScrollArea className="flex-1 p-4 space-y-4">
@@ -520,7 +533,7 @@ export default function MessagesPage() {
         <DialogHeader>
           <DialogTitle>Start New Conversation</DialogTitle>
           <DialogDescription>
-            Type a username to find users and start messaging.
+            Type a username or display name to find users and start messaging.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -529,7 +542,7 @@ export default function MessagesPage() {
               id="search-username"
               value={searchUsername}
               onChange={(e) => setSearchUsername(e.target.value)}
-              placeholder="Enter username to search..."
+              placeholder="Enter username or display name..."
               disabled={isCreatingConversation}
               className="flex-grow"
             />

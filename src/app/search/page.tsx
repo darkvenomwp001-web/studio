@@ -3,7 +3,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, FormEvent, useCallback } from 'react';
-import type { Story, User as AppUser } from '@/types'; // Renamed User to AppUser to avoid conflict
+import type { Story, User as AppUser } from '@/types'; 
 import StoryCard from '@/components/shared/StoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
@@ -19,9 +19,8 @@ import {
   orderBy,
   limit,
   getDocs,
-  startAt,
-  endAt,
-  or, // Import 'or' for combining queries if needed and supported
+  // startAt, // Not used for simple prefix with inequalities
+  // endAt,   // Not used for simple prefix with inequalities
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -38,7 +37,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
 }
 
 export default function SearchResultsPage() {
-  const searchParamsHook = useSearchParams(); // Renamed to avoid conflict
+  const searchParamsHook = useSearchParams();
   const router = useRouter();
   const queryFromUrl = searchParamsHook.get('q') || '';
   const { toast } = useToast();
@@ -56,41 +55,56 @@ export default function SearchResultsPage() {
       return;
     }
     setIsLoading(true);
+    setStoryResults([]); // Clear previous results
+    setUserResults([]);   // Clear previous results
 
     try {
-      // Search Stories
+      // Search Stories by title (prefix match for public stories)
       const storiesRef = collection(db, 'stories');
       const storyQuery = query(
         storiesRef,
         where('visibility', '==', 'Public'),
-        where('title', '>=', currentQuery),
-        where('title', '<=', currentQuery + '\uf8ff'), // \uf8ff is a Unicode character for prefix matching
+        where('title', '>=', currentQuery.trim()),
+        where('title', '<=', currentQuery.trim() + '\uf8ff'),
         orderBy('title'),
         limit(12)
       );
       const storySnapshot = await getDocs(storyQuery);
-      const storiesFound = storySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
+      const storiesFound = storySnapshot.docs.map(doc => {
+        const data = doc.data();
+        // Ensure author is in UserSummary format, if stored differently in Firestore.
+        const authorSummary = data.author 
+        ? { id: data.author.id || 'unknown', username: data.author.username || 'Unknown Author', displayName: data.author.displayName, avatarUrl: data.author.avatarUrl }
+        : { id: 'unknown', username: 'Unknown Author', displayName: 'Unknown Author' };
+
+        return { 
+            id: doc.id, 
+            ...data,
+            author: authorSummary,
+            lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
+            chapters: data.chapters || [],
+            tags: data.tags || [],
+            } as Story;
+      });
       setStoryResults(storiesFound);
 
-      // Search Users (by username OR displayName)
-      // Firestore doesn't support OR queries on different fields directly in a single query for range comparisons.
-      // We perform two separate queries and merge results.
+      // Search Users by username (prefix match)
       const usersRef = collection(db, 'users');
-      
       const usernameQuery = query(
         usersRef,
-        where('username', '>=', currentQuery),
-        where('username', '<=', currentQuery + '\uf8ff'),
+        where('username', '>=', currentQuery.trim()),
+        where('username', '<=', currentQuery.trim() + '\uf8ff'),
         orderBy('username'),
         limit(6)
       );
       const usernameSnapshot = await getDocs(usernameQuery);
       const usersByUsername = usernameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
 
+      // Search Users by displayName (prefix match)
       const displayNameQuery = query(
         usersRef,
-        where('displayName', '>=', currentQuery),
-        where('displayName', '<=', currentQuery + '\uf8ff'),
+        where('displayName', '>=', currentQuery.trim()),
+        where('displayName', '<=', currentQuery.trim() + '\uf8ff'),
         orderBy('displayName'),
         limit(6)
       );
@@ -100,13 +114,13 @@ export default function SearchResultsPage() {
       // Merge and deduplicate user results
       const combinedUsers = new Map<string, AppUser>();
       usersByUsername.forEach(user => combinedUsers.set(user.id, user));
-      usersByDisplayName.forEach(user => combinedUsers.set(user.id, user)); // Overwrites if duplicate, which is fine
+      usersByDisplayName.forEach(user => combinedUsers.set(user.id, user)); 
       
       setUserResults(Array.from(combinedUsers.values()));
 
     } catch (error) {
       console.error("Error performing search:", error);
-      toast({ title: "Search Error", description: "Could not perform search. Check Firestore indexes.", variant: "destructive" });
+      toast({ title: "Search Error", description: "Could not perform search. Ensure Firestore indexes are set up if prompted.", variant: "destructive" });
       setStoryResults([]);
       setUserResults([]);
     } finally {
@@ -115,12 +129,12 @@ export default function SearchResultsPage() {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedSearch = useCallback(debounce(performSearch, 500), [toast]); // Include toast in dependencies if used inside performSearch
+  const debouncedSearch = useCallback(debounce(performSearch, 500), [toast]);
 
   useEffect(() => {
-    setSearchTerm(queryFromUrl); // Sync searchTerm with URL q param on initial load or URL change
+    setSearchTerm(queryFromUrl); 
     if (queryFromUrl.trim()) {
-      setIsLoading(true); // Indicate loading when URL has query
+      setIsLoading(true);
       debouncedSearch(queryFromUrl);
     } else {
       setStoryResults([]);
@@ -133,20 +147,21 @@ export default function SearchResultsPage() {
     const newQuery = e.target.value;
     setSearchTerm(newQuery);
     if (newQuery.trim()) {
-      setIsLoading(true); // Indicate loading as soon as user types
+      setIsLoading(true);
       debouncedSearch(newQuery);
+      // Update URL as user types for better UX and shareability (optional)
+      // router.push(`/search?q=${encodeURIComponent(newQuery.trim())}`, { scroll: false });
     } else {
       setStoryResults([]);
       setUserResults([]);
       setIsLoading(false);
-      router.push('/search'); // Clear URL query if search term is cleared
+      router.push('/search', { scroll: false }); 
     }
   };
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedQuery = searchTerm.trim();
-    // Update URL, which will trigger the useEffect to perform search
     if (trimmedQuery) {
       router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
     } else {
