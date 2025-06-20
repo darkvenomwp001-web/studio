@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, FormEvent } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Edit3, Send, Paperclip, Smile, Loader2, MessageSquare as MessageSquareIcon } from 'lucide-react';
+import { Search, Send, Paperclip, Smile, Loader2, MessageSquare as MessageSquareIcon, UserPlus, Users } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,11 +22,24 @@ import {
   doc,
   serverTimestamp,
   Timestamp,
-  limit
+  limit,
+  getDocs,
+  setDoc, // For creating a new conversation with a specific ID if needed, or doc() then setDoc()
+  getDoc
 } from 'firebase/firestore';
-import type { Conversation, Message, UserSummary } from '@/types';
+import type { Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 export default function MessagesPage() {
   const { user: currentUser, loading: authLoading } = useAuth();
@@ -41,13 +54,18 @@ export default function MessagesPage() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   
+  const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
+  const [searchUsername, setSearchUsername] = useState('');
+  const [searchedUsers, setSearchedUsers] = useState<UserSummary[]>([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Fetch conversations for the current user
   useEffect(() => {
     if (!currentUser?.id) {
       if (!authLoading) setIsLoadingConversations(false);
@@ -77,7 +95,6 @@ export default function MessagesPage() {
     return () => unsubscribe();
   }, [currentUser, toast, authLoading]);
 
-  // Fetch messages for the active conversation
   useEffect(() => {
     if (!activeConversation?.id) {
       setMessages([]);
@@ -88,7 +105,7 @@ export default function MessagesPage() {
     const messagesQuery = query(
       collection(db, 'conversations', activeConversation.id, 'messages'),
       orderBy('timestamp', 'asc'),
-      limit(50) // Load last 50 messages
+      limit(50) 
     );
 
     const unsubscribe = onSnapshot(messagesQuery, (querySnapshot) => {
@@ -118,14 +135,11 @@ export default function MessagesPage() {
     const messageData = {
       senderId: currentUser.id,
       content: newMessageContent.trim(),
-      timestamp: serverTimestamp(), // Firestore server timestamp
+      timestamp: serverTimestamp(),
     };
 
     try {
-      // Add new message to subcollection
       const messageRef = await addDoc(collection(db, 'conversations', activeConversation.id, 'messages'), messageData);
-      
-      // Update lastMessage on conversation document
       await updateDoc(doc(db, 'conversations', activeConversation.id), {
         lastMessage: {
           id: messageRef.id,
@@ -135,7 +149,6 @@ export default function MessagesPage() {
         },
         updatedAt: serverTimestamp(),
       });
-
       setNewMessageContent('');
     } catch (error) {
       console.error("Error sending message: ", error);
@@ -150,6 +163,102 @@ export default function MessagesPage() {
     const otherId = conversation.participantIds.find(id => id !== currentUser.id);
     return otherId ? conversation.participantInfo[otherId] : undefined;
   };
+
+  const handleSearchUsers = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!searchUsername.trim() || !currentUser) return;
+    setIsSearchingUsers(true);
+    setSearchedUsers([]);
+    try {
+      const usersRef = collection(db, 'users');
+      // Query for exact username match, case-sensitive. For case-insensitive, you'd store a lowercase version.
+      const q = query(usersRef, where('username', '==', searchUsername.trim()), limit(10));
+      const querySnapshot = await getDocs(q);
+      const usersFound = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as AppUserType))
+        .filter(u => u.id !== currentUser.id) // Exclude current user from results
+        .map(u => ({ // Map to UserSummary
+            id: u.id,
+            username: u.username,
+            displayName: u.displayName || u.username,
+            avatarUrl: u.avatarUrl
+        }));
+
+      if (usersFound.length === 0) {
+        toast({ title: "No Users Found", description: `No user found with username "${searchUsername.trim()}".` });
+      }
+      setSearchedUsers(usersFound);
+    } catch (error) {
+      console.error("Error searching users:", error);
+      toast({ title: "Search Error", description: "Could not perform user search.", variant: "destructive" });
+    } finally {
+      setIsSearchingUsers(false);
+    }
+  };
+
+  const handleStartNewConversation = async (targetUser: UserSummary) => {
+    if (!currentUser) return;
+    setIsCreatingConversation(true);
+
+    try {
+      // Check if a 1-on-1 conversation already exists
+      const sortedParticipantIds = [currentUser.id, targetUser.id].sort();
+      const existingConvQuery = query(
+        collection(db, 'conversations'),
+        where('participantIds', '==', sortedParticipantIds) // Assumes participantIds are stored sorted and are exactly these two
+      );
+      
+      const existingConvSnapshot = await getDocs(existingConvQuery);
+
+      if (!existingConvSnapshot.empty) {
+        const existingConv = { id: existingConvSnapshot.docs[0].id, ...existingConvSnapshot.docs[0].data() } as Conversation;
+        setActiveConversation(existingConv);
+        setIsNewConversationDialogOpen(false);
+        setIsCreatingConversation(false);
+        toast({ title: "Conversation Exists", description: `Opened existing chat with ${targetUser.displayName || targetUser.username}.` });
+        return;
+      }
+
+      // Create new conversation
+      const newConversationRef = doc(collection(db, 'conversations'));
+      const currentUserSummary: UserSummary = {
+          id: currentUser.id,
+          username: currentUser.username,
+          displayName: currentUser.displayName || currentUser.username,
+          avatarUrl: currentUser.avatarUrl
+      };
+      const newConversationData: Omit<Conversation, 'id'> = {
+        participantIds: sortedParticipantIds,
+        participantInfo: {
+          [currentUser.id]: currentUserSummary,
+          [targetUser.id]: targetUser,
+        },
+        updatedAt: serverTimestamp(),
+        lastMessage: {
+          id: '', // No initial message ID
+          content: 'Conversation started.', // Or empty
+          senderId: '', // System or empty
+          timestamp: serverTimestamp(),
+        },
+      };
+      await setDoc(newConversationRef, newConversationData);
+      
+      // Fetch the newly created conversation to set it active (onSnapshot should also pick it up)
+      const newConvSnap = await getDoc(newConversationRef);
+      if (newConvSnap.exists()) {
+          setActiveConversation({id: newConvSnap.id, ...newConvSnap.data()} as Conversation);
+      }
+
+      setIsNewConversationDialogOpen(false);
+      toast({ title: "Conversation Started", description: `You can now message ${targetUser.displayName || targetUser.username}.` });
+    } catch (error) {
+      console.error("Error starting new conversation:", error);
+      toast({ title: "Error", description: "Could not start new conversation.", variant: "destructive" });
+    } finally {
+      setIsCreatingConversation(false);
+    }
+  };
+
 
   if (authLoading) {
     return <div className="flex justify-center items-center h-[calc(100vh-8rem)]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -166,176 +275,229 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-[calc(100vh-8rem)] border bg-card rounded-lg shadow-xl overflow-hidden">
-      <aside className="w-full md:w-1/3 lg:w-1/4 border-r flex flex-col">
-        <div className="p-4 border-b">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-2xl font-headline font-semibold">Messages</h2>
-            <Button variant="ghost" size="icon" className="text-primary" onClick={() => toast({title: "Coming Soon!", description: "Starting new conversations will be available soon."})}>
-              <Edit3 className="h-5 w-5" />
-              <span className="sr-only">New Message</span>
-            </Button>
+    <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
+      <div className="flex flex-col md:flex-row h-[calc(100vh-8rem)] border bg-card rounded-lg shadow-xl overflow-hidden">
+        <aside className="w-full md:w-1/3 lg:w-1/4 border-r flex flex-col">
+          <div className="p-4 border-b">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-2xl font-headline font-semibold">Messages</h2>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-primary">
+                  <UserPlus className="h-5 w-5" />
+                  <span className="sr-only">New Message</span>
+                </Button>
+              </DialogTrigger>
+            </div>
+            <div className="relative">
+              <Input type="search" placeholder="Search messages (disabled)" className="pl-10 bg-background" disabled />
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+            </div>
           </div>
-          <div className="relative">
-            <Input type="search" placeholder="Search messages (disabled)" className="pl-10 bg-background" disabled />
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-          </div>
-        </div>
-        <ScrollArea className="flex-1">
-          {isLoadingConversations ? (
-            <div className="p-4 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading conversations...</div>
-          ) : conversations.length === 0 ? (
-            <p className="p-4 text-center text-muted-foreground">No conversations yet.</p>
-          ) : (
-            conversations.map(conv => {
-              const otherParticipant = getOtherParticipant(conv);
-              const lastMessageTimestampServer = conv.lastMessage?.timestamp as any; // Keep as any for Firestore Timestamp
-              let lastMessageDisplayTime = 'No recent messages';
-              if (lastMessageTimestampServer && typeof lastMessageTimestampServer.toDate === 'function') {
-                lastMessageDisplayTime = formatDistanceToNow(lastMessageTimestampServer.toDate(), { addSuffix: true });
-              } else if (lastMessageTimestampServer) {
-                 // Fallback if it's already a string or number (less ideal)
-                 try {
-                    lastMessageDisplayTime = formatDistanceToNow(new Date(lastMessageTimestampServer), { addSuffix: true });
-                 } catch (e) { /* ignore if not a valid date string */ }
-              }
+          <ScrollArea className="flex-1">
+            {isLoadingConversations ? (
+              <div className="p-4 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading conversations...</div>
+            ) : conversations.length === 0 ? (
+              <p className="p-4 text-center text-muted-foreground">No conversations yet. Start a new one!</p>
+            ) : (
+              conversations.map(conv => {
+                const otherParticipant = getOtherParticipant(conv);
+                const lastMessageTimestampServer = conv.lastMessage?.timestamp as any; 
+                let lastMessageDisplayTime = 'No recent messages';
+                if (lastMessageTimestampServer && typeof lastMessageTimestampServer.toDate === 'function') {
+                  lastMessageDisplayTime = formatDistanceToNow(lastMessageTimestampServer.toDate(), { addSuffix: true });
+                } else if (lastMessageTimestampServer) {
+                   try {
+                      lastMessageDisplayTime = formatDistanceToNow(new Date(lastMessageTimestampServer), { addSuffix: true });
+                   } catch (e) { /* ignore */ }
+                }
+                const isActive = activeConversation?.id === conv.id;
 
-              const isActive = activeConversation?.id === conv.id;
-
-              return (
-                <div 
-                  key={conv.id} 
-                  className={cn(
-                    `flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50`,
-                    isActive ? 'bg-primary/10 border-l-4 border-primary' : ''
-                  )}
-                  onClick={() => handleSelectConversation(conv)}
-                >
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={otherParticipant?.avatarUrl} alt={otherParticipant?.username} data-ai-hint="profile person" />
-                    <AvatarFallback>{otherParticipant?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 overflow-hidden">
-                    <div className="flex justify-between items-center">
-                      <h3 className={cn(`font-semibold truncate`, isActive ? 'text-primary' : 'text-foreground')}>
-                        {otherParticipant?.displayName || otherParticipant?.username || 'Unknown User'}
-                      </h3>
-                      <span className={cn(`text-xs whitespace-nowrap`, isActive ? 'text-primary/80' : 'text-muted-foreground')}>
-                        {lastMessageDisplayTime}
-                      </span>
+                return (
+                  <div 
+                    key={conv.id} 
+                    className={cn(
+                      `flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50`,
+                      isActive ? 'bg-primary/10 border-l-4 border-primary' : ''
+                    )}
+                    onClick={() => handleSelectConversation(conv)}
+                  >
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={otherParticipant?.avatarUrl} alt={otherParticipant?.username} data-ai-hint="profile person" />
+                      <AvatarFallback>{otherParticipant?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 overflow-hidden">
+                      <div className="flex justify-between items-center">
+                        <h3 className={cn(`font-semibold truncate`, isActive ? 'text-primary' : 'text-foreground')}>
+                          {otherParticipant?.displayName || otherParticipant?.username || 'Unknown User'}
+                        </h3>
+                        <span className={cn(`text-xs whitespace-nowrap`, isActive ? 'text-primary/80' : 'text-muted-foreground')}>
+                          {lastMessageDisplayTime}
+                        </span>
+                      </div>
+                      <p className={cn(`text-sm truncate`, isActive ? 'text-foreground/90' : 'text-muted-foreground')}>
+                        {conv.lastMessage?.senderId === currentUser.id && conv.lastMessage?.content && "You: "}
+                        {conv.lastMessage?.content || 'No messages yet.'}
+                      </p>
                     </div>
-                    <p className={cn(`text-sm truncate`, isActive ? 'text-foreground/90' : 'text-muted-foreground')}>
-                      {conv.lastMessage?.senderId === currentUser.id && "You: "}
-                      {conv.lastMessage?.content || 'No messages yet.'}
-                    </p>
                   </div>
+                );
+              })
+            )}
+          </ScrollArea>
+        </aside>
+
+        <main className="flex-1 flex flex-col bg-background">
+          {activeConversation ? (
+            <>
+              <header className="p-4 border-b bg-card flex items-center gap-3 shadow-sm">
+                 <Avatar>
+                  <AvatarImage src={getOtherParticipant(activeConversation)?.avatarUrl} alt={getOtherParticipant(activeConversation)?.username} data-ai-hint="profile person" />
+                  <AvatarFallback>{getOtherParticipant(activeConversation)?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="font-semibold text-lg">{getOtherParticipant(activeConversation)?.displayName || getOtherParticipant(activeConversation)?.username || 'Unknown User'}</h3>
                 </div>
-              );
-            })
-          )}
-        </ScrollArea>
-      </aside>
+              </header>
+              
+              <ScrollArea className="flex-1 p-4 space-y-4">
+                {isLoadingMessages ? (
+                  <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+                ) : messages.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-10">No messages in this conversation yet. Say hi!</p>
+                ) : (
+                  messages.map(msg => {
+                    const senderInfo = msg.senderId && activeConversation.participantInfo ? activeConversation.participantInfo[msg.senderId] : undefined;
+                    const isCurrentUserSender = msg.senderId === currentUser.id;
+                    const messageTimestampServer = msg.timestamp as any;
+                    let messageDisplayTime = '';
+                    if (messageTimestampServer && typeof messageTimestampServer.toDate === 'function') {
+                      messageDisplayTime = formatDistanceToNow(messageTimestampServer.toDate(), {addSuffix: true});
+                    } else if (messageTimestampServer) {
+                      try {
+                        messageDisplayTime = formatDistanceToNow(new Date(messageTimestampServer), { addSuffix: true });
+                      } catch (e) { /* ignore */ }
+                    }
 
-      <main className="flex-1 flex flex-col bg-background">
-        {activeConversation ? (
-          <>
-            <header className="p-4 border-b bg-card flex items-center gap-3 shadow-sm">
-               <Avatar>
-                <AvatarImage src={getOtherParticipant(activeConversation)?.avatarUrl} alt={getOtherParticipant(activeConversation)?.username} data-ai-hint="profile person" />
-                <AvatarFallback>{getOtherParticipant(activeConversation)?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-              </Avatar>
-              <div>
-                <h3 className="font-semibold text-lg">{getOtherParticipant(activeConversation)?.displayName || getOtherParticipant(activeConversation)?.username || 'Unknown User'}</h3>
-              </div>
-            </header>
-            
-            <ScrollArea className="flex-1 p-4 space-y-4">
-              {isLoadingMessages ? (
-                <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-              ) : messages.length === 0 ? (
-                <p className="text-center text-muted-foreground py-10">No messages in this conversation yet. Say hi!</p>
-              ) : (
-                messages.map(msg => {
-                  const senderInfo = msg.senderId && activeConversation.participantInfo ? activeConversation.participantInfo[msg.senderId] : undefined;
-                  const isCurrentUserSender = msg.senderId === currentUser.id;
-                  const messageTimestampServer = msg.timestamp as any; // Keep as any for Firestore Timestamp
-                  let messageDisplayTime = '';
-                  if (messageTimestampServer && typeof messageTimestampServer.toDate === 'function') {
-                    messageDisplayTime = formatDistanceToNow(messageTimestampServer.toDate(), {addSuffix: true});
-                  } else if (messageTimestampServer) {
-                    try {
-                      messageDisplayTime = formatDistanceToNow(new Date(messageTimestampServer), { addSuffix: true });
-                    } catch (e) { /* ignore */ }
-                  }
-
-
-                  return (
-                    <div key={msg.id} className={cn("flex items-end gap-2", isCurrentUserSender && "justify-end")}>
-                      {!isCurrentUserSender && (
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={senderInfo?.avatarUrl} data-ai-hint="profile person" />
-                          <AvatarFallback>{senderInfo?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div 
-                        className={cn(
-                          "max-w-xs md:max-w-md p-3 rounded-lg shadow", 
-                          isCurrentUserSender ? "rounded-br-none bg-primary text-primary-foreground" : "rounded-bl-none bg-muted text-foreground"
+                    return (
+                      <div key={msg.id} className={cn("flex items-end gap-2", isCurrentUserSender && "justify-end")}>
+                        {!isCurrentUserSender && (
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={senderInfo?.avatarUrl} data-ai-hint="profile person" />
+                            <AvatarFallback>{senderInfo?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                          </Avatar>
                         )}
-                      >
-                        <p className="text-sm whitespace-pre-line">{msg.content}</p>
-                        {messageDisplayTime && (
-                          <p className={cn("text-xs mt-1 text-right", isCurrentUserSender ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                            {messageDisplayTime}
-                          </p>
+                        <div 
+                          className={cn(
+                            "max-w-xs md:max-w-md p-3 rounded-lg shadow", 
+                            isCurrentUserSender ? "rounded-br-none bg-primary text-primary-foreground" : "rounded-bl-none bg-muted text-foreground"
+                          )}
+                        >
+                          <p className="text-sm whitespace-pre-line">{msg.content}</p>
+                          {messageDisplayTime && (
+                            <p className={cn("text-xs mt-1 text-right", isCurrentUserSender ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                              {messageDisplayTime}
+                            </p>
+                          )}
+                        </div>
+                        {isCurrentUserSender && currentUser && (
+                           <Avatar className="h-8 w-8">
+                             <AvatarImage src={currentUser.avatarUrl} data-ai-hint="profile person" />
+                             <AvatarFallback>{currentUser.username.substring(0,2).toUpperCase()}</AvatarFallback>
+                           </Avatar>
                         )}
                       </div>
-                      {isCurrentUserSender && currentUser && (
-                         <Avatar className="h-8 w-8">
-                           <AvatarImage src={currentUser.avatarUrl} data-ai-hint="profile person" />
-                           <AvatarFallback>{currentUser.username.substring(0,2).toUpperCase()}</AvatarFallback>
-                         </Avatar>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-              <div ref={messagesEndRef} />
-            </ScrollArea>
+                    );
+                  })
+                )}
+                <div ref={messagesEndRef} />
+              </ScrollArea>
 
-            <footer className="p-4 border-t bg-card">
-              <form 
-                onSubmit={(e) => { 
-                  e.preventDefault(); 
-                  handleSendMessage();
-                }} 
-                className="flex items-center gap-2"
-              >
-                <Button type="button" variant="ghost" size="icon" onClick={() => toast({title: "Emoji picker coming soon!"})}><Smile className="h-5 w-5 text-muted-foreground" /></Button>
-                <Button type="button" variant="ghost" size="icon" onClick={() => toast({title: "Attachment feature coming soon!"})}><Paperclip className="h-5 w-5 text-muted-foreground" /></Button>
-                <Input 
-                  type="text" 
-                  placeholder="Type a message..." 
-                  className="flex-1 bg-background focus-visible:ring-primary" 
-                  value={newMessageContent}
-                  onChange={(e) => setNewMessageContent(e.target.value)}
-                  disabled={isSendingMessage}
-                />
-                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSendingMessage || !newMessageContent.trim()}>
-                  {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-                </Button>
-              </form>
-            </footer>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-            <MessageSquareIcon className="h-24 w-24 text-muted-foreground/50 mb-6" />
-            <h2 className="text-2xl font-headline font-semibold mb-2">No Conversation Selected</h2>
-            <p className="text-muted-foreground">Select a conversation from the list or start a new one (feature coming soon).</p>
+              <footer className="p-4 border-t bg-card">
+                <form 
+                  onSubmit={(e) => { 
+                    e.preventDefault(); 
+                    handleSendMessage();
+                  }} 
+                  className="flex items-center gap-2"
+                >
+                  <Button type="button" variant="ghost" size="icon" onClick={() => toast({title: "Emoji picker coming soon!"})}><Smile className="h-5 w-5 text-muted-foreground" /></Button>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => toast({title: "Attachment feature coming soon!"})}><Paperclip className="h-5 w-5 text-muted-foreground" /></Button>
+                  <Input 
+                    type="text" 
+                    placeholder="Type a message..." 
+                    className="flex-1 bg-background focus-visible:ring-primary" 
+                    value={newMessageContent}
+                    onChange={(e) => setNewMessageContent(e.target.value)}
+                    disabled={isSendingMessage}
+                  />
+                  <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSendingMessage || !newMessageContent.trim()}>
+                    {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                  </Button>
+                </form>
+              </footer>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+              <MessageSquareIcon className="h-24 w-24 text-muted-foreground/50 mb-6" />
+              <h2 className="text-2xl font-headline font-semibold mb-2">No Conversation Selected</h2>
+              <p className="text-muted-foreground">Select a conversation from the list or start a new one.</p>
+            </div>
+          )}
+        </main>
+      </div>
+      
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Start New Conversation</DialogTitle>
+          <DialogDescription>
+            Search for a user by their exact username to start messaging.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSearchUsers} className="grid gap-4 py-4">
+          <div className="flex items-center gap-2">
+            <Input
+              id="search-username"
+              value={searchUsername}
+              onChange={(e) => setSearchUsername(e.target.value)}
+              placeholder="Enter exact username"
+              disabled={isSearchingUsers}
+            />
+            <Button type="submit" disabled={isSearchingUsers || !searchUsername.trim()}>
+              {isSearchingUsers ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            </Button>
           </div>
+        </form>
+        {searchedUsers.length > 0 && (
+          <ScrollArea className="max-h-60 mt-2">
+            <div className="space-y-2">
+              {searchedUsers.map(user => (
+                <div 
+                  key={user.id} 
+                  className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/50 cursor-pointer"
+                  onClick={() => handleStartNewConversation(user)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.avatarUrl} alt={user.username} data-ai-hint="profile person" />
+                      <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span>{user.displayName || user.username}</span>
+                  </div>
+                  {isCreatingConversation ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareIcon className="h-4 w-4 text-primary" />}
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
         )}
-      </main>
-    </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline">
+              Close
+            </Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
       
