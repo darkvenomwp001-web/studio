@@ -13,7 +13,7 @@ export interface Story {
   views?: number;
   isMature?: boolean;
   status?: 'Ongoing' | 'Completed' | 'Draft' | 'Unlisted' | 'Private';
-  lastUpdated: string; // ISO String
+  lastUpdated: any; // Can be ISO String or Firestore Timestamp
   language?: string;
   visibility?: 'Public' | 'Private' | 'Unlisted';
   collaborators?: UserSummary[];
@@ -61,12 +61,12 @@ export interface User extends UserSummary {
 
 export interface Comment {
   id: string;
-  user: UserSummary;
+  user: UserSummary; // Information about the user who posted
   storyId: string;
-  chapterId?: string;
-  parentId?: string;
+  chapterId?: string; // Optional if comments can be on stories directly
+  parentId?: string | null; // For replies
   content: string;
-  timestamp: string; // ISO String
+  timestamp: any; // Firestore Timestamp, or string/Date for client-side display
   likes?: number;
 }
 
@@ -75,21 +75,19 @@ export interface Message {
   senderId: string; // UID of the sender
   content: string;
   timestamp: any; // Firestore Timestamp, or string for client-side display
-  // UserSummary for sender is derived from Conversation.participantInfo
 }
 
 export interface Conversation {
   id: string;
   participantIds: string[]; // Array of UIDs of participants
   participantInfo: { [key: string]: UserSummary }; // Map UID to UserSummary for easy lookup
-  lastMessage: { // Store a summary of the last message
+  lastMessage: { 
     id: string;
-    senderId: string;
     content: string;
-    timestamp: any; // Firestore Timestamp, or string
+    senderId: string;
+    timestamp: any; 
   };
   updatedAt: any; // Firestore Timestamp for sorting conversations
-  // unreadCount could be a map like: { [userId: string]: number }
 }
 
 export interface NotificationType {
