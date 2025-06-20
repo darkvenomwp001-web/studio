@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useRef, FormEvent } from 'react';
+import { useEffect, useState, useRef, FormEvent, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ import {
   Timestamp,
   limit,
   getDocs,
-  setDoc, // For creating a new conversation with a specific ID if needed, or doc() then setDoc()
+  setDoc, 
   getDoc
 } from 'firebase/firestore';
 import type { Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -40,6 +40,19 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
+
+// Debounce function
+function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<F>): Promise<ReturnType<F>> =>
+    new Promise(resolve => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      timeout = setTimeout(() => resolve(func(...args)), waitFor);
+    });
+}
+
 
 export default function MessagesPage() {
   const { user: currentUser, loading: authLoading } = useAuth();
@@ -164,48 +177,69 @@ export default function MessagesPage() {
     return otherId ? conversation.participantInfo[otherId] : undefined;
   };
 
-  const handleSearchUsers = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!searchUsername.trim() || !currentUser) return;
+  const performUserSearch = async (searchTerm: string) => {
+    if (!searchTerm.trim() || !currentUser) {
+      setSearchedUsers([]);
+      setIsSearchingUsers(false);
+      return;
+    }
     setIsSearchingUsers(true);
     setSearchedUsers([]);
     try {
       const usersRef = collection(db, 'users');
-      // Query for exact username match, case-sensitive. For case-insensitive, you'd store a lowercase version.
-      const q = query(usersRef, where('username', '==', searchUsername.trim()), limit(10));
+      const q = query(
+        usersRef,
+        where('username', '>=', searchTerm.trim()),
+        where('username', '<=', searchTerm.trim() + '\uf8ff'), // \uf8ff is a high Unicode character for prefix matching
+        limit(10)
+      );
       const querySnapshot = await getDocs(q);
       const usersFound = querySnapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as AppUserType))
-        .filter(u => u.id !== currentUser.id) // Exclude current user from results
-        .map(u => ({ // Map to UserSummary
+        .filter(u => u.id !== currentUser.id) 
+        .map(u => ({ 
             id: u.id,
             username: u.username,
             displayName: u.displayName || u.username,
             avatarUrl: u.avatarUrl
         }));
 
-      if (usersFound.length === 0) {
-        toast({ title: "No Users Found", description: `No user found with username "${searchUsername.trim()}".` });
+      if (usersFound.length === 0 && searchTerm.trim().length > 0) { // Only show toast if search term is not empty
+        toast({ title: "No Users Found", description: `No user found starting with "${searchTerm.trim()}".` });
       }
       setSearchedUsers(usersFound);
     } catch (error) {
       console.error("Error searching users:", error);
-      toast({ title: "Search Error", description: "Could not perform user search.", variant: "destructive" });
+      toast({ title: "Search Error", description: "Could not perform user search. Ensure Firestore indexes are set up if needed for username prefix search.", variant: "destructive" });
     } finally {
       setIsSearchingUsers(false);
     }
   };
+  
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedSearch = useCallback(debounce(performUserSearch, 500), [currentUser]);
+
+  useEffect(() => {
+    if (searchUsername.trim().length > 0) {
+      setIsSearchingUsers(true); // Indicate searching immediately
+      debouncedSearch(searchUsername);
+    } else {
+      setSearchedUsers([]); // Clear results if search term is empty
+      setIsSearchingUsers(false);
+    }
+  }, [searchUsername, debouncedSearch]);
+
 
   const handleStartNewConversation = async (targetUser: UserSummary) => {
     if (!currentUser) return;
     setIsCreatingConversation(true);
 
     try {
-      // Check if a 1-on-1 conversation already exists
       const sortedParticipantIds = [currentUser.id, targetUser.id].sort();
       const existingConvQuery = query(
         collection(db, 'conversations'),
-        where('participantIds', '==', sortedParticipantIds) // Assumes participantIds are stored sorted and are exactly these two
+        where('participantIds', '==', sortedParticipantIds),
+        limit(1) // We only need one if it exists
       );
       
       const existingConvSnapshot = await getDocs(existingConvQuery);
@@ -214,43 +248,43 @@ export default function MessagesPage() {
         const existingConv = { id: existingConvSnapshot.docs[0].id, ...existingConvSnapshot.docs[0].data() } as Conversation;
         setActiveConversation(existingConv);
         setIsNewConversationDialogOpen(false);
-        setIsCreatingConversation(false);
+        setSearchUsername(''); 
+        setSearchedUsers([]);
         toast({ title: "Conversation Exists", description: `Opened existing chat with ${targetUser.displayName || targetUser.username}.` });
-        return;
-      }
+      } else {
+        const newConversationRef = doc(collection(db, 'conversations'));
+        const currentUserSummary: UserSummary = {
+            id: currentUser.id,
+            username: currentUser.username,
+            displayName: currentUser.displayName || currentUser.username,
+            avatarUrl: currentUser.avatarUrl
+        };
+        const newConversationData: Omit<Conversation, 'id'> = {
+          participantIds: sortedParticipantIds,
+          participantInfo: {
+            [currentUser.id]: currentUserSummary,
+            [targetUser.id]: targetUser,
+          },
+          updatedAt: serverTimestamp(),
+          lastMessage: {
+            id: '',
+            content: 'Conversation started.',
+            senderId: '', 
+            timestamp: serverTimestamp(),
+          },
+        };
+        await setDoc(newConversationRef, newConversationData);
+        
+        const newConvSnap = await getDoc(newConversationRef);
+        if (newConvSnap.exists()) {
+            setActiveConversation({id: newConvSnap.id, ...newConvSnap.data()} as Conversation);
+        }
 
-      // Create new conversation
-      const newConversationRef = doc(collection(db, 'conversations'));
-      const currentUserSummary: UserSummary = {
-          id: currentUser.id,
-          username: currentUser.username,
-          displayName: currentUser.displayName || currentUser.username,
-          avatarUrl: currentUser.avatarUrl
-      };
-      const newConversationData: Omit<Conversation, 'id'> = {
-        participantIds: sortedParticipantIds,
-        participantInfo: {
-          [currentUser.id]: currentUserSummary,
-          [targetUser.id]: targetUser,
-        },
-        updatedAt: serverTimestamp(),
-        lastMessage: {
-          id: '', // No initial message ID
-          content: 'Conversation started.', // Or empty
-          senderId: '', // System or empty
-          timestamp: serverTimestamp(),
-        },
-      };
-      await setDoc(newConversationRef, newConversationData);
-      
-      // Fetch the newly created conversation to set it active (onSnapshot should also pick it up)
-      const newConvSnap = await getDoc(newConversationRef);
-      if (newConvSnap.exists()) {
-          setActiveConversation({id: newConvSnap.id, ...newConvSnap.data()} as Conversation);
+        setIsNewConversationDialogOpen(false);
+        setSearchUsername('');
+        setSearchedUsers([]);
+        toast({ title: "Conversation Started", description: `You can now message ${targetUser.displayName || targetUser.username}.` });
       }
-
-      setIsNewConversationDialogOpen(false);
-      toast({ title: "Conversation Started", description: `You can now message ${targetUser.displayName || targetUser.username}.` });
     } catch (error) {
       console.error("Error starting new conversation:", error);
       toast({ title: "Error", description: "Could not start new conversation.", variant: "destructive" });
@@ -275,7 +309,13 @@ export default function MessagesPage() {
   }
 
   return (
-    <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
+    <Dialog open={isNewConversationDialogOpen} onOpenChange={(isOpen) => {
+        setIsNewConversationDialogOpen(isOpen);
+        if (!isOpen) { // Reset search when dialog closes
+            setSearchUsername('');
+            setSearchedUsers([]);
+        }
+    }}>
       <div className="flex flex-col md:flex-row h-[calc(100vh-8rem)] border bg-card rounded-lg shadow-xl overflow-hidden">
         <aside className="w-full md:w-1/3 lg:w-1/4 border-r flex flex-col">
           <div className="p-4 border-b">
@@ -450,23 +490,22 @@ export default function MessagesPage() {
         <DialogHeader>
           <DialogTitle>Start New Conversation</DialogTitle>
           <DialogDescription>
-            Search for a user by their exact username to start messaging.
+            Type a username to find users and start messaging.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSearchUsers} className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4">
           <div className="flex items-center gap-2">
             <Input
               id="search-username"
               value={searchUsername}
               onChange={(e) => setSearchUsername(e.target.value)}
-              placeholder="Enter exact username"
-              disabled={isSearchingUsers}
+              placeholder="Enter username to search..."
+              disabled={isCreatingConversation}
+              className="flex-grow"
             />
-            <Button type="submit" disabled={isSearchingUsers || !searchUsername.trim()}>
-              {isSearchingUsers ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            </Button>
+             {isSearchingUsers && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
           </div>
-        </form>
+        </div>
         {searchedUsers.length > 0 && (
           <ScrollArea className="max-h-60 mt-2">
             <div className="space-y-2">
@@ -474,7 +513,8 @@ export default function MessagesPage() {
                 <div 
                   key={user.id} 
                   className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/50 cursor-pointer"
-                  onClick={() => handleStartNewConversation(user)}
+                  onClick={() => !isCreatingConversation && handleStartNewConversation(user)}
+                  aria-disabled={isCreatingConversation}
                 >
                   <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
@@ -489,9 +529,12 @@ export default function MessagesPage() {
             </div>
           </ScrollArea>
         )}
+         {searchUsername.trim().length > 0 && !isSearchingUsers && searchedUsers.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center">No users found matching "{searchUsername}".</p>
+        )}
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" disabled={isCreatingConversation}>
               Close
             </Button>
           </DialogClose>
