@@ -16,14 +16,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Added import
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { db, storage } from '@/lib/firebase'; // Import db and storage
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, deleteField } from 'firebase/firestore';
+import { db, storage } from '@/lib/firebase'; 
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, deleteField, Timestamp } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { Story, Chapter, UserSummary } from '@/types';
+import type { Story, Chapter, UserSummary, User as AppUser } from '@/types';
 import { cn } from '@/lib/utils';
-import { formatDate } from '@/lib/placeholder-data'; // Keep for formatDate
+import { formatDate } from '@/lib/placeholder-data'; 
 
 export default function EditStoryDetailsPage() {
   const searchParams = useSearchParams();
@@ -39,8 +40,8 @@ export default function EditStoryDetailsPage() {
   const [summary, setSummary] = useState('');
   const [genre, setGenre] = useState('fantasy');
   const [tags, setTags] = useState('');
-  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null); // For local preview
-  const [coverImageFile, setCoverImageFile] = useState<File | null>(null); // For upload
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null); 
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null); 
   const [language, setLanguage] = useState('English');
   const [isMature, setIsMature] = useState(false);
   const [visibility, setVisibility] = useState<'Public' | 'Private' | 'Unlisted'>('Public');
@@ -91,9 +92,9 @@ export default function EditStoryDetailsPage() {
         setIsLoading(false);
         router.push('/write');
       });
-    } else if (user && !queryStoryId) { // New story
+    } else if (user && !queryStoryId) { 
       setIsLoading(true);
-      const newStoryId = `story-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const newStoryId = doc(collection(db, 'stories')).id; // Generate new ID
       const newStoryData: Story = {
         id: newStoryId,
         title: 'New Story Title',
@@ -112,12 +113,14 @@ export default function EditStoryDetailsPage() {
       };
       setDoc(doc(db, 'stories', newStoryId), newStoryData).then(() => {
         router.replace(`/write/edit-details?storyId=${newStoryId}`, { scroll: false });
-        // The onSnapshot listener will pick up from here once the route updates
+        // onSnapshot will pick up this newly created document.
       }).catch(error => {
         console.error("Error creating new story document:", error);
         toast({ title: "Error", description: "Could not create new story.", variant: "destructive" });
         router.push('/write');
       });
+    } else if (!user && !authLoading) {
+        setIsLoading(false);
     }
     return () => {
       if (unsubscribeStory) unsubscribeStory();
@@ -128,7 +131,7 @@ export default function EditStoryDetailsPage() {
   const handleCoverImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      if (file.size > 5 * 1024 * 1024) { 
         toast({ title: "Image Too Large", description: "Please select an image smaller than 5MB.", variant: "destructive" });
         return;
       }
@@ -153,9 +156,23 @@ export default function EditStoryDetailsPage() {
       const imageStorageRef = storageRef(storage, imagePath);
       try {
         const uploadTask = uploadBytesResumable(imageStorageRef, coverImageFile);
-        await uploadTask;
-        finalCoverImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
-        setCoverImageFile(null); // Clear file after successful upload
+        
+        // Wait for upload completion
+        await new Promise<void>((resolve, reject) => {
+            uploadTask.on(
+                'state_changed',
+                (snapshot) => { /* Optional: track progress */ },
+                (error) => reject(error), // Handle unsuccessful uploads
+                () => { // Handle successful uploads on complete
+                    getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+                        finalCoverImageUrl = downloadURL;
+                        resolve();
+                    }).catch(reject);
+                }
+            );
+        });
+        
+        setCoverImageFile(null); 
         toast({ title: "Cover Image Uploaded", description: "New cover image saved." });
       } catch (error) {
         console.error("Error uploading cover image:", error);
@@ -183,7 +200,6 @@ export default function EditStoryDetailsPage() {
     try {
       const storyDocRef = doc(db, 'stories', story.id);
       await updateDoc(storyDocRef, storyDataToUpdate);
-      // setStory will be updated by onSnapshot listener
       toast({ title: "Story Details Saved!", description: "Your story settings have been updated." });
     } catch (error) {
       console.error("Error saving story details:", error);
@@ -201,7 +217,6 @@ export default function EditStoryDetailsPage() {
     try {
       const storyDocRef = doc(db, 'stories', story.id);
       await updateDoc(storyDocRef, { chapters: updatedChapters, lastUpdated: serverTimestamp() });
-      // setStory will be updated by onSnapshot
       toast({title: "Chapter Deleted", description: `Chapter "${chapter.title}" has been removed.`});
     } catch (error) {
       console.error("Error deleting chapter:", error);
@@ -217,6 +232,10 @@ export default function EditStoryDetailsPage() {
       toast({ title: "Input Required", description: "Please enter a username to add.", variant: "destructive" });
       return;
     }
+    if (story.author.id !== user.id) {
+        toast({ title: "Permission Denied", description: "Only the story author can add collaborators.", variant: "destructive" });
+        return;
+    }
     setIsProcessingCollaboration(true);
     try {
       const usersRef = collection(db, 'users');
@@ -230,10 +249,10 @@ export default function EditStoryDetailsPage() {
       }
       
       const collaboratorUserDoc = querySnapshot.docs[0];
-      const collaboratorUserData = collaboratorUserDoc.data() as User;
+      const collaboratorUserData = {id: collaboratorUserDoc.id, ...collaboratorUserDoc.data()} as AppUser;
 
       if (collaboratorUserData.id === user.id) {
-        toast({ title: "Cannot Add Self", description: "You cannot add yourself as a collaborator.", variant: "destructive" });
+        toast({ title: "Cannot Add Self", description: "You are the author and cannot add yourself as a collaborator.", variant: "destructive" });
         setIsProcessingCollaboration(false);
         return;
       }
@@ -252,45 +271,45 @@ export default function EditStoryDetailsPage() {
 
       const updatedCollaborators = [...(story.collaborators || []), newCollaborator];
       const storyDocRef = doc(db, 'stories', story.id);
-      await updateDoc(storyDocRef, { collaborators: updatedCollaborators, lastUpdated: serverTimestamp() });
-      // setStory will be updated by onSnapshot
+      await updateDoc(storyDocRef, { 
+          collaborators: updatedCollaborators,
+          lastUpdated: serverTimestamp()
+      });
       setCollaboratorUsername('');
       toast({ title: "Collaborator Added", description: `${newCollaborator.displayName || newCollaborator.username} can now contribute to this story.` });
     } catch (error) {
-      console.error("Error adding collaborator:", error);
-      toast({ title: "Error", description: "Could not add collaborator.", variant: "destructive" });
+        console.error("Error adding collaborator:", error);
+        toast({title: "Error", description: "Could not add collaborator. Please try again.", variant: "destructive"});
     } finally {
-      setIsProcessingCollaboration(false);
+        setIsProcessingCollaboration(false);
     }
   };
 
   const handleRemoveCollaborator = async (collaboratorId: string) => {
-    if (!story) return;
+    if (!story || !user) return;
+     if (story.author.id !== user.id) {
+        toast({ title: "Permission Denied", description: "Only the story author can remove collaborators.", variant: "destructive" });
+        return;
+    }
     setIsProcessingCollaboration(true);
     const updatedCollaborators = story.collaborators?.filter(c => c.id !== collaboratorId);
     try {
-      const storyDocRef = doc(db, 'stories', story.id);
-      await updateDoc(storyDocRef, { collaborators: updatedCollaborators, lastUpdated: serverTimestamp() });
-      // setStory will be updated by onSnapshot
-      toast({ title: "Collaborator Removed", description: `Collaborator access revoked.` });
+        const storyDocRef = doc(db, 'stories', story.id);
+        await updateDoc(storyDocRef, { 
+            collaborators: updatedCollaborators,
+            lastUpdated: serverTimestamp() 
+        });
+        toast({ title: "Collaborator Removed", description: `Collaborator access revoked.` });
     } catch (error) {
-      console.error("Error removing collaborator:", error);
-      toast({ title: "Error", description: "Could not remove collaborator.", variant: "destructive" });
+        console.error("Error removing collaborator:", error);
+        toast({title: "Error", description: "Could not remove collaborator. Please try again.", variant: "destructive"});
     } finally {
-      setIsProcessingCollaboration(false);
+        setIsProcessingCollaboration(false);
     }
   };
 
-  const handleSavePublishSettings = async () => {
-    if (!story) return;
-    // The 'publishAccount' logic was primarily a mock for UI representation.
-    // The actual author is fixed. Collaboration allows multiple editors.
-    // For now, this button can just be a "Save Details" alias if no specific publishing account logic is implemented.
-    await handleSaveChanges();
-  };
 
-
-  if (isLoading || authLoading || (queryStoryId && !story)) { // Also check if story is not loaded yet when queryStoryId exists
+  if (isLoading || authLoading || (queryStoryId && !story)) { 
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -299,11 +318,11 @@ export default function EditStoryDetailsPage() {
     );
   }
 
-  if (!user) { // Should be caught by useEffect, but as a safeguard
+  if (!user) { 
     return <div className="text-center py-10">Please sign in to edit stories.</div>;
   }
   
-  if (!story && queryStoryId) { // Story ID was given but story couldn't be loaded (e.g. not found, permissions)
+  if (!story && queryStoryId) { 
     return (
         <div className="text-center py-10">
             <Info className="mx-auto h-12 w-12 text-destructive mb-4" />
@@ -315,7 +334,7 @@ export default function EditStoryDetailsPage() {
     );
   }
   
-  if (!story) { // Catch all for new story not yet initialized by onSnapshot after creation.
+  if (!story) { 
      return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -323,9 +342,6 @@ export default function EditStoryDetailsPage() {
       </div>
     );
   }
-
-  const potentialPublishAccounts = [story.author, ...(story.collaborators || [])];
-  const currentPublishAccount = story.author.id; // In this model, the original author is always the publisher.
 
   const getChapterStatusColor = (status?: 'Published' | 'Draft') => {
     if (status === 'Published') return 'text-green-600 dark:text-green-400';
@@ -511,7 +527,7 @@ export default function EditStoryDetailsPage() {
                           </Link>
                           <p className={cn("text-xs", getChapterStatusColor(chapter.status))}>
                             Status: {chapter.status || 'Draft'}
-                            {chapter.publishedDate && ` - Published: ${formatDate(chapter.publishedDate)}`}
+                            {chapter.publishedDate && chapter.status === 'Published' && ` - Published: ${formatDate(chapter.publishedDate)}`}
                           </p>
                         </div>
                         <div className="flex gap-2">
@@ -537,7 +553,7 @@ export default function EditStoryDetailsPage() {
           <Card>
             <CardHeader>
                 <CardTitle>Collaboration</CardTitle>
-                <CardDescription>Invite other users to contribute to this story.</CardDescription>
+                <CardDescription>Invite other users to contribute to this story. Only the original author can add or remove collaborators.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex gap-2">
@@ -546,9 +562,9 @@ export default function EditStoryDetailsPage() {
                     placeholder="Enter collaborator's username"
                     value={collaboratorUsername}
                     onChange={(e) => setCollaboratorUsername(e.target.value)}
-                    disabled={isProcessingCollaboration}
+                    disabled={isProcessingCollaboration || story.author.id !== user.id}
                     />
-                    <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim()}>
+                    <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim() || story.author.id !== user.id}>
                         {isProcessingCollaboration ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add
                     </Button>
                 </div>
@@ -565,8 +581,14 @@ export default function EditStoryDetailsPage() {
                             </Avatar>
                             <span>{collab.displayName || collab.username}</span>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(collab.id)} className="text-destructive hover:text-destructive" disabled={isProcessingCollaboration}>
-                            <Trash2 className="h-4 w-4" />
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleRemoveCollaborator(collab.id)} 
+                                className="text-destructive hover:text-destructive" 
+                                disabled={isProcessingCollaboration || story.author.id !== user.id}
+                            >
+                                <Trash2 className="h-4 w-4" />
                             </Button>
                         </li>
                         ))}
@@ -631,3 +653,5 @@ export default function EditStoryDetailsPage() {
     </AlertDialog>
   );
 }
+
+    
