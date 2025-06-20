@@ -52,9 +52,7 @@ export default function StoriesPage() {
     <div className="min-h-screen bg-background text-foreground space-y-12 py-8">
       {/* Hero Carousel Section */}
       <section className="container mx-auto px-4">
-        <h2 className="text-3xl font-headline font-bold mb-6 text-center md:text-left text-primary flex items-center gap-2">
-          <Sparkles className="h-7 w-7" /> Featured Reads
-        </h2>
+        {/* "Featured Reads" title removed */}
         <Carousel
           plugins={[
             Autoplay({
@@ -71,9 +69,10 @@ export default function StoriesPage() {
           <CarouselContent>
             {featuredStoriesForCarousel.map((story) => (
               <CarouselItem key={story.id} className="md:basis-1/2 lg:basis-1/3">
-                <Card className="overflow-hidden group relative border-none rounded-none aspect-[2/3] h-full">
+                {/* Adjusted aspect ratio for the card here */}
+                <Card className="overflow-hidden group relative border-none rounded-none aspect-[2/1] h-full">
                   <Image
-                    src={story.coverImageUrl || `https://placehold.co/512x800.png`}
+                    src={story.coverImageUrl || `https://placehold.co/512x800.png`} // Source remains 2:3, objectFit handles it
                     alt={story.title}
                     layout="fill"
                     objectFit="cover"
@@ -81,10 +80,10 @@ export default function StoriesPage() {
                     data-ai-hint={story.dataAiHint || "book cover"}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent" />
-                  <CardContent className="absolute bottom-0 left-0 p-6 md:p-8 w-full z-10 flex flex-col justify-end h-full">
+                  <CardContent className="absolute bottom-0 left-0 p-4 md:p-6 w-full z-10 flex flex-col justify-end h-full">
                     <div>
-                      <h3 className="text-2xl md:text-3xl font-headline font-bold text-white mb-1 line-clamp-2">{story.title}</h3>
-                      <p className="text-sm text-gray-200 mb-2">By {story.author.displayName || story.author.username}</p>
+                      <h3 className="text-xl md:text-2xl font-headline font-bold text-white mb-1 line-clamp-2">{story.title}</h3>
+                      <p className="text-xs text-gray-200 mb-2">By {story.author.displayName || story.author.username}</p>
                       <div className="flex flex-wrap gap-1 mb-3">
                         {story.tags.slice(0, 2).map(tag => (
                           <Badge key={tag} variant="secondary" className="text-xs bg-white/20 text-white backdrop-blur-sm border-none">{tag}</Badge>
@@ -92,11 +91,11 @@ export default function StoriesPage() {
                       </div>
                       <div className="flex flex-col sm:flex-row gap-2">
                         <Link href={`/stories/${story.id}`} passHref>
-                          <Button size="default" className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto">
+                          <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto">
                             <BookOpen className="mr-2 h-4 w-4" /> Read Now
                           </Button>
                         </Link>
-                        <Button size="default" variant="outline" className="bg-black/30 text-white border-white/50 hover:bg-white/20 hover:text-white w-full sm:w-auto" onClick={() => handleAddToLibrary(story.title)}>
+                        <Button size="sm" variant="outline" className="bg-black/30 text-white border-white/50 hover:bg-white/20 hover:text-white w-full sm:w-auto" onClick={() => handleAddToLibrary(story.title)}>
                           <LibrarySquare className="mr-2 h-4 w-4" /> Add to Library
                         </Button>
                       </div>
