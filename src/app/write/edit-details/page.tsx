@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/placeholder-data'; 
 
 const AUTOSAVE_DELAY = 2000; // 2 seconds
+const MAX_COVER_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 export default function EditStoryDetailsPage() {
   const searchParams = useSearchParams();
@@ -51,7 +52,7 @@ export default function EditStoryDetailsPage() {
   const [visibility, setVisibility] = useState<'Public' | 'Private' | 'Unlisted'>('Public');
   
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false); // Used for cover image upload specifically
+  const [isSaving, setIsSaving] = useState(false); 
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
   const [collaboratorUsername, setCollaboratorUsername] = useState('');
@@ -60,7 +61,6 @@ export default function EditStoryDetailsPage() {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'Idle' | 'Typing' | 'Saving' | 'Saved' | 'Error'>('Idle');
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
-  // Populate form fields from story data once loaded
   useEffect(() => {
     if (story && !initialLoadComplete) {
       setStoryTitle(story.title);
@@ -71,12 +71,11 @@ export default function EditStoryDetailsPage() {
       setLanguage(story.language || 'English');
       setIsMature(story.isMature || false);
       setVisibility(story.visibility || 'Public');
-      setInitialLoadComplete(true); // Mark initial population as done
+      setInitialLoadComplete(true); 
       setAutoSaveStatus('Idle');
     }
   }, [story, initialLoadComplete]);
 
-  // Story loading logic
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/auth/signin');
@@ -87,7 +86,7 @@ export default function EditStoryDetailsPage() {
 
     if (user && queryStoryId) {
       setIsLoading(true);
-      setInitialLoadComplete(false); // Reset for potential new story load
+      setInitialLoadComplete(false); 
       const storyDocRef = doc(db, 'stories', queryStoryId);
       unsubscribeStory = onSnapshot(storyDocRef, (docSnap) => {
         if (docSnap.exists()) {
@@ -98,7 +97,6 @@ export default function EditStoryDetailsPage() {
             return;
           }
           setStory(storyData);
-          // Form fields will be set by the other useEffect that watches `story` and `initialLoadComplete`
         } else {
           toast({ title: "Error", description: "Story not found.", variant: "destructive" });
           router.push('/write');
@@ -136,7 +134,7 @@ export default function EditStoryDetailsPage() {
         console.error("Error creating new story document:", error);
         toast({ title: "Error", description: "Could not create new story.", variant: "destructive" });
         router.push('/write');
-        setIsLoading(false); // Ensure loading stops on error too
+        setIsLoading(false);
       });
     } else if (!user && !authLoading) {
         setIsLoading(false);
@@ -151,16 +149,14 @@ export default function EditStoryDetailsPage() {
 
   const handleSaveChanges = useCallback(async (isCoverChange: boolean = false) => {
     if (!story || !user || !initialLoadComplete) {
-      // Avoid saving if story isn't loaded or initial population isn't done
       return;
     }
 
     if (!isCoverChange) setAutoSaveStatus('Saving'); else setIsSaving(true);
 
-
     let finalCoverImageUrl = story.coverImageUrl;
 
-    if (coverImageFile) {
+    if (coverImageFile) { // This block handles cover image upload specifically
       setIsUploadingCover(true);
       const imagePath = `storyCovers/${story.id}/${coverImageFile.name}`;
       const imageStorageRef = storageRef(storage, imagePath);
@@ -169,8 +165,11 @@ export default function EditStoryDetailsPage() {
         await new Promise<void>((resolve, reject) => {
             uploadTask.on(
                 'state_changed',
-                (snapshot) => {},
-                (error) => reject(error),
+                (snapshot) => {}, // Progress updates can be handled here if needed
+                (error) => {
+                  console.error("Firebase Storage upload error details:", error);
+                  reject(error);
+                },
                 () => {
                     getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
                         finalCoverImageUrl = downloadURL;
@@ -180,13 +179,22 @@ export default function EditStoryDetailsPage() {
             );
         });
         setCoverImageFile(null); 
-        // Toast for cover image is handled by onCoverImageSelect success
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error uploading cover image:", error);
-        toast({ title: "Upload Failed", description: "Could not upload cover image.", variant: "destructive" });
+        let errorDescription = "Could not upload cover image. Please try again.";
+        if (error.code === 'storage/unauthorized') {
+            errorDescription = "Permission denied. Check your Firebase Storage security rules.";
+        } else if (error.code === 'storage/canceled') {
+            errorDescription = "Upload cancelled.";
+        } else if (error.code === 'storage/quota-exceeded') {
+            errorDescription = "Storage quota exceeded. Please free up space or upgrade your Firebase plan.";
+        } else if (error.code === 'storage/object-not-found' || error.code === 'storage/bucket-not-found') {
+            errorDescription = "Storage path/bucket not found. Contact support.";
+        }
+        toast({ title: "Upload Failed", description: errorDescription, variant: "destructive" });
         if (!isCoverChange) setAutoSaveStatus('Error'); else setIsSaving(false);
         setIsUploadingCover(false);
-        return;
+        return; // Stop further execution if cover upload fails
       }
       setIsUploadingCover(false);
     }
@@ -200,31 +208,32 @@ export default function EditStoryDetailsPage() {
       language: language,
       isMature: isMature,
       visibility: visibility,
-      status: visibility === 'Public' && story.chapters.some(c => c.status === 'Published') ? 'Ongoing' : (story.status === 'Completed' ? 'Completed' : (story.status === 'Draft' ? 'Draft' : 'Draft')), // Simplified status update
+      status: visibility === 'Public' && story.chapters.some(c => c.status === 'Published') ? 'Ongoing' : (story.status === 'Completed' ? 'Completed' : (story.status === 'Draft' ? 'Draft' : 'Draft')),
       lastUpdated: serverTimestamp(),
     };
 
     try {
       const storyDocRef = doc(db, 'stories', story.id);
       await updateDoc(storyDocRef, storyDataToUpdate);
-      if (!isCoverChange) setAutoSaveStatus('Saved'); else {
-        toast({ title: "Cover Image Saved!", description: "Your new cover image has been applied." });
+      if (!isCoverChange) {
+         setAutoSaveStatus('Saved');
+      } else {
+        // Toast for successful cover image *application* to story doc (upload success is handled above)
+        toast({ title: "Cover Image Updated!", description: "Your new cover image has been applied to the story." });
       }
     } catch (error) {
-      console.error("Error saving story details:", error);
+      console.error("Error saving story details to Firestore:", error);
       if (!isCoverChange) setAutoSaveStatus('Error');
-      toast({ title: "Save Failed", description: "Could not save story details.", variant: "destructive" });
+      toast({ title: "Save Failed", description: "Could not save story details to database.", variant: "destructive" });
     } finally {
       if (isCoverChange) setIsSaving(false);
     }
   }, [story, user, storyTitle, summary, genre, tags, coverImageFile, language, isMature, visibility, toast, initialLoadComplete]);
 
-  // useEffect for auto-saving text fields and selects
   useEffect(() => {
     if (!initialLoadComplete || isLoading || authLoading || !story) {
       return;
     }
-    // Only set to Typing if it's not already saving or in error from a previous attempt
     if (autoSaveStatus !== 'Saving' && autoSaveStatus !== 'Error') {
         setAutoSaveStatus('Typing');
     }
@@ -234,20 +243,18 @@ export default function EditStoryDetailsPage() {
     }
 
     debounceTimeoutRef.current = setTimeout(() => {
-        // Check if there are actual changes compared to the currently loaded story state
-        // This prevents saving if the form fields were just populated from `story` and haven't been changed by the user yet.
         const hasChanged = story.title !== storyTitle ||
                            story.summary !== summary ||
                            story.genre.toLowerCase() !== genre ||
                            story.tags.join(', ') !== tags ||
                            story.language !== language ||
                            story.isMature !== isMature ||
-                           story.visibility !== visibility;
+                           story.visibility !== visibility ||
+                           coverImageFile !== null; // Include coverImageFile in change detection
 
         if (hasChanged) {
-          handleSaveChanges(false); // false indicates it's not a cover image change
+          handleSaveChanges(coverImageFile !== null); // Pass true if coverImageFile initiated this save
         } else if (autoSaveStatus !== 'Idle' && autoSaveStatus !== 'Saved') {
-          // If no changes and not already Idle/Saved, revert to Idle or Saved if applicable
            setAutoSaveStatus(story.title === storyTitle && story.summary === summary ? 'Saved' : 'Idle');
         }
     }, AUTOSAVE_DELAY);
@@ -257,40 +264,29 @@ export default function EditStoryDetailsPage() {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [storyTitle, summary, genre, tags, language, isMature, visibility, handleSaveChanges, initialLoadComplete, isLoading, authLoading, story, autoSaveStatus]);
+  }, [storyTitle, summary, genre, tags, language, isMature, visibility, coverImageFile, handleSaveChanges, initialLoadComplete, isLoading, authLoading, story, autoSaveStatus]);
 
 
   const handleCoverImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 5 * 1024 * 1024) { 
-        toast({ title: "Image Too Large", description: "Please select an image smaller than 5MB.", variant: "destructive" });
+      if (file.size > MAX_COVER_IMAGE_SIZE_BYTES) { 
+        toast({ 
+            title: "Image Too Large", 
+            description: `Please select an image smaller than ${MAX_COVER_IMAGE_SIZE_BYTES / (1024*1024)}MB.`, 
+            variant: "destructive" 
+        });
+        if(fileInputRef.current) fileInputRef.current.value = ""; // Clear the input
         return;
       }
       setCoverImageFile(file);
       setCoverImagePreview(URL.createObjectURL(file));
-      // Trigger save for cover image immediately (or after a very short debounce if needed)
-      // For simplicity, we can make handleSaveChanges smart enough, or call it directly.
-      // Let's rely on the next state update of coverImageFile to trigger its own save cycle if desired,
-      // or call handleSaveChanges directly.
-      // To make it save immediately on selection:
-      // handleSaveChanges(true); // true indicates it is a cover change for specific logic if needed
-      // For now, let's make it part of the general auto-save logic triggered by coverImageFile state change.
-      // The `handleSaveChanges` will be called by the useEffect watching `coverImageFile` (implicitly via `story.coverImageUrl` through main save logic)
-      // Updated approach: call save immediately for cover, as it's a distinct user action.
-      // This will be handled by the main useEffect that watches form fields if we include `coverImageFile` as a dependency
-      // or we can call `handleSaveChanges(true)` right after `setCoverImageFile`.
-      // Let's defer the actual save of cover image to the main debounced `handleSaveChanges`
-      // by making `coverImageFile` a dependency of the auto-save `useEffect`.
-      // For a more responsive feel for cover image, we will trigger save on file change.
-      // This will be picked up by the main auto-save useEffect due to state change.
-      setAutoSaveStatus('Typing'); // Trigger auto-save cycle
+      setAutoSaveStatus('Typing'); 
     }
   };
   
   const confirmDeleteChapter = async (chapter: Chapter) => {
     if (!story) return;
-    // No local isSaving for this, as it's a distinct operation
     const originalAutoSaveStatus = autoSaveStatus;
     setAutoSaveStatus('Saving');
     const updatedChapters = story.chapters.filter(ch => ch.id !== chapter.id)
@@ -306,7 +302,6 @@ export default function EditStoryDetailsPage() {
       setAutoSaveStatus('Error');
     } finally {
       setChapterToDelete(null);
-      // Restore previous auto-save status if it wasn't 'Saving' or 'Error' from this op
       if (originalAutoSaveStatus !== 'Saving' && originalAutoSaveStatus !== 'Error') {
           setTimeout(() => setAutoSaveStatus(originalAutoSaveStatus), 500);
       }
@@ -448,7 +443,7 @@ export default function EditStoryDetailsPage() {
     if (autoSaveStatus === 'Error') {
         return <div className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Save error</div>;
     }
-    return <div className="text-xs text-muted-foreground">Editing story details...</div>; // Idle state
+    return <div className="text-xs text-muted-foreground">Editing story details...</div>;
   };
 
 
@@ -481,7 +476,7 @@ export default function EditStoryDetailsPage() {
             <CardContent className="flex flex-col items-center">
               <div
                 className="aspect-[2/3] w-full max-w-[250px] bg-muted rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity mb-2 shadow-md relative group"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => !(isUploadingCover || autoSaveStatus === 'Saving') && fileInputRef.current?.click()}
                 title="Click to change cover"
               >
                 <Image
@@ -491,7 +486,7 @@ export default function EditStoryDetailsPage() {
                   height={800}
                   className="object-cover w-full h-full"
                   data-ai-hint="book cover design"
-                  priority // Ensures cover is loaded quickly
+                  priority 
                 />
                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <UploadCloud className="h-10 w-10 text-white" />
@@ -733,16 +728,6 @@ export default function EditStoryDetailsPage() {
             </Card>
 
         </div>
-
-        {/* Removed the explicit save button as per auto-save requirement */}
-        {/* 
-        <div className="fixed bottom-6 right-6 z-50">
-          <Button type="submit" size="lg" disabled={isSaving || isUploadingCover} className="shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-3 px-6">
-            {(isSaving || isUploadingCover) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-            Save Story Details
-          </Button>
-        </div> 
-        */}
       </form>
 
       {chapterToDelete && (
