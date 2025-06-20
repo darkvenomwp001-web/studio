@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { useState, useEffect, ChangeEvent, FormEvent, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -15,12 +15,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion } from 'lucide-react';
+import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { placeholderStories, upsertStoryAndSave, deleteChapterFromStory, initializeUserStoryLists, formatDate } from '@/lib/placeholder-data';
+import { db, storage } from '@/lib/firebase'; // Import db and storage
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, deleteField } from 'firebase/firestore';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { Story, Chapter, UserSummary } from '@/types';
 import { cn } from '@/lib/utils';
+import { formatDate } from '@/lib/placeholder-data'; // Keep for formatDate
 
 export default function EditStoryDetailsPage() {
   const searchParams = useSearchParams();
@@ -29,85 +32,108 @@ export default function EditStoryDetailsPage() {
   const { toast } = useToast();
 
   const queryStoryId = searchParams.get('storyId');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [story, setStory] = useState<Story | null>(null);
   const [storyTitle, setStoryTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [genre, setGenre] = useState('fantasy');
   const [tags, setTags] = useState('');
-  const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null); // For local preview
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null); // For upload
   const [language, setLanguage] = useState('English');
   const [isMature, setIsMature] = useState(false);
   const [visibility, setVisibility] = useState<'Public' | 'Private' | 'Unlisted'>('Public');
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
+  const [collaboratorUsername, setCollaboratorUsername] = useState('');
+  const [isProcessingCollaboration, setIsProcessingCollaboration] = useState(false);
 
   useEffect(() => {
-     if (typeof window !== 'undefined') {
-        initializeUserStoryLists(); // Ensure stories are loaded from localStorage
-    }
     if (!authLoading && !user) {
       router.push('/auth/signin');
       return;
     }
 
-    if (user) {
-        setIsLoading(true);
-        let storyToEdit: Story | undefined | null = null;
-        if (queryStoryId) {
-            storyToEdit = placeholderStories.find(s => s.id === queryStoryId && s.author.id === user.id);
-            if (!storyToEdit) {
-                toast({ title: "Error", description: "Story not found or you don't have permission to edit it.", variant: "destructive" });
-                router.push('/write');
-                return;
-            }
-        } else { // New story
-            storyToEdit = {
-                id: `story-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-                title: 'New Story Title',
-                author: { id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl },
-                genre: 'fantasy',
-                summary: '',
-                tags: [],
-                chapters: [],
-                status: 'Draft',
-                lastUpdated: new Date().toISOString(),
-                coverImageUrl: 'https://placehold.co/512x800.png',
-                language: 'English',
-                isMature: false,
-                visibility: 'Private',
-                collaborators: [],
-            };
-            // Immediately save this new story structure to localStorage so it has an ID for chapter creation.
-            upsertStoryAndSave(storyToEdit);
-            // Update URL to include the new storyId for subsequent operations like adding chapters
-            router.replace(`/write/edit-details?storyId=${storyToEdit.id}`, { scroll: false });
-        }
+    let unsubscribeStory: (() => void) | undefined;
 
-        if (storyToEdit) {
-            setStory(storyToEdit);
-            setStoryTitle(storyToEdit.title);
-            setSummary(storyToEdit.summary);
-            setGenre(storyToEdit.genre.toLowerCase());
-            setTags(storyToEdit.tags.join(', '));
-            setCoverImageUrl(storyToEdit.coverImageUrl || 'https://placehold.co/512x800.png');
-            setLanguage(storyToEdit.language || 'English');
-            setIsMature(storyToEdit.isMature || false);
-            setVisibility(storyToEdit.visibility || 'Public');
+    if (user && queryStoryId) {
+      setIsLoading(true);
+      const storyDocRef = doc(db, 'stories', queryStoryId);
+      unsubscribeStory = onSnapshot(storyDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
+          if (storyData.author.id !== user.id && !storyData.collaborators?.some(c => c.id === user.id)) {
+            toast({ title: "Access Denied", description: "You don't have permission to edit this story.", variant: "destructive" });
+            router.push('/write');
+            return;
+          }
+          setStory(storyData);
+          setStoryTitle(storyData.title);
+          setSummary(storyData.summary);
+          setGenre(storyData.genre.toLowerCase());
+          setTags(storyData.tags.join(', '));
+          setCoverImagePreview(storyData.coverImageUrl || 'https://placehold.co/512x800.png');
+          setLanguage(storyData.language || 'English');
+          setIsMature(storyData.isMature || false);
+          setVisibility(storyData.visibility || 'Public');
+        } else {
+          toast({ title: "Error", description: "Story not found.", variant: "destructive" });
+          router.push('/write');
         }
         setIsLoading(false);
+      }, (error) => {
+        console.error("Error fetching story:", error);
+        toast({ title: "Error", description: "Could not load story details.", variant: "destructive" });
+        setIsLoading(false);
+        router.push('/write');
+      });
+    } else if (user && !queryStoryId) { // New story
+      setIsLoading(true);
+      const newStoryId = `story-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const newStoryData: Story = {
+        id: newStoryId,
+        title: 'New Story Title',
+        author: { id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl },
+        genre: 'fantasy',
+        summary: '',
+        tags: [],
+        chapters: [],
+        status: 'Draft',
+        lastUpdated: serverTimestamp(),
+        coverImageUrl: 'https://placehold.co/512x800.png',
+        language: 'English',
+        isMature: false,
+        visibility: 'Private',
+        collaborators: [],
+      };
+      setDoc(doc(db, 'stories', newStoryId), newStoryData).then(() => {
+        router.replace(`/write/edit-details?storyId=${newStoryId}`, { scroll: false });
+        // The onSnapshot listener will pick up from here once the route updates
+      }).catch(error => {
+        console.error("Error creating new story document:", error);
+        toast({ title: "Error", description: "Could not create new story.", variant: "destructive" });
+        router.push('/write');
+      });
     }
-
+    return () => {
+      if (unsubscribeStory) unsubscribeStory();
+    };
   }, [queryStoryId, user, authLoading, router, toast]);
 
-  const handleCoverImageClick = () => {
-    // Mock file upload
-    const newCover = prompt("Enter new cover image URL (mock):", coverImageUrl);
-    if (newCover) {
-      setCoverImageUrl(newCover);
-      toast({ title: "Cover Image Updated (Mock)", description: "URL set. In a real app, this would be an upload." });
+
+  const handleCoverImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({ title: "Image Too Large", description: "Please select an image smaller than 5MB.", variant: "destructive" });
+        return;
+      }
+      setCoverImageFile(file);
+      setCoverImagePreview(URL.createObjectURL(file));
     }
   };
 
@@ -119,45 +145,152 @@ export default function EditStoryDetailsPage() {
     }
     setIsSaving(true);
 
-    const updatedStory: Story = {
-      ...story,
+    let finalCoverImageUrl = story.coverImageUrl;
+
+    if (coverImageFile) {
+      setIsUploadingCover(true);
+      const imagePath = `storyCovers/${story.id}/${coverImageFile.name}`;
+      const imageStorageRef = storageRef(storage, imagePath);
+      try {
+        const uploadTask = uploadBytesResumable(imageStorageRef, coverImageFile);
+        await uploadTask;
+        finalCoverImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
+        setCoverImageFile(null); // Clear file after successful upload
+        toast({ title: "Cover Image Uploaded", description: "New cover image saved." });
+      } catch (error) {
+        console.error("Error uploading cover image:", error);
+        toast({ title: "Upload Failed", description: "Could not upload cover image. Please try again.", variant: "destructive" });
+        setIsSaving(false);
+        setIsUploadingCover(false);
+        return;
+      }
+      setIsUploadingCover(false);
+    }
+
+    const storyDataToUpdate: Partial<Story> = {
       title: storyTitle,
       summary: summary,
       genre: genre,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      coverImageUrl: coverImageUrl,
+      coverImageUrl: finalCoverImageUrl,
       language: language,
       isMature: isMature,
       visibility: visibility,
-      status: visibility === 'Public' && story.chapters.some(c => c.status === 'Published') ? 'Ongoing' : (story.status === 'Completed' ? 'Completed' : 'Draft'), // Adjust status based on visibility and chapters
-      lastUpdated: new Date().toISOString(),
-      // Chapters are managed separately (content via rich text editor, adding/deleting here)
+      status: visibility === 'Public' && story.chapters.some(c => c.status === 'Published') ? 'Ongoing' : (story.status === 'Completed' ? 'Completed' : 'Draft'),
+      lastUpdated: serverTimestamp(),
     };
 
-    upsertStoryAndSave(updatedStory);
-    setStory(updatedStory); // Update local state
-
-    setTimeout(() => { // Simulate save delay
-      setIsSaving(false);
+    try {
+      const storyDocRef = doc(db, 'stories', story.id);
+      await updateDoc(storyDocRef, storyDataToUpdate);
+      // setStory will be updated by onSnapshot listener
       toast({ title: "Story Details Saved!", description: "Your story settings have been updated." });
-    }, 700);
+    } catch (error) {
+      console.error("Error saving story details:", error);
+      toast({ title: "Save Failed", description: "Could not save story details.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
   
-  const confirmDeleteChapter = (chapter: Chapter) => {
+  const confirmDeleteChapter = async (chapter: Chapter) => {
     if (!story) return;
-    const success = deleteChapterFromStory(story.id, chapter.id);
-    if (success) {
-        const updatedStory = placeholderStories.find(s => s.id === story.id); // Re-fetch from potentially updated global store
-        if (updatedStory) setStory(updatedStory);
-        toast({title: "Chapter Deleted", description: `Chapter "${chapter.title}" has been removed.`});
-    } else {
-        toast({title: "Error", description: "Failed to delete chapter.", variant: "destructive"});
+    setIsSaving(true);
+    const updatedChapters = story.chapters.filter(ch => ch.id !== chapter.id)
+                                       .map((ch, index) => ({ ...ch, order: index + 1 }));
+    try {
+      const storyDocRef = doc(db, 'stories', story.id);
+      await updateDoc(storyDocRef, { chapters: updatedChapters, lastUpdated: serverTimestamp() });
+      // setStory will be updated by onSnapshot
+      toast({title: "Chapter Deleted", description: `Chapter "${chapter.title}" has been removed.`});
+    } catch (error) {
+      console.error("Error deleting chapter:", error);
+      toast({title: "Error", description: "Failed to delete chapter.", variant: "destructive"});
+    } finally {
+      setIsSaving(false);
+      setChapterToDelete(null);
     }
-    setChapterToDelete(null);
+  };
+
+  const handleAddCollaborator = async () => {
+    if (!story || !collaboratorUsername.trim() || !user) {
+      toast({ title: "Input Required", description: "Please enter a username to add.", variant: "destructive" });
+      return;
+    }
+    setIsProcessingCollaboration(true);
+    try {
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('username', '==', collaboratorUsername.trim()));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        toast({ title: "User Not Found", description: `User "${collaboratorUsername}" not found.`, variant: "destructive" });
+        setIsProcessingCollaboration(false);
+        return;
+      }
+      
+      const collaboratorUserDoc = querySnapshot.docs[0];
+      const collaboratorUserData = collaboratorUserDoc.data() as User;
+
+      if (collaboratorUserData.id === user.id) {
+        toast({ title: "Cannot Add Self", description: "You cannot add yourself as a collaborator.", variant: "destructive" });
+        setIsProcessingCollaboration(false);
+        return;
+      }
+      if (story.collaborators?.some(c => c.id === collaboratorUserData.id)) {
+        toast({ title: "Already Collaborator", description: `${collaboratorUserData.displayName || collaboratorUserData.username} is already a collaborator.`, variant: "destructive" });
+        setIsProcessingCollaboration(false);
+        return;
+      }
+
+      const newCollaborator: UserSummary = {
+        id: collaboratorUserData.id,
+        username: collaboratorUserData.username,
+        displayName: collaboratorUserData.displayName,
+        avatarUrl: collaboratorUserData.avatarUrl,
+      };
+
+      const updatedCollaborators = [...(story.collaborators || []), newCollaborator];
+      const storyDocRef = doc(db, 'stories', story.id);
+      await updateDoc(storyDocRef, { collaborators: updatedCollaborators, lastUpdated: serverTimestamp() });
+      // setStory will be updated by onSnapshot
+      setCollaboratorUsername('');
+      toast({ title: "Collaborator Added", description: `${newCollaborator.displayName || newCollaborator.username} can now contribute to this story.` });
+    } catch (error) {
+      console.error("Error adding collaborator:", error);
+      toast({ title: "Error", description: "Could not add collaborator.", variant: "destructive" });
+    } finally {
+      setIsProcessingCollaboration(false);
+    }
+  };
+
+  const handleRemoveCollaborator = async (collaboratorId: string) => {
+    if (!story) return;
+    setIsProcessingCollaboration(true);
+    const updatedCollaborators = story.collaborators?.filter(c => c.id !== collaboratorId);
+    try {
+      const storyDocRef = doc(db, 'stories', story.id);
+      await updateDoc(storyDocRef, { collaborators: updatedCollaborators, lastUpdated: serverTimestamp() });
+      // setStory will be updated by onSnapshot
+      toast({ title: "Collaborator Removed", description: `Collaborator access revoked.` });
+    } catch (error) {
+      console.error("Error removing collaborator:", error);
+      toast({ title: "Error", description: "Could not remove collaborator.", variant: "destructive" });
+    } finally {
+      setIsProcessingCollaboration(false);
+    }
+  };
+
+  const handleSavePublishSettings = async () => {
+    if (!story) return;
+    // The 'publishAccount' logic was primarily a mock for UI representation.
+    // The actual author is fixed. Collaboration allows multiple editors.
+    // For now, this button can just be a "Save Details" alias if no specific publishing account logic is implemented.
+    await handleSaveChanges();
   };
 
 
-  if (isLoading || authLoading) {
+  if (isLoading || authLoading || (queryStoryId && !story)) { // Also check if story is not loaded yet when queryStoryId exists
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -166,12 +299,15 @@ export default function EditStoryDetailsPage() {
     );
   }
 
-  if (!story) {
-    // This case should ideally be handled by the redirect in useEffect, but as a fallback:
+  if (!user) { // Should be caught by useEffect, but as a safeguard
+    return <div className="text-center py-10">Please sign in to edit stories.</div>;
+  }
+  
+  if (!story && queryStoryId) { // Story ID was given but story couldn't be loaded (e.g. not found, permissions)
     return (
         <div className="text-center py-10">
             <Info className="mx-auto h-12 w-12 text-destructive mb-4" />
-            <p className="text-xl">Story not found or access denied.</p>
+            <p className="text-xl">Story not found or you don't have permission to edit it.</p>
             <Link href="/write">
                 <Button variant="link" className="mt-2">Go to Writing Dashboard</Button>
             </Link>
@@ -179,11 +315,23 @@ export default function EditStoryDetailsPage() {
     );
   }
   
+  if (!story) { // Catch all for new story not yet initialized by onSnapshot after creation.
+     return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-4">Initializing new story...</p>
+      </div>
+    );
+  }
+
+  const potentialPublishAccounts = [story.author, ...(story.collaborators || [])];
+  const currentPublishAccount = story.author.id; // In this model, the original author is always the publisher.
+
   const getChapterStatusColor = (status?: 'Published' | 'Draft') => {
     if (status === 'Published') return 'text-green-600 dark:text-green-400';
     if (status === 'Draft') return 'text-yellow-600 dark:text-yellow-400';
     return 'text-muted-foreground';
-  }
+  };
 
 
   return (
@@ -191,16 +339,19 @@ export default function EditStoryDetailsPage() {
     <div className="max-w-5xl mx-auto py-8 px-4 space-y-8">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-            <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary">Edit Story Details</h1>
+            <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary">
+              {queryStoryId ? "Edit Story Details" : "Create New Story"}
+            </h1>
             <p className="text-muted-foreground">Manage your story's cover, title, description, and settings.</p>
         </div>
-         <Link href={`/stories/${story.id}`} passHref>
-            <Button variant="outline"><Eye className="mr-2 h-4 w-4" /> View Story Page</Button>
-        </Link>
+         {queryStoryId && story && (
+            <Link href={`/stories/${story.id}`} passHref>
+                <Button variant="outline"><Eye className="mr-2 h-4 w-4" /> View Story Page</Button>
+            </Link>
+         )}
       </header>
 
       <form onSubmit={handleSaveChanges} className="grid md:grid-cols-3 gap-8 items-start">
-        {/* Left Column: Cover & Core Info */}
         <div className="md:col-span-1 space-y-6">
           <Card>
             <CardHeader>
@@ -208,21 +359,32 @@ export default function EditStoryDetailsPage() {
             </CardHeader>
             <CardContent className="flex flex-col items-center">
               <div
-                className="aspect-[2/3] w-full max-w-[250px] bg-muted rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity mb-2 shadow-md"
-                onClick={handleCoverImageClick}
-                title="Click to change cover (mock)"
+                className="aspect-[2/3] w-full max-w-[250px] bg-muted rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity mb-2 shadow-md relative group"
+                onClick={() => fileInputRef.current?.click()}
+                title="Click to change cover"
               >
                 <Image
-                  src={coverImageUrl || 'https://placehold.co/512x800.png'}
+                  src={coverImagePreview || 'https://placehold.co/512x800.png'}
                   alt={storyTitle || "Story Cover"}
                   width={512}
                   height={800}
                   className="object-cover w-full h-full"
                   data-ai-hint="book cover design"
                 />
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <UploadCloud className="h-10 w-10 text-white" />
+                </div>
               </div>
-              <Button type="button" variant="link" onClick={handleCoverImageClick} className="text-sm">
-                Change Cover (mock)
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleCoverImageSelect}
+                accept="image/png, image/jpeg, image/gif, image/webp"
+                className="hidden"
+              />
+              <Button type="button" variant="link" onClick={() => fileInputRef.current?.click()} className="text-sm" disabled={isUploadingCover}>
+                {isUploadingCover ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+                {isUploadingCover ? "Uploading..." : "Change Cover"}
               </Button>
             </CardContent>
           </Card>
@@ -255,7 +417,6 @@ export default function EditStoryDetailsPage() {
           </Card>
         </div>
 
-        {/* Right Column: Settings & Chapters */}
         <div className="md:col-span-2 space-y-6">
           <Card>
             <CardHeader><CardTitle>Story Settings</CardTitle></CardHeader>
@@ -357,9 +518,6 @@ export default function EditStoryDetailsPage() {
                           <Link href={`/write/edit?storyId=${story.id}&chapterId=${chapter.id}`} passHref>
                             <Button variant="ghost" size="icon" title="Edit Chapter"><Edit className="h-4 w-4"/></Button>
                           </Link>
-                           {/* Mock Reorder Buttons - No functionality */}
-                          {/* <Button variant="ghost" size="icon" title="Reorder (mock)" disabled><ArrowUp className="h-4 w-4"/></Button>
-                          <Button variant="ghost" size="icon" title="Reorder (mock)" disabled><ArrowDown className="h-4 w-4"/></Button> */}
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="icon" title="Delete Chapter" onClick={() => setChapterToDelete(chapter)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
                                 <Trash2 className="h-4 w-4"/>
@@ -375,25 +533,79 @@ export default function EditStoryDetailsPage() {
               )}
             </CardContent>
           </Card>
-           <Card>
+           
+          <Card>
             <CardHeader>
-                <CardTitle>Collaboration (Mock)</CardTitle>
+                <CardTitle>Collaboration</CardTitle>
+                <CardDescription>Invite other users to contribute to this story.</CardDescription>
             </CardHeader>
-            <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">Manage who can edit this story with you.</p>
-                <Link href={`/write/collaborate?storyId=${story.id}`} passHref>
-                    <Button variant="outline" className="w-full">
-                        <Users className="mr-2 h-4 w-4" /> Collaboration Settings
+            <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                    <Input
+                    type="text"
+                    placeholder="Enter collaborator's username"
+                    value={collaboratorUsername}
+                    onChange={(e) => setCollaboratorUsername(e.target.value)}
+                    disabled={isProcessingCollaboration}
+                    />
+                    <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim()}>
+                        {isProcessingCollaboration ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add
                     </Button>
-                </Link>
+                </div>
+                {story.collaborators && story.collaborators.length > 0 && (
+                    <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-2">Current Collaborators:</h3>
+                    <ul className="space-y-2">
+                        {story.collaborators.map(collab => (
+                        <li key={collab.id} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
+                            <div className="flex items-center gap-2">
+                            <Avatar className="h-8 w-8">
+                                <AvatarImage src={collab.avatarUrl} alt={collab.username} data-ai-hint="profile person" />
+                                <AvatarFallback>{collab.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <span>{collab.displayName || collab.username}</span>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(collab.id)} className="text-destructive hover:text-destructive" disabled={isProcessingCollaboration}>
+                            <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </li>
+                        ))}
+                    </ul>
+                    </div>
+                )}
+                {(!story.collaborators || story.collaborators.length === 0) && (
+                    <p className="text-xs text-muted-foreground text-center py-2">No collaborators added yet.</p>
+                )}
             </CardContent>
            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Publishing Account</CardTitle>
+                    <CardDescription>Story will be published under the original author's account. Collaborators can edit.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
+                        <Avatar className="h-8 w-8">
+                            <AvatarImage src={story.author.avatarUrl} data-ai-hint="profile person"/>
+                            <AvatarFallback>{story.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <p className="font-semibold">{story.author.displayName || story.author.username}</p>
+                            <p className="text-xs text-muted-foreground">Original Author (Publisher)</p>
+                        </div>
+                    </div>
+                     <p className="text-xs text-muted-foreground">
+                        To change the primary author, the story would need to be duplicated under a different account.
+                     </p>
+                </CardContent>
+            </Card>
+
         </div>
 
-        {/* Floating Save Button */}
         <div className="fixed bottom-6 right-6 z-50">
-          <Button type="submit" size="lg" disabled={isSaving} className="shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-3 px-6">
-            {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+          <Button type="submit" size="lg" disabled={isSaving || isUploadingCover} className="shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-3 px-6">
+            {(isSaving || isUploadingCover) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
             Save Story Details
           </Button>
         </div>

@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Users, PlusCircle, Trash2, ArrowLeft, Save } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { placeholderStories, upsertStoryAndSave, placeholderUsers } from '@/lib/placeholder-data';
-import type { Story, UserSummary } from '@/types';
+import { db } from '@/lib/firebase'; // Import db
+import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore'; // Firestore imports
+import type { Story, UserSummary, User as AppUser } from '@/types';
 
 export default function CollaboratePage() {
   const searchParams = useSearchParams();
@@ -27,7 +28,8 @@ export default function CollaboratePage() {
   const [story, setStory] = useState<Story | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [collaboratorUsername, setCollaboratorUsername] = useState('');
-  const [publishAccount, setPublishAccount] = useState<string | undefined>(undefined);
+  const [isProcessing, setIsProcessing] = useState(false);
+  // publishAccount state is removed as publishing is tied to original author.
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -35,80 +37,128 @@ export default function CollaboratePage() {
       return;
     }
 
+    let unsubscribeStory: (() => void) | undefined;
+
     if (user && queryStoryId) {
       setIsLoading(true);
-      const foundStory = placeholderStories.find(s => s.id === queryStoryId && s.author.id === user.id);
-      if (foundStory) {
-        setStory(foundStory);
-        setPublishAccount(foundStory.author.id); // Default to story owner
-      } else {
-        toast({ title: "Error", description: "Story not found or you don't have permission.", variant: "destructive" });
+      const storyDocRef = doc(db, 'stories', queryStoryId);
+      unsubscribeStory = onSnapshot(storyDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
+           if (storyData.author.id !== user.id) { // Only author can manage collaborators for now
+            toast({ title: "Access Denied", description: "Only the story author can manage collaborators.", variant: "destructive" });
+            router.push(`/write/edit-details?storyId=${queryStoryId}`);
+            return;
+          }
+          setStory(storyData);
+        } else {
+          toast({ title: "Error", description: "Story not found.", variant: "destructive" });
+          router.push('/write');
+        }
+        setIsLoading(false);
+      }, (error) => {
+        console.error("Error fetching story for collaboration:", error);
+        toast({ title: "Error", description: "Could not load story details.", variant: "destructive" });
+        setIsLoading(false);
         router.push('/write');
-      }
-      setIsLoading(false);
+      });
     } else if (user && !queryStoryId) {
         toast({ title: "Error", description: "No story ID provided for collaboration.", variant: "destructive" });
         router.push('/write');
+        setIsLoading(false);
+    } else if (!user && !authLoading) {
+        setIsLoading(false); // Not loading if no user and auth check done
     }
+    
+    return () => {
+      if (unsubscribeStory) unsubscribeStory();
+    };
   }, [queryStoryId, user, authLoading, router, toast]);
 
-  const handleAddCollaborator = () => {
-    if (!story || !collaboratorUsername.trim()) {
+  const handleAddCollaborator = async () => {
+    if (!story || !collaboratorUsername.trim() || !user) {
       toast({ title: "Input Required", description: "Please enter a username to add.", variant: "destructive" });
       return;
     }
-    const collaboratorUser = placeholderUsers.find(u => u.username.toLowerCase() === collaboratorUsername.toLowerCase());
-    if (!collaboratorUser) {
-      toast({ title: "User Not Found", description: `User "${collaboratorUsername}" not found.`, variant: "destructive" });
-      return;
-    }
-    if (collaboratorUser.id === user?.id) {
-      toast({ title: "Cannot Add Self", description: "You cannot add yourself as a collaborator.", variant: "destructive" });
-      return;
-    }
-    if (story.collaborators?.some(c => c.id === collaboratorUser.id)) {
-      toast({ title: "Already Collaborator", description: `${collaboratorUser.displayName || collaboratorUser.username} is already a collaborator.`, variant: "destructive" });
-      return;
+    if (story.author.id !== user.id) {
+        toast({ title: "Permission Denied", description: "Only the story author can add collaborators.", variant: "destructive" });
+        return;
     }
 
-    const newCollaborator: UserSummary = {
-      id: collaboratorUser.id,
-      username: collaboratorUser.username,
-      displayName: collaboratorUser.displayName,
-      avatarUrl: collaboratorUser.avatarUrl,
-    };
+    setIsProcessing(true);
+    try {
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('username', '==', collaboratorUsername.trim()));
+      const querySnapshot = await getDocs(q);
 
-    const updatedCollaborators = [...(story.collaborators || []), newCollaborator];
-    const updatedStory = { ...story, collaborators: updatedCollaborators };
-    
-    upsertStoryAndSave(updatedStory);
-    setStory(updatedStory);
-    setCollaboratorUsername('');
-    toast({ title: "Collaborator Added (Mock)", description: `${newCollaborator.displayName || newCollaborator.username} can now (conceptually) edit this story.` });
+      if (querySnapshot.empty) {
+        toast({ title: "User Not Found", description: `User "${collaboratorUsername}" not found.`, variant: "destructive" });
+        setIsProcessing(false);
+        return;
+      }
+      
+      const collaboratorUserDoc = querySnapshot.docs[0];
+      const collaboratorUserData = {id: collaboratorUserDoc.id, ...collaboratorUserDoc.data()} as AppUser;
+
+      if (collaboratorUserData.id === user.id) {
+        toast({ title: "Cannot Add Self", description: "You are the author and cannot add yourself as a collaborator.", variant: "destructive" });
+        setIsProcessing(false);
+        return;
+      }
+      if (story.collaborators?.some(c => c.id === collaboratorUserData.id)) {
+        toast({ title: "Already Collaborator", description: `${collaboratorUserData.displayName || collaboratorUserData.username} is already a collaborator.`, variant: "destructive" });
+        setIsProcessing(false);
+        return;
+      }
+
+      const newCollaborator: UserSummary = {
+        id: collaboratorUserData.id,
+        username: collaboratorUserData.username,
+        displayName: collaboratorUserData.displayName,
+        avatarUrl: collaboratorUserData.avatarUrl,
+      };
+
+      const updatedCollaborators = [...(story.collaborators || []), newCollaborator];
+      const storyDocRef = doc(db, 'stories', story.id);
+      await updateDoc(storyDocRef, { 
+          collaborators: updatedCollaborators,
+          lastUpdated: serverTimestamp()
+      });
+      // Story state will update via onSnapshot
+      setCollaboratorUsername('');
+      toast({ title: "Collaborator Added", description: `${newCollaborator.displayName || newCollaborator.username} can now contribute to this story.` });
+    } catch (error) {
+        console.error("Error adding collaborator:", error);
+        toast({title: "Error", description: "Could not add collaborator. Please try again.", variant: "destructive"});
+    } finally {
+        setIsProcessing(false);
+    }
   };
 
-  const handleRemoveCollaborator = (collaboratorId: string) => {
-    if (!story) return;
+  const handleRemoveCollaborator = async (collaboratorId: string) => {
+    if (!story || !user) return;
+    if (story.author.id !== user.id) {
+        toast({ title: "Permission Denied", description: "Only the story author can remove collaborators.", variant: "destructive" });
+        return;
+    }
+    setIsProcessing(true);
     const updatedCollaborators = story.collaborators?.filter(c => c.id !== collaboratorId);
-    const updatedStory = { ...story, collaborators: updatedCollaborators };
-
-    upsertStoryAndSave(updatedStory);
-    setStory(updatedStory);
-    toast({ title: "Collaborator Removed (Mock)", description: `Collaborator access revoked.` });
+    try {
+        const storyDocRef = doc(db, 'stories', story.id);
+        await updateDoc(storyDocRef, { 
+            collaborators: updatedCollaborators,
+            lastUpdated: serverTimestamp() 
+        });
+        // Story state will update via onSnapshot
+        toast({ title: "Collaborator Removed", description: `Collaborator access revoked.` });
+    } catch (error) {
+        console.error("Error removing collaborator:", error);
+        toast({title: "Error", description: "Could not remove collaborator. Please try again.", variant: "destructive"});
+    } finally {
+        setIsProcessing(false);
+    }
   };
   
-  const handleSavePublishSettings = () => {
-      if(!story) return;
-      // This is purely a UI mock for where the story might be published.
-      // No actual change in publishing mechanism is implemented.
-      const publishTargetUser = placeholderUsers.find(u => u.id === publishAccount);
-      toast({
-          title: "Publish Settings Updated (Mock)",
-          description: `Story will now (conceptually) publish to ${publishTargetUser?.displayName || 'selected account'}'s profile.`,
-      });
-  };
-
-
   if (isLoading || authLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
@@ -119,16 +169,15 @@ export default function CollaboratePage() {
   }
 
   if (!story || !user) {
-    return <div className="text-center py-10">Error loading story or user.</div>;
+    // This state should ideally be caught by the useEffect redirects or loaders
+    return <div className="text-center py-10">Error loading story or user information. Please ensure you are logged in and the story ID is correct.</div>;
   }
-
-  const potentialPublishAccounts = [story.author, ...(story.collaborators || [])];
 
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4 space-y-8">
       <header className="flex items-center gap-4">
-         <Button variant="outline" size="icon" onClick={() => router.back()}>
+         <Button variant="outline" size="icon" onClick={() => router.push(`/write/edit-details?storyId=${story.id}`)} aria-label="Back to story details">
             <ArrowLeft className="h-5 w-5" />
          </Button>
          <div>
@@ -139,8 +188,8 @@ export default function CollaboratePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Add Collaborators</CardTitle>
-          <CardDescription>Invite other users to edit and contribute to this story (mock feature).</CardDescription>
+          <CardTitle>Manage Collaborators</CardTitle>
+          <CardDescription>Invite other users to edit and contribute to this story. Only the original author can manage collaborators.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
@@ -149,8 +198,12 @@ export default function CollaboratePage() {
               placeholder="Enter collaborator's username"
               value={collaboratorUsername}
               onChange={(e) => setCollaboratorUsername(e.target.value)}
+              disabled={isProcessing}
             />
-            <Button onClick={handleAddCollaborator}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+            <Button onClick={handleAddCollaborator} disabled={isProcessing || !collaboratorUsername.trim()}>
+                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} 
+                Add
+            </Button>
           </div>
           {story.collaborators && story.collaborators.length > 0 && (
             <div>
@@ -165,7 +218,7 @@ export default function CollaboratePage() {
                       </Avatar>
                       <span>{collab.displayName || collab.username}</span>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(collab.id)} className="text-destructive hover:text-destructive">
+                    <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(collab.id)} className="text-destructive hover:text-destructive" disabled={isProcessing}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </li>
@@ -181,38 +234,20 @@ export default function CollaboratePage() {
 
       <Card>
         <CardHeader>
-            <CardTitle>Publishing Account (Mock)</CardTitle>
-            <CardDescription>Choose which user's account this story will be primarily published under (UI mock only).</CardDescription>
+            <CardTitle>Publishing Account</CardTitle>
+            <CardDescription>This story will be published under the original author's account. Collaborators can edit content.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-            <div>
-                <Label htmlFor="publish-account">Publish As:</Label>
-                <Select value={publishAccount} onValueChange={setPublishAccount}>
-                    <SelectTrigger id="publish-account">
-                        <SelectValue placeholder="Select account to publish under" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {potentialPublishAccounts.map(acc => (
-                            <SelectItem key={acc.id} value={acc.id}>
-                                <div className="flex items-center gap-2">
-                                    <Avatar className="h-5 w-5">
-                                        <AvatarImage src={acc.avatarUrl} data-ai-hint="profile person"/>
-                                        <AvatarFallback>{acc.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                                    </Avatar>
-                                    {acc.displayName || acc.username} {acc.id === story.author.id && "(Owner)"}
-                                </div>
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+        <CardContent>
+             <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
+                <Avatar className="h-8 w-8">
+                    <AvatarImage src={story.author.avatarUrl} data-ai-hint="profile person"/>
+                    <AvatarFallback>{story.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div>
+                    <p className="font-semibold">{story.author.displayName || story.author.username}</p>
+                    <p className="text-xs text-muted-foreground">Original Author (Publisher)</p>
+                </div>
             </div>
-            <Button onClick={handleSavePublishSettings} className="w-full">
-                <Save className="mr-2 h-4 w-4" /> Save Publishing Settings (Mock)
-            </Button>
-             <p className="text-xs text-muted-foreground">
-                Note: Actual multi-account publishing is a complex feature and is only simulated here.
-                The story will always appear under the original author's profile in this mock version.
-             </p>
         </CardContent>
       </Card>
       

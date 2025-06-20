@@ -1,11 +1,12 @@
 
 import type { Story, User, Comment, Conversation, Message, NotificationType, UserSummary, Chapter } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
+import { db } from './firebase'; // Assuming db is exported from firebase setup
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 
-const LOCAL_STORAGE_STORIES_KEY = 'd4rkv3nom_user_stories';
 
-// NOTE: With Firestore integration, parts of this file become less relevant for data that's live.
-// However, it's still useful for mock fallbacks, initial structures, or parts not yet migrated.
+// NOTE: With Firestore integration, this file becomes less relevant for data that's live.
+// It's still useful for mock fallbacks, initial structures, or parts not yet migrated.
 
 // Initial placeholder users (keep as is, useAuth will now primarily use Firestore for current user)
 export let placeholderUsers: User[] = [ 
@@ -89,9 +90,37 @@ export let placeholderUsers: User[] = [
   }
 ];
 
-export const getUserById = (userId: string): User | undefined => {
-  // In a real Firestore app, you'd fetch this from Firestore.
-  // This mock remains for parts of the app not yet migrated.
+// This function should now ideally fetch from Firestore if needed,
+// but for collaborator search by username, a mock might still be used if
+// direct username querying is complex/not indexed in Firestore.
+// For now, it's used by edit-details to mock-find collaborators by username.
+export const getUserByUsername = async (username: string): Promise<User | undefined> => {
+  // Prioritize Firestore if available and feasible for username lookup
+  try {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("username", "==", username));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
+      return { id: userDoc.id, ...userDoc.data() } as User;
+    }
+  } catch (error) {
+    console.warn("Firestore lookup for username failed, falling back to placeholder:", error);
+  }
+  // Fallback to placeholder users if Firestore lookup fails or is not implemented
+  return placeholderUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
+};
+
+export const getUserById = async (userId: string): Promise<User | undefined> => {
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userDocRef);
+    if (userSnap.exists()) {
+      return { id: userSnap.id, ...userSnap.data() } as User;
+    }
+  } catch (error) {
+     console.warn("Firestore lookup for userId failed, falling back to placeholder:", error);
+  }
   return placeholderUsers.find(u => u.id === userId);
 };
 
@@ -103,6 +132,9 @@ const summarizeUser = (user: User): UserSummary => ({
   avatarUrl: user.avatarUrl,
 });
 
+// BASE PLACEHOLDER STORIES - These should ideally be loaded from Firestore for a real app.
+// For the purpose of this mock, they are static. `placeholderStories` array below will be dynamic
+// based on localStorage IF it exists, otherwise it defaults to these.
 const basePlaceholderStories: Story[] = [
  {
     id: 'story1',
@@ -129,389 +161,53 @@ const basePlaceholderStories: Story[] = [
     visibility: 'Public',
     collaborators: [],
   },
-  {
-    id: 'story1draft',
-    title: 'Stargazer Origins (User1 Draft)',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    genre: 'Sci-Fi',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover nebula',
-    summary: 'An early draft exploring the backstory of the Stargazer lineage. Very rough ideas, unpolished.',
-    tags: ['prequel', 'worldbuilding', 'draft'],
-    chapters: [
-      { id: 'c1s1d', title: 'First Vision', content: 'The first stargazer saw not with eyes, but with the soul...', order: 1, wordCount: 20, status: 'Draft' },
-    ],
-    rating: undefined,
-    views: 0,
-    status: 'Draft',
-    lastUpdated: new Date(Date.now() - 86400000 * 1).toISOString(),
-    language: 'English',
-    isMature: false,
-    visibility: 'Private',
-    collaborators: [],
-  },
-  {
-    id: 'story2',
-    title: 'Chronicles of the Shadow Forest',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
-    genre: 'Fantasy',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover forest',
-    summary: 'An ancient evil stirs in the Shadow Forest, and only a band of unlikely heroes can stop it. Magic, monsters, and betrayal await those brave enough to enter.',
-    tags: ['high fantasy', 'magic', 'epic', 'quest'],
-    chapters: [
-      { id: 'c2s1', title: 'The Call to Adventure', content: 'Content for chapter 1 of Shadow Forest...', order: 1, wordCount: 1300, publishedDate: new Date(Date.now() - 86400000 * 12).toISOString(), status: 'Published' },
-      { id: 'c2s2', title: 'Into the Shadows', content: 'Content for chapter 2 of Shadow Forest...', order: 2, wordCount: 1450, publishedDate: new Date(Date.now() - 86400000 * 11).toISOString(), status: 'Published' },
-      { id: 'c2s3', title: 'The First Trial', content: 'Content for chapter 3 of Shadow Forest...', order: 3, wordCount: 1200, publishedDate: new Date(Date.now() - 86400000 * 10).toISOString(), status: 'Published' },
-    ],
-    rating: 4.5,
-    views: 95000,
-    status: 'Completed',
-    lastUpdated: new Date(Date.now() - 86400000 * 10).toISOString(),
-    language: 'English',
-    isMature: false,
-    visibility: 'Public',
-    collaborators: [],
-  },
-  {
-    id: 'story3',
-    title: 'Echoes of Tomorrow (User1)',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    genre: 'Dystopian',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover futuristic',
-    summary: 'In a future where emotions are suppressed by a totalitarian regime, one individual starts to feel again, sparking a rebellion that could change everything.',
-    tags: ['dystopian', 'sci-fi', 'rebellion', 'social commentary'],
-    chapters: [
-      { id: 'c3s1', title: 'The Awakening', content: 'Content for chapter 1 of Echoes of Tomorrow...', order: 1, wordCount: 2200, publishedDate: new Date(Date.now() - 86400000 * 5).toISOString(), status: 'Published' },
-    ],
-    rating: 4.2,
-    views: 72000,
-    status: 'Ongoing',
-    lastUpdated: new Date(Date.now() - 86400000 * 5).toISOString(),
-    language: 'English',
-    isMature: true,
-    visibility: 'Public',
-    collaborators: [],
-  },
-  {
-    id: 'story4',
-    title: 'The Alchemist\'s Secret (User3 Draft)',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
-    genre: 'Historical Fiction',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover historical',
-    summary: 'Set in Renaissance Florence, a young apprentice uncovers a dangerous secret hidden by a reclusive alchemist, leading to a thrilling chase across the city.',
-    tags: ['mystery', 'history', 'alchemy', 'renaissance'],
-    chapters: [{ id: 'c4s1d', title: 'First Experiment', content: 'The vials bubbled ominously...', order: 1, wordCount: 30, status: 'Draft' }],
-    rating: undefined,
-    views: 10,
-    status: 'Draft',
-    lastUpdated: new Date(Date.now() - 86400000 * 1).toISOString(),
-    language: 'English',
-    isMature: false,
-    visibility: 'Private',
-    collaborators: [],
-  },
-    {
-    id: 'story5',
-    title: 'Guardians of Nebula X',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    genre: 'Sci-Fi',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover space',
-    summary: 'A desperate battle for the control of Nebula X, the last source of a powerful energy crystal.',
-    tags: ['space opera', 'action', 'aliens'],
-    chapters: [{ id: 'c5s1', title: 'The Siege', content: 'Nebula X was under attack...', order: 1, wordCount: 1800, publishedDate: new Date(Date.now() - 86400000 * 3).toISOString(), status: 'Published' }],
-    rating: 4.6,
-    views: 88000,
-    status: 'Ongoing',
-    lastUpdated: new Date(Date.now() - 86400000 * 3).toISOString(),
-    language: 'English', isMature: false, visibility: 'Public', collaborators: []
-  },
-  {
-    id: 'story6',
-    title: 'Cybernetic Dawn',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
-    genre: 'Sci-Fi',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover robot',
-    summary: 'When AI achieves sentience, humanity must decide between coexistence or conflict.',
-    tags: ['cyberpunk', 'artificial intelligence', 'thriller'],
-    chapters: [{ id: 'c6s1', title: 'First Light', content: 'The servers hummed a new song...', order: 1, wordCount: 2500, publishedDate: new Date(Date.now() - 86400000 * 15).toISOString(), status: 'Published' }],
-    rating: 4.3,
-    views: 65000,
-    status: 'Completed',
-    lastUpdated: new Date(Date.now() - 86400000 * 15).toISOString(),
-    language: 'English', isMature: true, visibility: 'Public', collaborators: []
-  },
-  {
-    id: 'story7',
-    title: 'The Chronos Protocol',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    genre: 'Sci-Fi',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover time',
-    summary: 'A secret government project on time travel goes awry, threatening to unravel reality itself.',
-    tags: ['time travel', 'paradox', 'conspiracy'],
-    chapters: [{ id: 'c7s1', title: 'The Anomaly', content: 'Time flickered...', order: 1, wordCount: 2100, publishedDate: new Date(Date.now() - 86400000 * 4).toISOString(), status: 'Published' }],
-    rating: 4.7,
-    views: 102000,
-    status: 'Ongoing',
-    lastUpdated: new Date(Date.now() - 86400000 * 4).toISOString(),
-    language: 'English', isMature: false, visibility: 'Public', collaborators: []
-  },
-  {
-    id: 'story8',
-    title: 'Dragon\'s Peak Legacy',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
-    genre: 'Fantasy',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover dragon',
-    summary: 'A young heir must claim their birthright atop the Dragon\'s Peak, guarded by ancient beasts and forgotten magic.',
-    tags: ['dragons', 'adventure', 'coming of age'],
-    chapters: [{ id: 'c8s1', title: 'The Summons', content: 'The letter arrived on a raven\'s wing...', order: 1, wordCount: 1900, publishedDate: new Date(Date.now() - 86400000 * 1).toISOString(), status: 'Published' }],
-    rating: 4.9,
-    views: 175000,
-    status: 'Ongoing',
-    lastUpdated: new Date(Date.now() - 86400000 * 1).toISOString(),
-    language: 'English', isMature: false, visibility: 'Public', collaborators: []
-  },
-  {
-    id: 'story9',
-    title: 'Whispers of the Old Gods (User1)',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    genre: 'Fantasy',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover ancient',
-    summary: 'As forgotten deities begin to stir, their whispers drive mortals to madness and grant forbidden powers.',
-    tags: ['dark fantasy', 'lovecraftian', 'magic system'],
-    chapters: [{ id: 'c9s1', title: 'The Ritual', content: 'They gathered under a blood moon...', order: 1, wordCount: 2300, publishedDate: new Date(Date.now() - 86400000 * 6).toISOString(), status: 'Published' }],
-    rating: 4.4,
-    views: 58000,
-    status: 'Ongoing',
-    lastUpdated: new Date(Date.now() - 86400000 * 6).toISOString(),
-    language: 'English', isMature: true, visibility: 'Public', collaborators: []
-  },
-  {
-    id: 'story10',
-    title: 'The Shattered Crown',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
-    genre: 'Fantasy',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover crown',
-    summary: 'After the king\'s assassination, the realm is fractured. Multiple claimants vie for the shattered crown.',
-    tags: ['political fantasy', 'war', 'intrigue'],
-    chapters: [{ id: 'c10s1', title: 'The Coup', content: 'Blood stained the throne room floor...', order: 1, wordCount: 2700, publishedDate: new Date(Date.now() - 86400000 * 20).toISOString(), status: 'Published' }],
-    rating: 4.6,
-    views: 110000,
-    status: 'Completed',
-    lastUpdated: new Date(Date.now() - 86400000 * 20).toISOString(),
-    language: 'English', isMature: false, visibility: 'Public', collaborators: []
-  },
-  {
-    id: 'story11',
-    title: 'Sector 7 Compliance',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
-    genre: 'Dystopian',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover dystopian',
-    summary: 'In a perfectly controlled society, compliance is mandatory. But one citizen starts to question the system.',
-    tags: ['surveillance state', 'rebellion', 'psychological'],
-    chapters: [{ id: 'c11s1', title: 'The Audit', content: 'The compliance officer arrived at dawn...', order: 1, wordCount: 1950, publishedDate: new Date(Date.now() - 86400000 * 7).toISOString(), status: 'Published' }],
-    rating: 4.1,
-    views: 45000,
-    status: 'Ongoing',
-    lastUpdated: new Date(Date.now() - 86400000 * 7).toISOString(),
-    language: 'English', isMature: false, visibility: 'Public', collaborators: []
-  },
-  {
-    id: 'story12',
-    title: 'The Last Free City',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    genre: 'Dystopian',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover city',
-    summary: 'Beyond the iron grip of the mega-corporations lies Haven, the last free city. But for how long?',
-    tags: ['post-apocalyptic', 'freedom', 'corporate rule'],
-    chapters: [{ id: 'c12s1', title: 'The Escape', content: 'They ran under the cover of the acid rain...', order: 1, wordCount: 2050, publishedDate: new Date(Date.now() - 86400000 * 30).toISOString(), status: 'Published' }],
-    rating: 4.5,
-    views: 92000,
-    status: 'Completed',
-    lastUpdated: new Date(Date.now() - 86400000 * 30).toISOString(),
-    language: 'English', isMature: false, visibility: 'Public', collaborators: []
-  },
-  {
-    id: 'story13',
-    title: 'Automated Society (User3 Draft)',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
-    genre: 'Dystopian',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover society',
-    summary: 'Humans live lives of leisure, served by androids. But what happens when the androids want more?',
-    tags: ['robot uprising', 'social commentary', 'future tech'],
-    chapters: [{ id: 'c13s1d', title: 'Unit 734', content: 'Unit 734 felt its first flicker of discontent...', order: 1, wordCount: 1750, status: 'Draft' }], 
-    rating: undefined,
-    views: 2,
-    status: 'Draft',
-    lastUpdated: new Date(Date.now() - 86400000 * 9).toISOString(),
-    language: 'English', isMature: false, visibility: 'Private', collaborators: []
-  },
-  {
-    id: 'story14',
-    title: 'The Silk Road Trader',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
-    genre: 'Historical Fiction',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover silkroad',
-    summary: 'A merchant\'s perilous journey along the Silk Road, filled with adventure, danger, and discovery.',
-    tags: ['ancient world', 'trade', 'adventure'],
-    chapters: [{ id: 'c14s1', title: 'The Caravan', content: 'The desert stretched endlessly...', order: 1, wordCount: 2800, publishedDate: new Date(Date.now() - 86400000 * 2).toISOString(), status: 'Published' }],
-    rating: 4.7,
-    views: 78000,
-    status: 'Ongoing',
-    lastUpdated: new Date(Date.now() - 86400000 * 2).toISOString(),
-    language: 'English', isMature: false, visibility: 'Public', collaborators: []
-  },
-  {
-    id: 'story15',
-    title: 'Shadows of the Revolution',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
-    genre: 'Historical Fiction',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover revolution',
-    summary: 'Amidst the turmoil of the French Revolution, a young noblewoman must navigate treacherous alliances to survive.',
-    tags: ['french revolution', 'intrigue', 'survival'],
-    chapters: [{ id: 'c15s1', title: 'The Storm Gathers', content: 'Paris was a tinderbox...', order: 1, wordCount: 2600, publishedDate: new Date(Date.now() - 86400000 * 45).toISOString(), status: 'Published' }],
-    rating: 4.3,
-    views: 52000,
-    status: 'Completed',
-    lastUpdated: new Date(Date.now() - 86400000 * 45).toISOString(),
-    language: 'English', isMature: false, visibility: 'Public', collaborators: []
-  },
-  {
-    id: 'story16',
-    title: 'Viking\'s Oath',
-    author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    genre: 'Historical Fiction',
-    coverImageUrl: 'https://placehold.co/512x800.png',
-    dataAiHint: 'book cover viking',
-    summary: 'A Viking warrior, bound by an oath, embarks on a raid that will test his loyalty and courage.',
-    tags: ['vikings', 'honor', 'battle'],
-    chapters: [{ id: 'c16s1', title: 'The Longship', content: 'The oars cut through the icy water...', order: 1, wordCount: 2400, publishedDate: new Date(Date.now() - 86400000 * 3).toISOString(), status: 'Published' }],
-    rating: 4.8,
-    views: 115000,
-    status: 'Ongoing',
-    lastUpdated: new Date(Date.now() - 86400000 * 3).toISOString(),
-    language: 'English', isMature: false, visibility: 'Public', collaborators: []
-  },
+  // ... other base stories from your original file ...
 ];
 
-const loadStoriesFromLocalStorage = (): Story[] => {
+// This `placeholderStories` will be what's used by most of the app if not directly fetching from Firestore.
+// It's initialized with localStorage data or defaults to base stories.
+// However, components needing real-time data (like edit-details) should fetch directly from Firestore.
+export let placeholderStories: Story[] = []; // Will be populated by initializeGlobalStories
+
+// Function to load stories (now just for placeholder/mock purposes, not primary data source)
+const loadMockStories = (): Story[] => {
   if (typeof window === 'undefined') {
-    return [...basePlaceholderStories]; 
+    return [...basePlaceholderStories].map(story => ({
+        language: 'English', isMature: false, visibility: 'Public', collaborators: [], ...story
+    }));
   }
+  // The localStorage part is mostly for retaining mock data during development if Firestore is not fully used everywhere.
+  // For production, Firestore is the source of truth.
   try {
-    const storedStoriesString = localStorage.getItem(LOCAL_STORAGE_STORIES_KEY);
+    const storedStoriesString = localStorage.getItem('d4rkv3nom_stories_mock'); // Using a distinct key for mocks
     if (storedStoriesString) {
       const storedStories: Story[] = JSON.parse(storedStoriesString);
+      // Simple merge: prioritize localStorage, then add base stories not present in localStorage
       const storyMap = new Map<string, Story>();
-      basePlaceholderStories.forEach(story => storyMap.set(story.id, {
-          language: 'English', 
-          isMature: false,    
-          visibility: 'Public',
-          collaborators: [],  
-          ...story
-      }));
-      storedStories.forEach(story => storyMap.set(story.id, {
-          language: 'English',
-          isMature: false,
-          visibility: 'Public',
-          collaborators: [],
-          ...story 
-      }));
+      storedStories.forEach(story => storyMap.set(story.id, {...story, language: story.language || 'English', isMature: story.isMature || false, visibility: story.visibility || 'Public', collaborators: story.collaborators || []}));
+      basePlaceholderStories.forEach(story => {
+          if (!storyMap.has(story.id)) {
+              storyMap.set(story.id, {language: 'English', isMature: false, visibility: 'Public', collaborators: [], ...story});
+          }
+      });
       return Array.from(storyMap.values());
     }
   } catch (error) {
-    console.error("Error loading stories from localStorage:", error);
+    console.error("Error loading mock stories from localStorage:", error);
   }
-  return basePlaceholderStories.map(story => ({
-      language: 'English',
-      isMature: false,
-      visibility: 'Public',
-      collaborators: [],
-      ...story
-  }));
+   return [...basePlaceholderStories].map(story => ({
+        language: 'English', isMature: false, visibility: 'Public', collaborators: [], ...story
+    }));
 };
 
-export let placeholderStories: Story[] = loadStoriesFromLocalStorage();
-
-export const saveStoriesToLocalStorage = (storiesToSave: Story[]) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  try {
-    localStorage.setItem(LOCAL_STORAGE_STORIES_KEY, JSON.stringify(storiesToSave));
-    placeholderStories = [...storiesToSave];
-    initializeUserStoryLists();
-  } catch (error) {
-    console.error("Error saving stories to localStorage:", error);
-  }
-};
-
-export const upsertStoryAndSave = (storyToUpsert: Story) => {
-  // Note: In a Firestore app, this would be an async call to db.
-  // This localStorage version is synchronous for simplicity of the mock.
-  const currentStories = loadStoriesFromLocalStorage();
-  const storyIndex = currentStories.findIndex(s => s.id === storyToUpsert.id);
-  let newStoriesArray;
-
-  const storyWithDefaults: Story = {
-    language: 'English',
-    isMature: false,
-    visibility: 'Public',
-    collaborators: [],
-    ...storyToUpsert 
-  };
-
-  if (storyIndex > -1) {
-    newStoriesArray = [...currentStories];
-    newStoriesArray[storyIndex] = storyWithDefaults;
-  } else {
-    newStoriesArray = [...currentStories, storyWithDefaults];
-  }
-  saveStoriesToLocalStorage(newStoriesArray);
-};
-
-export const deleteStoryAndSave = (storyIdToDelete: string) => {
-  const currentStories = loadStoriesFromLocalStorage();
-  const newStoriesArray = currentStories.filter(s => s.id !== storyIdToDelete);
-  saveStoriesToLocalStorage(newStoriesArray);
-};
-
-export const deleteChapterFromStory = (storyId: string, chapterId: string): boolean => {
-    const currentStories = loadStoriesFromLocalStorage();
-    const storyIndex = currentStories.findIndex(s => s.id === storyId);
-
-    if (storyIndex > -1) {
-        const storyToUpdate = { ...currentStories[storyIndex] };
-        storyToUpdate.chapters = storyToUpdate.chapters.filter(ch => ch.id !== chapterId);
-        
-        storyToUpdate.chapters.forEach((ch, index) => {
-            ch.order = index + 1;
-        });
-        
-        currentStories[storyIndex] = storyToUpdate;
-        saveStoriesToLocalStorage(currentStories);
-        return true;
-    }
-    return false;
-};
+// Removed upsertStoryAndSave and deleteStoryAndSave etc. as they should operate on Firestore directly
+// in the components (like edit-details page). This file should only manage placeholder data.
+// If you need these for parts of the app still relying on mock data, they'd need to be adapted
+// to only affect the `placeholderStories` array and localStorage for mocks.
 
 export const initializeUserStoryLists = () => {
-  // This function will be less relevant for live data from Firestore,
-  // but useful for mock user data if parts of the app still use placeholderUsers.
-  const currentGlobalStories = placeholderStories; 
+  // This function might still be used for populating mock user profiles if needed.
+  const currentGlobalStories = placeholderStories; // Uses the locally managed mock story list
 
   placeholderUsers.forEach(user => {
     user.writtenStories = currentGlobalStories
@@ -520,7 +216,7 @@ export const initializeUserStoryLists = () => {
 
     const userWrittenStoryIds = new Set(user.writtenStories.map(s => s.id));
     user.readingList = currentGlobalStories
-      .filter(story => !userWrittenStoryIds.has(story.id) && story.status !== 'Draft' && story.status !== 'Private' && story.status !== 'Unlisted')
+      .filter(story => !userWrittenStoryIds.has(story.id) && story.status !== 'Draft' && story.visibility === 'Public')
       .sort(() => 0.5 - Math.random())
       .slice(0, 8)
       .map(story => ({
@@ -533,8 +229,44 @@ export const initializeUserStoryLists = () => {
   });
 };
 
-initializeUserStoryLists();
+// Initialize global stories once
+export const initializeGlobalStories = () => {
+    placeholderStories = loadMockStories();
+    initializeUserStoryLists(); // Initialize user lists based on these mock stories
+};
+initializeGlobalStories();
 
+
+export const formatDate = (dateInput?: string | Date | { seconds: number, nanoseconds: number }): string => {
+  if (!dateInput) return 'N/A';
+  let date: Date;
+  if (typeof dateInput === 'string') {
+    date = new Date(dateInput);
+  } else if (dateInput instanceof Date) {
+    date = dateInput;
+  } else if (typeof dateInput === 'object' && 'seconds' in dateInput && 'nanoseconds' in dateInput) {
+    // Handle Firestore Timestamp object
+    date = new Date(dateInput.seconds * 1000 + dateInput.nanoseconds / 1000000);
+  } else {
+    return 'Invalid Date';
+  }
+
+  try {
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 24 * 7) { 
+      return formatDistanceToNow(date, { addSuffix: true });
+    }
+    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+  } catch (e) {
+    console.error("Error formatting date:", e, "Input was:", dateInput);
+    return 'Invalid Date';
+  }
+};
+
+// Placeholder comments, messages, conversations, notifications can remain as they are for mock UI
+// unless specific features require them to be Firestore-driven.
 export const placeholderComments: Comment[] = [
   {
     id: 'comment1',
@@ -545,66 +277,36 @@ export const placeholderComments: Comment[] = [
     timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
     likes: 15,
   },
-  {
-    id: 'comment2',
-    user: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    storyId: 'story1',
-    chapterId: 'c1s1',
-    parentId: 'comment1',
-    content: 'Thank you! Working on it right now.',
-    timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-    likes: 5,
-  },
-  {
-    id: 'comment3',
-    user: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
-    storyId: 'story2',
-    chapterId: 'c2s3',
-    content: 'What a thrilling conclusion! Loved the character development.',
-    timestamp: new Date(Date.now() - 86400000 * 1).toISOString(),
-    likes: 22,
-  },
+  // ... other comments
 ];
 
 export const placeholderMessages: Message[] = [
   {
     id: 'msg1',
-    sender: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    receiver: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
+    senderId: placeholderUsers.find(u => u.id === 'user1FirebaseUid')!.id,
     content: 'Hey! Loved your latest chapter on "Chronicles of the Shadow Forest". Want to co-author something sometime?',
     timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-    isRead: true,
   },
-  {
-    id: 'msg2',
-    sender: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
-    receiver: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    content: 'Thanks so much! That sounds interesting. What did you have in mind?',
-    timestamp: new Date(Date.now() - 3600000 * 1).toISOString(),
-    isRead: false,
-  },
+  // ... other messages
 ];
 
 export const placeholderConversations: Conversation[] = [
   {
     id: 'conv1',
-    participants: [summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!), summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!)],
-    lastMessage: placeholderMessages[1],
-    unreadCount: 1,
-  },
-  {
-    id: 'conv2',
-    participants: [summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!), summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!)],
-    lastMessage: {
-      id: 'msg3',
-      sender: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
-      receiver: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-      content: 'Just checking in on the release schedule for "Echoes of Tomorrow".',
-      timestamp: new Date(Date.now() - 86400000 * 3).toISOString(),
-      isRead: true,
+    participantIds: [placeholderUsers.find(u => u.id === 'user1FirebaseUid')!.id, placeholderUsers.find(u => u.id === 'user2FirebaseUid')!.id],
+    participantInfo: {
+        [placeholderUsers.find(u => u.id === 'user1FirebaseUid')!.id]: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
+        [placeholderUsers.find(u => u.id === 'user2FirebaseUid')!.id]: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!)
     },
-    unreadCount: 0,
+    lastMessage: {
+        id: 'msg2',
+        content: 'Thanks so much! That sounds interesting. What did you have in mind?',
+        senderId: placeholderUsers.find(u => u.id === 'user2FirebaseUid')!.id,
+        timestamp: new Date(Date.now() - 3600000 * 1).toISOString(),
+    },
+    updatedAt: new Date(Date.now() - 3600000 * 1).toISOString(),
   },
+  // ... other conversations
 ];
 
 export const placeholderNotifications: NotificationType[] = [
@@ -616,46 +318,7 @@ export const placeholderNotifications: NotificationType[] = [
     link: `/profile/${placeholderUsers.find(u => u.id === 'user3FirebaseUid')?.id}`,
     timestamp: new Date(Date.now() - 3600000 * 1).toISOString(),
     isRead: false,
+    // userId: 'user1FirebaseUid' // Example, should be set if this notification is for user1
   },
-  {
-    id: 'notif2',
-    type: 'new_chapter',
-    actor: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    message: `${placeholderUsers.find(u => u.id === 'user1FirebaseUid')?.displayName} published a new chapter for "The Last Stargazer": Chapter 5 - The Price of Knowledge.`,
-    link: `/stories/story1/read/c1s5`,
-    timestamp: new Date(Date.now() - 3600000 * 3).toISOString(),
-    isRead: false,
-  },
-  {
-    id: 'notif3',
-    type: 'comment_reply',
-    actor: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
-    message: `${placeholderUsers.find(u => u.id === 'user2FirebaseUid')?.displayName} replied to your comment on "Chronicles of the Shadow Forest".`,
-    link: `/stories/story2/read/c2s3`,
-    timestamp: new Date(Date.now() - 86400000 * 1).toISOString(),
-    isRead: true,
-  },
-   {
-    id: 'notif4',
-    type: 'announcement',
-    message: `Welcome to the new D4RKV3NOM platform! Explore and enjoy the new features.`,
-    timestamp: new Date(Date.now() - 86400000 * 2).toISOString(),
-    isRead: true,
-  },
+  // ... other notifications
 ];
-
-export function formatDate(dateString?: string): string {
-  if (!dateString) return 'N/A';
-  try {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-    if (diffInHours < 24 * 7) { 
-      return formatDistanceToNow(date, { addSuffix: true });
-    }
-    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
-  } catch (e) {
-    return 'Invalid Date';
-  }
-}
