@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpenText, Home, MessageCircle, UserCircle, Edit3, LogIn, LogOut, UserPlus, Settings, Bell, Brain } from 'lucide-react';
+import { BookOpenText, Home, MessageCircle, UserCircle, Edit3, LogIn, LogOut, UserPlus, Settings, Bell, Brain, Search } from 'lucide-react'; // Added Search
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,7 +16,6 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/hooks/useAuth';
-// Removed NotificationType, Badge, formatDistanceToNow as Bell icon is removed from header
 
 const NavLink = ({ href, children, icon }: { href: string; children: React.ReactNode; icon?: React.ReactNode }) => (
   <Link href={href} passHref>
