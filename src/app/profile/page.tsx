@@ -8,13 +8,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { placeholderStories, placeholderUsers, getUserById } from '@/lib/placeholder-data';
-import { Settings, LogOut, Loader2, Edit3, Users, FileText } from 'lucide-react'; 
+import { Settings, LogOut, Loader2, Edit3, Users, FileText } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Story, User as AppUser } from '@/types';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { cn } from '@/lib/utils';
 
-// Story card specifically for profile Works/Drafts sections
 interface ProfileStoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status'>;
   isDraft?: boolean;
@@ -22,15 +22,18 @@ interface ProfileStoryCardProps {
 
 function ProfileStoryCard({ story, isDraft = false }: ProfileStoryCardProps) {
   return (
-    <div className="w-36 md:w-40 flex-shrink-0 group">
+    <div className="w-36 md:w-40 flex-shrink-0 group text-center">
       <Link href={isDraft ? `/write/edit?storyId=${story.id}` : `/stories/${story.id}`} passHref>
-        <div className="aspect-[2/3] relative rounded-md overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200 bg-muted cursor-pointer">
+        <div className={cn(
+            "aspect-[2/3] relative rounded-md overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200 bg-muted cursor-pointer mb-2",
+            isDraft && "opacity-70 group-hover:opacity-100"
+        )}>
           <Image
             src={story.coverImageUrl || `https://placehold.co/512x800.png`}
             alt={story.title}
             layout="fill"
             objectFit="cover"
-            className={`group-hover:scale-105 transition-transform duration-300 ease-in-out ${isDraft ? 'opacity-70 group-hover:opacity-100' : ''}`}
+            className="group-hover:scale-105 transition-transform duration-300 ease-in-out"
             data-ai-hint={story.dataAiHint || "book cover"}
           />
           {isDraft && (
@@ -38,19 +41,16 @@ function ProfileStoryCard({ story, isDraft = false }: ProfileStoryCardProps) {
           )}
         </div>
       </Link>
-      <div className="mt-2 text-center">
-        <Link href={isDraft ? `/write/edit?storyId=${story.id}` : `/stories/${story.id}`} passHref>
+      <Link href={isDraft ? `/write/edit-details?storyId=${story.id}` : `/stories/${story.id}`} passHref>
           <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors cursor-pointer">
             {story.title}
           </p>
-        </Link>
-        <p className="text-xs text-muted-foreground truncate">{story.genre}</p>
-      </div>
+      </Link>
+      <p className="text-xs text-muted-foreground truncate">{story.genre}</p>
     </div>
   );
 }
 
-// Card for the "Following" section
 interface FollowingUserCardProps {
   user: AppUser;
 }
@@ -80,7 +80,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/auth/signin'); 
+      router.push('/auth/signin');
     }
   }, [user, loading, router]);
 
@@ -91,11 +91,11 @@ export default function ProfilePage() {
       </div>
     );
   }
-  
+
   const userWrittenStories = placeholderStories.filter(story => story.author.id === user.id);
-  const publishedWorks = userWrittenStories.filter(story => story.status === 'Ongoing' || story.status === 'Completed');
-  const draftWorks = userWrittenStories.filter(story => story.status === 'Draft');
-  
+  const publishedWorks = userWrittenStories.filter(story => story.status === 'Ongoing' || story.status === 'Completed' || story.status === 'Public');
+  const draftWorks = userWrittenStories.filter(story => story.status === 'Draft' || story.status === 'Private' || story.status === 'Unlisted');
+
   const followingDetails: AppUser[] = (user.followingIds || [])
     .map(id => getUserById(id))
     .filter((u): u is AppUser => !!u);
@@ -141,8 +141,8 @@ export default function ProfilePage() {
           <h2 className="text-2xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
             <Edit3 className="h-6 w-6" /> My Published Works
           </h2>
-          <ScrollArea className="w-full whitespace-nowrap rounded-md">
-            <div className="flex space-x-4 pb-4">
+          <ScrollArea className="w-full whitespace-nowrap rounded-md pb-4">
+            <div className="flex space-x-4">
               {publishedWorks.map(story => (
                 <ProfileStoryCard key={`published-${story.id}`} story={story} />
               ))}
@@ -158,8 +158,8 @@ export default function ProfilePage() {
           <h2 className="text-2xl font-headline font-semibold mb-4 text-accent flex items-center gap-2">
             <FileText className="h-6 w-6" /> My Drafts
           </h2>
-          <ScrollArea className="w-full whitespace-nowrap rounded-md">
-            <div className="flex space-x-4 pb-4">
+          <ScrollArea className="w-full whitespace-nowrap rounded-md pb-4">
+            <div className="flex space-x-4">
               {draftWorks.map(story => (
                 <ProfileStoryCard key={`draft-${story.id}`} story={story} isDraft />
               ))}
@@ -168,7 +168,7 @@ export default function ProfilePage() {
           </ScrollArea>
         </section>
       )}
-      
+
       {(publishedWorks.length === 0 && draftWorks.length === 0) && (
          <div className="text-center py-10 text-muted-foreground">
             You haven&apos;t written any stories yet. <Link href="/write/edit" className="text-primary hover:underline">Start your first story!</Link>
@@ -182,8 +182,8 @@ export default function ProfilePage() {
           <h2 className="text-2xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
             <Users className="h-6 w-6" /> Following ({followingDetails.length})
           </h2>
-          <ScrollArea className="w-full whitespace-nowrap rounded-md">
-            <div className="flex space-x-4 pb-4">
+          <ScrollArea className="w-full whitespace-nowrap rounded-md pb-4">
+            <div className="flex space-x-4">
               {followingDetails.map(followedUser => (
                 <FollowingUserCard key={`following-${followedUser.id}`} user={followedUser} />
               ))}

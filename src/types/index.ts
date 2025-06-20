@@ -2,27 +2,31 @@
 export interface Story {
   id: string;
   title: string;
-  author: UserSummary; 
+  author: UserSummary;
   genre: string;
   coverImageUrl?: string;
-  dataAiHint?: string; 
+  dataAiHint?: string;
   summary: string;
   tags: string[];
   chapters: Chapter[];
   rating?: number;
   views?: number;
   isMature?: boolean;
-  status?: 'Ongoing' | 'Completed' | 'Draft'; 
-  lastUpdated: string; 
+  status?: 'Ongoing' | 'Completed' | 'Draft' | 'Unlisted' | 'Private'; // Added Unlisted & Private
+  lastUpdated: string;
+  language?: string; // New field
+  visibility?: 'Public' | 'Private' | 'Unlisted'; // New field
+  collaborators?: UserSummary[]; // New field
 }
 
 export interface Chapter {
   id: string;
   title: string;
-  content: string; 
+  content: string;
   order: number;
   wordCount?: number;
-  publishedDate?: string; 
+  publishedDate?: string;
+  status?: 'Published' | 'Draft'; // Added status to chapter
 }
 
 export interface UserSummary {
@@ -45,7 +49,7 @@ export interface ReadingListItem {
 export interface User extends UserSummary {
   bio?: string;
   role?: 'reader' | 'writer';
-  writtenStories?: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'status'>[]; 
+  writtenStories?: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'status'>[];
   readingList?: ReadingListItem[]; // Using the extended type
   followersCount?: number;
   followingCount?: number;
@@ -58,10 +62,10 @@ export interface Comment {
   id: string;
   user: UserSummary;
   storyId: string;
-  chapterId?: string; 
-  parentId?: string; 
+  chapterId?: string;
+  parentId?: string;
   content: string;
-  timestamp: string; 
+  timestamp: string;
   likes?: number;
 }
 
@@ -70,7 +74,7 @@ export interface Message {
   sender: UserSummary;
   receiver: UserSummary;
   content: string;
-  timestamp: string; 
+  timestamp: string;
   isRead?: boolean;
 }
 
@@ -90,4 +94,3 @@ export interface NotificationType {
   isRead: boolean;
   actor?: UserSummary; // User who performed the action
 }
-
