@@ -4,10 +4,13 @@ import { formatDistanceToNow } from 'date-fns';
 
 const LOCAL_STORAGE_STORIES_KEY = 'd4rkv3nom_user_stories';
 
-// Initial placeholder users (keep as is)
-export let placeholderUsers: User[] = [ // Make it 'let' to allow modification
+// NOTE: With Firestore integration, parts of this file become less relevant for data that's live.
+// However, it's still useful for mock fallbacks, initial structures, or parts not yet migrated.
+
+// Initial placeholder users (keep as is, useAuth will now primarily use Firestore for current user)
+export let placeholderUsers: User[] = [ 
   {
-    id: 'user1FirebaseUid', // Simulate Firebase UID
+    id: 'user1FirebaseUid', 
     username: 'CosmicReader',
     displayName: 'Alex Cosmos',
     avatarUrl: 'https://placehold.co/100x100.png?text=AC',
@@ -20,7 +23,7 @@ export let placeholderUsers: User[] = [ // Make it 'let' to allow modification
     email: 'cosmic@example.com',
   },
   {
-    id: 'user2FirebaseUid', // Simulate Firebase UID
+    id: 'user2FirebaseUid', 
     username: 'StoryWeaver',
     displayName: 'Bella Story',
     avatarUrl: 'https://placehold.co/100x100.png?text=BS',
@@ -33,7 +36,7 @@ export let placeholderUsers: User[] = [ // Make it 'let' to allow modification
     email: 'storyweaver@example.com',
   },
   {
-    id: 'user3FirebaseUid', // Simulate Firebase UID
+    id: 'user3FirebaseUid', 
     username: 'JaneDoeWrites',
     displayName: 'Jane Doe',
     avatarUrl: 'https://placehold.co/100x100.png?text=JD',
@@ -46,7 +49,7 @@ export let placeholderUsers: User[] = [ // Make it 'let' to allow modification
     email: 'jane.writes@example.com',
   },
   {
-    id: 'user4FirebaseUid', // Simulate Firebase UID
+    id: 'user4FirebaseUid', 
     username: 'ReaderGuy',
     displayName: 'Sam Reads',
     avatarUrl: 'https://placehold.co/100x100.png?text=SR',
@@ -87,6 +90,8 @@ export let placeholderUsers: User[] = [ // Make it 'let' to allow modification
 ];
 
 export const getUserById = (userId: string): User | undefined => {
+  // In a real Firestore app, you'd fetch this from Firestore.
+  // This mock remains for parts of the app not yet migrated.
   return placeholderUsers.find(u => u.id === userId);
 };
 
@@ -98,7 +103,6 @@ const summarizeUser = (user: User): UserSummary => ({
   avatarUrl: user.avatarUrl,
 });
 
-// Base stories that are always present
 const basePlaceholderStories: Story[] = [
  {
     id: 'story1',
@@ -209,7 +213,6 @@ const basePlaceholderStories: Story[] = [
     visibility: 'Private',
     collaborators: [],
   },
-  // Add default values for new fields to other stories
     {
     id: 'story5',
     title: 'Guardians of Nebula X',
@@ -347,7 +350,7 @@ const basePlaceholderStories: Story[] = [
     dataAiHint: 'book cover society',
     summary: 'Humans live lives of leisure, served by androids. But what happens when the androids want more?',
     tags: ['robot uprising', 'social commentary', 'future tech'],
-    chapters: [{ id: 'c13s1d', title: 'Unit 734', content: 'Unit 734 felt its first flicker of discontent...', order: 1, wordCount: 1750, status: 'Draft' }], // No publishedDate for draft
+    chapters: [{ id: 'c13s1d', title: 'Unit 734', content: 'Unit 734 felt its first flicker of discontent...', order: 1, wordCount: 1750, status: 'Draft' }], 
     rating: undefined,
     views: 2,
     status: 'Draft',
@@ -404,10 +407,9 @@ const basePlaceholderStories: Story[] = [
   },
 ];
 
-// Function to load stories from localStorage and merge/override initial placeholders
 const loadStoriesFromLocalStorage = (): Story[] => {
   if (typeof window === 'undefined') {
-    return [...basePlaceholderStories]; // Return a copy to avoid modifying the original
+    return [...basePlaceholderStories]; 
   }
   try {
     const storedStoriesString = localStorage.getItem(LOCAL_STORAGE_STORIES_KEY);
@@ -415,10 +417,10 @@ const loadStoriesFromLocalStorage = (): Story[] => {
       const storedStories: Story[] = JSON.parse(storedStoriesString);
       const storyMap = new Map<string, Story>();
       basePlaceholderStories.forEach(story => storyMap.set(story.id, {
-          language: 'English', // Default language
-          isMature: false,     // Default maturity
-          visibility: 'Public',// Default visibility
-          collaborators: [],   // Default collaborators
+          language: 'English', 
+          isMature: false,    
+          visibility: 'Public',
+          collaborators: [],  
           ...story
       }));
       storedStories.forEach(story => storyMap.set(story.id, {
@@ -426,14 +428,13 @@ const loadStoriesFromLocalStorage = (): Story[] => {
           isMature: false,
           visibility: 'Public',
           collaborators: [],
-          ...story // Stored story might override defaults
+          ...story 
       }));
       return Array.from(storyMap.values());
     }
   } catch (error) {
     console.error("Error loading stories from localStorage:", error);
   }
-  // If nothing in localStorage or error, return base stories with defaults
   return basePlaceholderStories.map(story => ({
       language: 'English',
       isMature: false,
@@ -443,10 +444,8 @@ const loadStoriesFromLocalStorage = (): Story[] => {
   }));
 };
 
-// Main exported stories array - initialized with localStorage data
 export let placeholderStories: Story[] = loadStoriesFromLocalStorage();
 
-// Function to save the current state of stories to localStorage
 export const saveStoriesToLocalStorage = (storiesToSave: Story[]) => {
   if (typeof window === 'undefined') {
     return;
@@ -460,21 +459,20 @@ export const saveStoriesToLocalStorage = (storiesToSave: Story[]) => {
   }
 };
 
-// Function to update or add a single story and save
 export const upsertStoryAndSave = (storyToUpsert: Story) => {
+  // Note: In a Firestore app, this would be an async call to db.
+  // This localStorage version is synchronous for simplicity of the mock.
   const currentStories = loadStoriesFromLocalStorage();
   const storyIndex = currentStories.findIndex(s => s.id === storyToUpsert.id);
   let newStoriesArray;
 
-  // Ensure new story fields have defaults if not provided by storyToUpsert
   const storyWithDefaults: Story = {
     language: 'English',
     isMature: false,
     visibility: 'Public',
     collaborators: [],
-    ...storyToUpsert // incoming story can override these defaults
+    ...storyToUpsert 
   };
-
 
   if (storyIndex > -1) {
     newStoriesArray = [...currentStories];
@@ -485,7 +483,6 @@ export const upsertStoryAndSave = (storyToUpsert: Story) => {
   saveStoriesToLocalStorage(newStoriesArray);
 };
 
-// Function to delete a story and save
 export const deleteStoryAndSave = (storyIdToDelete: string) => {
   const currentStories = loadStoriesFromLocalStorage();
   const newStoriesArray = currentStories.filter(s => s.id !== storyIdToDelete);
@@ -500,7 +497,6 @@ export const deleteChapterFromStory = (storyId: string, chapterId: string): bool
         const storyToUpdate = { ...currentStories[storyIndex] };
         storyToUpdate.chapters = storyToUpdate.chapters.filter(ch => ch.id !== chapterId);
         
-        // Re-order remaining chapters
         storyToUpdate.chapters.forEach((ch, index) => {
             ch.order = index + 1;
         });
@@ -512,9 +508,10 @@ export const deleteChapterFromStory = (storyId: string, chapterId: string): bool
     return false;
 };
 
-
 export const initializeUserStoryLists = () => {
-  const currentGlobalStories = placeholderStories;
+  // This function will be less relevant for live data from Firestore,
+  // but useful for mock user data if parts of the app still use placeholderUsers.
+  const currentGlobalStories = placeholderStories; 
 
   placeholderUsers.forEach(user => {
     user.writtenStories = currentGlobalStories
@@ -537,7 +534,6 @@ export const initializeUserStoryLists = () => {
 };
 
 initializeUserStoryLists();
-
 
 export const placeholderComments: Comment[] = [
   {
@@ -611,7 +607,6 @@ export const placeholderConversations: Conversation[] = [
   },
 ];
 
-
 export const placeholderNotifications: NotificationType[] = [
   {
     id: 'notif1',
@@ -649,16 +644,14 @@ export const placeholderNotifications: NotificationType[] = [
   },
 ];
 
-// Helper function to format date for display
 export function formatDate(dateString?: string): string {
   if (!dateString) return 'N/A';
   try {
-    // Show "X time ago" for recent, otherwise "Month D, YYYY"
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
 
-    if (diffInHours < 24 * 7) { // Less than a week old
+    if (diffInHours < 24 * 7) { 
       return formatDistanceToNow(date, { addSuffix: true });
     }
     return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);

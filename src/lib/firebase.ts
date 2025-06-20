@@ -1,6 +1,7 @@
 
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore'; // Added Firestore import
 // import { getAnalytics } from "firebase/analytics"; // Uncomment if you need analytics
 
 const firebaseConfig: FirebaseOptions = {
@@ -23,5 +24,7 @@ if (!getApps().length) {
 }
 
 export const auth = getAuth(app);
+export const db = getFirestore(app); // Export Firestore instance
 // export const analytics = getAnalytics(app); // Uncomment if you need analytics
 export default app;
+

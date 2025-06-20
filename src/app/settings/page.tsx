@@ -13,6 +13,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, UserCog, Save, KeyRound, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+// Removed: import { db } from '@/lib/firebase';
+// Removed: import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function SettingsPage() {
   const { user, loading: authLoadingGlobal, authLoading: specificAuthLoading, updateUserProfile, updateUserEmailFirebase, updateUserPasswordFirebase } = useAuth();
@@ -43,7 +45,7 @@ export default function SettingsPage() {
       setBio(user.bio || '');
       setRole(user.role || 'reader');
       setAvatarPreview(user.avatarUrl || null);
-      setNewEmail(user.email || ''); // Initialize with current email
+      setNewEmail(user.email || ''); 
     }
   }, [user]);
 
@@ -66,11 +68,12 @@ export default function SettingsPage() {
 
     let newAvatarUrl = user.avatarUrl;
     if (avatarFile) {
-      // Mocking upload - in a real app, upload to Firebase Storage
+      // Mocking upload - in a real app, upload to Firebase Storage then get URL
       newAvatarUrl = avatarPreview || user.avatarUrl; 
       toast({title: "Avatar Updated (Mock)", description: "Avatar preview updated. Real upload to storage would happen here."});
     }
     
+    // updateUserProfile now handles Firestore update via useAuth hook
     await updateUserProfile({ displayName, username, avatarUrl: newAvatarUrl, bio, role });
     setIsProfileUpdating(false);
   };
@@ -88,7 +91,7 @@ export default function SettingsPage() {
     setIsEmailUpdating(true);
     const success = await updateUserEmailFirebase(newEmail, currentPasswordForEmail);
     if (success) {
-      setCurrentPasswordForEmail(''); // Clear password field on success
+      setCurrentPasswordForEmail(''); 
     }
     setIsEmailUpdating(false);
   };
@@ -155,7 +158,7 @@ export default function SettingsPage() {
             <form onSubmit={handleProfileSubmit}>
               <CardHeader>
                 <CardTitle>Edit Your Profile</CardTitle>
-                <CardDescription>Update your public profile information.</CardDescription>
+                <CardDescription>Update your public profile information. Changes are saved to Firestore.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6">
@@ -198,7 +201,7 @@ export default function SettingsPage() {
               </CardContent>
               <CardFooter>
                 <Button type="submit" disabled={anySubmitting || isProfileUpdating} className="bg-primary hover:bg-primary/90">
-                  {isProfileUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {isProfileUpdating || specificAuthLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save Profile Changes
                 </Button>
               </CardFooter>
@@ -230,7 +233,7 @@ export default function SettingsPage() {
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" variant="outline" disabled={anySubmitting || isEmailUpdating}>
-                    {isEmailUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    {isEmailUpdating || specificAuthLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                     Update Email
                   </Button>
                 </CardFooter>
@@ -259,7 +262,7 @@ export default function SettingsPage() {
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" variant="outline" disabled={anySubmitting || isPasswordUpdating}>
-                    {isPasswordUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    {isPasswordUpdating || specificAuthLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                     Change Password
                   </Button>
                 </CardFooter>

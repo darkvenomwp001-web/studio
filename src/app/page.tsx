@@ -1,45 +1,107 @@
 
-'use client'; // Required for using hooks like useAuth
+'use client'; 
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Zap, Users2, PenTool, BookmarkPlus } from 'lucide-react';
 import StoryCard from '@/components/shared/StoryCard';
-import { placeholderStories, placeholderUsers } from '@/lib/placeholder-data';
+import { placeholderUsers, placeholderStories as staticPlaceholderStories } from '@/lib/placeholder-data'; // Keep static for authors for now
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import type { Story } from '@/types';
+import { useEffect, useState } from 'react';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+
+async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
+  const storiesCol = collection(db, 'stories');
+  // Example query: fetch 'count' stories, ordered by lastUpdated, public visibility
+  const q = query(
+    storiesCol, 
+    where('visibility', '==', 'Public'), // Only public stories
+    orderBy('lastUpdated', 'desc'), 
+    firestoreLimit(count)
+  );
+  const storySnapshot = await getDocs(q);
+  const storyList = storySnapshot.docs.map(doc => {
+    const data = doc.data();
+    // Ensure author is in UserSummary format, if stored differently in Firestore.
+    // This is a simplified mapping. Real app might need more robust data transformation.
+    const authorSummary = data.author 
+      ? { id: data.author.id || 'unknown', username: data.author.username || 'Unknown Author', displayName: data.author.displayName, avatarUrl: data.author.avatarUrl }
+      : { id: 'unknown', username: 'Unknown Author', displayName: 'Unknown Author' };
+
+    return { 
+      id: doc.id, 
+      ...data,
+      author: authorSummary, // Overwrite with UserSummary
+      // Handle potential Firestore Timestamps if you use them for date fields
+      lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
+      // Ensure chapters array exists
+      chapters: data.chapters || [],
+      tags: data.tags || [],
+    } as Story;
+  });
+  return storyList;
+}
+
 
 export default function HomePage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const [trendingStories, setTrendingStories] = useState<Story[]>([]);
+  const [storySpotlight, setStorySpotlight] = useState<Story | null>(null);
+  const [isStoriesLoading, setIsStoriesLoading] = useState(true);
   
-  const publishedStories = placeholderStories.filter(story => story.status !== 'Draft');
-  
-  const trendingStories = publishedStories.slice(0, 8);
-  const featuredAuthors = placeholderUsers.slice(0, 6);
-  
-  const availableSpotlightStories = publishedStories;
-  const storySpotlight = availableSpotlightStories.length > 0 
-    ? availableSpotlightStories[Math.floor(Math.random() * availableSpotlightStories.length)] 
-    : null;
+  const featuredAuthors = staticPlaceholderStories.map(s => s.author).slice(0, 6); // Continue using static for authors for simplicity
 
+  useEffect(() => {
+    async function loadStories() {
+      setIsStoriesLoading(true);
+      try {
+        const fetchedStories = await fetchStoriesFromFirestore(8); // Fetch 8 for trending
+        setTrendingStories(fetchedStories);
+        if (fetchedStories.length > 0) {
+          // Filter for spotlight (public, ongoing or completed)
+          const availableForSpotlight = fetchedStories.filter(s => s.visibility === 'Public' && (s.status === 'Ongoing' || s.status === 'Completed'));
+          if (availableForSpotlight.length > 0) {
+            setStorySpotlight(availableForSpotlight[Math.floor(Math.random() * availableForSpotlight.length)]);
+          } else if (fetchedStories.length > 0) {
+            setStorySpotlight(fetchedStories[0]); // Fallback to any fetched story
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching stories from Firestore:", error);
+        // Fallback to static placeholders if Firestore fetch fails for demo
+        setTrendingStories(staticPlaceholderStories.filter(s => s.status !== 'Draft').slice(0,8));
+        const staticSpotlightCandidates = staticPlaceholderStories.filter(s => s.status !== 'Draft');
+        if(staticSpotlightCandidates.length > 0) {
+            setStorySpotlight(staticSpotlightCandidates[Math.floor(Math.random() * staticSpotlightCandidates.length)]);
+        }
+
+      }
+      setIsStoriesLoading(false);
+    }
+    loadStories();
+  }, []);
+  
   const popularGenres = [
     { name: "Fantasy", icon: Swords, blurb: "Epic quests & magical realms await.", dataAiHint: "dragon castle", cover: "https://placehold.co/512x800.png" },
     { name: "Sci-Fi", icon: Rocket, blurb: "Explore galaxies & future tech.", dataAiHint: "space station", cover: "https://placehold.co/512x800.png"},
     { name: "Romance", icon: HeartIcon, blurb: "Heartfelt connections & love stories.", dataAiHint: "couple sunset", cover: "https://placehold.co/512x800.png"},
   ];
 
+  // Community pulse still uses static for now, can be adapted to Firestore later
   const communityPulseItems = [
-    { icon: Zap, text: `${placeholderUsers[1].username} just published a new chapter for "${publishedStories[1]?.title || 'a story'}"!`},
+    { icon: Zap, text: `${placeholderUsers[1].username} just published a new chapter for "${trendingStories[1]?.title || 'a story'}"!`},
     { icon: Users2, text: `Welcome new writer: @${placeholderUsers[2].username}!`},
-    { icon: BookHeart, text: `"${publishedStories[0]?.title || 'a story'}" reached 10k reads today!`},
-  ].filter(item => item.text.includes("story") ? item.text.includes(publishedStories[0]?.title || publishedStories[1]?.title) : true);
+    { icon: BookHeart, text: `"${trendingStories[0]?.title || 'a story'}" reached 10k reads today!`},
+  ].filter(item => item.text.includes("story") ? item.text.includes(trendingStories[0]?.title || trendingStories[1]?.title) : true);
 
 
-  if (loading) {
+  if (authLoading || isStoriesLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -135,7 +197,7 @@ export default function HomePage() {
                     <StoryCard story={story} />
                 </div>
             ))}
-            {trendingStories.length === 0 && <p className="text-muted-foreground">No trending stories to display.</p>}
+            {trendingStories.length === 0 && !isStoriesLoading && <p className="text-muted-foreground">No trending stories to display.</p>}
             <div className="flex-shrink-0 w-px"></div>
             </div>
         </div>
@@ -186,7 +248,7 @@ export default function HomePage() {
                         <AvatarFallback className="text-3xl">{author.username.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <h3 className="text-lg font-semibold font-headline text-center group-hover:text-accent transition-colors">{author.displayName || author.username}</h3>
-                    <p className="text-xs text-muted-foreground text-center line-clamp-2 mt-1 flex-grow">{author.bio?.substring(0,60) || "Passionate creator"}{author.bio && author.bio.length > 60 ? "..." : ""}</p>
+                    <p className="text-xs text-muted-foreground text-center line-clamp-2 mt-1 flex-grow">{(placeholderUsers.find(u => u.id === author.id)?.bio || "Passionate Creator").substring(0,60)}{placeholderUsers.find(u => u.id === author.id)?.bio && placeholderUsers.find(u => u.id === author.id)!.bio!.length > 60 ? "..." : ""}</p>
                     </Card>
                 </div>
                 </Link>
