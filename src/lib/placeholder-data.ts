@@ -5,7 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 const LOCAL_STORAGE_STORIES_KEY = 'd4rkv3nom_user_stories';
 
 // Initial placeholder users (keep as is)
-export const placeholderUsers: User[] = [
+export let placeholderUsers: User[] = [ // Make it 'let' to allow modification
   {
     id: 'user1FirebaseUid', // Simulate Firebase UID
     username: 'CosmicReader',
@@ -14,8 +14,8 @@ export const placeholderUsers: User[] = [
     dataAiHint: "profile person",
     bio: 'Lover of all things sci-fi and fantasy. Aspiring author. Exploring new worlds through words and code.',
     followersCount: 1250,
-    followingCount: 2,
-    followingIds: ['user2FirebaseUid', 'user3FirebaseUid'],
+    followingCount: 3,
+    followingIds: ['user2FirebaseUid', 'user3FirebaseUid', 'user4FirebaseUid'],
     role: 'writer',
     email: 'cosmic@example.com',
   },
@@ -27,8 +27,8 @@ export const placeholderUsers: User[] = [
     dataAiHint: "profile person",
     bio: 'Weaving tales one chapter at a time. Coffee addict. Always looking for the next great read.',
     followersCount: 850,
-    followingCount: 1,
-    followingIds: ['user1FirebaseUid'],
+    followingCount: 2,
+    followingIds: ['user1FirebaseUid', 'user3FirebaseUid'],
     role: 'reader',
     email: 'storyweaver@example.com',
   },
@@ -53,8 +53,8 @@ export const placeholderUsers: User[] = [
     dataAiHint: "profile person",
     bio: 'Just here to read amazing stories!',
     followersCount: 50,
-    followingCount: 3,
-    followingIds: ['user1FirebaseUid', 'user2FirebaseUid', 'user3FirebaseUid'],
+    followingCount: 1,
+    followingIds: ['user2FirebaseUid'],
     role: 'reader',
     email: 'readerguy@example.com',
   },
@@ -66,8 +66,8 @@ export const placeholderUsers: User[] = [
     dataAiHint: "profile person",
     bio: 'Just joined via Google!',
     followersCount: 5,
-    followingCount: 1,
-    followingIds: ['user1FirebaseUid'],
+    followingCount: 2,
+    followingIds: ['user1FirebaseUid', 'user4FirebaseUid'],
     role: 'reader',
     email: 'google.leslie@example.com',
   },
@@ -79,12 +79,17 @@ export const placeholderUsers: User[] = [
     dataAiHint: "profile person",
     bio: 'Loves a good whodunit.',
     followersCount: 78,
-    followingCount: 12,
-    followingIds: ['user3FirebaseUid'],
+    followingCount: 2,
+    followingIds: ['user3FirebaseUid', 'user1FirebaseUid'],
     role: 'reader',
     email: 'mike.sterry@example.com',
   }
 ];
+
+export const getUserById = (userId: string): User | undefined => {
+  return placeholderUsers.find(u => u.id === userId);
+};
+
 
 const summarizeUser = (user: User): UserSummary => ({
   id: user.id,
@@ -118,7 +123,7 @@ const basePlaceholderStories: Story[] = [
   },
   {
     id: 'story1draft',
-    title: 'Stargazer Origins (Draft)',
+    title: 'Stargazer Origins (User1 Draft)',
     author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
     genre: 'Sci-Fi',
     coverImageUrl: 'https://placehold.co/512x800.png',
@@ -154,7 +159,7 @@ const basePlaceholderStories: Story[] = [
   },
   {
     id: 'story3',
-    title: 'Echoes of Tomorrow',
+    title: 'Echoes of Tomorrow (User1)',
     author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
     genre: 'Dystopian',
     coverImageUrl: 'https://placehold.co/512x800.png',
@@ -171,16 +176,16 @@ const basePlaceholderStories: Story[] = [
   },
   {
     id: 'story4',
-    title: 'The Alchemist\'s Secret (Draft)',
+    title: 'The Alchemist\'s Secret (User3 Draft)',
     author: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
     genre: 'Historical Fiction',
     coverImageUrl: 'https://placehold.co/512x800.png',
     dataAiHint: 'book cover historical',
     summary: 'Set in Renaissance Florence, a young apprentice uncovers a dangerous secret hidden by a reclusive alchemist, leading to a thrilling chase across the city.',
     tags: ['mystery', 'history', 'alchemy', 'renaissance'],
-    chapters: [],
+    chapters: [{ id: 'c4s1d', title: 'First Experiment', content: 'The vials bubbled ominously...', order: 1, wordCount: 30 }],
     rating: undefined,
-    views: 100,
+    views: 10, // Drafts might have a few internal views
     status: 'Draft',
     lastUpdated: new Date(Date.now() - 86400000 * 1).toISOString(), 
   },
@@ -246,7 +251,7 @@ const basePlaceholderStories: Story[] = [
   },
   {
     id: 'story9',
-    title: 'Whispers of the Old Gods',
+    title: 'Whispers of the Old Gods (User1)',
     author: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
     genre: 'Fantasy',
     coverImageUrl: 'https://placehold.co/512x800.png',
@@ -306,17 +311,17 @@ const basePlaceholderStories: Story[] = [
   },
   {
     id: 'story13',
-    title: 'Automated Society',
+    title: 'Automated Society (User3 Draft)',
     author: summarizeUser(placeholderUsers.find(u => u.id === 'user3FirebaseUid')!),
     genre: 'Dystopian',
     coverImageUrl: 'https://placehold.co/512x800.png',
     dataAiHint: 'book cover society',
     summary: 'Humans live lives of leisure, served by androids. But what happens when the androids want more?',
     tags: ['robot uprising', 'social commentary', 'future tech'],
-    chapters: [{ id: 'c13s1', title: 'Unit 734', content: 'Unit 734 felt its first flicker of discontent...', order: 1, wordCount: 1750, publishedDate: new Date(Date.now() - 86400000 * 9).toISOString() }],
-    rating: 4.0,
-    views: 33000,
-    status: 'Ongoing',
+    chapters: [{ id: 'c13s1d', title: 'Unit 734', content: 'Unit 734 felt its first flicker of discontent...', order: 1, wordCount: 1750 }], // No publishedDate for draft
+    rating: undefined,
+    views: 2,
+    status: 'Draft',
     lastUpdated: new Date(Date.now() - 86400000 * 9).toISOString(),
   },
   {
@@ -439,10 +444,16 @@ export const initializeUserStoryLists = () => {
     
     const userWrittenStoryIds = new Set(user.writtenStories.map(s => s.id));
     user.readingList = currentGlobalStories // Use the globally potentially updated list
-      .filter(story => !userWrittenStoryIds.has(story.id))
+      .filter(story => !userWrittenStoryIds.has(story.id) && story.status !== 'Draft') // Don't add drafts to reading lists
       .sort(() => 0.5 - Math.random()) 
       .slice(0, 8) // Increased slice to provide more stories for "Your stories" section
-      .map(story => ({ id: story.id, title: story.title, coverImageUrl: story.coverImageUrl, chapters: story.chapters, dataAiHint: story.dataAiHint }));
+      .map(story => ({ 
+          id: story.id, 
+          title: story.title, 
+          coverImageUrl: story.coverImageUrl, 
+          chapters: story.chapters, 
+          dataAiHint: story.dataAiHint 
+      }));
   });
 };
 
@@ -538,8 +549,8 @@ export const placeholderNotifications: NotificationType[] = [
     id: 'notif2',
     type: 'new_chapter',
     actor: summarizeUser(placeholderUsers.find(u => u.id === 'user1FirebaseUid')!),
-    message: `${placeholderUsers.find(u => u.id === 'user1FirebaseUid')?.displayName} published a new chapter for "The Last Stargazer": Chapter 2 - Whispers of the Void.`,
-    link: `/stories/story1`, 
+    message: `${placeholderUsers.find(u => u.id === 'user1FirebaseUid')?.displayName} published a new chapter for "The Last Stargazer": Chapter 5 - The Price of Knowledge.`,
+    link: `/stories/story1/read/c1s5`, 
     timestamp: new Date(Date.now() - 3600000 * 3).toISOString(), 
     isRead: false,
   },
@@ -548,7 +559,7 @@ export const placeholderNotifications: NotificationType[] = [
     type: 'comment_reply',
     actor: summarizeUser(placeholderUsers.find(u => u.id === 'user2FirebaseUid')!),
     message: `${placeholderUsers.find(u => u.id === 'user2FirebaseUid')?.displayName} replied to your comment on "Chronicles of the Shadow Forest".`,
-    link: `/stories/story2`, 
+    link: `/stories/story2/read/c2s3`, 
     timestamp: new Date(Date.now() - 86400000 * 1).toISOString(), 
     isRead: true,
   },
@@ -578,3 +589,4 @@ export function formatDate(dateString?: string): string {
     return 'Invalid Date';
   }
 }
+

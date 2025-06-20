@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -19,13 +19,14 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
   DropdownMenuPortal,
-  DropdownMenuTrigger // Added missing import
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft,
   ArrowRight,
   BookCopy,
   MessageSquare as MessageSquareIcon, 
+  MessagesSquare, // For Chapter Echoes icon
   ThumbsUp,
   Share2,
   X,
@@ -41,15 +42,22 @@ import {
   Home
 } from 'lucide-react';
 import CommentSection from '@/components/comments/CommentSection';
-import { placeholderStories } from '@/lib/placeholder-data';
+import { placeholderStories, getUserById } from '@/lib/placeholder-data';
 import type { Story, Chapter, UserSummary as CharacterSummary } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 
-async function getStoryAndChapterData(storyId: string, chapterIdParams: string): Promise<{ story: Story; chapterIndex: number } | null> {
-  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate fetch
+async function getStoryAndChapterData(storyId: string, chapterIdParams: string, currentUserId?: string): Promise<{ story: Story; chapterIndex: number } | null> {
+  await new Promise(resolve => setTimeout(resolve, 100)); 
   const story = placeholderStories.find(s => s.id === storyId);
+  
   if (!story || !story.chapters) return null;
+
+  // Ensure draft stories are only readable by their authors
+  if (story.status === 'Draft' && story.author.id !== currentUserId) {
+    return null; 
+  }
 
   const chapterIndex = story.chapters.findIndex(c => c.id === chapterIdParams);
   if (chapterIndex === -1) return null;
@@ -67,6 +75,7 @@ const mockStoryCharacters = (storyTitle?: string): CharacterSummary[] => {
 export default function StoryReaderPage() {
   const params = useParams();
   const router = useRouter();
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
   
   const storyId = params.storyId as string;
@@ -85,17 +94,23 @@ export default function StoryReaderPage() {
   useEffect(() => {
     if (storyId && chapterIdParams) {
       setIsLoading(true);
-      getStoryAndChapterData(storyId, chapterIdParams).then(data => {
+      getStoryAndChapterData(storyId, chapterIdParams, currentUser?.id).then(data => {
         if (data) {
           setStory(data.story);
           setCurrentChapterIndex(data.chapterIndex);
         } else {
-          router.push(`/stories/${storyId}`); 
+          // If data is null, it means story/chapter not found OR draft access denied
+          toast({
+            title: "Chapter Not Accessible",
+            description: "This chapter may not exist or you may not have permission to view it (e.g., if it's a draft).",
+            variant: "destructive"
+          });
+          router.push(`/stories/${storyId}`); // Redirect to story overview or home
         }
         setIsLoading(false);
       });
     }
-  }, [storyId, chapterIdParams, router]);
+  }, [storyId, chapterIdParams, router, currentUser, toast]);
 
   useEffect(() => {
     if (story && story.chapters.length > 0 && currentChapterIndex !== -1) {
@@ -159,12 +174,19 @@ export default function StoryReaderPage() {
     toast({ title: "Character Info (Mock)", description: `Details for ${characterName}: A key figure in this tale... (Actual bio would show here).`});
   }
 
+  const handleChapterEchoesClick = () => {
+    toast({
+        title: "Chapter Echoes (Coming Soon!)",
+        description: "See what others felt or thought at this point in the chapter!"
+    });
+  };
+
   const scrollToComments = () => {
     document.getElementById('comment-section')?.scrollIntoView({ behavior: 'smooth' });
-    setControlsVisible(true); // Ensure controls are visible to see the comment section easily
+    setControlsVisible(true); 
   }
 
-  if (isLoading || !story || currentChapterIndex === -1) {
+  if (isLoading || !story || currentChapterIndex === -1 || !currentChapter) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -320,8 +342,6 @@ export default function StoryReaderPage() {
           tocVisible ? 'md:w-[calc(100%-20rem)]' : 'w-full' 
         )}
         onClick={(e) => {
-            // Only toggle if the click is directly on the main area, not its children (like text selection)
-            // and it's a primary button click
             if (e.target === e.currentTarget && e.button === 0) {
                 toggleMainControls();
             }
@@ -381,6 +401,10 @@ export default function StoryReaderPage() {
                 <Button variant="ghost" size="sm" onClick={scrollToComments} aria-label="View comments">
                     <MessageSquareIcon className="h-5 w-5" />
                     <span className="ml-1 hidden sm:inline">Comment</span>
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleChapterEchoesClick} aria-label="Chapter Echoes">
+                    <MessagesSquare className="h-5 w-5" />
+                    <span className="ml-1 hidden sm:inline">Echoes</span>
                 </Button>
                 <Button variant="ghost" size="sm" onClick={handleShare} aria-label="Share this story">
                     <Share2 className="h-5 w-5" />

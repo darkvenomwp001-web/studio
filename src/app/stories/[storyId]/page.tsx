@@ -8,31 +8,40 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
   BookOpen,
   Eye,
   Heart,
-  MessageSquare,
   ListOrdered,
   BookCopy,
   Share2,
   Loader2,
   Info,
-  Edit
+  Edit,
+  Sparkles // Added Sparkles for Mood Matcher
 } from 'lucide-react';
-import { placeholderStories, formatDate } from '@/lib/placeholder-data'; // Ensure formatDate is exported
-import type { Story, Chapter } from '@/types';
+import { placeholderStories, formatDate, getUserById } from '@/lib/placeholder-data';
+import type { Story } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 async function getStoryData(storyId: string): Promise<Story | undefined> {
-  // In a real app, fetch from API. For mock, find in placeholderStories (which includes localStorage data).
-  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network delay
-  return placeholderStories.find(story => story.id === storyId);
+  await new Promise(resolve => setTimeout(resolve, 100)); 
+  const story = placeholderStories.find(story => story.id === storyId);
+  // Ensure draft stories are only visible to their authors IF they somehow land here.
+  // Generally, links to draft stories shouldn't be public.
+  // This page is for published stories, so drafts ideally shouldn't even be fetched.
+  // However, if a draft's direct URL is accessed:
+  // const { user: currentUser } = useAuth(); // Can't use hook directly in async server-like function
+  // For mock: if (story && story.status === 'Draft' && story.author.id !== /* get currentUser somehow */) return undefined;
+  if (story && story.status === 'Draft') {
+      // This is a client component, so we can check auth *after* fetching
+      // For now, we'll let it load and handle visibility in the component itself
+  }
+  return story;
 }
 
 export default function StoryOverviewPage() {
@@ -51,15 +60,19 @@ export default function StoryOverviewPage() {
       setIsLoading(true);
       getStoryData(storyId).then(data => {
         if (data) {
-          setStory(data);
+          // Secondary check for draft visibility after data is fetched
+          if (data.status === 'Draft' && data.author.id !== user?.id) {
+            setStory(null); // Treat as not found for other users
+          } else {
+            setStory(data);
+          }
         } else {
-          // router.push('/404'); // Or a dedicated not found page for stories
-          console.warn("Story not found, router push to 404 would happen here.");
+          setStory(null); 
         }
         setIsLoading(false);
       });
     }
-  }, [storyId, router]);
+  }, [storyId, user]);
 
   const handleAddToLibrary = () => {
     if (!story) return;
@@ -77,6 +90,15 @@ export default function StoryOverviewPage() {
       });
   };
 
+  const handleMoodMatcherClick = (e: React.MouseEvent) => {
+    e.preventDefault(); 
+    e.stopPropagation();
+    toast({
+      title: "Mood Matcher (Coming Soon!)",
+      description: "Tell us how you feel, and we'll find stories to match your vibe!",
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
@@ -90,7 +112,7 @@ export default function StoryOverviewPage() {
       <div className="flex flex-col items-center justify-center min-h-screen text-center px-4">
         <Info className="w-16 h-16 text-destructive mb-4" />
         <h1 className="text-2xl font-bold mb-2">Story Not Found</h1>
-        <p className="text-muted-foreground mb-6">The story you're looking for doesn't exist or may have been moved.</p>
+        <p className="text-muted-foreground mb-6">The story you're looking for doesn't exist, may have been moved, or is a private draft.</p>
         <Link href="/stories" passHref>
           <Button variant="outline">Back to Stories</Button>
         </Link>
@@ -102,8 +124,8 @@ export default function StoryOverviewPage() {
   const totalChapters = story.chapters?.length || 0;
   const averageWordCountPerChapter = totalChapters > 0 
     ? Math.round(story.chapters.reduce((sum, chap) => sum + (chap.wordCount || 1500), 0) / totalChapters)
-    : 1500; // Default average
-  const estimatedReadTimeMinutes = Math.max(1, Math.round((totalChapters * averageWordCountPerChapter) / 200)); // 200 WPM average
+    : 1500; 
+  const estimatedReadTimeMinutes = Math.max(1, Math.round((totalChapters * averageWordCountPerChapter) / 200)); 
 
   const isAuthor = user?.id === story.author.id;
 
@@ -113,7 +135,7 @@ export default function StoryOverviewPage() {
       <div className="flex flex-col md:flex-row gap-8 items-start">
         {/* Left Column: Cover & Actions */}
         <div className="w-full md:w-1/3 flex flex-col items-center md:items-start">
-          <div className="relative aspect-[2/3] w-full max-w-xs md:max-w-none rounded-lg overflow-hidden shadow-2xl mb-6">
+          <div className="relative aspect-[2/3] w-full max-w-xs md:max-w-none rounded-lg overflow-hidden shadow-2xl mb-6 group">
             <Image
               src={story.coverImageUrl || `https://placehold.co/512x800.png`}
               alt={story.title}
@@ -122,6 +144,14 @@ export default function StoryOverviewPage() {
               data-ai-hint={story.dataAiHint || "book cover"}
               priority
             />
+             <button
+                onClick={handleMoodMatcherClick}
+                aria-label="Mood Matcher"
+                className="absolute top-3 left-3 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                title="Mood Matcher (Find similar vibes)"
+              >
+                <Sparkles className="w-5 h-5" />
+            </button>
           </div>
           <div className="w-full max-w-xs md:max-w-none space-y-3">
             {firstChapterId ? (
@@ -162,7 +192,7 @@ export default function StoryOverviewPage() {
           </p>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-6">
-            <div className="flex items-center gap-1.5" title="Views">
+            <div className="flex items-center gap-1.5" title="Reads">
               <Eye className="w-4 h-4 text-accent" />
               <span>{story.views ? (story.views / 1000).toFixed(1) + 'k' : '0'} reads</span>
             </div>
@@ -193,8 +223,8 @@ export default function StoryOverviewPage() {
             <p className={cn(!isDescriptionExpanded && "line-clamp-5")}>
               {story.summary || "No description available."}
             </p>
-            {story.summary && story.summary.length > 200 && (
-                 <Button variant="link" onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="p-0 h-auto text-sm">
+            {story.summary && story.summary.length > 200 && ( // Only show if summary is long enough to be clamped
+                 <Button variant="link" onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="p-0 h-auto text-sm text-primary hover:underline">
                     {isDescriptionExpanded ? "Show Less" : "Show More"}
                 </Button>
             )}
@@ -215,14 +245,14 @@ export default function StoryOverviewPage() {
           <div>
             <h2 className="text-xl font-headline font-semibold mb-3 text-foreground">Table of Contents ({totalChapters} Parts)</h2>
             {story.chapters && story.chapters.length > 0 ? (
-              <ScrollArea className="max-h-[400px] pr-3"> {/* Added pr-3 for scrollbar spacing */}
-                <ul className="space-y-1">
+              <ScrollArea className="max-h-[400px] pr-3 border rounded-md"> {}
+                <ul className="space-y-0 divide-y divide-border">
                   {story.chapters.sort((a, b) => a.order - b.order).map((chapter, index) => (
                     <li key={chapter.id}>
                       <Link href={`/stories/${story.id}/read/${chapter.id}`} passHref>
-                        <div className="block p-3 rounded-md hover:bg-muted/50 transition-colors cursor-pointer border-b last:border-b-0">
+                        <div className="block p-3 hover:bg-muted/50 transition-colors cursor-pointer">
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-foreground truncate">
+                            <span className="font-medium text-foreground truncate pr-2">
                               Part {chapter.order}: {chapter.title}
                             </span>
                             {chapter.publishedDate && (
@@ -243,7 +273,7 @@ export default function StoryOverviewPage() {
                 </ul>
               </ScrollArea>
             ) : (
-              <p className="text-muted-foreground">No chapters published yet.</p>
+              <p className="text-muted-foreground text-center py-4 border rounded-md">No chapters published yet.</p>
             )}
           </div>
         </div>

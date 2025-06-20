@@ -7,13 +7,71 @@ import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { placeholderStories, placeholderUsers } from '@/lib/placeholder-data';
-import StoryCard from '@/components/shared/StoryCard';
-import { Loader2, MessageSquare, UserPlus, UserCheck, UserX, Edit } from 'lucide-react'; 
+import { placeholderStories, placeholderUsers, getUserById } from '@/lib/placeholder-data';
+import { Loader2, MessageSquare, UserPlus, UserX, Edit, Edit3, Users, FileText, ShieldAlert } from 'lucide-react'; 
 import Image from 'next/image';
 import Link from 'next/link';
-import type { User as AppUser } from '@/types';
+import type { Story, User as AppUser } from '@/types';
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+
+// Story card specifically for profile Works/Drafts sections
+interface ProfileStoryCardProps {
+  story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status'>;
+  isDraft?: boolean;
+}
+
+function ProfileStoryCard({ story, isDraft = false }: ProfileStoryCardProps) {
+  return (
+    <div className="w-36 md:w-40 flex-shrink-0 group">
+      <Link href={isDraft ? `/write/edit?storyId=${story.id}` : `/stories/${story.id}`} passHref>
+        <div className="aspect-[2/3] relative rounded-md overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200 bg-muted cursor-pointer">
+          <Image
+            src={story.coverImageUrl || `https://placehold.co/512x800.png`}
+            alt={story.title}
+            layout="fill"
+            objectFit="cover"
+            className={`group-hover:scale-105 transition-transform duration-300 ease-in-out ${isDraft ? 'opacity-70 group-hover:opacity-100' : ''}`}
+            data-ai-hint={story.dataAiHint || "book cover"}
+          />
+          {isDraft && (
+            <Badge variant="outline" className="absolute top-2 right-2 text-xs bg-background/80">Draft</Badge>
+          )}
+        </div>
+      </Link>
+      <div className="mt-2 text-center">
+        <Link href={isDraft ? `/write/edit?storyId=${story.id}` : `/stories/${story.id}`} passHref>
+          <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors cursor-pointer">
+            {story.title}
+          </p>
+        </Link>
+        <p className="text-xs text-muted-foreground truncate">{story.genre}</p>
+      </div>
+    </div>
+  );
+}
+
+// Card for the "Following" section
+interface FollowingUserCardProps {
+  user: AppUser;
+}
+function FollowingUserCard({ user }: FollowingUserCardProps) {
+  return (
+    <div className="w-28 md:w-32 flex-shrink-0 text-center group">
+      <Link href={`/profile/${user.id}`} passHref>
+        <Avatar className="h-20 w-20 md:h-24 md:w-24 mx-auto border-2 border-border group-hover:border-primary transition-colors cursor-pointer">
+          <AvatarImage src={user.avatarUrl || `https://placehold.co/100x100.png`} alt={user.displayName || user.username} data-ai-hint={user.dataAiHint || "profile person"} />
+          <AvatarFallback>{(user.displayName || user.username).substring(0, 1).toUpperCase()}</AvatarFallback>
+        </Avatar>
+      </Link>
+      <Link href={`/profile/${user.id}`} passHref>
+        <p className="mt-2 text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors cursor-pointer">
+          {user.displayName || user.username}
+        </p>
+      </Link>
+      <p className="text-xs text-muted-foreground">{user.followersCount || 0} Followers</p>
+    </div>
+  );
+}
 
 export default function UserProfilePage() {
   const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading } = useAuth();
@@ -23,48 +81,62 @@ export default function UserProfilePage() {
 
   const [profileUser, setProfileUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [userWrittenStories, setUserWrittenStories] = useState<typeof placeholderStories>([]);
+  
+  const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
+  const [draftWorks, setDraftWorks] = useState<Story[]>([]);
+  const [followingDetails, setFollowingDetails] = useState<AppUser[]>([]);
 
   useEffect(() => {
     setIsLoading(true);
-    const foundUser = placeholderUsers.find(u => u.id === userId);
+    const foundUser = getUserById(userId); // Use new helper
+    
     if (foundUser) {
-      const updatedFollowerCount = placeholderUsers.find(u => u.id === userId)?.followersCount;
-      setProfileUser({...foundUser, followersCount: updatedFollowerCount ?? foundUser.followersCount});
+      setProfileUser(foundUser);
       
+      const userWrittenStories = placeholderStories.filter(story => story.author.id === foundUser.id);
       const isOwn = currentUser?.id === foundUser.id;
-      const stories = placeholderStories.filter(story => {
-        if (story.author.id === foundUser.id) {
-          return isOwn ? true : story.status !== 'Draft';
-        }
-        return false;
-      });
-      setUserWrittenStories(stories);
+
+      setPublishedWorks(userWrittenStories.filter(s => s.status === 'Ongoing' || s.status === 'Completed'));
+      setDraftWorks(isOwn ? userWrittenStories.filter(s => s.status === 'Draft') : []);
+      
+      const followedUsers = (foundUser.followingIds || [])
+        .map(id => getUserById(id))
+        .filter((u): u is AppUser => !!u);
+      setFollowingDetails(followedUsers);
 
     } else {
-      setProfileUser(null);
-      setUserWrittenStories([]);
+      setProfileUser(null); // User not found
+      setPublishedWorks([]);
+      setDraftWorks([]);
+      setFollowingDetails([]);
     }
     setIsLoading(false);
-  }, [userId, router, currentUser]); 
+  }, [userId, currentUser]); 
 
   useEffect(() => {
-    if (profileUser && currentUser) {
-      const potentiallyUpdatedUser = placeholderUsers.find(u => u.id === profileUser.id);
-      if (potentiallyUpdatedUser && potentiallyUpdatedUser.followersCount !== profileUser.followersCount) {
-        setProfileUser(prev => prev ? { ...prev, followersCount: potentiallyUpdatedUser.followersCount } : null);
-      }
-      // Re-filter stories if follow status might affect draft visibility (though primarily for current user's view logic)
-      const isOwn = currentUser?.id === profileUser.id;
-      const stories = placeholderStories.filter(story => {
-        if (story.author.id === profileUser.id) {
-          return isOwn ? true : story.status !== 'Draft';
+    // This effect attempts to refresh follower counts if placeholderUsers is updated elsewhere
+    // This is a mock scenario; in a real app, data would refetch or come via websockets.
+    if (profileUser) {
+      const potentiallyUpdatedUser = getUserById(profileUser.id);
+      if (potentiallyUpdatedUser && 
+          (potentiallyUpdatedUser.followersCount !== profileUser.followersCount || 
+           potentiallyUpdatedUser.followingCount !== profileUser.followingCount)) {
+        setProfileUser(prev => prev ? { ...prev, 
+            followersCount: potentiallyUpdatedUser.followersCount,
+            followingCount: potentiallyUpdatedUser.followingCount,
+            followingIds: potentiallyUpdatedUser.followingIds // also update IDs
+        } : null);
+        
+        // Re-fetch following details if followingIds changed
+        if (JSON.stringify(potentiallyUpdatedUser.followingIds) !== JSON.stringify(profileUser.followingIds)) {
+            const followedUsers = (potentiallyUpdatedUser.followingIds || [])
+                .map(id => getUserById(id))
+                .filter((u): u is AppUser => !!u);
+            setFollowingDetails(followedUsers);
         }
-        return false;
-      });
-      setUserWrittenStories(stories);
+      }
     }
-  }, [placeholderUsers, profileUser, currentUser]);
+  }, [placeholderUsers, profileUser]);
 
 
   if (isLoading || authLoading) {
@@ -76,37 +148,42 @@ export default function UserProfilePage() {
   }
 
   if (!profileUser) {
-    return <div className="text-center py-10 text-xl text-muted-foreground">User profile not found.</div>;
+    return (
+        <div className="text-center py-10">
+            <ShieldAlert className="mx-auto h-16 w-16 text-destructive mb-4" />
+            <h2 className="text-xl font-semibold text-destructive">Profile Not Found</h2>
+            <p className="text-muted-foreground">The user profile you are looking for does not exist.</p>
+            <Button onClick={() => router.push('/')} variant="outline" className="mt-4">Go to Homepage</Button>
+        </div>
+    );
   }
 
   const isOwnProfile = currentUser?.id === profileUser.id;
   const isFollowing = currentUser?.followingIds?.includes(profileUser.id) || false;
 
   const handleFollowToggle = async () => {
+    if (!currentUser) {
+      router.push('/auth/signin');
+      return;
+    }
     if (isFollowing) {
       await unfollowUser(profileUser.id);
     } else {
       await followUser(profileUser.id);
     }
-    const updatedPUser = placeholderUsers.find(u => u.id === profileUser.id);
+    // Re-fetch profile user to update follower count displayed on *their* card.
+    // This is a bit of a hack for mock data.
+    const updatedPUser = getUserById(profileUser.id);
     if(updatedPUser) {
         setProfileUser(prev => prev ? {...prev, followersCount: updatedPUser.followersCount} : null);
     }
   };
-
-  // Mock reading list for any user - ensure these are not drafts either
-  const readingListStories = placeholderStories.filter(s => s.status !== 'Draft').slice(Math.floor(Math.random() * 2), Math.floor(Math.random() * 2) + 2).map(s => ({...s, id: s.id + "-rl"})); 
   
-  const activityFeed = [
-    { id: 'act1', type: 'commented on', on: placeholderStories.find(s => s.status !== 'Draft')?.[0]?.title || 'a story', time: '2h ago', link: `/stories/${placeholderStories.find(s => s.status !== 'Draft')?.[0]?.id}` },
-    { id: 'act2', type: 'published a new chapter for', on: userWrittenStories.find(s => s.status !== 'Draft')?.[0]?.title || 'their story', time: '1d ago', link: userWrittenStories.find(s => s.status !== 'Draft')?.[0] ? `/stories/${userWrittenStories.find(s => s.status !== 'Draft')?.[0].id}` : '#' },
-  ].filter(act => act.on && act.link && !act.link.includes('undefined'));
-
-
   const displayName = profileUser.displayName || profileUser.username;
+  const totalWorksCount = publishedWorks.length + (isOwnProfile ? draftWorks.length : 0);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10 pb-10">
       <header className="bg-card p-6 md:p-8 rounded-lg shadow-lg relative">
         <div className="absolute top-0 left-0 w-full h-32 md:h-48 bg-gradient-to-br from-primary/30 to-accent/30 rounded-t-lg -z-10">
              <Image src="https://placehold.co/1200x300.png" alt="Profile banner" layout="fill" objectFit="cover" className="rounded-t-lg opacity-50" data-ai-hint="abstract landscape"/>
@@ -124,10 +201,10 @@ export default function UserProfilePage() {
               {profileUser.role && <Badge variant={profileUser.role === 'writer' ? 'default' : 'secondary'} className="capitalize">{profileUser.role}</Badge>}
             </div>
           </div>
-          <div className="flex gap-2 mt-4 md:mt-0">
+          <div className="flex flex-col sm:flex-row gap-2 mt-4 md:mt-0 self-center md:self-end">
             {isOwnProfile ? (
               <Link href="/settings" passHref>
-                <Button variant="outline"><Edit className="mr-2 h-4 w-4" /> Edit Profile</Button>
+                <Button variant="outline" className="w-full sm:w-auto"><Edit className="mr-2 h-4 w-4" /> Edit Profile</Button>
               </Link>
             ) : currentUser ? ( 
               <>
@@ -135,70 +212,91 @@ export default function UserProfilePage() {
                     onClick={handleFollowToggle} 
                     disabled={followActionLoading}
                     variant={isFollowing ? "outline" : "default"}
-                    className="min-w-[120px]"
+                    className="min-w-[120px] w-full sm:w-auto"
                 >
                   {followActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 
                     isFollowing ? <UserX className="mr-2 h-4 w-4" /> : <UserPlus className="mr-2 h-4 w-4" />
                   }
                   {isFollowing ? 'Unfollow' : 'Follow'}
                 </Button>
-                <Button variant="outline"><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
+                <Button variant="outline" className="w-full sm:w-auto"><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
               </>
-            ) : null }
+            ) : (
+                <Button onClick={() => router.push('/auth/signin')} variant="default" className="min-w-[120px] w-full sm:w-auto">
+                    <UserPlus className="mr-2 h-4 w-4" /> Follow
+                </Button>
+            )}
           </div>
         </div>
         <div className="mt-6 pt-6 border-t border-border/60 flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-muted-foreground">
-          <span><strong className="text-foreground">{userWrittenStories.length}</strong> Works</span>
+          <span><strong className="text-foreground">{totalWorksCount}</strong> Works</span>
           <span><strong className="text-foreground">{profileUser.followersCount || 0}</strong> Followers</span>
           <span><strong className="text-foreground">{profileUser.followingCount || 0}</strong> Following</span>
         </div>
       </header>
 
-      <Tabs defaultValue="works" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 gap-2 bg-muted/50 p-1 rounded-lg">
-          <TabsTrigger value="works" className="font-headline data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">Works</TabsTrigger>
-          <TabsTrigger value="reading-list" className="font-headline data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">Reading List</TabsTrigger>
-          <TabsTrigger value="activity" className="font-headline data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md col-span-2 md:col-span-1">Activity</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="works" className="mt-6">
-          {userWrittenStories.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {userWrittenStories.map(story => (
-                <StoryCard key={story.id} story={story} />
+      {/* Published Works Section */}
+      {publishedWorks.length > 0 && (
+        <section>
+          <h2 className="text-2xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
+            <Edit3 className="h-6 w-6" /> {isOwnProfile ? "My Published Works" : "Published Works"}
+          </h2>
+          <ScrollArea className="w-full whitespace-nowrap rounded-md">
+            <div className="flex space-x-4 pb-4">
+              {publishedWorks.map(story => (
+                <ProfileStoryCard key={`published-${story.id}`} story={story} />
               ))}
             </div>
-          ) : (
-            <p className="text-muted-foreground text-center py-8">{displayName} hasn't published any stories yet{isOwnProfile ? "" : " (or their drafts are hidden)"}.</p>
-          )}
-        </TabsContent>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </section>
+      )}
 
-        <TabsContent value="reading-list" className="mt-6">
-           {readingListStories.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {readingListStories.map(story => (
-                <StoryCard key={story.id} story={story} />
+      {/* Drafts Section (only for own profile) */}
+      {isOwnProfile && draftWorks.length > 0 && (
+        <section>
+          <h2 className="text-2xl font-headline font-semibold mb-4 text-accent flex items-center gap-2">
+            <FileText className="h-6 w-6" /> My Drafts
+          </h2>
+          <ScrollArea className="w-full whitespace-nowrap rounded-md">
+            <div className="flex space-x-4 pb-4">
+              {draftWorks.map(story => (
+                <ProfileStoryCard key={`draft-${story.id}`} story={story} isDraft />
               ))}
             </div>
-          ) : (
-            <p className="text-muted-foreground text-center py-8">{displayName}'s reading list is empty.</p>
-          )}
-        </TabsContent>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </section>
+      )}
+      
+      {(publishedWorks.length === 0 && (!isOwnProfile || draftWorks.length === 0)) && (
+         <div className="text-center py-10 text-muted-foreground">
+            {isOwnProfile ? "You haven't written any stories yet." : `${displayName} hasn't published any stories yet.`}
+            {isOwnProfile && <Link href="/write/edit" className="text-primary hover:underline ml-1">Start your first story!</Link>}
+        </div>
+      )}
 
-        <TabsContent value="activity" className="mt-6">
-          <ul className="space-y-4">
-            {activityFeed.map(activity => (
-              <li key={activity.id} className="p-4 bg-card rounded-md shadow-sm text-sm">
-                <span className="font-semibold">{displayName}</span> {activity.type} <Link href={activity.link || '#'} className="text-primary hover:underline">{activity.on}</Link>
-                <span className="text-xs text-muted-foreground ml-2">- {activity.time}</span>
-              </li>
-            ))}
-             {activityFeed.length === 0 && (
-                <p className="text-muted-foreground text-center py-8">No recent activity for {displayName}.</p>
-             )}
-          </ul>
-        </TabsContent>
-      </Tabs>
+      {/* Following Section */}
+      {followingDetails.length > 0 && (
+        <section>
+          <h2 className="text-2xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
+            <Users className="h-6 w-6" /> Following ({followingDetails.length})
+          </h2>
+          <ScrollArea className="w-full whitespace-nowrap rounded-md">
+            <div className="flex space-x-4 pb-4">
+              {followingDetails.map(followedUser => (
+                <FollowingUserCard key={`following-${followedUser.id}`} user={followedUser} />
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </section>
+      )}
+      {followingDetails.length === 0 && profileUser.followingCount === 0 && (
+         <div className="text-center py-6 text-muted-foreground">
+            {isOwnProfile ? "You aren't" : `${displayName} isn't`} following anyone yet.
+        </div>
+      )}
     </div>
   );
 }

@@ -91,4 +91,3 @@ export interface NotificationType {
   actor?: UserSummary; // User who performed the action
 }
 
-```
