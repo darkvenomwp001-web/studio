@@ -8,16 +8,17 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { placeholderStories, placeholderUsers, getUserById } from '@/lib/placeholder-data';
-import { Loader2, MessageSquare, UserPlus, UserX, Edit, Edit3, Users, FileText, ShieldAlert } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Edit, Edit3, Users, FileText, ShieldAlert, Settings, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Story, User as AppUser } from '@/types';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProfileStoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status'>;
-  isDraft?: boolean; // Only relevant for own profile, won't be passed true for other users
+  isDraft?: boolean; 
 }
 
 function ProfileStoryCard({ story, isDraft = false }: ProfileStoryCardProps) {
@@ -26,7 +27,7 @@ function ProfileStoryCard({ story, isDraft = false }: ProfileStoryCardProps) {
        <Link href={isDraft ? `/write/edit-details?storyId=${story.id}` : `/stories/${story.id}`} passHref>
         <div className={cn(
             "aspect-[2/3] relative rounded-md overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200 bg-muted cursor-pointer mb-2",
-             isDraft && "opacity-70 group-hover:opacity-100" // This styling is only for viewing own drafts
+             isDraft && "opacity-70 group-hover:opacity-100" 
         )}>
           <Image
             src={story.coverImageUrl || `https://placehold.co/512x800.png`}
@@ -36,7 +37,7 @@ function ProfileStoryCard({ story, isDraft = false }: ProfileStoryCardProps) {
             className="group-hover:scale-105 transition-transform duration-300 ease-in-out"
             data-ai-hint={story.dataAiHint || "book cover"}
           />
-           {isDraft && ( // Only show if it's an actual draft being displayed (on own profile)
+           {isDraft && ( 
             <Badge variant="outline" className="absolute top-2 right-2 text-xs bg-background/80">Draft</Badge>
           )}
         </div>
@@ -78,12 +79,13 @@ export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const userId = params.userId as string;
+  const { toast } = useToast();
 
   const [profileUser, setProfileUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
-  const [draftWorks, setDraftWorks] = useState<Story[]>([]); // Only populated if isOwnProfile
+  const [draftWorks, setDraftWorks] = useState<Story[]>([]); 
   const [followingDetails, setFollowingDetails] = useState<AppUser[]>([]);
 
   const isOwnProfile = currentUser?.id === userId;
@@ -97,14 +99,13 @@ export default function UserProfilePage() {
 
       const userWrittenStories = placeholderStories.filter(story => story.author.id === foundUser.id);
       
-      // Publicly visible works
-      setPublishedWorks(userWrittenStories.filter(s => s.status === 'Ongoing' || s.status === 'Completed' || s.status === 'Public' || (s.status === 'Unlisted' && isOwnProfile)));
+      setPublishedWorks(userWrittenStories.filter(s => s.status === 'Ongoing' || s.status === 'Completed' || s.visibility === 'Public' || (s.visibility === 'Unlisted' && isOwnProfile)));
 
 
       if (isOwnProfile) {
-        setDraftWorks(userWrittenStories.filter(s => s.status === 'Draft' || s.status === 'Private' || s.status === 'Unlisted'));
+        setDraftWorks(userWrittenStories.filter(s => s.status === 'Draft' || s.visibility === 'Private' || s.visibility === 'Unlisted'));
       } else {
-        setDraftWorks([]); // Don't show drafts for other users
+        setDraftWorks([]); 
       }
 
       const followedUsers = (foundUser.followingIds || [])
@@ -119,7 +120,7 @@ export default function UserProfilePage() {
       setFollowingDetails([]);
     }
     setIsLoading(false);
-  }, [userId, currentUser, isOwnProfile]); // Added isOwnProfile dependency
+  }, [userId, currentUser, isOwnProfile]); 
 
   useEffect(() => {
     if (profileUser) {
@@ -164,6 +165,8 @@ export default function UserProfilePage() {
   }
 
   const isFollowing = currentUser?.followingIds?.includes(profileUser.id) || false;
+  const isAuthor = profileUser.role === 'writer';
+
 
   const handleFollowToggle = async () => {
     if (!currentUser) {
@@ -201,7 +204,7 @@ export default function UserProfilePage() {
             {profileUser.bio && <p className="text-muted-foreground mt-1 max-w-xl">{profileUser.bio}</p>}
             <div className="mt-3 flex flex-wrap gap-2 justify-center md:justify-start">
               {profileUser.role && <Badge variant={profileUser.role === 'writer' ? 'default' : 'secondary'} className="capitalize">{profileUser.role}</Badge>}
-              {isAuthor && profileUser.id === currentUser?.id && ( // Edit button for "Edit Story Details"
+              {isOwnProfile && isAuthor && ( 
                   <Link href={`/write/edit-details?storyId=${publishedWorks[0]?.id || draftWorks[0]?.id || ''}`} passHref>
                     <Button variant="outline" size="sm" className="ml-auto">
                       <Edit className="mr-2 h-4 w-4" /> Edit My Story Details
@@ -228,7 +231,7 @@ export default function UserProfilePage() {
                   }
                   {isFollowing ? 'Unfollow' : 'Follow'}
                 </Button>
-                <Button variant="outline" className="w-full sm:w-auto"><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => toast({title: "Coming Soon!", description:"Direct messaging will be available soon."})}><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
               </>
             ) : (
                 <Button onClick={() => router.push('/auth/signin')} variant="default" className="min-w-[120px] w-full sm:w-auto">
@@ -309,3 +312,6 @@ export default function UserProfilePage() {
     </div>
   );
 }
+
+
+    
