@@ -441,8 +441,8 @@ export const initializeUserStoryLists = () => {
     user.readingList = currentGlobalStories // Use the globally potentially updated list
       .filter(story => !userWrittenStoryIds.has(story.id))
       .sort(() => 0.5 - Math.random()) 
-      .slice(0, 3) 
-      .map(story => ({ id: story.id, title: story.title, coverImageUrl: story.coverImageUrl }));
+      .slice(0, 8) // Increased slice to provide more stories for "Your stories" section
+      .map(story => ({ id: story.id, title: story.title, coverImageUrl: story.coverImageUrl, chapters: story.chapters, dataAiHint: story.dataAiHint }));
   });
 };
 

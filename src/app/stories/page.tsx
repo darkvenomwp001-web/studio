@@ -8,14 +8,14 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  // CarouselNext, // Removed
-  // CarouselPrevious, // Removed
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
-import { ArrowRight, BookOpen, LibrarySquare, TrendingUp, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, BookOpen, LibrarySquare, TrendingUp, Sparkles, Users, Bookmark } from 'lucide-react';
 import { placeholderStories } from '@/lib/placeholder-data';
-import type { Story } from '@/types';
+import type { Story, ReadingListItem } from '@/types';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
+import YourStoryCard from '@/components/shared/YourStoryCard'; // New card for "Your stories"
+import { useAuth } from '@/hooks/useAuth'; // To get current user
 import { useToast } from '@/hooks/use-toast';
 
 // Helper to get unique genres
@@ -27,6 +27,7 @@ const getUniqueGenres = (stories: Story[]): string[] => {
 
 export default function StoriesPage() {
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
 
   const featuredStoriesForCarousel = placeholderStories.slice(0, 5);
   const popularStories = placeholderStories.slice(0, 10);
@@ -39,6 +40,8 @@ export default function StoriesPage() {
     return placeholderStories.filter(story => story.genre.toLowerCase() === genre.toLowerCase()).slice(0, limit);
   };
 
+  const userReadingList: ReadingListItem[] = user?.readingList || [];
+
   return (
     <div className="min-h-screen bg-background text-foreground space-y-12 py-8">
       {/* Hero Carousel Section */}
@@ -46,7 +49,7 @@ export default function StoriesPage() {
         <Carousel
           plugins={[
             Autoplay({
-              delay: 5000, // Updated delay to 5 seconds
+              delay: 5000, 
               stopOnInteraction: true,
             }),
           ]}
@@ -59,9 +62,10 @@ export default function StoriesPage() {
           <CarouselContent>
             {featuredStoriesForCarousel.map((story, index) => (
               <CarouselItem key={story.id}>
-                <Link 
+                <Link
                   href={`/stories/${story.id}`}
                   className="block overflow-hidden group relative rounded-lg aspect-[12/5] cursor-pointer bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  aria-label={`View story: ${story.title}`}
                 >
                   <Image
                     src={story.coverImageUrl || `https://placehold.co/1200x500.png`} 
@@ -76,9 +80,25 @@ export default function StoriesPage() {
               </CarouselItem>
             ))}
           </CarouselContent>
-          {/* CarouselPrevious and CarouselNext removed */}
         </Carousel>
       </section>
+
+      {/* Your Stories Section (Conditional) */}
+      {!authLoading && user && userReadingList.length > 0 && (
+        <section className="container mx-auto px-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground">
+              <Bookmark className="text-accent h-6 w-6" /> Your Stories
+            </h2>
+          </div>
+          <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+            {userReadingList.slice(0, 10).map(story => ( // Ensure we get full story details if readingList items are summaries
+                <YourStoryCard key={`yourstory-${story.id}`} story={story} />
+            ))}
+          </div>
+        </section>
+      )}
+
 
       {/* Popular Stories Section */}
       <section className="container mx-auto px-4">

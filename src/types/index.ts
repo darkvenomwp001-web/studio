@@ -33,11 +33,20 @@ export interface UserSummary {
   dataAiHint?: string;
 }
 
+// Extended ReadingListItem to include chapters for "Your stories" card
+export interface ReadingListItem {
+  id: string;
+  title: string;
+  coverImageUrl?: string;
+  chapters?: Chapter[]; // Added chapters here
+  dataAiHint?: string;
+}
+
 export interface User extends UserSummary {
   bio?: string;
   role?: 'reader' | 'writer';
   writtenStories?: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'status'>[]; 
-  readingList?: Pick<Story, 'id' | 'title' | 'coverImageUrl'>[];
+  readingList?: ReadingListItem[]; // Using the extended type
   followersCount?: number;
   followingCount?: number;
   followingIds?: string[]; // IDs of users this user is following
@@ -81,3 +90,5 @@ export interface NotificationType {
   isRead: boolean;
   actor?: UserSummary; // User who performed the action
 }
+
+```
