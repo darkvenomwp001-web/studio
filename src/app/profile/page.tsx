@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { placeholderStories, placeholderUsers, getUserById } from '@/lib/placeholder-data';
-import { Settings, LogOut, Loader2, Edit3, Users } from 'lucide-react'; 
+import { Settings, LogOut, Loader2, Edit3, Users, FileText } from 'lucide-react'; 
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Story, User as AppUser } from '@/types';
