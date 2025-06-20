@@ -3,15 +3,15 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Zap, Users2, PenTool, BookmarkPlus } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Zap, Users2, PenTool, BookmarkPlus, Settings } from 'lucide-react';
 import StoryCard from '@/components/shared/StoryCard';
-import { placeholderUsers, placeholderStories as staticPlaceholderStories } from '@/lib/placeholder-data'; // Keep static for authors for now
+import { placeholderUsers, placeholderStories as staticPlaceholderStories, getUserById } from '@/lib/placeholder-data'; // Keep static for authors for now
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import type { Story } from '@/types';
+import type { Story, UserSummary } from '@/types';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
@@ -55,21 +55,29 @@ export default function HomePage() {
   const [storySpotlight, setStorySpotlight] = useState<Story | null>(null);
   const [isStoriesLoading, setIsStoriesLoading] = useState(true);
   
-  const featuredAuthors = staticPlaceholderStories.map(s => s.author).slice(0, 6); // Continue using static for authors for simplicity
+  const allAuthorsFromStories = staticPlaceholderStories.map(s => s.author);
+  const uniqueAuthorsMap = new Map<string, UserSummary>();
+  allAuthorsFromStories.forEach(author => {
+    if (!uniqueAuthorsMap.has(author.id)) {
+      uniqueAuthorsMap.set(author.id, author);
+    }
+  });
+  const featuredAuthors = Array.from(uniqueAuthorsMap.values()).slice(0, 6);
+
 
   useEffect(() => {
     async function loadStories() {
       setIsStoriesLoading(true);
       try {
         const fetchedStories = await fetchStoriesFromFirestore(8); // Fetch 8 for trending
-        setTrendingStories(fetchedStories);
+        setTrendingStories(fetchedStories.filter(s => s.status !== 'Draft'));
         if (fetchedStories.length > 0) {
           // Filter for spotlight (public, ongoing or completed)
           const availableForSpotlight = fetchedStories.filter(s => s.visibility === 'Public' && (s.status === 'Ongoing' || s.status === 'Completed'));
           if (availableForSpotlight.length > 0) {
             setStorySpotlight(availableForSpotlight[Math.floor(Math.random() * availableForSpotlight.length)]);
           } else if (fetchedStories.length > 0) {
-            setStorySpotlight(fetchedStories[0]); // Fallback to any fetched story
+            setStorySpotlight(fetchedStories.filter(s => s.status !== 'Draft')[0]); // Fallback to any fetched story
           }
         }
       } catch (error) {
@@ -93,9 +101,8 @@ export default function HomePage() {
     { name: "Romance", icon: HeartIcon, blurb: "Heartfelt connections & love stories.", dataAiHint: "couple sunset", cover: "https://placehold.co/512x800.png"},
   ];
 
-  // Community pulse still uses static for now, can be adapted to Firestore later
   const communityPulseItems = [
-    { icon: Zap, text: `${placeholderUsers[1].username} just published a new chapter for "${trendingStories[1]?.title || 'a story'}"!`},
+    { icon: Zap, text: `${placeholderUsers[1].username} just published a new chapter for "${(trendingStories.find(s => s.author.id === placeholderUsers[1].id) || trendingStories[1])?.title || 'a story'}"!`},
     { icon: Users2, text: `Welcome new writer: @${placeholderUsers[2].username}!`},
     { icon: BookHeart, text: `"${trendingStories[0]?.title || 'a story'}" reached 10k reads today!`},
   ].filter(item => item.text.includes("story") ? item.text.includes(trendingStories[0]?.title || trendingStories[1]?.title) : true);
@@ -118,7 +125,7 @@ export default function HomePage() {
         </div>
         <div className="container mx-auto px-4 text-center relative z-10">
           <h1 className="text-4xl md:text-6xl font-headline font-extrabold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary/70">
-            Welcome to D4RKV3NOM
+            Welcome to LitVerse
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-10">
             Unleash your imagination. Discover captivating stories, share your own tales, and connect with a global community of creators and fans.
@@ -248,7 +255,7 @@ export default function HomePage() {
                         <AvatarFallback className="text-3xl">{author.username.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <h3 className="text-lg font-semibold font-headline text-center group-hover:text-accent transition-colors">{author.displayName || author.username}</h3>
-                    <p className="text-xs text-muted-foreground text-center line-clamp-2 mt-1 flex-grow">{(placeholderUsers.find(u => u.id === author.id)?.bio || "Passionate Creator").substring(0,60)}{placeholderUsers.find(u => u.id === author.id)?.bio && placeholderUsers.find(u => u.id === author.id)!.bio!.length > 60 ? "..." : ""}</p>
+                    <p className="text-xs text-muted-foreground text-center line-clamp-2 mt-1 flex-grow">{(getUserById(author.id)?.bio || "Passionate Creator").substring(0,60)}{getUserById(author.id)?.bio && getUserById(author.id)!.bio!.length > 60 ? "..." : ""}</p>
                     </Card>
                 </div>
                 </Link>
@@ -265,7 +272,7 @@ export default function HomePage() {
             <CardTitle className="text-2xl font-headline text-primary flex items-center gap-2">
               <Users2 className="h-7 w-7" /> Community Pulse
             </CardTitle>
-            <CardDescription>What's happening right now on D4RKV3NOM.</CardDescription>
+            <CardDescription>What's happening right now on LitVerse.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-3">
@@ -289,7 +296,7 @@ export default function HomePage() {
           <PenTool className="h-16 w-16 text-primary mx-auto mb-6" />
           <h2 className="text-4xl font-headline font-bold mb-4">Have a Story to Tell?</h2>
           <p className="text-lg text-muted-foreground mb-8">
-            Your words have power. Share your unique voice with the world. D4RKV3NOM provides the tools and community to bring your stories to life.
+            Your words have power. Share your unique voice with the world. LitVerse provides the tools and community to bring your stories to life.
           </p>
           <Link href="/write" passHref>
             <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transition-transform hover:scale-105 text-xl py-4 px-10">
