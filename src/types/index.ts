@@ -12,11 +12,11 @@ export interface Story {
   rating?: number;
   views?: number;
   isMature?: boolean;
-  status?: 'Ongoing' | 'Completed' | 'Draft' | 'Unlisted' | 'Private'; // Added Unlisted & Private
-  lastUpdated: string;
-  language?: string; // New field
-  visibility?: 'Public' | 'Private' | 'Unlisted'; // New field
-  collaborators?: UserSummary[]; // New field
+  status?: 'Ongoing' | 'Completed' | 'Draft' | 'Unlisted' | 'Private';
+  lastUpdated: string; // ISO String
+  language?: string;
+  visibility?: 'Public' | 'Private' | 'Unlisted';
+  collaborators?: UserSummary[];
 }
 
 export interface Chapter {
@@ -25,8 +25,8 @@ export interface Chapter {
   content: string;
   order: number;
   wordCount?: number;
-  publishedDate?: string;
-  status?: 'Published' | 'Draft'; // Added status to chapter
+  publishedDate?: string; // ISO String
+  status?: 'Published' | 'Draft';
 }
 
 export interface UserSummary {
@@ -37,12 +37,11 @@ export interface UserSummary {
   dataAiHint?: string;
 }
 
-// Extended ReadingListItem to include chapters for "Your stories" card
 export interface ReadingListItem {
   id: string;
   title: string;
   coverImageUrl?: string;
-  chapters?: Chapter[]; // Added chapters here
+  chapters?: Chapter[];
   dataAiHint?: string;
 }
 
@@ -50,12 +49,14 @@ export interface User extends UserSummary {
   bio?: string;
   role?: 'reader' | 'writer';
   writtenStories?: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'status'>[];
-  readingList?: ReadingListItem[]; // Using the extended type
+  readingList?: ReadingListItem[];
   followersCount?: number;
   followingCount?: number;
-  followingIds?: string[]; // IDs of users this user is following
-  followers?: UserSummary[]; // Users who follow this user (for mock)
+  followingIds?: string[];
+  followers?: UserSummary[];
   email?: string;
+  createdAt?: any; // Firestore Timestamp or ISO string
+  updatedAt?: any; // Firestore Timestamp or ISO string
 }
 
 export interface Comment {
@@ -65,32 +66,38 @@ export interface Comment {
   chapterId?: string;
   parentId?: string;
   content: string;
-  timestamp: string;
+  timestamp: string; // ISO String
   likes?: number;
 }
 
 export interface Message {
   id: string;
-  sender: UserSummary;
-  receiver: UserSummary;
+  senderId: string; // UID of the sender
   content: string;
-  timestamp: string;
-  isRead?: boolean;
+  timestamp: any; // Firestore Timestamp, or string for client-side display
+  // UserSummary for sender is derived from Conversation.participantInfo
 }
 
 export interface Conversation {
-  id: 'conv1' | 'conv2'; // Making it more specific for placeholder data
-  participants: UserSummary[];
-  lastMessage: Message;
-  unreadCount?: number;
+  id: string;
+  participantIds: string[]; // Array of UIDs of participants
+  participantInfo: { [key: string]: UserSummary }; // Map UID to UserSummary for easy lookup
+  lastMessage: { // Store a summary of the last message
+    id: string;
+    senderId: string;
+    content: string;
+    timestamp: any; // Firestore Timestamp, or string
+  };
+  updatedAt: any; // Firestore Timestamp for sorting conversations
+  // unreadCount could be a map like: { [userId: string]: number }
 }
 
 export interface NotificationType {
   id: string;
   type: 'new_follower' | 'new_chapter' | 'story_update' | 'announcement' | 'comment_reply' | 'mention';
   message: string;
-  link?: string; // e.g., to a story, profile, or comment
-  timestamp: string;
+  link?: string;
+  timestamp: string; // ISO String
   isRead: boolean;
-  actor?: UserSummary; // User who performed the action
+  actor?: UserSummary;
 }
