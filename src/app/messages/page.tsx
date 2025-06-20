@@ -70,7 +70,7 @@ export default function MessagesPage() {
       setIsLoadingConversations(false);
     }, (error) => {
       console.error("Error fetching conversations: ", error);
-      toast({ title: "Error", description: "Could not fetch conversations.", variant: "destructive" });
+      toast({ title: "Error fetching conversations", description: error.message, variant: "destructive" });
       setIsLoadingConversations(false);
     });
 
@@ -100,7 +100,7 @@ export default function MessagesPage() {
       setIsLoadingMessages(false);
     }, (error) => {
       console.error(`Error fetching messages for ${activeConversation.id}: `, error);
-      toast({ title: "Error", description: "Could not fetch messages.", variant: "destructive" });
+      toast({ title: "Error fetching messages", description: error.message, variant: "destructive" });
       setIsLoadingMessages(false);
     });
 
@@ -118,7 +118,7 @@ export default function MessagesPage() {
     const messageData = {
       senderId: currentUser.id,
       content: newMessageContent.trim(),
-      timestamp: serverTimestamp(),
+      timestamp: serverTimestamp(), // Firestore server timestamp
     };
 
     try {
@@ -131,7 +131,7 @@ export default function MessagesPage() {
           id: messageRef.id,
           content: messageData.content,
           senderId: messageData.senderId,
-          timestamp: serverTimestamp(), // Use serverTimestamp here too
+          timestamp: serverTimestamp(), 
         },
         updatedAt: serverTimestamp(),
       });
@@ -139,14 +139,14 @@ export default function MessagesPage() {
       setNewMessageContent('');
     } catch (error) {
       console.error("Error sending message: ", error);
-      toast({ title: "Error", description: "Could not send message.", variant: "destructive" });
+      toast({ title: "Error sending message", description: (error as Error).message, variant: "destructive" });
     } finally {
       setIsSendingMessage(false);
     }
   };
   
   const getOtherParticipant = (conversation: Conversation): UserSummary | undefined => {
-    if (!currentUser) return undefined;
+    if (!currentUser || !conversation.participantIds || !conversation.participantInfo) return undefined;
     const otherId = conversation.participantIds.find(id => id !== currentUser.id);
     return otherId ? conversation.participantInfo[otherId] : undefined;
   };
@@ -167,7 +167,6 @@ export default function MessagesPage() {
 
   return (
     <div className="flex flex-col md:flex-row h-[calc(100vh-8rem)] border bg-card rounded-lg shadow-xl overflow-hidden">
-      {/* Sidebar with Conversation List */}
       <aside className="w-full md:w-1/3 lg:w-1/4 border-r flex flex-col">
         <div className="p-4 border-b">
           <div className="flex justify-between items-center mb-3">
@@ -190,7 +189,17 @@ export default function MessagesPage() {
           ) : (
             conversations.map(conv => {
               const otherParticipant = getOtherParticipant(conv);
-              const lastMessageTimestamp = conv.lastMessage?.timestamp as Timestamp | null;
+              const lastMessageTimestampServer = conv.lastMessage?.timestamp as any; // Keep as any for Firestore Timestamp
+              let lastMessageDisplayTime = 'No recent messages';
+              if (lastMessageTimestampServer && typeof lastMessageTimestampServer.toDate === 'function') {
+                lastMessageDisplayTime = formatDistanceToNow(lastMessageTimestampServer.toDate(), { addSuffix: true });
+              } else if (lastMessageTimestampServer) {
+                 // Fallback if it's already a string or number (less ideal)
+                 try {
+                    lastMessageDisplayTime = formatDistanceToNow(new Date(lastMessageTimestampServer), { addSuffix: true });
+                 } catch (e) { /* ignore if not a valid date string */ }
+              }
+
               const isActive = activeConversation?.id === conv.id;
 
               return (
@@ -211,23 +220,15 @@ export default function MessagesPage() {
                       <h3 className={cn(`font-semibold truncate`, isActive ? 'text-primary' : 'text-foreground')}>
                         {otherParticipant?.displayName || otherParticipant?.username || 'Unknown User'}
                       </h3>
-                      {lastMessageTimestamp && (
-                        <span className={cn(`text-xs whitespace-nowrap`, isActive ? 'text-primary/80' : 'text-muted-foreground')}>
-                          {formatDistanceToNow(lastMessageTimestamp.toDate(), { addSuffix: true })}
-                        </span>
-                      )}
+                      <span className={cn(`text-xs whitespace-nowrap`, isActive ? 'text-primary/80' : 'text-muted-foreground')}>
+                        {lastMessageDisplayTime}
+                      </span>
                     </div>
                     <p className={cn(`text-sm truncate`, isActive ? 'text-foreground/90' : 'text-muted-foreground')}>
                       {conv.lastMessage?.senderId === currentUser.id && "You: "}
                       {conv.lastMessage?.content || 'No messages yet.'}
                     </p>
                   </div>
-                  {/* Unread count mock - to be implemented
-                  {conv.unreadCount && conv.unreadCount[currentUser.id] > 0 && (
-                    <div className="bg-primary text-primary-foreground text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                      {conv.unreadCount[currentUser.id]}
-                    </div>
-                  )} */}
                 </div>
               );
             })
@@ -235,18 +236,16 @@ export default function MessagesPage() {
         </ScrollArea>
       </aside>
 
-      {/* Main Chat Window */}
       <main className="flex-1 flex flex-col bg-background">
         {activeConversation ? (
           <>
             <header className="p-4 border-b bg-card flex items-center gap-3 shadow-sm">
-              <Avatar>
-                <AvatarImage src={getOtherParticipant(activeConversation)?.avatarUrl} alt="User" data-ai-hint="profile person" />
+               <Avatar>
+                <AvatarImage src={getOtherParticipant(activeConversation)?.avatarUrl} alt={getOtherParticipant(activeConversation)?.username} data-ai-hint="profile person" />
                 <AvatarFallback>{getOtherParticipant(activeConversation)?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
               </Avatar>
               <div>
                 <h3 className="font-semibold text-lg">{getOtherParticipant(activeConversation)?.displayName || getOtherParticipant(activeConversation)?.username || 'Unknown User'}</h3>
-                {/* <p className="text-xs text-muted-foreground">Online</p> Placeholder status */}
               </div>
             </header>
             
@@ -257,9 +256,18 @@ export default function MessagesPage() {
                 <p className="text-center text-muted-foreground py-10">No messages in this conversation yet. Say hi!</p>
               ) : (
                 messages.map(msg => {
-                  const senderInfo = activeConversation.participantInfo[msg.senderId];
+                  const senderInfo = msg.senderId && activeConversation.participantInfo ? activeConversation.participantInfo[msg.senderId] : undefined;
                   const isCurrentUserSender = msg.senderId === currentUser.id;
-                  const messageTimestamp = msg.timestamp as Timestamp | null;
+                  const messageTimestampServer = msg.timestamp as any; // Keep as any for Firestore Timestamp
+                  let messageDisplayTime = '';
+                  if (messageTimestampServer && typeof messageTimestampServer.toDate === 'function') {
+                    messageDisplayTime = formatDistanceToNow(messageTimestampServer.toDate(), {addSuffix: true});
+                  } else if (messageTimestampServer) {
+                    try {
+                      messageDisplayTime = formatDistanceToNow(new Date(messageTimestampServer), { addSuffix: true });
+                    } catch (e) { /* ignore */ }
+                  }
+
 
                   return (
                     <div key={msg.id} className={cn("flex items-end gap-2", isCurrentUserSender && "justify-end")}>
@@ -276,13 +284,13 @@ export default function MessagesPage() {
                         )}
                       >
                         <p className="text-sm whitespace-pre-line">{msg.content}</p>
-                        {messageTimestamp && (
+                        {messageDisplayTime && (
                           <p className={cn("text-xs mt-1 text-right", isCurrentUserSender ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                            {formatDistanceToNow(messageTimestamp.toDate(), {addSuffix: true})}
+                            {messageDisplayTime}
                           </p>
                         )}
                       </div>
-                      {isCurrentUserSender && (
+                      {isCurrentUserSender && currentUser && (
                          <Avatar className="h-8 w-8">
                            <AvatarImage src={currentUser.avatarUrl} data-ai-hint="profile person" />
                            <AvatarFallback>{currentUser.username.substring(0,2).toUpperCase()}</AvatarFallback>
@@ -323,10 +331,12 @@ export default function MessagesPage() {
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
             <MessageSquareIcon className="h-24 w-24 text-muted-foreground/50 mb-6" />
             <h2 className="text-2xl font-headline font-semibold mb-2">No Conversation Selected</h2>
-            <p className="text-muted-foreground">Select a conversation from the list or start a new one.</p>
+            <p className="text-muted-foreground">Select a conversation from the list or start a new one (feature coming soon).</p>
           </div>
         )}
       </main>
     </div>
   );
 }
+      
+    
