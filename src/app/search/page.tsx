@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { useEffect, useState, FormEvent } from 'react';
 import type { Story, User } from '@/types';
-import { Card, CardContent } from '@/components/ui/card'; // Removed CardHeader, CardTitle as they are not directly used in author card
+import { Card, CardContent } from '@/components/ui/card'; 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Users, Search as SearchIcon } from 'lucide-react';
@@ -22,12 +22,10 @@ export default function SearchResultsPage() {
   const [filteredStories, setFilteredStories] = useState<Story[]>([]);
   const [filteredAuthors, setFilteredAuthors] = useState<User[]>([]);
 
-  // Effect 1: Update localQuery if queryFromUrl changes (e.g., browser back/forward, initial load)
   useEffect(() => {
     setLocalQuery(queryFromUrl);
   }, [queryFromUrl]);
 
-  // Effect 2: Perform search whenever localQuery changes
   useEffect(() => {
     const currentSearchTerm = localQuery.trim();
 
@@ -35,11 +33,12 @@ export default function SearchResultsPage() {
       const lowerCaseQuery = currentSearchTerm.toLowerCase();
       
       const stories = placeholderStories.filter(story => 
-        story.title.toLowerCase().includes(lowerCaseQuery) ||
+        story.status !== 'Draft' && // Exclude drafts
+        (story.title.toLowerCase().includes(lowerCaseQuery) ||
         story.summary.toLowerCase().includes(lowerCaseQuery) ||
         story.tags.some(tag => tag.toLowerCase().includes(lowerCaseQuery)) ||
         story.author.username.toLowerCase().includes(lowerCaseQuery) ||
-        (story.author.displayName && story.author.displayName.toLowerCase().includes(lowerCaseQuery))
+        (story.author.displayName && story.author.displayName.toLowerCase().includes(lowerCaseQuery)))
       );
       setFilteredStories(stories);
 
@@ -50,11 +49,10 @@ export default function SearchResultsPage() {
       );
       setFilteredAuthors(authors);
     } else {
-      // Clear results if localQuery is empty
       setFilteredStories([]);
       setFilteredAuthors([]);
     }
-  }, [localQuery]); // Only depends on localQuery for filtering
+  }, [localQuery]); 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLocalQuery(e.target.value);
@@ -63,11 +61,9 @@ export default function SearchResultsPage() {
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedQuery = localQuery.trim();
-    // Update URL only on explicit submit, to keep it clean and allow shareable links
     if (trimmedQuery) {
       router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
     } else {
-      // If submitted with empty query, clear the URL param as well
       router.push('/search');
     }
   };
@@ -149,4 +145,3 @@ export default function SearchResultsPage() {
     </div>
   );
 }
-

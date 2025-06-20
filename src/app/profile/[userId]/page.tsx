@@ -23,33 +23,48 @@ export default function UserProfilePage() {
 
   const [profileUser, setProfileUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userWrittenStories, setUserWrittenStories] = useState<typeof placeholderStories>([]);
 
   useEffect(() => {
     setIsLoading(true);
-    // In a real app, fetch user by ID. For mock, find in placeholderUsers.
     const foundUser = placeholderUsers.find(u => u.id === userId);
     if (foundUser) {
-      // Simulate potential updates to follower count from auth hook's placeholderUsers manipulation
       const updatedFollowerCount = placeholderUsers.find(u => u.id === userId)?.followersCount;
       setProfileUser({...foundUser, followersCount: updatedFollowerCount ?? foundUser.followersCount});
+      
+      const isOwn = currentUser?.id === foundUser.id;
+      const stories = placeholderStories.filter(story => {
+        if (story.author.id === foundUser.id) {
+          return isOwn ? true : story.status !== 'Draft';
+        }
+        return false;
+      });
+      setUserWrittenStories(stories);
+
     } else {
       setProfileUser(null);
-      // Optionally redirect if user not found, or show a "not found" message
-      // router.push('/404'); 
+      setUserWrittenStories([]);
     }
     setIsLoading(false);
-  }, [userId, router, currentUser]); // Re-run if currentUser changes (e.g., follow status)
+  }, [userId, router, currentUser]); 
 
-  // This effect is to refresh the profileUser's follower count if it's updated in placeholderUsers
-  // This is a mock for reactivity. In a real app, this would come from a real-time DB or re-fetch.
   useEffect(() => {
-    if (profileUser) {
+    if (profileUser && currentUser) {
       const potentiallyUpdatedUser = placeholderUsers.find(u => u.id === profileUser.id);
       if (potentiallyUpdatedUser && potentiallyUpdatedUser.followersCount !== profileUser.followersCount) {
         setProfileUser(prev => prev ? { ...prev, followersCount: potentiallyUpdatedUser.followersCount } : null);
       }
+      // Re-filter stories if follow status might affect draft visibility (though primarily for current user's view logic)
+      const isOwn = currentUser?.id === profileUser.id;
+      const stories = placeholderStories.filter(story => {
+        if (story.author.id === profileUser.id) {
+          return isOwn ? true : story.status !== 'Draft';
+        }
+        return false;
+      });
+      setUserWrittenStories(stories);
     }
-  }, [placeholderUsers, profileUser]);
+  }, [placeholderUsers, profileUser, currentUser]);
 
 
   if (isLoading || authLoading) {
@@ -73,22 +88,19 @@ export default function UserProfilePage() {
     } else {
       await followUser(profileUser.id);
     }
-    // Re-fetch or update profileUser state to reflect new follower count
-    // For mock, placeholderUsers is mutated, and useEffect above *should* catch it.
     const updatedPUser = placeholderUsers.find(u => u.id === profileUser.id);
     if(updatedPUser) {
         setProfileUser(prev => prev ? {...prev, followersCount: updatedPUser.followersCount} : null);
     }
   };
 
-  const userWrittenStories = placeholderStories.filter(story => story.author.id === profileUser.id);
-  // Mock reading list for any user
-  const readingListStories = placeholderStories.slice(Math.floor(Math.random() * 2), Math.floor(Math.random() * 2) + 2).map(s => ({...s, id: s.id + "-rl"})); 
-  // Mock activity feed
+  // Mock reading list for any user - ensure these are not drafts either
+  const readingListStories = placeholderStories.filter(s => s.status !== 'Draft').slice(Math.floor(Math.random() * 2), Math.floor(Math.random() * 2) + 2).map(s => ({...s, id: s.id + "-rl"})); 
+  
   const activityFeed = [
-    { id: 'act1', type: 'commented on', on: placeholderStories[0]?.title || 'a story', time: '2h ago', link: `/stories/${placeholderStories[0]?.id}` },
-    { id: 'act2', type: 'published a new chapter for', on: userWrittenStories[0]?.title || 'their story', time: '1d ago', link: userWrittenStories[0] ? `/stories/${userWrittenStories[0].id}` : '#' },
-  ].filter(act => act.on);
+    { id: 'act1', type: 'commented on', on: placeholderStories.find(s => s.status !== 'Draft')?.[0]?.title || 'a story', time: '2h ago', link: `/stories/${placeholderStories.find(s => s.status !== 'Draft')?.[0]?.id}` },
+    { id: 'act2', type: 'published a new chapter for', on: userWrittenStories.find(s => s.status !== 'Draft')?.[0]?.title || 'their story', time: '1d ago', link: userWrittenStories.find(s => s.status !== 'Draft')?.[0] ? `/stories/${userWrittenStories.find(s => s.status !== 'Draft')?.[0].id}` : '#' },
+  ].filter(act => act.on && act.link && !act.link.includes('undefined'));
 
 
   const displayName = profileUser.displayName || profileUser.username;
@@ -117,7 +129,7 @@ export default function UserProfilePage() {
               <Link href="/settings" passHref>
                 <Button variant="outline"><Edit className="mr-2 h-4 w-4" /> Edit Profile</Button>
               </Link>
-            ) : currentUser ? ( // Only show follow/message if a user is logged in and it's not their own profile
+            ) : currentUser ? ( 
               <>
                 <Button 
                     onClick={handleFollowToggle} 
@@ -132,7 +144,7 @@ export default function UserProfilePage() {
                 </Button>
                 <Button variant="outline"><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
               </>
-            ) : null /* No buttons if not logged in and not own profile */}
+            ) : null }
           </div>
         </div>
         <div className="mt-6 pt-6 border-t border-border/60 flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-muted-foreground">
@@ -157,7 +169,7 @@ export default function UserProfilePage() {
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-8">{displayName} hasn't published any stories yet.</p>
+            <p className="text-muted-foreground text-center py-8">{displayName} hasn't published any stories yet{isOwnProfile ? "" : " (or their drafts are hidden)"}.</p>
           )}
         </TabsContent>
 

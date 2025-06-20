@@ -14,13 +14,14 @@ import { ArrowRight, BookOpen, LibrarySquare, TrendingUp, Sparkles, Users, Bookm
 import { placeholderStories } from '@/lib/placeholder-data';
 import type { Story, ReadingListItem } from '@/types';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
-import YourStoryCard from '@/components/shared/YourStoryCard'; // New card for "Your stories"
-import { useAuth } from '@/hooks/useAuth'; // To get current user
+import YourStoryCard from '@/components/shared/YourStoryCard'; 
+import { useAuth } from '@/hooks/useAuth'; 
 import { useToast } from '@/hooks/use-toast';
 
-// Helper to get unique genres
+// Helper to get unique genres from published stories
 const getUniqueGenres = (stories: Story[]): string[] => {
-  const allGenres = stories.flatMap(story => story.genre.toLowerCase()); // Assuming genre is a string, if it can be array, adjust
+  const publishedStories = stories.filter(story => story.status !== 'Draft');
+  const allGenres = publishedStories.flatMap(story => story.genre.toLowerCase()); 
   return Array.from(new Set(allGenres)).map(genre => genre.charAt(0).toUpperCase() + genre.slice(1));
 };
 
@@ -29,15 +30,17 @@ export default function StoriesPage() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
-  const featuredStoriesForCarousel = placeholderStories.slice(0, 5);
-  const popularStories = placeholderStories.slice(0, 10);
-  const newReleases = placeholderStories.slice(placeholderStories.length - 10 > 0 ? placeholderStories.length - 10 : 0).reverse();
-  const communityPicks = [...placeholderStories].sort(() => 0.5 - Math.random()).slice(0, 10);
+  const publishedStories = placeholderStories.filter(story => story.status !== 'Draft');
 
-  const uniqueGenres = getUniqueGenres(placeholderStories);
+  const featuredStoriesForCarousel = publishedStories.slice(0, 5);
+  const popularStories = publishedStories.slice(0, 10);
+  const newReleases = [...publishedStories].sort((a,b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()).slice(0, 10);
+  const communityPicks = [...publishedStories].sort(() => 0.5 - Math.random()).slice(0, 10);
+
+  const uniqueGenres = getUniqueGenres(placeholderStories); // Still uses all stories to find genres, but filters within getStoriesByGenre
   
   const getStoriesByGenre = (genre: string, limit: number = 10): Story[] => {
-    return placeholderStories.filter(story => story.genre.toLowerCase() === genre.toLowerCase()).slice(0, limit);
+    return placeholderStories.filter(story => story.genre.toLowerCase() === genre.toLowerCase() && story.status !== 'Draft').slice(0, limit);
   };
 
   const userReadingList: ReadingListItem[] = user?.readingList || [];
@@ -79,6 +82,13 @@ export default function StoriesPage() {
                 </Link>
               </CarouselItem>
             ))}
+             {featuredStoriesForCarousel.length === 0 && (
+                <CarouselItem>
+                    <div className="aspect-[12/5] bg-muted rounded-lg flex items-center justify-center">
+                        <p className="text-muted-foreground">No featured stories available.</p>
+                    </div>
+                </CarouselItem>
+             )}
           </CarouselContent>
         </Carousel>
       </section>
@@ -92,7 +102,7 @@ export default function StoriesPage() {
             </h2>
           </div>
           <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
-            {userReadingList.slice(0, 10).map(story => ( // Ensure we get full story details if readingList items are summaries
+            {userReadingList.slice(0, 10).map(story => ( 
                 <YourStoryCard key={`yourstory-${story.id}`} story={story} />
             ))}
           </div>
@@ -157,7 +167,7 @@ export default function StoriesPage() {
       {/* Genre Sections */}
       {uniqueGenres.map(genre => {
         const genreStories = getStoriesByGenre(genre, 10);
-        if (genreStories.length === 0) return null; // Don't render section if no stories for this genre
+        if (genreStories.length === 0) return null; 
         return (
           <section key={genre} className="container mx-auto px-4">
             <div className="flex justify-between items-center mb-4">

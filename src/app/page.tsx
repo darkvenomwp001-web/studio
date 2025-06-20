@@ -15,9 +15,16 @@ import type { Story } from '@/types';
 
 export default function HomePage() {
   const { user, loading } = useAuth();
-  const trendingStories = placeholderStories.slice(0, 8);
+  
+  const publishedStories = placeholderStories.filter(story => story.status !== 'Draft');
+  
+  const trendingStories = publishedStories.slice(0, 8);
   const featuredAuthors = placeholderUsers.slice(0, 6);
-  const storySpotlight = placeholderStories[Math.floor(Math.random() * placeholderStories.length)]; // Random story for spotlight
+  
+  const availableSpotlightStories = publishedStories;
+  const storySpotlight = availableSpotlightStories.length > 0 
+    ? availableSpotlightStories[Math.floor(Math.random() * availableSpotlightStories.length)] 
+    : null;
 
   const popularGenres = [
     { name: "Fantasy", icon: Swords, blurb: "Epic quests & magical realms await.", dataAiHint: "dragon castle", cover: "https://placehold.co/512x800.png" },
@@ -26,10 +33,11 @@ export default function HomePage() {
   ];
 
   const communityPulseItems = [
-    { icon: Zap, text: `${placeholderUsers[1].username} just published a new chapter for "${placeholderStories[1].title}"!`},
+    { icon: Zap, text: `${placeholderUsers[1].username} just published a new chapter for "${publishedStories[1]?.title || 'a story'}"!`},
     { icon: Users2, text: `Welcome new writer: @${placeholderUsers[2].username}!`},
-    { icon: BookHeart, text: `"${placeholderStories[0].title}" reached 10k reads today!`},
-  ];
+    { icon: BookHeart, text: `"${publishedStories[0]?.title || 'a story'}" reached 10k reads today!`},
+  ].filter(item => item.text.includes("story") ? item.text.includes(publishedStories[0]?.title || publishedStories[1]?.title) : true);
+
 
   if (loading) {
     return (
@@ -127,6 +135,7 @@ export default function HomePage() {
                     <StoryCard story={story} />
                 </div>
             ))}
+            {trendingStories.length === 0 && <p className="text-muted-foreground">No trending stories to display.</p>}
             <div className="flex-shrink-0 w-px"></div>
             </div>
         </div>
