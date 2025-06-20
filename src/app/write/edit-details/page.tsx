@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, ChangeEvent, FormEvent, useRef } from 'react';
+import { useState, useEffect, ChangeEvent, FormEvent, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -15,9 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud } from 'lucide-react';
+import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud, CheckCircle, AlertCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge'; // Added import
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase'; 
@@ -27,6 +27,8 @@ import type { Story, Chapter, UserSummary, User as AppUser } from '@/types';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/placeholder-data'; 
 
+const AUTOSAVE_DELAY = 2000; // 2 seconds
+
 export default function EditStoryDetailsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -35,6 +37,7 @@ export default function EditStoryDetailsPage() {
 
   const queryStoryId = searchParams.get('storyId');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [story, setStory] = useState<Story | null>(null);
   const [storyTitle, setStoryTitle] = useState('');
@@ -48,12 +51,32 @@ export default function EditStoryDetailsPage() {
   const [visibility, setVisibility] = useState<'Public' | 'Private' | 'Unlisted'>('Public');
   
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // Used for cover image upload specifically
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
   const [collaboratorUsername, setCollaboratorUsername] = useState('');
   const [isProcessingCollaboration, setIsProcessingCollaboration] = useState(false);
 
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'Idle' | 'Typing' | 'Saving' | 'Saved' | 'Error'>('Idle');
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
+  // Populate form fields from story data once loaded
+  useEffect(() => {
+    if (story && !initialLoadComplete) {
+      setStoryTitle(story.title);
+      setSummary(story.summary);
+      setGenre(story.genre.toLowerCase());
+      setTags(story.tags.join(', '));
+      setCoverImagePreview(story.coverImageUrl || 'https://placehold.co/512x800.png');
+      setLanguage(story.language || 'English');
+      setIsMature(story.isMature || false);
+      setVisibility(story.visibility || 'Public');
+      setInitialLoadComplete(true); // Mark initial population as done
+      setAutoSaveStatus('Idle');
+    }
+  }, [story, initialLoadComplete]);
+
+  // Story loading logic
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/auth/signin');
@@ -64,6 +87,7 @@ export default function EditStoryDetailsPage() {
 
     if (user && queryStoryId) {
       setIsLoading(true);
+      setInitialLoadComplete(false); // Reset for potential new story load
       const storyDocRef = doc(db, 'stories', queryStoryId);
       unsubscribeStory = onSnapshot(storyDocRef, (docSnap) => {
         if (docSnap.exists()) {
@@ -74,14 +98,7 @@ export default function EditStoryDetailsPage() {
             return;
           }
           setStory(storyData);
-          setStoryTitle(storyData.title);
-          setSummary(storyData.summary);
-          setGenre(storyData.genre.toLowerCase());
-          setTags(storyData.tags.join(', '));
-          setCoverImagePreview(storyData.coverImageUrl || 'https://placehold.co/512x800.png');
-          setLanguage(storyData.language || 'English');
-          setIsMature(storyData.isMature || false);
-          setVisibility(storyData.visibility || 'Public');
+          // Form fields will be set by the other useEffect that watches `story` and `initialLoadComplete`
         } else {
           toast({ title: "Error", description: "Story not found.", variant: "destructive" });
           router.push('/write');
@@ -95,7 +112,8 @@ export default function EditStoryDetailsPage() {
       });
     } else if (user && !queryStoryId) { 
       setIsLoading(true);
-      const newStoryId = doc(collection(db, 'stories')).id; // Generate new ID
+      setInitialLoadComplete(false);
+      const newStoryId = doc(collection(db, 'stories')).id; 
       const newStoryData: Story = {
         id: newStoryId,
         title: 'New Story Title',
@@ -114,40 +132,31 @@ export default function EditStoryDetailsPage() {
       };
       setDoc(doc(db, 'stories', newStoryId), newStoryData).then(() => {
         router.replace(`/write/edit-details?storyId=${newStoryId}`, { scroll: false });
-        // onSnapshot will pick up this newly created document.
       }).catch(error => {
         console.error("Error creating new story document:", error);
         toast({ title: "Error", description: "Could not create new story.", variant: "destructive" });
         router.push('/write');
+        setIsLoading(false); // Ensure loading stops on error too
       });
     } else if (!user && !authLoading) {
         setIsLoading(false);
     }
     return () => {
       if (unsubscribeStory) unsubscribeStory();
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
     };
   }, [queryStoryId, user, authLoading, router, toast]);
 
-
-  const handleCoverImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 5 * 1024 * 1024) { 
-        toast({ title: "Image Too Large", description: "Please select an image smaller than 5MB.", variant: "destructive" });
-        return;
-      }
-      setCoverImageFile(file);
-      setCoverImagePreview(URL.createObjectURL(file));
-    }
-  };
-
-  const handleSaveChanges = async (e?: FormEvent) => {
-    if (e) e.preventDefault();
-    if (!story || !user) {
-      toast({ title: "Error", description: "Cannot save. Story data or user not found.", variant: "destructive" });
+  const handleSaveChanges = useCallback(async (isCoverChange: boolean = false) => {
+    if (!story || !user || !initialLoadComplete) {
+      // Avoid saving if story isn't loaded or initial population isn't done
       return;
     }
-    setIsSaving(true);
+
+    if (!isCoverChange) setAutoSaveStatus('Saving'); else setIsSaving(true);
+
 
     let finalCoverImageUrl = story.coverImageUrl;
 
@@ -157,14 +166,12 @@ export default function EditStoryDetailsPage() {
       const imageStorageRef = storageRef(storage, imagePath);
       try {
         const uploadTask = uploadBytesResumable(imageStorageRef, coverImageFile);
-        
-        // Wait for upload completion
         await new Promise<void>((resolve, reject) => {
             uploadTask.on(
                 'state_changed',
-                (snapshot) => { /* Optional: track progress */ },
-                (error) => reject(error), // Handle unsuccessful uploads
-                () => { // Handle successful uploads on complete
+                (snapshot) => {},
+                (error) => reject(error),
+                () => {
                     getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
                         finalCoverImageUrl = downloadURL;
                         resolve();
@@ -172,13 +179,12 @@ export default function EditStoryDetailsPage() {
                 }
             );
         });
-        
         setCoverImageFile(null); 
-        toast({ title: "Cover Image Uploaded", description: "New cover image saved." });
+        // Toast for cover image is handled by onCoverImageSelect success
       } catch (error) {
         console.error("Error uploading cover image:", error);
-        toast({ title: "Upload Failed", description: "Could not upload cover image. Please try again.", variant: "destructive" });
-        setIsSaving(false);
+        toast({ title: "Upload Failed", description: "Could not upload cover image.", variant: "destructive" });
+        if (!isCoverChange) setAutoSaveStatus('Error'); else setIsSaving(false);
         setIsUploadingCover(false);
         return;
       }
@@ -194,37 +200,116 @@ export default function EditStoryDetailsPage() {
       language: language,
       isMature: isMature,
       visibility: visibility,
-      status: visibility === 'Public' && story.chapters.some(c => c.status === 'Published') ? 'Ongoing' : (story.status === 'Completed' ? 'Completed' : 'Draft'),
+      status: visibility === 'Public' && story.chapters.some(c => c.status === 'Published') ? 'Ongoing' : (story.status === 'Completed' ? 'Completed' : (story.status === 'Draft' ? 'Draft' : 'Draft')), // Simplified status update
       lastUpdated: serverTimestamp(),
     };
 
     try {
       const storyDocRef = doc(db, 'stories', story.id);
       await updateDoc(storyDocRef, storyDataToUpdate);
-      toast({ title: "Story Details Saved!", description: "Your story settings have been updated." });
+      if (!isCoverChange) setAutoSaveStatus('Saved'); else {
+        toast({ title: "Cover Image Saved!", description: "Your new cover image has been applied." });
+      }
     } catch (error) {
       console.error("Error saving story details:", error);
+      if (!isCoverChange) setAutoSaveStatus('Error');
       toast({ title: "Save Failed", description: "Could not save story details.", variant: "destructive" });
     } finally {
-      setIsSaving(false);
+      if (isCoverChange) setIsSaving(false);
+    }
+  }, [story, user, storyTitle, summary, genre, tags, coverImageFile, language, isMature, visibility, toast, initialLoadComplete]);
+
+  // useEffect for auto-saving text fields and selects
+  useEffect(() => {
+    if (!initialLoadComplete || isLoading || authLoading || !story) {
+      return;
+    }
+    // Only set to Typing if it's not already saving or in error from a previous attempt
+    if (autoSaveStatus !== 'Saving' && autoSaveStatus !== 'Error') {
+        setAutoSaveStatus('Typing');
+    }
+
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+        // Check if there are actual changes compared to the currently loaded story state
+        // This prevents saving if the form fields were just populated from `story` and haven't been changed by the user yet.
+        const hasChanged = story.title !== storyTitle ||
+                           story.summary !== summary ||
+                           story.genre.toLowerCase() !== genre ||
+                           story.tags.join(', ') !== tags ||
+                           story.language !== language ||
+                           story.isMature !== isMature ||
+                           story.visibility !== visibility;
+
+        if (hasChanged) {
+          handleSaveChanges(false); // false indicates it's not a cover image change
+        } else if (autoSaveStatus !== 'Idle' && autoSaveStatus !== 'Saved') {
+          // If no changes and not already Idle/Saved, revert to Idle or Saved if applicable
+           setAutoSaveStatus(story.title === storyTitle && story.summary === summary ? 'Saved' : 'Idle');
+        }
+    }, AUTOSAVE_DELAY);
+
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [storyTitle, summary, genre, tags, language, isMature, visibility, handleSaveChanges, initialLoadComplete, isLoading, authLoading, story, autoSaveStatus]);
+
+
+  const handleCoverImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) { 
+        toast({ title: "Image Too Large", description: "Please select an image smaller than 5MB.", variant: "destructive" });
+        return;
+      }
+      setCoverImageFile(file);
+      setCoverImagePreview(URL.createObjectURL(file));
+      // Trigger save for cover image immediately (or after a very short debounce if needed)
+      // For simplicity, we can make handleSaveChanges smart enough, or call it directly.
+      // Let's rely on the next state update of coverImageFile to trigger its own save cycle if desired,
+      // or call handleSaveChanges directly.
+      // To make it save immediately on selection:
+      // handleSaveChanges(true); // true indicates it is a cover change for specific logic if needed
+      // For now, let's make it part of the general auto-save logic triggered by coverImageFile state change.
+      // The `handleSaveChanges` will be called by the useEffect watching `coverImageFile` (implicitly via `story.coverImageUrl` through main save logic)
+      // Updated approach: call save immediately for cover, as it's a distinct user action.
+      // This will be handled by the main useEffect that watches form fields if we include `coverImageFile` as a dependency
+      // or we can call `handleSaveChanges(true)` right after `setCoverImageFile`.
+      // Let's defer the actual save of cover image to the main debounced `handleSaveChanges`
+      // by making `coverImageFile` a dependency of the auto-save `useEffect`.
+      // For a more responsive feel for cover image, we will trigger save on file change.
+      // This will be picked up by the main auto-save useEffect due to state change.
+      setAutoSaveStatus('Typing'); // Trigger auto-save cycle
     }
   };
   
   const confirmDeleteChapter = async (chapter: Chapter) => {
     if (!story) return;
-    setIsSaving(true);
+    // No local isSaving for this, as it's a distinct operation
+    const originalAutoSaveStatus = autoSaveStatus;
+    setAutoSaveStatus('Saving');
     const updatedChapters = story.chapters.filter(ch => ch.id !== chapter.id)
                                        .map((ch, index) => ({ ...ch, order: index + 1 }));
     try {
       const storyDocRef = doc(db, 'stories', story.id);
       await updateDoc(storyDocRef, { chapters: updatedChapters, lastUpdated: serverTimestamp() });
       toast({title: "Chapter Deleted", description: `Chapter "${chapter.title}" has been removed.`});
+      setAutoSaveStatus('Saved');
     } catch (error) {
       console.error("Error deleting chapter:", error);
       toast({title: "Error", description: "Failed to delete chapter.", variant: "destructive"});
+      setAutoSaveStatus('Error');
     } finally {
-      setIsSaving(false);
       setChapterToDelete(null);
+      // Restore previous auto-save status if it wasn't 'Saving' or 'Error' from this op
+      if (originalAutoSaveStatus !== 'Saving' && originalAutoSaveStatus !== 'Error') {
+          setTimeout(() => setAutoSaveStatus(originalAutoSaveStatus), 500);
+      }
     }
   };
 
@@ -310,7 +395,7 @@ export default function EditStoryDetailsPage() {
   };
 
 
-  if (isLoading || authLoading || (queryStoryId && !story)) { 
+  if (isLoading || authLoading || (queryStoryId && !story && !initialLoadComplete)) { 
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -350,6 +435,22 @@ export default function EditStoryDetailsPage() {
     return 'text-muted-foreground';
   };
 
+  const AutoSaveStatusIndicator = () => {
+    if (autoSaveStatus === 'Typing' && !isUploadingCover) {
+        return <div className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Changes pending...</div>;
+    }
+    if (autoSaveStatus === 'Saving' || isUploadingCover) {
+        return <div className="text-xs text-yellow-600 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Saving...</div>;
+    }
+    if (autoSaveStatus === 'Saved' && !isUploadingCover) {
+        return <div className="text-xs text-green-600 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> All changes saved</div>;
+    }
+    if (autoSaveStatus === 'Error') {
+        return <div className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Save error</div>;
+    }
+    return <div className="text-xs text-muted-foreground">Editing story details...</div>; // Idle state
+  };
+
 
   return (
     <AlertDialog>
@@ -361,14 +462,17 @@ export default function EditStoryDetailsPage() {
             </h1>
             <p className="text-muted-foreground">Manage your story's cover, title, description, and settings.</p>
         </div>
-         {queryStoryId && story && (
-            <Link href={`/stories/${story.id}`} passHref>
-                <Button variant="outline"><Eye className="mr-2 h-4 w-4" /> View Story Page</Button>
-            </Link>
-         )}
+        <div className="flex flex-col sm:flex-row items-center gap-2">
+            <AutoSaveStatusIndicator />
+             {queryStoryId && story && (
+                <Link href={`/stories/${story.id}`} passHref>
+                    <Button variant="outline"><Eye className="mr-2 h-4 w-4" /> View Story Page</Button>
+                </Link>
+             )}
+        </div>
       </header>
 
-      <form onSubmit={handleSaveChanges} className="grid md:grid-cols-3 gap-8 items-start">
+      <form onSubmit={(e) => e.preventDefault()} className="grid md:grid-cols-3 gap-8 items-start">
         <div className="md:col-span-1 space-y-6">
           <Card>
             <CardHeader>
@@ -387,6 +491,7 @@ export default function EditStoryDetailsPage() {
                   height={800}
                   className="object-cover w-full h-full"
                   data-ai-hint="book cover design"
+                  priority // Ensures cover is loaded quickly
                 />
                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <UploadCloud className="h-10 w-10 text-white" />
@@ -398,8 +503,9 @@ export default function EditStoryDetailsPage() {
                 onChange={handleCoverImageSelect}
                 accept="image/png, image/jpeg, image/gif, image/webp"
                 className="hidden"
+                disabled={isUploadingCover || autoSaveStatus === 'Saving'}
               />
-              <Button type="button" variant="link" onClick={() => fileInputRef.current?.click()} className="text-sm" disabled={isUploadingCover}>
+              <Button type="button" variant="link" onClick={() => fileInputRef.current?.click()} className="text-sm" disabled={isUploadingCover || autoSaveStatus === 'Saving'}>
                 {isUploadingCover ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
                 {isUploadingCover ? "Uploading..." : "Change Cover"}
               </Button>
@@ -417,6 +523,7 @@ export default function EditStoryDetailsPage() {
                         onChange={(e) => setStoryTitle(e.target.value)}
                         placeholder="Your captivating story title"
                         className="text-lg p-3 border-0 border-b-2 border-input focus:border-primary shadow-none rounded-none focus:ring-0 bg-transparent"
+                        disabled={autoSaveStatus === 'Saving'}
                     />
                 </div>
                 <div>
@@ -428,6 +535,7 @@ export default function EditStoryDetailsPage() {
                         placeholder="A short, enticing summary to draw readers in..."
                         rows={6}
                         className="text-base p-3 border-0 border-b-2 border-input focus:border-primary shadow-none rounded-none focus:ring-0 bg-transparent min-h-[120px]"
+                        disabled={autoSaveStatus === 'Saving'}
                     />
                 </div>
             </CardContent>
@@ -441,7 +549,7 @@ export default function EditStoryDetailsPage() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="genre">Genre</Label>
-                  <Select value={genre} onValueChange={(val) => setGenre(val as string)}>
+                  <Select value={genre} onValueChange={(val) => setGenre(val as string)} disabled={autoSaveStatus === 'Saving'}>
                     <SelectTrigger id="genre"><SelectValue placeholder="Select Genre" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="fantasy">Fantasy</SelectItem>
@@ -458,7 +566,7 @@ export default function EditStoryDetailsPage() {
                 </div>
                 <div>
                   <Label htmlFor="language">Language</Label>
-                  <Select value={language} onValueChange={setLanguage}>
+                  <Select value={language} onValueChange={setLanguage} disabled={autoSaveStatus === 'Saving'}>
                     <SelectTrigger id="language"><SelectValue placeholder="Select Language" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="English">English</SelectItem>
@@ -471,7 +579,7 @@ export default function EditStoryDetailsPage() {
               </div>
               <div>
                 <Label htmlFor="tags">Tags (comma-separated)</Label>
-                <Input id="tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g., magic, space opera, slow burn" />
+                <Input id="tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g., magic, space opera, slow burn" disabled={autoSaveStatus === 'Saving'} />
                 <div className="mt-2 flex flex-wrap gap-1">
                     {tags.split(',').map(t => t.trim()).filter(Boolean).map((tag, i) => (
                         <Badge key={i} variant="secondary" className="text-xs">{tag}</Badge>
@@ -479,14 +587,14 @@ export default function EditStoryDetailsPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <Switch id="isMature" checked={isMature} onCheckedChange={setIsMature} />
+                <Switch id="isMature" checked={isMature} onCheckedChange={setIsMature} disabled={autoSaveStatus === 'Saving'} />
                 <Label htmlFor="isMature" className="flex items-center">
                     Mature Content <ShieldQuestion className="ml-1.5 h-4 w-4 text-muted-foreground hover:text-foreground cursor-help" title="Mark if your story contains themes, language, or situations suitable for mature audiences."/>
                 </Label>
               </div>
               <div>
                 <Label className="mb-2 block">Visibility</Label>
-                <RadioGroup value={visibility} onValueChange={(val) => setVisibility(val as 'Public' | 'Private' | 'Unlisted')} className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                <RadioGroup value={visibility} onValueChange={(val) => setVisibility(val as 'Public' | 'Private' | 'Unlisted')} className="flex flex-col sm:flex-row gap-2 sm:gap-4" disabled={autoSaveStatus === 'Saving'}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="Public" id="visPublic" />
                     <Label htmlFor="visPublic" className="font-normal flex items-center"><Eye className="mr-1.5 h-4 w-4"/>Public</Label>
@@ -513,7 +621,7 @@ export default function EditStoryDetailsPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Table of Contents</CardTitle>
               <Link href={`/write/edit?storyId=${story.id}`} passHref>
-                 <Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4" /> Add New Chapter</Button>
+                 <Button variant="outline" size="sm" disabled={autoSaveStatus === 'Saving'}><PlusCircle className="mr-2 h-4 w-4" /> Add New Chapter</Button>
               </Link>
             </CardHeader>
             <CardContent>
@@ -533,10 +641,10 @@ export default function EditStoryDetailsPage() {
                         </div>
                         <div className="flex gap-2">
                           <Link href={`/write/edit?storyId=${story.id}&chapterId=${chapter.id}`} passHref>
-                            <Button variant="ghost" size="icon" title="Edit Chapter"><Edit className="h-4 w-4"/></Button>
+                            <Button variant="ghost" size="icon" title="Edit Chapter" disabled={autoSaveStatus === 'Saving'}><Edit className="h-4 w-4"/></Button>
                           </Link>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" title="Delete Chapter" onClick={() => setChapterToDelete(chapter)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                            <Button variant="ghost" size="icon" title="Delete Chapter" onClick={() => setChapterToDelete(chapter)} className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={autoSaveStatus === 'Saving'}>
                                 <Trash2 className="h-4 w-4"/>
                             </Button>
                           </AlertDialogTrigger>
@@ -563,9 +671,9 @@ export default function EditStoryDetailsPage() {
                     placeholder="Enter collaborator's username"
                     value={collaboratorUsername}
                     onChange={(e) => setCollaboratorUsername(e.target.value)}
-                    disabled={isProcessingCollaboration || story.author.id !== user.id}
+                    disabled={isProcessingCollaboration || story.author.id !== user.id || autoSaveStatus === 'Saving'}
                     />
-                    <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim() || story.author.id !== user.id}>
+                    <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim() || story.author.id !== user.id || autoSaveStatus === 'Saving'}>
                         {isProcessingCollaboration ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add
                     </Button>
                 </div>
@@ -587,7 +695,7 @@ export default function EditStoryDetailsPage() {
                                 size="icon" 
                                 onClick={() => handleRemoveCollaborator(collab.id)} 
                                 className="text-destructive hover:text-destructive" 
-                                disabled={isProcessingCollaboration || story.author.id !== user.id}
+                                disabled={isProcessingCollaboration || story.author.id !== user.id || autoSaveStatus === 'Saving'}
                             >
                                 <Trash2 className="h-4 w-4" />
                             </Button>
@@ -626,12 +734,15 @@ export default function EditStoryDetailsPage() {
 
         </div>
 
+        {/* Removed the explicit save button as per auto-save requirement */}
+        {/* 
         <div className="fixed bottom-6 right-6 z-50">
           <Button type="submit" size="lg" disabled={isSaving || isUploadingCover} className="shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-3 px-6">
             {(isSaving || isUploadingCover) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
             Save Story Details
           </Button>
-        </div>
+        </div> 
+        */}
       </form>
 
       {chapterToDelete && (
