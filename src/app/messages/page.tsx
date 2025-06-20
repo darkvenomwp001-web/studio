@@ -187,44 +187,63 @@ export default function MessagesPage() {
     setSearchedUsers([]);
     try {
       const usersRef = collection(db, 'users');
-      const q = query(
+      // Query for usernames starting with searchTerm
+      const usernameQuery = query(
         usersRef,
         where('username', '>=', searchTerm.trim()),
-        where('username', '<=', searchTerm.trim() + '\uf8ff'), // \uf8ff is a high Unicode character for prefix matching
-        limit(10)
+        where('username', '<=', searchTerm.trim() + '\uf8ff'), 
+        limit(5)
       );
-      const querySnapshot = await getDocs(q);
-      const usersFound = querySnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as AppUserType))
+      const usernameSnapshot = await getDocs(usernameQuery);
+      let usersFound = usernameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUserType));
+
+      // Query for displayNames starting with searchTerm, if username search yields few results
+      if (usersFound.length < 5) {
+        const displayNameQuery = query(
+          usersRef,
+          where('displayName', '>=', searchTerm.trim()),
+          where('displayName', '<=', searchTerm.trim() + '\uf8ff'),
+          limit(5 - usersFound.length)
+        );
+        const displayNameSnapshot = await getDocs(displayNameQuery);
+        const usersByDisplayName = displayNameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUserType));
+        usersFound = [...usersFound, ...usersByDisplayName];
+      }
+      
+      // Filter out current user and deduplicate
+      const uniqueUsers = new Map<string, UserSummary>();
+      usersFound
         .filter(u => u.id !== currentUser.id) 
-        .map(u => ({ 
+        .forEach(u => uniqueUsers.set(u.id, { 
             id: u.id,
             username: u.username,
             displayName: u.displayName || u.username,
             avatarUrl: u.avatarUrl
         }));
 
-      if (usersFound.length === 0 && searchTerm.trim().length > 0) { // Only show toast if search term is not empty
+      const finalResults = Array.from(uniqueUsers.values());
+
+      if (finalResults.length === 0 && searchTerm.trim().length > 0) { 
         toast({ title: "No Users Found", description: `No user found starting with "${searchTerm.trim()}".` });
       }
-      setSearchedUsers(usersFound);
+      setSearchedUsers(finalResults);
     } catch (error) {
       console.error("Error searching users:", error);
-      toast({ title: "Search Error", description: "Could not perform user search. Ensure Firestore indexes are set up if needed for username prefix search.", variant: "destructive" });
+      toast({ title: "Search Error", description: "Could not perform user search. Ensure Firestore indexes are set up.", variant: "destructive" });
     } finally {
       setIsSearchingUsers(false);
     }
   };
   
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedSearch = useCallback(debounce(performUserSearch, 500), [currentUser]);
+  const debouncedSearch = useCallback(debounce(performUserSearch, 500), [currentUser, toast]);
 
   useEffect(() => {
     if (searchUsername.trim().length > 0) {
-      setIsSearchingUsers(true); // Indicate searching immediately
+      setIsSearchingUsers(true);
       debouncedSearch(searchUsername);
     } else {
-      setSearchedUsers([]); // Clear results if search term is empty
+      setSearchedUsers([]); 
       setIsSearchingUsers(false);
     }
   }, [searchUsername, debouncedSearch]);
@@ -239,7 +258,7 @@ export default function MessagesPage() {
       const existingConvQuery = query(
         collection(db, 'conversations'),
         where('participantIds', '==', sortedParticipantIds),
-        limit(1) // We only need one if it exists
+        limit(1) 
       );
       
       const existingConvSnapshot = await getDocs(existingConvQuery);
@@ -311,7 +330,7 @@ export default function MessagesPage() {
   return (
     <Dialog open={isNewConversationDialogOpen} onOpenChange={(isOpen) => {
         setIsNewConversationDialogOpen(isOpen);
-        if (!isOpen) { // Reset search when dialog closes
+        if (!isOpen) { 
             setSearchUsername('');
             setSearchedUsers([]);
         }
@@ -328,10 +347,11 @@ export default function MessagesPage() {
                 </Button>
               </DialogTrigger>
             </div>
-            <div className="relative">
+            {/* Search messages input (currently disabled) */}
+            {/* <div className="relative">
               <Input type="search" placeholder="Search messages (disabled)" className="pl-10 bg-background" disabled />
               <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-            </div>
+            </div> */}
           </div>
           <ScrollArea className="flex-1">
             {isLoadingConversations ? (
@@ -356,20 +376,24 @@ export default function MessagesPage() {
                   <div 
                     key={conv.id} 
                     className={cn(
-                      `flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50`,
+                      `flex items-start gap-3 p-4 cursor-pointer hover:bg-muted/50`, // items-start for better alignment
                       isActive ? 'bg-primary/10 border-l-4 border-primary' : ''
                     )}
                     onClick={() => handleSelectConversation(conv)}
                   >
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={otherParticipant?.avatarUrl} alt={otherParticipant?.username} data-ai-hint="profile person" />
-                      <AvatarFallback>{otherParticipant?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                    </Avatar>
+                    <Link href={`/profile/${otherParticipant?.id}`} onClick={(e) => e.stopPropagation()}>
+                        <Avatar className="h-12 w-12">
+                        <AvatarImage src={otherParticipant?.avatarUrl} alt={otherParticipant?.username} data-ai-hint="profile person" />
+                        <AvatarFallback>{otherParticipant?.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+                        </Avatar>
+                    </Link>
                     <div className="flex-1 overflow-hidden">
                       <div className="flex justify-between items-center">
-                        <h3 className={cn(`font-semibold truncate`, isActive ? 'text-primary' : 'text-foreground')}>
-                          {otherParticipant?.displayName || otherParticipant?.username || 'Unknown User'}
-                        </h3>
+                         <Link href={`/profile/${otherParticipant?.id}`} onClick={(e) => e.stopPropagation()} className="truncate">
+                            <h3 className={cn(`font-semibold truncate hover:underline`, isActive ? 'text-primary' : 'text-foreground')}>
+                            {otherParticipant?.displayName || otherParticipant?.username || 'Unknown User'}
+                            </h3>
+                        </Link>
                         <span className={cn(`text-xs whitespace-nowrap`, isActive ? 'text-primary/80' : 'text-muted-foreground')}>
                           {lastMessageDisplayTime}
                         </span>
@@ -390,13 +414,15 @@ export default function MessagesPage() {
           {activeConversation ? (
             <>
               <header className="p-4 border-b bg-card flex items-center gap-3 shadow-sm">
-                 <Avatar>
-                  <AvatarImage src={getOtherParticipant(activeConversation)?.avatarUrl} alt={getOtherParticipant(activeConversation)?.username} data-ai-hint="profile person" />
-                  <AvatarFallback>{getOtherParticipant(activeConversation)?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="font-semibold text-lg">{getOtherParticipant(activeConversation)?.displayName || getOtherParticipant(activeConversation)?.username || 'Unknown User'}</h3>
-                </div>
+                <Link href={`/profile/${getOtherParticipant(activeConversation)?.id}`} passHref>
+                    <Avatar>
+                    <AvatarImage src={getOtherParticipant(activeConversation)?.avatarUrl} alt={getOtherParticipant(activeConversation)?.username} data-ai-hint="profile person" />
+                    <AvatarFallback>{getOtherParticipant(activeConversation)?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                    </Avatar>
+                </Link>
+                <Link href={`/profile/${getOtherParticipant(activeConversation)?.id}`} passHref>
+                    <h3 className="font-semibold text-lg hover:underline">{getOtherParticipant(activeConversation)?.displayName || getOtherParticipant(activeConversation)?.username || 'Unknown User'}</h3>
+                </Link>
               </header>
               
               <ScrollArea className="flex-1 p-4 space-y-4">
@@ -420,11 +446,13 @@ export default function MessagesPage() {
 
                     return (
                       <div key={msg.id} className={cn("flex items-end gap-2", isCurrentUserSender && "justify-end")}>
-                        {!isCurrentUserSender && (
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={senderInfo?.avatarUrl} data-ai-hint="profile person" />
-                            <AvatarFallback>{senderInfo?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                          </Avatar>
+                        {!isCurrentUserSender && senderInfo && (
+                           <Link href={`/profile/${senderInfo.id}`} passHref>
+                            <Avatar className="h-8 w-8">
+                                <AvatarImage src={senderInfo?.avatarUrl} data-ai-hint="profile person" />
+                                <AvatarFallback>{senderInfo?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                            </Avatar>
+                           </Link>
                         )}
                         <div 
                           className={cn(
@@ -440,10 +468,12 @@ export default function MessagesPage() {
                           )}
                         </div>
                         {isCurrentUserSender && currentUser && (
-                           <Avatar className="h-8 w-8">
-                             <AvatarImage src={currentUser.avatarUrl} data-ai-hint="profile person" />
-                             <AvatarFallback>{currentUser.username.substring(0,2).toUpperCase()}</AvatarFallback>
-                           </Avatar>
+                           <Link href={`/profile/${currentUser.id}`} passHref>
+                            <Avatar className="h-8 w-8">
+                                <AvatarImage src={currentUser.avatarUrl} data-ai-hint="profile person" />
+                                <AvatarFallback>{currentUser.username.substring(0,2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                           </Link>
                         )}
                       </div>
                     );
@@ -517,10 +547,12 @@ export default function MessagesPage() {
                   aria-disabled={isCreatingConversation}
                 >
                   <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatarUrl} alt={user.username} data-ai-hint="profile person" />
-                      <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                    </Avatar>
+                    <Link href={`/profile/${user.id}`} onClick={(e) => e.stopPropagation()} passHref>
+                        <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.avatarUrl} alt={user.username} data-ai-hint="profile person" />
+                        <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                    </Link>
                     <span>{user.displayName || user.username}</span>
                   </div>
                   {isCreatingConversation ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquareIcon className="h-4 w-4 text-primary" />}
@@ -543,5 +575,4 @@ export default function MessagesPage() {
     </Dialog>
   );
 }
-      
     
