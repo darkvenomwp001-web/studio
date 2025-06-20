@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Save, History, EyeOff, Brain, CheckCircle, AlertTriangle, Maximize, Minimize, Send, FileText, Settings } from 'lucide-react';
+import { Save, History, EyeOff, Brain, CheckCircle, AlertTriangle, Maximize, Minimize, Send, FileText, Settings, Loader2 } from 'lucide-react';
 import AiAssistantPanel from '@/components/writing/AiAssistantPanel';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -224,6 +224,7 @@ export default function WriteEditorPage() {
     toast({ title: "Chapter Published!", description: `Chapter "${chapterTitle}" is now live.` });
     addNotification({
       type: 'new_chapter',
+      userId: user.id, // Add userId for the notification recipient if applicable
       message: `${user.displayName || user.username} published a new chapter "${chapterTitle}" for "${storyDetails.title}".`,
       link: `/stories/${storyDetails.id}/read/${updatedChapterData.id}`,
       actor: {id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl }
