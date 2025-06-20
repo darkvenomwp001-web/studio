@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { User as AppUserType, NotificationType, UserSummary } from '@/types';
-import { auth, db } from '@/lib/firebase'; // Import db for Firestore
+import { auth, db } from '@/lib/firebase';
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -21,17 +21,32 @@ import {
   type User as FirebaseUser,
   type AuthError
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore'; // Firestore imports
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  addDoc,
+  writeBatch,
+  getDocs
+} from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { placeholderUsers, placeholderNotifications, placeholderStories } from '@/lib/placeholder-data';
+import { placeholderUsers, placeholderStories } from '@/lib/placeholder-data'; // Keep for some fallbacks if needed
 
 interface AppUser extends AppUserType {
   email?: string;
   displayName?: string;
   role?: 'reader' | 'writer';
   followingIds?: string[];
-  createdAt?: any; // For Firestore timestamp
-  updatedAt?: any; // For Firestore timestamp
+  createdAt?: any; 
+  updatedAt?: any; 
 }
 
 interface AuthContextType {
@@ -39,8 +54,9 @@ interface AuthContextType {
   loading: boolean;
   authLoading: boolean;
   notifications: NotificationType[];
-  addNotification: (notification: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => void;
-  markNotificationAsRead: (notificationId: string) => void;
+  addNotification: (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => Promise<void>;
+  markNotificationAsRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signUpWithEmailPassword: (data: { username: string; email: string; passwordOne: string; }) => Promise<void>;
   signInWithEmailPassword: (data: { emailOrUsername: string; passwordOne: string; }) => Promise<void>;
@@ -70,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
@@ -89,15 +105,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             followersCount: firestoreUserData.followersCount || 0,
             followingCount: firestoreUserData.followingIds?.length || 0,
             followingIds: firestoreUserData.followingIds || [],
-            // writtenStories and readingList would typically be subcollections or fetched separately
-            // For this example, we'll keep them as mock from placeholder or assume they are part of user doc
             writtenStories: firestoreUserData.writtenStories || placeholderUsers.find(pu => pu.id === firebaseUser.uid)?.writtenStories || [],
             readingList: firestoreUserData.readingList || placeholderUsers.find(pu => pu.id === firebaseUser.uid)?.readingList || [],
-            createdAt: firestoreUserData.createdAt, // Keep Firestore timestamp
-            updatedAt: firestoreUserData.updatedAt, // Keep Firestore timestamp
+            createdAt: firestoreUserData.createdAt,
+            updatedAt: firestoreUserData.updatedAt,
           });
         } else {
-          // New user, create Firestore document
           const username = firebaseUser.displayName?.split(' ')[0] || firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.substring(0,5)}`;
           const newUserProfile: AppUser = {
             id: firebaseUser.uid,
@@ -118,25 +131,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await setDoc(userRef, newUserProfile);
           setUser(newUserProfile);
         }
-        // Mock notifications - filter some relevant notifications for the current user
-        setNotifications(
-          placeholderNotifications.filter(n => {
-            const isRecipient = n.link?.includes(`/profile/${firebaseUser.uid}`) || 
-                                (n.type === 'comment_reply' && n.message.includes(user?.displayName || user?.username || '')); 
-            const isGlobal = n.type === 'announcement';
-            const isStoryUpdateRelevant = (n.type === 'new_chapter' || n.type === 'story_update') && (n.actor?.id === firebaseUser.uid || !n.message.startsWith(user?.displayName || user?.username || ''));
-            return isRecipient || isGlobal || isStoryUpdateRelevant;
-          }).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0,10)
-        );
-
       } else {
         setUser(null);
         setNotifications([]);
       }
       setLoading(false);
     });
-    return () => unsubscribe();
-  }, [user?.displayName, user?.username]); // Added dependencies
+    return () => unsubscribeAuth();
+  }, []);
+
+
+  useEffect(() => {
+    if (user?.id) {
+      const notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('userId', '==', user.id),
+        orderBy('timestamp', 'desc'),
+        limit(20) // Limit to recent notifications
+      );
+      const unsubscribeNotifications = onSnapshot(notificationsQuery, (querySnapshot) => {
+        const fetchedNotifications = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          timestamp: (doc.data().timestamp as any)?.toDate ? (doc.data().timestamp as any).toDate().toISOString() : new Date().toISOString()
+        } as NotificationType));
+        setNotifications(fetchedNotifications);
+      }, (error) => {
+        console.error("Error fetching notifications: ", error);
+        toast({ title: "Error", description: "Could not load notifications.", variant: "destructive"});
+      });
+      return () => unsubscribeNotifications();
+    } else {
+      setNotifications([]); // Clear notifications if no user
+    }
+  }, [user, toast]);
+
 
   useEffect(() => {
     if (loading) return;
@@ -228,7 +257,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      // onAuthStateChanged will handle Firestore user doc creation/fetch
       toast({ title: "Google Sign-In Successful", description: `Welcome, ${result.user.displayName || result.user.email}! Redirecting...` });
     } catch (error) {
       handleAuthError(error as AuthError, "Google Sign-In");
@@ -243,7 +271,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       if (userCredential.user) {
         await updateFirebaseProfile(userCredential.user, { displayName: username });
-        // Firestore document creation is handled by onAuthStateChanged
       }
       toast({ title: "Sign Up Successful", description: "Your account has been created. Welcome!" });
     } catch (error) {
@@ -315,7 +342,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updatedAt: serverTimestamp() 
       };
 
-      // Update Firebase Auth profile (displayName, photoURL)
       const firebaseProfileUpdates: { displayName?: string | null; photoURL?: string | null } = {};
       if (updates.displayName !== undefined) firebaseProfileUpdates.displayName = updates.displayName;
       if (updates.avatarUrl !== undefined) firebaseProfileUpdates.photoURL = updates.avatarUrl;
@@ -323,17 +349,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await updateFirebaseProfile(auth.currentUser, firebaseProfileUpdates);
       }
       
-      await updateDoc(userRef, dataToUpdate); // Use updateDoc for existing fields
+      await updateDoc(userRef, dataToUpdate);
       
       setUser(prevUser => {
         if (!prevUser) return null;
         const updatedUser = { ...prevUser, ...dataToUpdate };
-        // Convert serverTimestamp to a client-side representation if needed for immediate display
-        // For this example, we assume onAuthStateChanged will eventually reflect the true state from Firestore
         return updatedUser;
       });
 
-      toast({ title: "Profile Updated", description: "Your profile information has been saved to Firestore." });
+      toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     } catch (error)
     {
       handleAuthError(error as AuthError, "Profile Update");
@@ -367,7 +391,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
         await updateFirebaseEmail(firebaseUser, newEmail);
-        // Also update email in Firestore user document
         const userRef = doc(db, 'users', firebaseUser.uid);
         await updateDoc(userRef, { email: newEmail, updatedAt: serverTimestamp() });
         setUser(prev => prev ? ({ ...prev, email: newEmail }) : null);
@@ -447,20 +470,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addNotification = (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
-    if (!user && notificationData.type !== 'announcement') return; 
-    const newNotif: NotificationType = {
+  const addNotification = useCallback(async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
+    if (!notificationData.userId && notificationData.type !== 'announcement') {
+      console.warn("Attempted to add notification without recipient userId or not an announcement:", notificationData);
+      return;
+    }
+    
+    // For announcements, userId might be null or a specific group identifier not yet implemented
+    // For user-specific notifications, ensure userId is set.
+    if (notificationData.type !== 'announcement' && !notificationData.userId) return;
+
+    const newNotifData = {
       ...notificationData,
-      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: serverTimestamp(),
       isRead: false,
     };
-    setNotifications(prev => [newNotif, ...prev].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 15));
+    try {
+      await addDoc(collection(db, 'notifications'), newNotifData);
+    } catch (error) {
+      console.error("Error adding notification to Firestore:", error);
+      toast({ title: "Error", description: "Could not create notification.", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const markNotificationAsRead = async (notificationId: string) => {
+    if (!user) return;
+    try {
+      const notifRef = doc(db, 'notifications', notificationId);
+      await updateDoc(notifRef, { isRead: true });
+      // Local state update will be handled by onSnapshot listener
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      toast({ title: "Error", description: "Could not update notification status.", variant: "destructive" });
+    }
   };
 
-  const markNotificationAsRead = (notificationId: string) => {
-    setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n));
+  const markAllNotificationsAsRead = async () => {
+    if (!user) return;
+    setAuthLoading(true);
+    try {
+        const unreadNotifications = notifications.filter(n => !n.isRead);
+        if (unreadNotifications.length === 0) {
+            toast({ title: "No Unread Notifications", description: "All notifications are already marked as read." });
+            setAuthLoading(false);
+            return;
+        }
+        const batch = writeBatch(db);
+        unreadNotifications.forEach(n => {
+            const notifRef = doc(db, 'notifications', n.id);
+            batch.update(notifRef, { isRead: true });
+        });
+        await batch.commit();
+        toast({ title: "Success", description: "All notifications marked as read." });
+    } catch (error) {
+        console.error("Error marking all notifications as read:", error);
+        toast({ title: "Error", description: "Could not mark all notifications as read.", variant: "destructive" });
+    } finally {
+        setAuthLoading(false);
+    }
   };
+
 
   const followUser = async (targetUserId: string) => {
     if (!user) return;
@@ -469,11 +538,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const targetUserRef = doc(db, "users", targetUserId);
 
     try {
-        // Atomically add targetUserId to currentUser's followingIds and increment followingCount
-        // Atomically add currentUserId to targetUser's followers and increment followersCount
-        // This would ideally be a transaction or batched write in a real app.
-        // For simplicity here, we'll do separate updates.
-
         const newFollowingIds = Array.from(new Set([...(user.followingIds || []), targetUserId]));
         await updateDoc(currentUserRef, {
             followingIds: newFollowingIds,
@@ -484,16 +548,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const targetUserSnap = await getDoc(targetUserRef);
         if (targetUserSnap.exists()) {
             const targetUserData = targetUserSnap.data();
-            const currentFollowers = targetUserData.followers || []; // Assuming followers is an array of UserSummary
-            const alreadyFollows = currentFollowers.some((f: UserSummary) => f.id === user.id);
-            if (!alreadyFollows) {
-                 await updateDoc(targetUserRef, {
-                    followersCount: (targetUserData.followersCount || 0) + 1,
-                    // In a real app, you might store an array of follower UIDs or summaries.
-                    // For this example, just incrementing count.
-                    updatedAt: serverTimestamp()
-                });
-            }
+             await updateDoc(targetUserRef, {
+                followersCount: (targetUserData.followersCount || 0) + 1,
+                updatedAt: serverTimestamp()
+            });
+            
+            // Create notification for the target user
+            const actorSummary: UserSummary = {
+                id: user.id,
+                username: user.username,
+                displayName: user.displayName || user.username,
+                avatarUrl: user.avatarUrl
+            };
+            await addNotification({
+                userId: targetUserId,
+                type: 'new_follower',
+                message: `${user.displayName || user.username} started following you.`,
+                link: `/profile/${user.id}`,
+                actor: actorSummary
+            });
         }
         
         setUser(prev => prev ? { 
@@ -502,16 +575,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             followingCount: newFollowingIds.length 
         } : null);
         
-        const targetUserDetails = placeholderUsers.find(u=>u.id === targetUserId); // Using placeholder for toast name
-        if (targetUserDetails) {
-            addNotification({ 
-                type: 'new_follower',
-                message: `${user.displayName || user.username} started following ${targetUserDetails.displayName || targetUserDetails.username}.`,
-                link: `/profile/${user.id}`, 
-                actor: {id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl}
-            });
-        }
-        toast({title: "Followed", description: `You are now following ${targetUserDetails?.displayName || 'user'}.`});
+        const targetUserDetails = placeholderUsers.find(u=>u.id === targetUserId) || (targetUserSnap.exists() ? targetUserSnap.data() as UserSummary : null);
+        toast({title: "Followed", description: `You are now following ${targetUserDetails?.displayName || targetUserDetails?.username || 'user'}.`});
     } catch (error) {
         console.error("Error following user:", error);
         toast({title: "Error", description: "Could not follow user.", variant: "destructive"});
@@ -537,8 +602,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const targetUserSnap = await getDoc(targetUserRef);
         if (targetUserSnap.exists()) {
              const targetUserData = targetUserSnap.data();
-             // In a real app, you might remove the user from a followers subcollection or array.
-             // For this example, just decrementing count.
              await updateDoc(targetUserRef, {
                 followersCount: Math.max(0, (targetUserData.followersCount || 0) - 1),
                 updatedAt: serverTimestamp()
@@ -551,8 +614,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             followingCount: newFollowingIds.length 
         } : null);
 
-        const targetUserDetails = placeholderUsers.find(u=>u.id === targetUserId); // Placeholder for toast
-        toast({title: "Unfollowed", description: `You have unfollowed ${targetUserDetails?.displayName || 'user'}.`});
+        const targetUserDetails = placeholderUsers.find(u=>u.id === targetUserId) || (targetUserSnap.exists() ? targetUserSnap.data() as UserSummary : null);
+        toast({title: "Unfollowed", description: `You have unfollowed ${targetUserDetails?.displayName || targetUserDetails?.username || 'user'}.`});
     } catch (error) {
         console.error("Error unfollowing user:", error);
         toast({title: "Error", description: "Could not unfollow user.", variant: "destructive"});
@@ -569,6 +632,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         notifications,
         addNotification,
         markNotificationAsRead,
+        markAllNotificationsAsRead,
         signInWithGoogle,
         signUpWithEmailPassword,
         signInWithEmailPassword,

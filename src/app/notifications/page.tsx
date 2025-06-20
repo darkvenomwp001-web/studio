@@ -7,29 +7,57 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, CheckCircle, UserPlus, BookOpenText } from 'lucide-react';
+import { Bell, CheckCircle, UserPlus, BookOpenText, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { NotificationType } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 export default function NotificationsPage() {
-  const { user, notifications, markNotificationAsRead, loading } = useAuth();
+  const { user, notifications, markNotificationAsRead, markAllNotificationsAsRead, loading, authLoading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
-  if (loading) {
-    return <div className="text-center py-10">Loading notifications...</div>;
+
+  if (loading && !user) { // Initial page load check
+    return (
+        <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="ml-4 text-muted-foreground">Loading notifications...</p>
+        </div>
+    );
   }
 
-  if (!user) {
-    // This should ideally be handled by the AuthProvider redirecting,
-    // but as a fallback:
-    router.push('/auth/signin');
-    return <div className="text-center py-10">Please sign in to view notifications.</div>;
+  if (!user && !loading) { // After loading, if still no user
+    router.push('/auth/signin'); // Redirect if not logged in
+    return (
+        <div className="text-center py-10">
+            <p>Redirecting to sign in...</p>
+        </div>
+    );
   }
-
-  const handleNotificationClick = (notification: NotificationType) => {
-    markNotificationAsRead(notification.id);
+  
+  const handleNotificationClick = async (notification: NotificationType) => {
+    if (!notification.isRead) {
+      try {
+        await markNotificationAsRead(notification.id);
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to mark notification as read.", variant: "destructive"});
+      }
+    }
     if (notification.link) {
       router.push(notification.link);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    if (notifications.every(n => n.isRead)) {
+        toast({ title: "All Read", description: "No unread notifications to mark." });
+        return;
+    }
+    try {
+        await markAllNotificationsAsRead();
+    } catch (error) {
+        toast({ title: "Error", description: "Failed to mark all notifications as read.", variant: "destructive"});
     }
   };
 
@@ -42,7 +70,7 @@ export default function NotificationsPage() {
         return <BookOpenText className="h-5 w-5 text-green-500" />;
       case 'comment_reply':
       case 'mention':
-        return <CheckCircle className="h-5 w-5 text-purple-500" />; // Example, can be more specific
+        return <CheckCircle className="h-5 w-5 text-purple-500" />; 
       case 'announcement':
         return <Bell className="h-5 w-5 text-orange-500" />;
       default:
@@ -60,11 +88,22 @@ export default function NotificationsPage() {
       </header>
 
       <Card className="shadow-lg">
-        <CardHeader>
+        <CardHeader className="flex flex-row justify-between items-center">
           <CardTitle>All Notifications</CardTitle>
+          {notifications.length > 0 && (
+            <Button variant="outline" size="sm" onClick={handleMarkAllRead} disabled={authLoading || notifications.every(n => n.isRead)}>
+              {authLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Mark all as read
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
-          {notifications.length > 0 ? (
+          {authLoading && notifications.length === 0 ? ( // Show loader if auth is loading and no notifs yet
+             <div className="text-center py-10 text-muted-foreground flex items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-primary mr-3" />
+                Loading notifications...
+            </div>
+          ) : notifications.length > 0 ? (
             <ul className="space-y-3">
               {notifications.map((notif) => (
                 <li
@@ -91,7 +130,7 @@ export default function NotificationsPage() {
                       {notif.message}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(notif.timestamp), { addSuffix: true })}
+                      {notif.timestamp ? formatDistanceToNow(new Date(notif.timestamp), { addSuffix: true }) : 'A while ago'}
                     </p>
                   </div>
                   {!notif.isRead && (
@@ -107,11 +146,6 @@ export default function NotificationsPage() {
           )}
         </CardContent>
       </Card>
-       <div className="text-center mt-6">
-          <Button variant="outline" onClick={() => notifications.forEach(n => !n.isRead && markNotificationAsRead(n.id))}>
-            Mark all as read
-          </Button>
-        </div>
     </div>
   );
 }
