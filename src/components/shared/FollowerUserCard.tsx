@@ -1,0 +1,29 @@
+
+'use client';
+
+import Link from 'next/link';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import type { User as AppUser } from '@/types';
+
+interface FollowerUserCardProps {
+  user: AppUser;
+}
+
+export default function FollowerUserCard({ user }: FollowerUserCardProps) {
+  return (
+    <div className="w-28 md:w-32 flex-shrink-0 text-center group">
+      <Link href={`/profile/${user.id}`} passHref>
+        <Avatar className="h-20 w-20 md:h-24 md:w-24 mx-auto border-2 border-border group-hover:border-primary transition-colors cursor-pointer">
+          <AvatarImage src={user.avatarUrl || 'https://placehold.co/100x100.png'} alt={user.displayName || user.username} data-ai-hint={user.dataAiHint || "profile person"} />
+          <AvatarFallback>{(user.displayName || user.username).substring(0, 1).toUpperCase()}</AvatarFallback>
+        </Avatar>
+      </Link>
+      <Link href={`/profile/${user.id}`} passHref>
+        <p className="mt-2 text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors cursor-pointer">
+          {user.displayName || user.username}
+        </p>
+      </Link>
+      <p className="text-xs text-muted-foreground">{user.followersCount || 0} Followers</p>
+    </div>
+  );
+}

@@ -1,13 +1,12 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { placeholderStories, placeholderUsers, getUserById } from '@/lib/placeholder-data';
 import { Loader2, MessageSquare, UserPlus, UserX, Edit, Edit3, Users, FileText, ShieldAlert, Settings, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -15,22 +14,42 @@ import type { Story, User as AppUser } from '@/types';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
+import {
+  doc,
+  getDoc,
+  getDocs,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  type Unsubscribe,
+  Timestamp
+} from 'firebase/firestore';
+import FollowerUserCard from '@/components/shared/FollowerUserCard'; // New component for followers
 
 interface ProfileStoryCardProps {
-  story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status'>;
+  story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>;
   isDraft?: boolean; 
 }
 
 function ProfileStoryCard({ story, isDraft = false }: ProfileStoryCardProps) {
+  const editLink = story.status === 'Draft' || story.visibility === 'Private' || story.visibility === 'Unlisted' 
+    ? `/write/edit-details?storyId=${story.id}` 
+    : `/stories/${story.id}`;
+  const viewLink = `/stories/${story.id}`;
+
   return (
     <div className="w-36 md:w-40 flex-shrink-0 group text-center">
-       <Link href={isDraft ? `/write/edit-details?storyId=${story.id}` : `/stories/${story.id}`} passHref>
+       <Link href={isDraft ? editLink : viewLink} passHref>
         <div className={cn(
             "aspect-[2/3] relative rounded-md overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200 bg-muted cursor-pointer mb-2",
              isDraft && "opacity-70 group-hover:opacity-100" 
         )}>
           <Image
-            src={story.coverImageUrl || `https://placehold.co/512x800.png`}
+            src={story.coverImageUrl || 'https://placehold.co/512x800.png'}
             alt={story.title}
             layout="fill"
             objectFit="cover"
@@ -42,7 +61,7 @@ function ProfileStoryCard({ story, isDraft = false }: ProfileStoryCardProps) {
           )}
         </div>
       </Link>
-      <Link href={isDraft ? `/write/edit-details?storyId=${story.id}` : `/stories/${story.id}`} passHref>
+      <Link href={isDraft ? editLink : viewLink} passHref>
           <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors cursor-pointer">
             {story.title}
           </p>
@@ -60,7 +79,7 @@ function FollowingUserCard({ user }: FollowingUserCardProps) {
     <div className="w-28 md:w-32 flex-shrink-0 text-center group">
       <Link href={`/profile/${user.id}`} passHref>
         <Avatar className="h-20 w-20 md:h-24 md:w-24 mx-auto border-2 border-border group-hover:border-primary transition-colors cursor-pointer">
-          <AvatarImage src={user.avatarUrl || `https://placehold.co/100x100.png`} alt={user.displayName || user.username} data-ai-hint={user.dataAiHint || "profile person"} />
+          <AvatarImage src={user.avatarUrl || 'https://placehold.co/100x100.png'} alt={user.displayName || user.username} data-ai-hint={user.dataAiHint || "profile person"} />
           <AvatarFallback>{(user.displayName || user.username).substring(0, 1).toUpperCase()}</AvatarFallback>
         </Avatar>
       </Link>
@@ -82,70 +101,146 @@ export default function UserProfilePage() {
   const { toast } = useToast();
 
   const [profileUser, setProfileUser] = useState<AppUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
   const [draftWorks, setDraftWorks] = useState<Story[]>([]); 
   const [followingDetails, setFollowingDetails] = useState<AppUser[]>([]);
+  const [followersDetails, setFollowersDetails] = useState<AppUser[]>([]);
 
   const isOwnProfile = currentUser?.id === userId;
 
+  // Fetch profile user data in real-time
   useEffect(() => {
-    setIsLoading(true);
-    const foundUser = getUserById(userId);
+    if (!userId) {
+      setIsLoadingData(false);
+      toast({ title: "Error", description: "User ID is missing.", variant: "destructive" });
+      router.push('/');
+      return;
+    }
 
-    if (foundUser) {
-      setProfileUser(foundUser);
-
-      const userWrittenStories = placeholderStories.filter(story => story.author.id === foundUser.id);
-      
-      setPublishedWorks(userWrittenStories.filter(s => s.status === 'Ongoing' || s.status === 'Completed' || s.visibility === 'Public' || (s.visibility === 'Unlisted' && isOwnProfile)));
-
-
-      if (isOwnProfile) {
-        setDraftWorks(userWrittenStories.filter(s => s.status === 'Draft' || s.visibility === 'Private' || s.visibility === 'Unlisted'));
+    setIsLoadingData(true);
+    const userDocRef = doc(db, 'users', userId);
+    const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setProfileUser({ id: docSnap.id, ...docSnap.data() } as AppUser);
       } else {
-        setDraftWorks([]); 
+        setProfileUser(null);
+        toast({ title: "Profile Not Found", description: "The user profile you are looking for does not exist.", variant: "destructive" });
       }
-
-      const followedUsers = (foundUser.followingIds || [])
-        .map(id => getUserById(id))
-        .filter((u): u is AppUser => !!u);
-      setFollowingDetails(followedUsers);
-
-    } else {
+      // setIsLoadingData(false) will be handled after stories and other data are fetched or attempted.
+    }, (error) => {
+      console.error("Error fetching profile user:", error);
+      toast({ title: "Error", description: "Could not load profile.", variant: "destructive" });
       setProfileUser(null);
-      setPublishedWorks([]);
-      setDraftWorks([]);
-      setFollowingDetails([]);
-    }
-    setIsLoading(false);
-  }, [userId, currentUser, isOwnProfile]); 
+      setIsLoadingData(false);
+    });
 
+    return () => unsubscribeUser();
+  }, [userId, router, toast]);
+
+  // Fetch stories, following, and followers when profileUser is loaded/updated
   useEffect(() => {
-    if (profileUser) {
-      const potentiallyUpdatedUser = getUserById(profileUser.id);
-      if (potentiallyUpdatedUser &&
-          (potentiallyUpdatedUser.followersCount !== profileUser.followersCount ||
-           potentiallyUpdatedUser.followingCount !== profileUser.followingCount)) {
-        setProfileUser(prev => prev ? { ...prev,
-            followersCount: potentiallyUpdatedUser.followersCount,
-            followingCount: potentiallyUpdatedUser.followingCount,
-            followingIds: potentiallyUpdatedUser.followingIds
-        } : null);
-
-        if (JSON.stringify(potentiallyUpdatedUser.followingIds) !== JSON.stringify(profileUser.followingIds)) {
-            const followedUsers = (potentiallyUpdatedUser.followingIds || [])
-                .map(id => getUserById(id))
-                .filter((u): u is AppUser => !!u);
-            setFollowingDetails(followedUsers);
-        }
-      }
+    if (!profileUser) {
+        setPublishedWorks([]);
+        setDraftWorks([]);
+        setFollowingDetails([]);
+        setFollowersDetails([]);
+        if(userId) setIsLoadingData(false); // Only set loading to false if userId was present
+        return;
     }
-  }, [placeholderUsers, profileUser]);
+
+    setIsLoadingData(true);
+    let unsubStories: Unsubscribe | undefined;
+    let unsubFollowing: Unsubscribe | undefined; // Placeholder, not used as following details are one-time fetch for now
+    let unsubFollowers: Unsubscribe | undefined;
+
+    // Fetch Stories
+    const storiesQuery = query(
+        collection(db, 'stories'),
+        where('author.id', '==', profileUser.id),
+        orderBy('lastUpdated', 'desc')
+    );
+    unsubStories = onSnapshot(storiesQuery, (snapshot) => {
+        const userWrittenStories = snapshot.docs.map(storyDoc => ({ id: storyDoc.id, ...storyDoc.data() } as Story));
+        const visiblePublished = userWrittenStories.filter(s => s.visibility === 'Public' && s.status !== 'Draft');
+        const visibleUnlistedOrOwn = userWrittenStories.filter(s => (s.visibility === 'Unlisted' || s.visibility === 'Private') && isOwnProfile);
+        
+        setPublishedWorks([...visiblePublished, ...visibleUnlistedOrOwn.filter(s => s.status !== 'Draft')]);
+
+        if (isOwnProfile) {
+            setDraftWorks(userWrittenStories.filter(s => s.status === 'Draft' || (s.visibility === 'Private' && s.status !== 'Published')));
+        } else {
+            setDraftWorks([]);
+        }
+    }, (error) => {
+        console.error("Error fetching stories:", error);
+        toast({ title: "Error", description: "Could not load stories.", variant: "destructive" });
+    });
+
+    // Fetch Following Details (one-time fetch for simplicity, can be converted to real-time if needed)
+    const fetchFollowingDetails = async () => {
+        if (profileUser.followingIds && profileUser.followingIds.length > 0) {
+            const limitedFollowingIds = profileUser.followingIds.slice(0, 20); // Limit for display
+            const followingPromises = limitedFollowingIds.map(id => getDoc(doc(db, 'users', id)));
+            try {
+                const followingDocsArray = await Promise.all(followingPromises);
+                const followedUsers = followingDocsArray
+                    .filter(docSnap => docSnap.exists())
+                    .map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as AppUser));
+                setFollowingDetails(followedUsers);
+            } catch (error) {
+                console.error("Error fetching following details:", error);
+                toast({ title: "Error", description: "Could not load following list.", variant: "destructive" });
+            }
+        } else {
+            setFollowingDetails([]);
+        }
+    };
+    fetchFollowingDetails();
+
+    // Fetch Followers Details (real-time)
+    const followersQuery = query(
+        collection(db, 'users'),
+        where('followingIds', 'array-contains', profileUser.id),
+        limit(20) // Limit for display
+    );
+    unsubFollowers = onSnapshot(followersQuery, (snapshot) => {
+        const fetchedFollowers = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as AppUser));
+        setFollowersDetails(fetchedFollowers);
+        setIsLoadingData(false); // Set loading to false after all primary data fetches attempted
+    }, (error) => {
+        console.error("Error fetching followers:", error);
+        toast({ title: "Error", description: "Could not load followers list.", variant: "destructive" });
+        setIsLoadingData(false);
+    });
+    
+
+    return () => {
+        if (unsubStories) unsubStories();
+        // if (unsubFollowing) unsubFollowing(); // No unsub for getDocs
+        if (unsubFollowers) unsubFollowers();
+    };
+  }, [profileUser, isOwnProfile, toast]);
 
 
-  if (isLoading || authLoading) {
+  const handleFollowToggle = async () => {
+    if (!currentUser) {
+      router.push('/auth/signin');
+      return;
+    }
+    if (!profileUser) return;
+
+    if (currentUser.followingIds?.includes(profileUser.id)) {
+      await unfollowUser(profileUser.id);
+    } else {
+      await followUser(profileUser.id);
+    }
+    // Real-time updates from onSnapshot for profileUser should handle follower count changes.
+    // currentUser updates are handled by useAuth hook.
+  };
+
+  if (authLoading || isLoadingData) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -165,25 +260,6 @@ export default function UserProfilePage() {
   }
 
   const isFollowing = currentUser?.followingIds?.includes(profileUser.id) || false;
-  const isAuthor = profileUser.role === 'writer';
-
-
-  const handleFollowToggle = async () => {
-    if (!currentUser) {
-      router.push('/auth/signin');
-      return;
-    }
-    if (isFollowing) {
-      await unfollowUser(profileUser.id);
-    } else {
-      await followUser(profileUser.id);
-    }
-    const updatedPUser = getUserById(profileUser.id);
-    if(updatedPUser) {
-        setProfileUser(prev => prev ? {...prev, followersCount: updatedPUser.followersCount} : null);
-    }
-  };
-
   const displayName = profileUser.displayName || profileUser.username;
   const totalVisibleWorksCount = publishedWorks.length + (isOwnProfile ? draftWorks.length : 0);
 
@@ -195,7 +271,7 @@ export default function UserProfilePage() {
         </div>
         <div className="flex flex-col md:flex-row items-center md:items-end gap-6 pt-16 md:pt-24">
           <Avatar className="h-32 w-32 md:h-40 md:w-40 border-4 border-background shadow-xl">
-            <AvatarImage src={profileUser.avatarUrl || `https://placehold.co/160x160.png`} alt={displayName} data-ai-hint="profile person" />
+            <AvatarImage src={profileUser.avatarUrl || 'https://placehold.co/160x160.png'} alt={displayName} data-ai-hint="profile person" />
             <AvatarFallback className="text-4xl">{displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-1 text-center md:text-left">
@@ -204,13 +280,6 @@ export default function UserProfilePage() {
             {profileUser.bio && <p className="text-muted-foreground mt-1 max-w-xl">{profileUser.bio}</p>}
             <div className="mt-3 flex flex-wrap gap-2 justify-center md:justify-start">
               {profileUser.role && <Badge variant={profileUser.role === 'writer' ? 'default' : 'secondary'} className="capitalize">{profileUser.role}</Badge>}
-              {isOwnProfile && isAuthor && ( 
-                  <Link href={`/write/edit-details?storyId=${publishedWorks[0]?.id || draftWorks[0]?.id || ''}`} passHref>
-                    <Button variant="outline" size="sm" className="ml-auto">
-                      <Edit className="mr-2 h-4 w-4" /> Edit My Story Details
-                    </Button>
-                  </Link>
-              )}
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 mt-4 md:mt-0 self-center md:self-end">
@@ -231,7 +300,9 @@ export default function UserProfilePage() {
                   }
                   {isFollowing ? 'Unfollow' : 'Follow'}
                 </Button>
-                <Button variant="outline" className="w-full sm:w-auto" onClick={() => toast({title: "Coming Soon!", description:"Direct messaging will be available soon."})}><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
+                 <Link href={`/messages?startConversationWith=${profileUser.id}`} passHref>
+                    <Button variant="outline" className="w-full sm:w-auto"><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
+                </Link>
               </>
             ) : (
                 <Button onClick={() => router.push('/auth/signin')} variant="default" className="min-w-[120px] w-full sm:w-auto">
@@ -247,7 +318,6 @@ export default function UserProfilePage() {
         </div>
       </header>
 
-      {/* Published Works Section */}
       {publishedWorks.length > 0 && (
         <section>
           <h2 className="text-2xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
@@ -264,7 +334,6 @@ export default function UserProfilePage() {
         </section>
       )}
 
-      {/* Drafts Section (only for own profile) */}
       {isOwnProfile && draftWorks.length > 0 && (
         <section>
           <h2 className="text-2xl font-headline font-semibold mb-4 text-accent flex items-center gap-2">
@@ -288,11 +357,31 @@ export default function UserProfilePage() {
         </div>
       )}
 
-      {/* Following Section */}
+      {followersDetails.length > 0 && (
+        <section>
+          <h2 className="text-2xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
+            <Users className="h-6 w-6" /> Followers ({profileUser.followersCount || followersDetails.length})
+          </h2>
+          <ScrollArea className="w-full whitespace-nowrap rounded-md pb-4">
+            <div className="flex space-x-4">
+              {followersDetails.map(followerUser => (
+                <FollowerUserCard key={`follower-${followerUser.id}`} user={followerUser} />
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </section>
+      )}
+      {followersDetails.length === 0 && profileUser.followersCount === 0 && (
+         <div className="text-center py-6 text-muted-foreground">
+            {isOwnProfile ? "You don't" : `${displayName} doesn't`} have any followers yet.
+        </div>
+      )}
+      
       {followingDetails.length > 0 && (
         <section>
           <h2 className="text-2xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
-            <Users className="h-6 w-6" /> Following ({followingDetails.length})
+            <Users className="h-6 w-6" /> Following ({profileUser.followingCount || followingDetails.length})
           </h2>
           <ScrollArea className="w-full whitespace-nowrap rounded-md pb-4">
             <div className="flex space-x-4">
@@ -312,6 +401,4 @@ export default function UserProfilePage() {
     </div>
   );
 }
-
-
     
