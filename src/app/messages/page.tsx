@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useRef, FormEvent, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +58,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
 export default function MessagesPage() {
   const { user: currentUser, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
@@ -72,6 +74,7 @@ export default function MessagesPage() {
   const [searchedUsers, setSearchedUsers] = useState<UserSummary[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  const [isQueryHandled, setIsQueryHandled] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -249,7 +252,7 @@ export default function MessagesPage() {
   }, [searchUsername, debouncedSearch]);
 
 
-  const handleStartNewConversation = async (targetUser: UserSummary) => {
+  const handleStartNewConversation = useCallback(async (targetUser: UserSummary) => {
     if (!currentUser) return;
     setIsCreatingConversation(true);
 
@@ -257,7 +260,7 @@ export default function MessagesPage() {
       const sortedParticipantIds = [currentUser.id, targetUser.id].sort();
       const existingConvQuery = query(
         collection(db, 'conversations'),
-        where('participantIds', '==', sortedParticipantIds), // Requires exact match of the sorted array
+        where('participantIds', '==', sortedParticipantIds),
         limit(1) 
       );
       
@@ -285,16 +288,16 @@ export default function MessagesPage() {
             [targetUser.id]: targetUser,
           },
           updatedAt: serverTimestamp(),
-          lastMessage: { // Initial placeholder last message
+          lastMessage: {
             id: '',
             content: 'Conversation started.',
-            senderId: '', // No specific sender for "Conversation started"
+            senderId: '',
             timestamp: serverTimestamp(),
           },
         };
         await setDoc(newConversationRef, newConversationData);
         
-        const newConvSnap = await getDoc(newConversationRef); // Fetch the newly created doc to get its ID and data
+        const newConvSnap = await getDoc(newConversationRef);
         if (newConvSnap.exists()) {
             setActiveConversation({id: newConvSnap.id, ...newConvSnap.data()} as Conversation);
         }
@@ -310,7 +313,41 @@ export default function MessagesPage() {
     } finally {
       setIsCreatingConversation(false);
     }
-  };
+  }, [currentUser, toast]);
+
+
+  useEffect(() => {
+    const startConversationWithId = searchParams.get('startConversationWith');
+    if (startConversationWithId && currentUser && !isLoadingConversations && !isQueryHandled) {
+      setIsQueryHandled(true); // Process only once to avoid loops
+      
+      const existingConversation = conversations.find(c => c.participantIds.includes(startConversationWithId));
+      if (existingConversation) {
+        if (activeConversation?.id !== existingConversation.id) {
+          setActiveConversation(existingConversation);
+        }
+        return;
+      }
+
+      const fetchAndStart = async () => {
+        const userDocRef = doc(db, 'users', startConversationWithId);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap.exists()) {
+          const targetUser: UserSummary = {
+            id: userSnap.id,
+            username: userSnap.data().username,
+            displayName: userSnap.data().displayName,
+            avatarUrl: userSnap.data().avatarUrl,
+          };
+          await handleStartNewConversation(targetUser);
+        } else {
+          toast({ title: "User not found", description: "Could not find the user to start a conversation with.", variant: "destructive" });
+        }
+      };
+      
+      fetchAndStart();
+    }
+  }, [searchParams, currentUser, isLoadingConversations, conversations, handleStartNewConversation, toast, isQueryHandled, activeConversation?.id]);
 
 
   if (authLoading) {

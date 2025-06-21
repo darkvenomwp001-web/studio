@@ -349,7 +349,11 @@ export default function StoryReaderPage() {
         </div>
 
         {currentUser && story && currentChapter && currentUser.id !== story.author.id && (
-          <section className="max-w-3xl mx-auto px-4 sm:px-6 md:px-12 py-8 mt-8 border-t-2 border-dashed border-primary/20">
+          <section className="max-w-3xl mx-auto px-4 sm:px-6 md:px-12 py-8 mt-12">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-headline font-bold text-primary">Enjoyed This Chapter?</h2>
+              <p className="text-lg text-muted-foreground mt-2">Send a personal letter to the author to share your thoughts.</p>
+            </div>
             <SendLetterForm story={story} chapter={currentChapter} />
           </section>
         )}

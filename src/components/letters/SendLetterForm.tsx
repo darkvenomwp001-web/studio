@@ -83,10 +83,10 @@ export default function SendLetterForm({ story, chapter }: SendLetterFormProps) 
   };
 
   return (
-    <Card className="mt-8">
+    <Card>
       <CardHeader>
         <CardTitle>Write a Letter to the Author</CardTitle>
-        <CardDescription>Finished the chapter? Share your thoughts, feelings, or appreciation directly with the author.</CardDescription>
+        <CardDescription>Share your thoughts, feelings, or appreciation directly with the author.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Textarea
