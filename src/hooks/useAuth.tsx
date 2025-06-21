@@ -662,6 +662,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: story.title,
         coverImageUrl: story.coverImageUrl,
         author: story.author,
+        chapters: story.chapters,
+        dataAiHint: story.dataAiHint,
+        status: story.status,
+        lastUpdated: story.lastUpdated,
       };
       await updateDoc(userRef, {
         readingList: arrayUnion(itemToAdd)

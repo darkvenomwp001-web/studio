@@ -46,6 +46,8 @@ export interface ReadingListItem {
   author?: UserSummary;
   chapters?: Chapter[];
   dataAiHint?: string;
+  status?: 'Ongoing' | 'Completed' | 'Draft' | 'Unlisted' | 'Private';
+  lastUpdated: any;
 }
 
 export interface User extends UserSummary {
