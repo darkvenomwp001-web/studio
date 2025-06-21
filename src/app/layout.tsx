@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { AuthProvider } from '@/hooks/useAuth'; 
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import { SplashWrapper } from '@/components/layout/SplashWrapper';
+import PasswordSetupDialog from '@/components/auth/PasswordSetupDialog';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
@@ -49,6 +50,7 @@ export default function RootLayout({
               <BottomNavigationBar />
             </div>
             <Toaster />
+            <PasswordSetupDialog />
           </AuthProvider>
         </SplashWrapper>
       </body>

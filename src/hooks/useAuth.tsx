@@ -18,6 +18,7 @@ import {
   sendPasswordResetEmail,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  getAdditionalUserInfo,
   type User as FirebaseUser,
   type AuthError
 } from 'firebase/auth';
@@ -54,6 +55,7 @@ interface AuthContextType {
   loading: boolean;
   authLoading: boolean;
   notifications: NotificationType[];
+  requiresPasswordSetup: boolean;
   addNotification: (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
@@ -67,6 +69,8 @@ interface AuthContextType {
   sendPasswordResetFirebase: (email: string) => Promise<boolean>;
   followUser: (targetUserId: string) => Promise<void>;
   unfollowUser: (targetUserId: string) => Promise<void>;
+  setRequiresPasswordSetup: (requires: boolean) => void;
+  setNewUserPassword: (password: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
+  const [requiresPasswordSetup, setRequiresPasswordSetup] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -135,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             };
-            await setDoc(userRef, newUserProfile);
+            await setDoc(userRef, newUserProfile, { merge: true });
             setUser(newUserProfile); // The snapshot listener will also fire and set this, but we set it here for immediate feedback
           }
           setLoading(false);
@@ -277,7 +282,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      toast({ title: "Google Sign-In Successful", description: `Welcome, ${result.user.displayName || result.user.email}! Redirecting...` });
+      const additionalInfo = getAdditionalUserInfo(result);
+      
+      if (additionalInfo?.isNewUser) {
+        setRequiresPasswordSetup(true);
+        toast({ title: "Account Created!", description: "Welcome! Please set a password for your new account to complete the setup." });
+      } else {
+        toast({ title: "Google Sign-In Successful", description: `Welcome back, ${result.user.displayName || result.user.email}!` });
+      }
     } catch (error) {
       handleAuthError(error as AuthError, "Google Sign-In");
     } finally {
@@ -463,6 +475,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setNewUserPassword = async (newPasswordVal: string): Promise<boolean> => {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      toast({ title: "Error", description: "No user is logged in to update.", variant: "destructive" });
+      return false;
+    }
+    setAuthLoading(true);
+    try {
+      await updateFirebasePassword(firebaseUser, newPasswordVal);
+      toast({ title: "Password Set!", description: "Your password has been successfully set. You can now sign in with your email & password." });
+      setRequiresPasswordSetup(false);
+      return true;
+    } catch (error) {
+      handleAuthError(error as AuthError, "Set New Password");
+      return false;
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const sendPasswordResetFirebase = async (email: string): Promise<boolean> => {
     setAuthLoading(true);
     try {
@@ -619,6 +651,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         authLoading,
         notifications,
+        requiresPasswordSetup,
         addNotification,
         markNotificationAsRead,
         markAllNotificationsAsRead,
@@ -632,6 +665,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sendPasswordResetFirebase,
         followUser,
         unfollowUser,
+        setRequiresPasswordSetup,
+        setNewUserPassword
     }}>
       {children}
     </AuthContext.Provider>
