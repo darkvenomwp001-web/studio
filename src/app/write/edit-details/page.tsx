@@ -499,7 +499,7 @@ export default function EditStoryDetailsPage() {
         </div>
       </header>
 
-      <form onSubmit={(e) => e.preventDefault()} className="grid md:grid-cols-3 gap-8 items-start">
+      <form onSubmit={(e) => e.preventDefault()} className="grid md:grid-cols-3 gap-6 items-start">
         <div className="md:col-span-1 space-y-6">
           <Card>
             <CardHeader>
@@ -507,7 +507,7 @@ export default function EditStoryDetailsPage() {
             </CardHeader>
             <CardContent className="flex flex-col items-center">
               <div
-                className="aspect-[2/3] w-full max-w-[250px] bg-muted rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity mb-2 shadow-md relative group"
+                className="aspect-[2/3] w-full max-w-[240px] bg-muted rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity mb-2 shadow-md relative group"
                 onClick={() => !isSaving && fileInputRef.current?.click()}
                 title="Click to change cover"
               >
