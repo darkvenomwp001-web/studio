@@ -10,8 +10,8 @@ export default function ChapterEchoesPage() {
     const router = useRouter();
     const params = useParams();
 
-    const storyId = params.storyId as string;
-    const chapterId = params.chapterId as string;
+    const storyId = Array.isArray(params.storyId) ? params.storyId[0] : params.storyId;
+    const chapterId = Array.isArray(params.chapterId) ? params.chapterId[0] : params.chapterId;
 
     return (
         <div className="container mx-auto max-w-4xl py-8 space-y-8">

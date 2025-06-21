@@ -54,8 +54,8 @@ export default function StoryReaderPage() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   
-  const storyId = params.storyId as string;
-  const chapterIdParams = params.chapterId as string;
+  const storyId = Array.isArray(params.storyId) ? params.storyId[0] : params.storyId;
+  const chapterIdParams = Array.isArray(params.chapterId) ? params.chapterId[0] : params.chapterId;
 
   const [story, setStory] = useState<Story | null>(null);
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);

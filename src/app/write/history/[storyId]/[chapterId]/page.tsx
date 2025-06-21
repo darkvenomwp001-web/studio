@@ -31,8 +31,8 @@ export default function VersionHistoryPage() {
   const params = useParams();
   const router = useRouter();
   
-  const storyId = params.storyId as string;
-  const chapterId = params.chapterId as string;
+  const storyId = Array.isArray(params.storyId) ? params.storyId[0] : params.storyId;
+  const chapterId = Array.isArray(params.chapterId) ? params.chapterId[0] : params.chapterId;
 
   const [versions, setVersions] = useState<Version[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<Version | null>(null);

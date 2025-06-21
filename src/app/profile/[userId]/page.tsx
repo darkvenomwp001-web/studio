@@ -72,7 +72,7 @@ export default function UserProfilePage() {
   const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading, signOutFirebase } = useAuth();
   const params = useParams();
   const router = useRouter();
-  const userId = params.userId as string;
+  const userId = Array.isArray(params.userId) ? params.userId[0] : params.userId;
   const { toast } = useToast();
 
   const [profileUser, setProfileUser] = useState<AppUser | null>(null);
@@ -87,7 +87,6 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     if (!userId) {
-      setIsLoadingData(false);
       toast({ title: "Error", description: "User ID is missing.", variant: "destructive" });
       router.push('/');
       return;
@@ -107,8 +106,8 @@ export default function UserProfilePage() {
         setProfileUser({ id: docSnap.id, ...docSnap.data() } as AppUser);
       } else {
         setProfileUser(null);
-        setIsLoadingData(false); // If user doesn't exist, we're done loading.
       }
+      setIsLoadingData(false);
     }, (error) => {
       console.error("Error fetching profile user:", error);
       toast({ title: "Error", description: "Could not load profile.", variant: "destructive" });
@@ -121,8 +120,6 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     if (!profileUser) {
-        // If profileUser is null, we do nothing and wait.
-        // The first useEffect handles setting isLoadingData to false if the user truly doesn't exist.
         setPublishedWorks([]);
         setPrivateWorks([]);
         setFollowingDetails([]);
@@ -130,20 +127,17 @@ export default function UserProfilePage() {
         return;
     }
 
-    setIsLoadingData(true);
     let unsubStories: Unsubscribe | undefined;
     let unsubFollowers: Unsubscribe | undefined;
     
     let storiesQuery;
     if (isOwnProfile) {
-        // If it's my own profile, I can fetch all my stories regardless of visibility.
         storiesQuery = query(
             collection(db, 'stories'),
             where('author.id', '==', profileUser.id),
             orderBy('lastUpdated', 'desc')
         );
     } else {
-        // If I'm viewing someone else's profile, I can only fetch their public stories.
         storiesQuery = query(
             collection(db, 'stories'),
             where('author.id', '==', profileUser.id),
@@ -159,11 +153,9 @@ export default function UserProfilePage() {
         setPublishedWorks(published);
         
         if (isOwnProfile) {
-            // For own profile, separate drafts from published works
             const privateAndDrafts = userWrittenStories.filter(s => s.status === 'Draft' || s.visibility !== 'Public');
             setPrivateWorks(privateAndDrafts);
         } else {
-            // For others' profiles, all fetched stories are public and not drafts due to the query.
             setPrivateWorks([]);
         }
     }, (error) => {
@@ -199,11 +191,9 @@ export default function UserProfilePage() {
     unsubFollowers = onSnapshot(followersQuery, (snapshot) => {
         const fetchedFollowers = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as AppUser));
         setFollowersDetails(fetchedFollowers);
-        setIsLoadingData(false);
     }, (error) => {
         console.error("Error fetching followers:", error);
         toast({ title: "Error", description: "Could not load followers list.", variant: "destructive" });
-        setIsLoadingData(false);
     });
     
 

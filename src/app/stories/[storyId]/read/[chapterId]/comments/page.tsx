@@ -16,8 +16,8 @@ export default function CommentsPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    const storyId = params.storyId as string;
-    const chapterId = params.chapterId as string;
+    const storyId = Array.isArray(params.storyId) ? params.storyId[0] : params.storyId;
+    const chapterId = Array.isArray(params.chapterId) ? params.chapterId[0] : params.chapterId;
 
     const [story, setStory] = useState<Story | null>(null);
     const [chapter, setChapter] = useState<Chapter | null>(null);

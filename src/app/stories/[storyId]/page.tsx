@@ -38,7 +38,7 @@ export default function StoryOverviewPage() {
   const router = useRouter();
   const { user, addToLibrary, removeFromLibrary, authLoading } = useAuth();
   const { toast } = useToast();
-  const storyId = params.storyId as string;
+  const storyId = Array.isArray(params.storyId) ? params.storyId[0] : params.storyId;
 
   const [story, setStory] = useState<Story | null>(null);
   const [authorInfo, setAuthorInfo] = useState<UserSummary | null>(null);
