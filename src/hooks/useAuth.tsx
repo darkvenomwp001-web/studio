@@ -35,7 +35,8 @@ import {
   onSnapshot,
   addDoc,
   writeBatch,
-  getDocs
+  getDocs,
+  increment
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -534,25 +535,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const followUser = async (targetUserId: string) => {
     if (!user) return;
     setAuthLoading(true);
+    
     const currentUserRef = doc(db, "users", user.id);
     const targetUserRef = doc(db, "users", targetUserId);
+    const batch = writeBatch(db);
 
     try {
         const newFollowingIds = Array.from(new Set([...(user.followingIds || []), targetUserId]));
-        await updateDoc(currentUserRef, {
+        
+        batch.update(currentUserRef, {
             followingIds: newFollowingIds,
             followingCount: newFollowingIds.length,
             updatedAt: serverTimestamp()
         });
 
+        batch.update(targetUserRef, {
+            followersCount: increment(1),
+            updatedAt: serverTimestamp()
+        });
+
+        await batch.commit();
+        
         const targetUserSnap = await getDoc(targetUserRef);
-        if (targetUserSnap.exists()) {
+        if(targetUserSnap.exists()){
             const targetUserData = targetUserSnap.data();
-             await updateDoc(targetUserRef, {
-                followersCount: (targetUserData.followersCount || 0) + 1,
-                updatedAt: serverTimestamp()
-            });
-            
+            toast({title: "Followed", description: `You are now following ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
             const actorSummary: UserSummary = {
                 id: user.id,
                 username: user.username,
@@ -566,7 +573,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 link: `/profile/${user.id}`,
                 actor: actorSummary
             });
-             toast({title: "Followed", description: `You are now following ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
         }
     } catch (error) {
         console.error("Error following user:", error);
@@ -581,22 +587,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     const currentUserRef = doc(db, "users", user.id);
     const targetUserRef = doc(db, "users", targetUserId);
+    const batch = writeBatch(db);
 
     try {
         const newFollowingIds = (user.followingIds || []).filter(id => id !== targetUserId);
-        await updateDoc(currentUserRef, {
+        
+        batch.update(currentUserRef, {
             followingIds: newFollowingIds,
             followingCount: newFollowingIds.length,
             updatedAt: serverTimestamp()
         });
+
+        batch.update(targetUserRef, {
+            followersCount: increment(-1),
+            updatedAt: serverTimestamp()
+        });
         
+        await batch.commit();
+
         const targetUserSnap = await getDoc(targetUserRef);
-        if (targetUserSnap.exists()) {
-             const targetUserData = targetUserSnap.data();
-             await updateDoc(targetUserRef, {
-                followersCount: Math.max(0, (targetUserData.followersCount || 0) - 1),
-                updatedAt: serverTimestamp()
-            });
+        if(targetUserSnap.exists()){
+            const targetUserData = targetUserSnap.data();
             toast({title: "Unfollowed", description: `You have unfollowed ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
         }
     } catch (error) {
