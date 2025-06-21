@@ -31,21 +31,19 @@ import FollowerUserCard from '@/components/shared/FollowerUserCard';
 
 interface ProfileStoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>;
-  isDraft?: boolean; 
+  isPrivate?: boolean; 
 }
 
-function ProfileStoryCard({ story, isDraft = false }: ProfileStoryCardProps) {
-  const editLink = story.status === 'Draft' || story.visibility === 'Private' || story.visibility === 'Unlisted' 
-    ? `/write/edit-details?storyId=${story.id}` 
-    : `/stories/${story.id}`;
+function ProfileStoryCard({ story, isPrivate = false }: ProfileStoryCardProps) {
+  const editLink = `/write/edit-details?storyId=${story.id}`;
   const viewLink = `/stories/${story.id}`;
 
   return (
     <div className="w-36 md:w-40 flex-shrink-0 group text-center">
-       <Link href={isDraft ? editLink : viewLink} passHref>
+       <Link href={isPrivate ? editLink : viewLink} passHref>
         <div className={cn(
             "aspect-[2/3] relative rounded-md overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200 bg-muted cursor-pointer mb-2",
-             isDraft && "opacity-70 group-hover:opacity-100" 
+             isPrivate && "opacity-70 group-hover:opacity-100" 
         )}>
           <Image
             src={story.coverImageUrl || 'https://placehold.co/512x800.png'}
@@ -55,12 +53,12 @@ function ProfileStoryCard({ story, isDraft = false }: ProfileStoryCardProps) {
             className="group-hover:scale-105 transition-transform duration-300 ease-in-out"
             data-ai-hint={story.dataAiHint || "book cover"}
           />
-           {isDraft && ( 
-            <Badge variant="outline" className="absolute top-2 right-2 text-xs bg-background/80">Draft</Badge>
+           {isPrivate && ( 
+            <Badge variant="outline" className="absolute top-2 right-2 text-xs bg-background/80 capitalize">{story.status === 'Draft' ? 'Draft' : story.visibility}</Badge>
           )}
         </div>
       </Link>
-      <Link href={isDraft ? editLink : viewLink} passHref>
+      <Link href={isPrivate ? editLink : viewLink} passHref>
           <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors cursor-pointer">
             {story.title}
           </p>
@@ -103,7 +101,7 @@ export default function UserProfilePage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
-  const [draftWorks, setDraftWorks] = useState<Story[]>([]); 
+  const [privateWorks, setPrivateWorks] = useState<Story[]>([]); 
   const [followingDetails, setFollowingDetails] = useState<AppUser[]>([]);
   const [followersDetails, setFollowersDetails] = useState<AppUser[]>([]);
 
@@ -139,7 +137,7 @@ export default function UserProfilePage() {
   useEffect(() => {
     if (!profileUser) {
         setPublishedWorks([]);
-        setDraftWorks([]);
+        setPrivateWorks([]);
         setFollowingDetails([]);
         setFollowersDetails([]);
         if(userId) setIsLoadingData(false);
@@ -171,16 +169,16 @@ export default function UserProfilePage() {
     unsubStories = onSnapshot(storiesQuery, (snapshot) => {
         const userWrittenStories = snapshot.docs.map(storyDoc => ({ id: storyDoc.id, ...storyDoc.data() } as Story));
         
+        const published = userWrittenStories.filter(s => s.visibility === 'Public' && s.status !== 'Draft');
+        setPublishedWorks(published);
+        
         if (isOwnProfile) {
             // For own profile, separate drafts from published works
-            const drafts = userWrittenStories.filter(s => s.status === 'Draft');
-            const published = userWrittenStories.filter(s => s.status !== 'Draft');
-            setPublishedWorks(published);
-            setDraftWorks(drafts);
+            const privateAndDrafts = userWrittenStories.filter(s => s.status === 'Draft' || s.visibility !== 'Public');
+            setPrivateWorks(privateAndDrafts);
         } else {
-            // For others' profiles, all fetched stories are public. Show them as published works.
-            setPublishedWorks(userWrittenStories.filter(s => s.status !== 'Draft'));
-            setDraftWorks([]);
+            // For others' profiles, all fetched stories are public and not drafts due to the query.
+            setPrivateWorks([]);
         }
     }, (error) => {
         console.error("Error fetching stories:", error);
@@ -265,7 +263,6 @@ export default function UserProfilePage() {
 
   const isFollowing = currentUser?.followingIds?.includes(profileUser.id) || false;
   const displayName = profileUser.displayName || profileUser.username;
-  const totalVisibleWorksCount = publishedWorks.length + (isOwnProfile ? draftWorks.length : 0);
 
   return (
     <div className="space-y-10 pb-10">
@@ -316,7 +313,7 @@ export default function UserProfilePage() {
           </div>
         </div>
         <div className="mt-6 pt-6 border-t border-border/60 flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-muted-foreground">
-          <span><strong className="text-foreground">{totalVisibleWorksCount}</strong> Works</span>
+          <span><strong className="text-foreground">{publishedWorks.length}</strong> Public Works</span>
           <span><strong className="text-foreground">{profileUser.followersCount || 0}</strong> Followers</span>
           <span><strong className="text-foreground">{profileUser.followingCount || 0}</strong> Following</span>
         </div>
@@ -325,7 +322,7 @@ export default function UserProfilePage() {
       {publishedWorks.length > 0 && (
         <section>
           <h2 className="text-2xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
-            <Edit3 className="h-6 w-6" /> {isOwnProfile ? "My Published Works" : "Published Works"}
+            <Edit3 className="h-6 w-6" /> Published Works
           </h2>
           <ScrollArea className="w-full whitespace-nowrap rounded-md pb-4">
             <div className="flex space-x-4">
@@ -338,15 +335,15 @@ export default function UserProfilePage() {
         </section>
       )}
 
-      {isOwnProfile && draftWorks.length > 0 && (
+      {isOwnProfile && privateWorks.length > 0 && (
         <section>
           <h2 className="text-2xl font-headline font-semibold mb-4 text-accent flex items-center gap-2">
-            <FileText className="h-6 w-6" /> My Drafts
+            <FileText className="h-6 w-6" /> My Private Works & Drafts
           </h2>
           <ScrollArea className="w-full whitespace-nowrap rounded-md pb-4">
             <div className="flex space-x-4">
-              {draftWorks.map(story => (
-                <ProfileStoryCard key={`draft-${story.id}`} story={story} isDraft />
+              {privateWorks.map(story => (
+                <ProfileStoryCard key={`draft-${story.id}`} story={story} isPrivate />
               ))}
             </div>
             <ScrollBar orientation="horizontal" />
@@ -354,9 +351,9 @@ export default function UserProfilePage() {
         </section>
       )}
 
-      {(publishedWorks.length === 0 && (!isOwnProfile || draftWorks.length === 0)) && (
+      {(publishedWorks.length === 0 && (!isOwnProfile || privateWorks.length === 0)) && (
          <div className="text-center py-10 text-muted-foreground">
-            {isOwnProfile ? "You haven't written any stories yet." : `${displayName} hasn't published any stories yet.`}
+            {isOwnProfile ? "You haven't published any stories yet." : `${displayName} hasn't published any stories yet.`}
             {isOwnProfile && <Link href="/write/edit-details" className="text-primary hover:underline ml-1">Start your first story!</Link>}
         </div>
       )}
