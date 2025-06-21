@@ -190,11 +190,11 @@ export default function HomePage() {
 
       {/* Trending Stories Section */}
       <section className="container mx-auto px-4">
-        <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-headline font-bold text-primary">Trending Stories</h2>
-            <Link href="/stories" passHref>
+        <div className="flex flex-col mb-6">
+            <Link href="/stories" passHref className="self-end">
                 <Button variant="outline" className="text-sm">View All Stories <ArrowRight className="ml-2 h-4 w-4" /></Button>
             </Link>
+            <h2 className="text-2xl font-headline font-bold text-primary mt-1">Trending Stories</h2>
         </div>
         <div className="relative">
             <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
@@ -239,9 +239,7 @@ export default function HomePage() {
       {/* Featured Authors Section */}
       {featuredAuthors.length > 0 && (
       <section className="container mx-auto px-4">
-        <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-headline font-bold text-accent">Featured Authors</h2>
-        </div>
+        <h2 className="text-2xl font-headline font-bold text-accent mb-6">Featured Authors</h2>
          <div className="relative">
             <div className="flex overflow-x-auto space-x-6 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent">
             {featuredAuthors.map(author => (
@@ -314,3 +312,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
