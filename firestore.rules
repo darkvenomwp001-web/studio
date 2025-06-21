@@ -13,89 +13,65 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    // Check if the requesting user is in the story's collaborator list.
     function isCollaborator(storyId) {
-      return exists(/databases/$(database)/documents/stories/$(storyId)) &&
-             get(/databases/$(database)/documents/stories/$(storyId)).data.collaborators.hasAny(['id'], [request.auth.uid]);
-    }
-    
-    function isStoryOwner(storyId) {
-        return exists(/databases/$(database)/documents/stories/$(storyId)) &&
-             get(/databases/$(database)/documents/stories/$(storyId)).data.author.id == request.auth.uid;
+      let storyData = get(/databases/$(database)/documents/stories/$(storyId)).data;
+      return isSignedIn() && request.auth.uid in storyData.get('collaborators', []);
     }
 
-    // Users collection
+    // Users Collection:
+    // - Anyone can read public profile info (read).
+    // - Only the authenticated owner can create their own profile document (create).
+    // - Only the authenticated owner can update their profile (update).
     match /users/{userId} {
-      // Anyone can read a user's public profile info
-      allow get: if true;
-      
-      // Only the authenticated owner can create their own user document or update it
+      allow read: if true;
       allow create, update: if isOwner(userId);
-      
-      // Users should not be able to delete their accounts through the client
-      allow delete: if false;
+      allow delete: if false; // Generally, don't allow users to delete their own profiles.
     }
 
-    // Stories collection
+    // Stories Collection:
+    // - Read access is public for 'Public' or 'Unlisted' stories.
+    // - Private stories can only be read by the owner or collaborators.
+    // - Any signed-in user can create a story (it will default to 'Private').
+    // - Updates are restricted to the owner or collaborators.
+    // - Deletion is restricted to the owner.
     match /stories/{storyId} {
-      // Allow read access to public/unlisted stories. 
-      // Private stories can only be read by the owner or a collaborator.
-      allow get: if resource.data.visibility == 'Public' || 
-                    resource.data.visibility == 'Unlisted' ||
-                    (resource.data.visibility == 'Private' && isSignedIn() && (isStoryOwner(storyId) || isCollaborator(storyId)));
-
-      // Allow anyone to query/list public stories
-      allow list: if resource.data.visibility == 'Public';
-      
-      // Only authenticated users can create stories
-      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
-      
-      // Only the story owner or a collaborator can update a story
-      allow update: if isSignedIn() && (isStoryOwner(storyId) || isCollaborator(storyId));
-      
-      // Only the story owner can delete a story
-      allow delete: if isSignedIn() && isStoryOwner(storyId);
+      allow read: if resource.data.visibility == 'Public' || 
+                     resource.data.visibility == 'Unlisted' ||
+                     (isSignedIn() && (isOwner(resource.data.author.id) || isCollaborator(storyId)));
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || isCollaborator(storyId));
+      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
     }
-    
-    // Comments collection
+
+    // Comments Collection:
+    // - All comments are public to read.
+    // - Only signed-in users can create comments.
+    // - Only the comment's original author can update or delete it.
     match /comments/{commentId} {
-      // Anyone can read comments
-      allow read, list: if true;
-      
-      // Authenticated users can create comments
-      allow create: if isSignedIn() && isOwner(request.resource.data.user.id);
-      
-      // Only the comment owner can update or delete their own comment
+      allow read: if true;
+      allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
     }
-    
-    // Notifications collection
+
+    // Notifications Collection:
+    // - A user can only read or update (e.g., mark as read) their own notifications.
+    // - Any signed-in user can create a notification (e.g., by following someone).
     match /notifications/{notificationId} {
-        // A user can only read, update (mark as read), or delete their own notifications.
-        allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
-        
-        // Notifications are created server-side (or via trusted client logic), 
-        // linked to a user's action (e.g., following another user).
-        // Here we allow any signed-in user to create a notification,
-        // assuming client logic correctly sets the target `userId`.
-        allow create: if isSignedIn();
+      allow read, update: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn();
+      allow delete: if false; // Users shouldn't delete notifications.
     }
-    
-    // Conversations and Messages
+
+    // Conversations & Messages:
+    // - A user must be a participant to read, create, or update a conversation document.
+    // - A user must be a participant to read or create messages within that conversation.
     match /conversations/{conversationId} {
-      // A user can only access a conversation if they are a participant.
-      allow get, list, update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
-      
-      // A user can only create a conversation if they are one of the participants.
-      allow create: if isSignedIn() && request.auth.uid in request.resource.data.participantIds;
-      
+      allow read, create, update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+
       match /messages/{messageId} {
-        // A user can read messages in a conversation they are part of.
-        allow read, list: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        
-        // A user can create a message if they are a participant and the sender.
-        allow create: if isSignedIn() && 
-                         isOwner(request.resource.data.senderId) && 
-                         request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow update, delete: if false; // Don't allow editing/deleting messages.
       }
     }
   }
