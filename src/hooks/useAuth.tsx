@@ -383,14 +383,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
-      const dataToUpdate: Partial<AppUser> & { updatedAt: any } = { 
-        ...updates, 
-        updatedAt: serverTimestamp() 
-      };
 
+      // Build the update object explicitly to avoid issues with undefined properties
+      const dataToUpdate: { [key: string]: any } = {
+        updatedAt: serverTimestamp()
+      };
+      if (updates.displayName !== undefined) dataToUpdate.displayName = updates.displayName;
+      if (updates.username !== undefined) dataToUpdate.username = updates.username;
+      if (updates.bio !== undefined) dataToUpdate.bio = updates.bio;
+      if (updates.role !== undefined) dataToUpdate.role = updates.role;
+      if (updates.avatarUrl !== undefined && updates.avatarUrl !== user?.avatarUrl) {
+          dataToUpdate.avatarUrl = updates.avatarUrl;
+      }
+      
+      // Also update the core Firebase Auth profile for displayName and photoURL
       const firebaseProfileUpdates: { displayName?: string | null; photoURL?: string | null } = {};
-      if (updates.displayName !== undefined) firebaseProfileUpdates.displayName = updates.displayName;
-      if (updates.avatarUrl !== undefined) firebaseProfileUpdates.photoURL = updates.avatarUrl;
+      if (updates.displayName !== undefined && updates.displayName !== auth.currentUser.displayName) {
+        firebaseProfileUpdates.displayName = updates.displayName;
+      }
+      if (updates.avatarUrl !== undefined && updates.avatarUrl !== auth.currentUser.photoURL) {
+        firebaseProfileUpdates.photoURL = updates.avatarUrl;
+      }
+
       if (Object.keys(firebaseProfileUpdates).length > 0) {
         await updateFirebaseProfile(auth.currentUser, firebaseProfileUpdates);
       }
