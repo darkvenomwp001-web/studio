@@ -14,41 +14,21 @@ import {
   BookOpen,
   Eye,
   ListOrdered,
-  BookmarkPlus,
+  Plus,
   Loader2,
   Info,
   Edit,
   Sparkles,
-  Plus,
   Star,
   MessageSquare,
 } from 'lucide-react';
 import { formatDate } from '@/lib/placeholder-data';
-import type { Story, Chapter } from '@/types';
+import type { Story } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-
-async function getStoryData(storyId: string): Promise<Story | null> {
-  try {
-    const storyDocRef = doc(db, 'stories', storyId);
-    const storySnap = await getDoc(storyDocRef);
-    if (storySnap.exists()) {
-      const data = storySnap.data();
-       return { 
-        id: storySnap.id, 
-        ...data,
-        lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
-      } as Story;
-    }
-    return null;
-  } catch (error) {
-    console.error("Error fetching story data:", error);
-    return null;
-  }
-}
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 
 export default function StoryOverviewPage() {
   const params = useParams();
@@ -60,30 +40,61 @@ export default function StoryOverviewPage() {
   const [story, setStory] = useState<Story | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [commentCount, setCommentCount] = useState(0); // State for real-time comment count
 
   useEffect(() => {
-    if (storyId) {
-      setIsLoading(true);
-      getStoryData(storyId).then(data => {
-        if (data) {
-          const canView = 
-            data.visibility === 'Public' ||
-            data.visibility === 'Unlisted' ||
-            (data.visibility === 'Private' && user && (data.author.id === user.id || data.collaborators?.some(c => c.id === user.id))) ||
-            (data.status === 'Draft' && user && (data.author.id === user.id || data.collaborators?.some(c => c.id === user.id)));
+    if (!storyId) {
+        setIsLoading(false);
+        return;
+    }
 
-          if (canView) {
-            setStory(data);
-          } else {
-            setStory(null);
-          }
+    setIsLoading(true);
+    
+    // Real-time listener for the story document
+    const storyDocRef = doc(db, 'stories', storyId);
+    const unsubscribeStory = onSnapshot(storyDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = { id: docSnap.id, ...docSnap.data() } as Story;
+
+            const canView = 
+                data.visibility === 'Public' ||
+                data.visibility === 'Unlisted' ||
+                (data.visibility === 'Private' && user && (data.author.id === user.id || data.collaborators?.some(c => c.id === user.id))) ||
+                (data.status === 'Draft' && user && (data.author.id === user.id || data.collaborators?.some(c => c.id === user.id)));
+
+            if (canView) {
+                setStory(data);
+            } else {
+                setStory(null);
+                toast({ title: "Access Denied", description: "You don't have permission to view this story.", variant: "destructive" });
+                router.push('/stories');
+            }
         } else {
-          setStory(null);
+            setStory(null);
+            toast({ title: "Story Not Found", description: "The story you're looking for doesn't exist.", variant: "destructive" });
         }
         setIsLoading(false);
-      });
-    }
-  }, [storyId, user]);
+    }, (error) => {
+        console.error("Error fetching story data:", error);
+        toast({ title: "Error", description: "Could not load story details.", variant: "destructive" });
+        setIsLoading(false);
+    });
+
+    // Real-time listener for comment count
+    const commentsQuery = query(collection(db, 'comments'), where('storyId', '==', storyId));
+    const unsubscribeComments = onSnapshot(commentsQuery, (snapshot) => {
+      setCommentCount(snapshot.size);
+    }, (error) => {
+      console.error("Error fetching comment count:", error);
+      // Don't toast here as it could be annoying if it keeps failing
+    });
+
+    // Cleanup function to unsubscribe from listeners when the component unmounts
+    return () => {
+      unsubscribeStory();
+      unsubscribeComments();
+    };
+  }, [storyId, user, router, toast]);
 
   const handleAddToLibrary = () => {
     if (!story) return;
@@ -101,7 +112,7 @@ export default function StoryOverviewPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-background">
+      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -125,11 +136,13 @@ export default function StoryOverviewPage() {
   const totalPublishedChapters = publishedChapters.length;
 
   const isAuthorOrCollaborator = user && (story.author.id === user.id || story.collaborators?.some(c => c.id === user.id));
+  
+  const votes = Math.floor((story.rating || 0) * (story.views || 0) / 5000) || 0;
 
   return (
     <div className="container mx-auto max-w-4xl py-8 px-4 space-y-8">
-      <div className="flex justify-center">
-        <div className="relative aspect-[2/3] w-full max-w-[280px] rounded-lg overflow-hidden shadow-2xl group">
+       <div className="flex flex-col items-center text-center space-y-4">
+        <div className="relative aspect-[2/3] w-full max-w-[240px] rounded-lg overflow-hidden shadow-2xl group">
           <Image
             src={story.coverImageUrl || `https://placehold.co/512x800.png`}
             alt={story.title}
@@ -147,9 +160,7 @@ export default function StoryOverviewPage() {
             <Sparkles className="w-5 h-5" />
           </button>
         </div>
-      </div>
 
-      <div className="text-center space-y-3">
         <h1 className="text-2xl md:text-3xl font-headline font-bold text-foreground">{story.title}</h1>
         <Link
           href={`/profile/${story.author.id}`}
@@ -161,33 +172,33 @@ export default function StoryOverviewPage() {
           </Avatar>
           <span className="font-medium group-hover:underline">{story.author.displayName || story.author.username}</span>
         </Link>
+      
+        <div className="flex justify-center items-center gap-2">
+            {firstChapterId ? (
+            <Link href={`/stories/${story.id}/read/${firstChapterId}`} passHref>
+                <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <BookOpen className="mr-2 h-5 w-5" /> Start Reading
+                </Button>
+            </Link>
+            ) : (
+            <Button size="lg" disabled>
+                <BookOpen className="mr-2 h-5 w-5" /> No Chapters Yet
+            </Button>
+            )}
+            <Button size="icon" variant="outline" onClick={handleAddToLibrary} title="Add to Library">
+            <Plus className="h-5 w-5" />
+            </Button>
+            {isAuthorOrCollaborator && (
+            <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
+                <Button size="icon" variant="outline" title="Edit Story Details">
+                <Edit className="h-5 w-5" />
+                </Button>
+            </Link>
+            )}
+        </div>
       </div>
 
-      <div className="flex justify-center items-center gap-2">
-        {firstChapterId ? (
-          <Link href={`/stories/${story.id}/read/${firstChapterId}`} passHref>
-            <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <BookOpen className="mr-2 h-5 w-5" /> Start Reading
-            </Button>
-          </Link>
-        ) : (
-          <Button size="lg" disabled>
-            <BookOpen className="mr-2 h-5 w-5" /> No Chapters Yet
-          </Button>
-        )}
-        <Button size="icon" variant="outline" onClick={handleAddToLibrary} title="Add to Library">
-          <Plus className="h-5 w-5" />
-        </Button>
-        {isAuthorOrCollaborator && (
-          <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
-            <Button size="icon" variant="outline" title="Edit Story Details">
-              <Edit className="h-5 w-5" />
-            </Button>
-          </Link>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-start justify-center gap-x-6 sm:gap-x-8 gap-y-4 text-center py-4 border-y">
+      <div className="grid grid-cols-4 items-start justify-center gap-x-2 sm:gap-x-4 text-center py-4 border-y">
         <div className="flex flex-col items-center" title="Reads">
           <div className="flex items-center gap-1.5 text-foreground">
             <Eye className="h-5 w-5" />
@@ -195,13 +206,20 @@ export default function StoryOverviewPage() {
           </div>
           <span className="text-xs text-muted-foreground mt-1">Reads</span>
         </div>
-        <div className="flex flex-col items-center" title="Votes (Mock)">
+        <div className="flex flex-col items-center" title="Votes">
           <div className="flex items-center gap-1.5 text-foreground">
             <Star className="h-5 w-5" />
-            <strong className="text-xl font-bold">{Math.floor((story.rating || 0) * (story.views || 0) / 5000) || 0}</strong>
+            <strong className="text-xl font-bold">{votes}</strong>
           </div>
           <span className="text-xs text-muted-foreground mt-1">Votes</span>
         </div>
+         <div className="flex flex-col items-center" title="Comments">
+             <div className="flex items-center gap-1.5 text-foreground">
+                 <MessageSquare className="h-5 w-5" />
+                 <strong className="text-xl font-bold">{commentCount}</strong>
+             </div>
+             <span className="text-xs text-muted-foreground mt-1">Comments</span>
+         </div>
         <div className="flex flex-col items-center" title="Published Chapters">
           <div className="flex items-center gap-1.5 text-foreground">
             <ListOrdered className="h-5 w-5" />
@@ -209,13 +227,6 @@ export default function StoryOverviewPage() {
           </div>
           <span className="text-xs text-muted-foreground mt-1">Parts</span>
         </div>
-         <div className="flex flex-col items-center" title="Comments (mock)">
-             <div className="flex items-center gap-1.5 text-foreground">
-                 <MessageSquare className="h-5 w-5" />
-                 <strong className="text-xl font-bold">{Math.floor(Math.random() * 500)}</strong>
-             </div>
-             <span className="text-xs text-muted-foreground mt-1">Comments</span>
-         </div>
       </div>
       
       <div className="flex justify-center">
