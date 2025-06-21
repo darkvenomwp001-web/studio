@@ -107,7 +107,7 @@ export default function UserProfilePage() {
         setProfileUser({ id: docSnap.id, ...docSnap.data() } as AppUser);
       } else {
         setProfileUser(null);
-        toast({ title: "Profile Not Found", description: "The user profile you are looking for does not exist.", variant: "destructive" });
+        setIsLoadingData(false); // If user doesn't exist, we're done loading.
       }
     }, (error) => {
       console.error("Error fetching profile user:", error);
@@ -121,11 +121,12 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     if (!profileUser) {
+        // If profileUser is null, we do nothing and wait.
+        // The first useEffect handles setting isLoadingData to false if the user truly doesn't exist.
         setPublishedWorks([]);
         setPrivateWorks([]);
         setFollowingDetails([]);
         setFollowersDetails([]);
-        if(userId) setIsLoadingData(false);
         return;
     }
 
