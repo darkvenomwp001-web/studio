@@ -1,64 +1,78 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
-    function isSignedIn() {
+    
+    function isAuthenticated() {
       return request.auth != null;
     }
+    
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    // This function must be called within a context where 'resource.data' is a story document.
-    function isCollaborator() {
-      // 'in' operator checks for membership in a list.
-      return isSignedIn() && 
-             'collaboratorIds' in resource.data && 
-             request.auth.uid in resource.data.collaboratorIds;
-    }
-    
-    // User Profiles
+
+    // Users Collection
+    // Anyone can read public user profiles.
+    // A user can create their own profile.
+    // A user can update their own profile.
+    // Another user can only update the followersCount by +/- 1 (for following/unfollowing).
     match /users/{userId} {
       allow read: if true;
       allow create: if isOwner(userId);
-      // This rule allows a user to update their own profile.
-      // It also allows any signed-in user to increment/decrement another user's followersCount.
-      allow update: if isOwner(userId) || 
-                      (isSignedIn() && 
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount', 'updatedAt']) &&
-                       (request.resource.data.followersCount == resource.data.get('followersCount', 0) + 1 ||
-                        (request.resource.data.followersCount == resource.data.get('followersCount', 0) - 1 && resource.data.get('followersCount', 0) > 0)));
+      allow update: if isAuthenticated() &&
+        (isOwner(userId) ||
+         (request.resource.data.keys().hasOnly(['followersCount', 'updatedAt']) &&
+          (request.resource.data.followersCount == resource.data.followersCount + 1 ||
+           request.resource.data.followersCount == resource.data.followersCount - 1)));
     }
 
-    // Stories
+    // Stories Collection
+    // Public/Unlisted stories are readable by anyone. Private are for author/collaborators.
+    // Create/Update/Delete is restricted to author/collaborators.
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || 
+      allow read: if resource.data.visibility == 'Public' ||
                      resource.data.visibility == 'Unlisted' ||
-                     (isSignedIn() && (isOwner(resource.data.author.id) || isCollaborator()));
-      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
-      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || isCollaborator());
-      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
+                     (isAuthenticated() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds));
+      allow create: if isAuthenticated() && request.resource.data.author.id == request.auth.uid;
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.author.id;
     }
-    
-    // Comments
+
+    // Comments Collection
+    // All comments are public to read.
+    // Only authenticated users can CUD their own comments.
     match /comments/{commentId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
+      allow create: if isAuthenticated() && request.resource.data.user.id == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.user.id == request.auth.uid;
     }
 
-    // Notifications
+    // Notifications Collection
+    // Only the recipient can read/update their notifications.
+    // Any authenticated user can create a notification, but must be the actor.
     match /notifications/{notificationId} {
-      allow read, update: if isSignedIn() && isOwner(resource.data.userId);
-      allow create: if isSignedIn(); // System/other users can create notifications for a user
+      allow read, update: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() && request.resource.data.actor.id == request.auth.uid;
+    }
+    
+    // Letters Collection
+    // Readable by sender or author.
+    // Can only be created by the sender (reader).
+    // Can only be updated by the recipient (author).
+    match /letters/{letterId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.authorId);
+      allow create: if isAuthenticated() && request.resource.data.reader.id == request.auth.uid;
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.authorId;
     }
     
     // Conversations and Messages
+    // Only participants can read or write.
     match /conversations/{conversationId} {
-      allow read, update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
-      allow create: if isSignedIn() && request.auth.uid in request.resource.data.participantIds;
+      allow read, create, update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
       
       match /messages/{messageId} {
-        allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow read, create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
       }
     }
   }
