@@ -98,7 +98,7 @@ export interface Conversation {
 export interface NotificationType {
   id: string;
   userId: string;
-  type: 'new_follower' | 'new_chapter' | 'story_update' | 'announcement' | 'comment_reply' | 'mention';
+  type: 'new_follower' | 'new_chapter' | 'story_update' | 'announcement' | 'comment_reply' | 'mention' | 'new_letter' | 'letter_response';
   message: string;
   link?: string;
   timestamp: string; // ISO String
@@ -113,6 +113,7 @@ export interface Letter {
   chapterId: string;
   chapterTitle: string;
   authorId: string;
+  author: UserSummary;
   reader: UserSummary;
   content: string;
   visibility: 'public' | 'private';

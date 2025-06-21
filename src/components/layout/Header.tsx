@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpenText, Home, MessageCircle, UserCircle, Edit3, Brain, Mailbox } from 'lucide-react';
+import { BookOpenText, Home, Edit3, Brain, Mailbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -79,8 +79,8 @@ export default function Header() {
             </Link>
           ) : (
             <Link href="/auth/signin" passHref>
-              <Button variant="ghost" size="icon" aria-label="Sign In">
-                <UserCircle className="h-6 w-6" />
+              <Button>
+                Sign In
               </Button>
             </Link>
           )}

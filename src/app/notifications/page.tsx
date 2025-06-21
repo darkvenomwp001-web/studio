@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, CheckCircle, UserPlus, BookOpenText, Loader2 } from 'lucide-react';
+import { Bell, CheckCircle, UserPlus, BookOpenText, Loader2, Mail, MailCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { NotificationType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -71,6 +71,10 @@ export default function NotificationsPage() {
       case 'comment_reply':
       case 'mention':
         return <CheckCircle className="h-5 w-5 text-purple-500" />; 
+      case 'new_letter':
+        return <Mail className="h-5 w-5 text-cyan-500" />;
+      case 'letter_response':
+        return <MailCheck className="h-5 w-5 text-teal-500" />;
       case 'announcement':
         return <Bell className="h-5 w-5 text-orange-500" />;
       default:

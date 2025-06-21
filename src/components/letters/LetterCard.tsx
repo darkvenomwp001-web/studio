@@ -14,8 +14,10 @@ import type { Letter as LetterType } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function LetterCard({ letter, isAuthorView }: { letter: LetterType, isAuthorView: boolean }) {
+  const { user, addNotification } = useAuth();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [authorResponse, setAuthorResponse] = useState(letter.authorResponse || '');
@@ -49,6 +51,17 @@ export default function LetterCard({ letter, isAuthorView }: { letter: LetterTyp
     const letterRef = doc(db, 'letters', letter.id);
     try {
       await updateDoc(letterRef, { authorResponse });
+
+      if (user && user.id === letter.authorId) {
+        await addNotification({
+          userId: letter.reader.id,
+          type: 'letter_response',
+          message: `${letter.author.displayName || letter.author.username} has responded to your letter about "${letter.storyTitle}".`,
+          link: `/letters`,
+          actor: letter.author
+        });
+      }
+
       toast({ title: "Response sent!" });
     } catch (error) {
        toast({ title: "Error", description: "Could not send response.", variant: "destructive" });

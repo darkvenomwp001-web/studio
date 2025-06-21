@@ -20,7 +20,7 @@ interface SendLetterFormProps {
 }
 
 export default function SendLetterForm({ story, chapter }: SendLetterFormProps) {
-  const { user } = useAuth();
+  const { user, addNotification } = useAuth();
   const { toast } = useToast();
   const [content, setContent] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
@@ -43,6 +43,7 @@ export default function SendLetterForm({ story, chapter }: SendLetterFormProps) 
         chapterId: chapter.id,
         chapterTitle: chapter.title,
         authorId: story.author.id,
+        author: story.author,
         reader: {
           id: user.id,
           username: user.username,
@@ -55,6 +56,22 @@ export default function SendLetterForm({ story, chapter }: SendLetterFormProps) 
         isPinned: false,
         isReadByAuthor: false,
       });
+
+      if (story.author.id !== user.id) {
+        await addNotification({
+            userId: story.author.id,
+            type: 'new_letter',
+            message: `${user.displayName || user.username} sent you a letter about "${story.title}".`,
+            link: `/letters`,
+            actor: {
+                id: user.id,
+                username: user.username,
+                displayName: user.displayName || user.username,
+                avatarUrl: user.avatarUrl
+            }
+        });
+      }
+
       setContent('');
       toast({ title: "Letter Sent!", description: "The author will be notified of your heartfelt message." });
     } catch (error) {
