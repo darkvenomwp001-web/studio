@@ -2,6 +2,7 @@
 
 import { improveWritingStyle as improveWritingStyleFlow, ImproveWritingStyleInput, ImproveWritingStyleOutput } from '@/ai/flows/improve-writing-style';
 import { detectPlagiarism as detectPlagiarismFlow, DetectPlagiarismInput, DetectPlagiarismOutput } from '@/ai/flows/detect-plagiarism-flow';
+import { matchStoryMood as matchStoryMoodFlow, MatchStoryMoodInput, MatchStoryMoodOutput } from '@/ai/flows/mood-matcher-flow';
 
 export async function getWritingSuggestions(input: ImproveWritingStyleInput): Promise<ImproveWritingStyleOutput | { error: string }> {
   try {
@@ -23,6 +24,18 @@ export async function checkPlagiarism(input: DetectPlagiarismInput): Promise<Det
     return result;
   } catch (error) {
     console.error("Error in checkPlagiarism AI action:", error);
+    return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
+  }
+}
+
+export async function getStoryMood(input: MatchStoryMoodInput): Promise<MatchStoryMoodOutput | { error: string }> {
+  try {
+    console.log("AI Action: Matching mood for story:", input.title);
+    const result = await matchStoryMoodFlow(input);
+    console.log("AI Action: Mood received:", result.mood);
+    return result;
+  } catch (error) {
+    console.error("Error in getStoryMood AI action:", error);
     return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
   }
 }

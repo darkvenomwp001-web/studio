@@ -31,6 +31,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { getStoryMood } from '@/app/actions/aiActions';
 
 export default function StoryOverviewPage() {
   const params = useParams();
@@ -42,6 +43,7 @@ export default function StoryOverviewPage() {
   const [story, setStory] = useState<Story | null>(null);
   const [authorInfo, setAuthorInfo] = useState<UserSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMoodLoading, setIsMoodLoading] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
 
@@ -137,13 +139,27 @@ export default function StoryOverviewPage() {
     }
   };
   
-  const handleMoodMatcherClick = (e: React.MouseEvent) => {
+  const handleMoodMatcherClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    toast({
-      title: "Mood Matcher (Coming Soon!)",
-      description: "Tell us how you feel, and we'll find stories to match your vibe!",
-    });
+    if (!story) return;
+    setIsMoodLoading(true);
+
+    const result = await getStoryMood({ title: story.title, summary: story.summary, tags: story.tags });
+    
+    if ('error' in result) {
+      toast({
+        title: "Mood Matcher Error",
+        description: "Couldn't determine the mood. Please try again.",
+        variant: "destructive",
+      });
+    } else {
+       toast({
+        title: "Story Vibe",
+        description: `This story has a "${result.mood}" mood. Feature to find similar stories coming soon!`,
+      });
+    }
+    setIsMoodLoading(false);
   };
 
   if (isLoading) {
@@ -192,10 +208,11 @@ export default function StoryOverviewPage() {
           <button
             onClick={handleMoodMatcherClick}
             aria-label="Mood Matcher"
-            className="absolute top-3 left-3 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+            className="absolute top-3 left-3 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
             title="Mood Matcher (Find similar vibes)"
+            disabled={isMoodLoading}
           >
-            <Sparkles className="w-5 h-5" />
+            {isMoodLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
           </button>
         </div>
 
