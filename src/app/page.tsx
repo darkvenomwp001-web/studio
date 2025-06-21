@@ -124,7 +124,7 @@ export default function HomePage() {
       <section className="relative py-20 md:py-32 rounded-lg overflow-hidden bg-gradient-to-br from-primary/10 via-background to-background shadow-xl">
         <div className="container mx-auto px-4 text-center relative z-10">
           <h1 className="text-4xl md:text-6xl font-headline font-extrabold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary/70">
-            Welcome to LitVerse
+            Welcome to D4RKV3NOM
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-10">
             Unleash your imagination. Discover captivating stories, share your own tales, and connect with a global community of creators and fans.
@@ -270,7 +270,7 @@ export default function HomePage() {
             <CardTitle className="text-2xl font-headline text-primary flex items-center gap-2">
               <Users2 className="h-7 w-7" /> Community Pulse
             </CardTitle>
-            <CardDescription>What's happening right now on LitVerse.</CardDescription>
+            <CardDescription>What's happening right now on D4RKV3NOM.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-3">
@@ -300,7 +300,7 @@ export default function HomePage() {
           <PenTool className="h-16 w-16 text-primary mx-auto mb-6" />
           <h2 className="text-4xl font-headline font-bold mb-4">Have a Story to Tell?</h2>
           <p className="text-lg text-muted-foreground mb-8">
-            Your words have power. Share your unique voice with the world. LitVerse provides the tools and community to bring your stories to life.
+            Your words have power. Share your unique voice with the world. D4RKV3NOM provides the tools and community to bring your stories to life.
           </p>
           <Link href="/write" passHref>
             <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transition-transform hover:scale-105 text-xl py-4 px-10">
@@ -312,5 +312,7 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
 
     
