@@ -26,9 +26,8 @@ import {
   limit,
   onSnapshot,
   type Unsubscribe,
-  Timestamp
 } from 'firebase/firestore';
-import FollowerUserCard from '@/components/shared/FollowerUserCard'; // New component for followers
+import FollowerUserCard from '@/components/shared/FollowerUserCard';
 
 interface ProfileStoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>;
@@ -110,7 +109,6 @@ export default function UserProfilePage() {
 
   const isOwnProfile = currentUser?.id === userId;
 
-  // Fetch profile user data in real-time
   useEffect(() => {
     if (!userId) {
       setIsLoadingData(false);
@@ -128,7 +126,6 @@ export default function UserProfilePage() {
         setProfileUser(null);
         toast({ title: "Profile Not Found", description: "The user profile you are looking for does not exist.", variant: "destructive" });
       }
-      // setIsLoadingData(false) will be handled after stories and other data are fetched or attempted.
     }, (error) => {
       console.error("Error fetching profile user:", error);
       toast({ title: "Error", description: "Could not load profile.", variant: "destructive" });
@@ -139,14 +136,13 @@ export default function UserProfilePage() {
     return () => unsubscribeUser();
   }, [userId, router, toast]);
 
-  // Fetch stories, following, and followers when profileUser is loaded/updated
   useEffect(() => {
     if (!profileUser) {
         setPublishedWorks([]);
         setDraftWorks([]);
         setFollowingDetails([]);
         setFollowersDetails([]);
-        if(userId) setIsLoadingData(false); // Only set loading to false if userId was present
+        if(userId) setIsLoadingData(false);
         return;
     }
 
@@ -154,7 +150,6 @@ export default function UserProfilePage() {
     let unsubStories: Unsubscribe | undefined;
     let unsubFollowers: Unsubscribe | undefined;
 
-    // Fetch Stories
     const storiesQuery = query(
         collection(db, 'stories'),
         where('author.id', '==', profileUser.id),
@@ -177,7 +172,6 @@ export default function UserProfilePage() {
         toast({ title: "Error", description: "Could not load stories.", variant: "destructive" });
     });
 
-    // Fetch Following Details (one-time fetch for simplicity, can be converted to real-time if needed)
     const fetchFollowingDetails = async () => {
         if (profileUser.followingIds && profileUser.followingIds.length > 0) {
             const limitedFollowingIds = profileUser.followingIds.slice(0, 20); // Limit for display
@@ -198,16 +192,15 @@ export default function UserProfilePage() {
     };
     fetchFollowingDetails();
 
-    // Fetch Followers Details (real-time)
     const followersQuery = query(
         collection(db, 'users'),
         where('followingIds', 'array-contains', profileUser.id),
-        limit(20) // Limit for display
+        limit(20)
     );
     unsubFollowers = onSnapshot(followersQuery, (snapshot) => {
         const fetchedFollowers = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as AppUser));
         setFollowersDetails(fetchedFollowers);
-        setIsLoadingData(false); // Set loading to false after all primary data fetches attempted
+        setIsLoadingData(false);
     }, (error) => {
         console.error("Error fetching followers:", error);
         toast({ title: "Error", description: "Could not load followers list.", variant: "destructive" });

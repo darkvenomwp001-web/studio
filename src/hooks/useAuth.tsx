@@ -512,7 +512,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
         const unreadNotifications = notifications.filter(n => !n.isRead);
         if (unreadNotifications.length === 0) {
-            toast({ title: "No Unread Notifications", description: "All notifications are already marked as read." });
+            toast({ title: "All Read", description: "No unread notifications to mark." });
             setAuthLoading(false);
             return;
         }

@@ -19,8 +19,6 @@ import {
   orderBy,
   limit,
   getDocs,
-  // startAt, // Not used for simple prefix with inequalities
-  // endAt,   // Not used for simple prefix with inequalities
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -72,7 +70,6 @@ export default function SearchResultsPage() {
       const storySnapshot = await getDocs(storyQuery);
       const storiesFound = storySnapshot.docs.map(doc => {
         const data = doc.data();
-        // Ensure author is in UserSummary format, if stored differently in Firestore.
         const authorSummary = data.author 
         ? { id: data.author.id || 'unknown', username: data.author.username || 'Unknown Author', displayName: data.author.displayName, avatarUrl: data.author.avatarUrl }
         : { id: 'unknown', username: 'Unknown Author', displayName: 'Unknown Author' };
@@ -149,8 +146,6 @@ export default function SearchResultsPage() {
     if (newQuery.trim()) {
       setIsLoading(true);
       debouncedSearch(newQuery);
-      // Update URL as user types for better UX and shareability (optional)
-      // router.push(`/search?q=${encodeURIComponent(newQuery.trim())}`, { scroll: false });
     } else {
       setStoryResults([]);
       setUserResults([]);

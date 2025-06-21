@@ -347,10 +347,6 @@ export default function MessagesPage() {
                 </Button>
               </DialogTrigger>
             </div>
-            {/* <div className="relative">
-              <Input type="search" placeholder="Search messages (disabled)" className="pl-10 bg-background" disabled />
-              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-            </div> */}
           </div>
           <ScrollArea className="flex-1">
             {isLoadingConversations ? (
@@ -364,7 +360,7 @@ export default function MessagesPage() {
                 let lastMessageDisplayTime = 'No recent messages';
                 if (lastMessageTimestampServer && typeof lastMessageTimestampServer.toDate === 'function') {
                   lastMessageDisplayTime = formatDistanceToNow(lastMessageTimestampServer.toDate(), { addSuffix: true });
-                } else if (lastMessageTimestampServer) { // Fallback for potentially stringified timestamps or other Date objects
+                } else if (lastMessageTimestampServer) { 
                    try {
                       lastMessageDisplayTime = formatDistanceToNow(new Date(lastMessageTimestampServer), { addSuffix: true });
                    } catch (e) { /* ignore invalid date format */ }
@@ -588,4 +584,3 @@ export default function MessagesPage() {
     </Dialog>
   );
 }
-    

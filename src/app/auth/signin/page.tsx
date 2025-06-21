@@ -83,7 +83,6 @@ export default function SignInPage() {
                 value={emailOrUsername}
                 onChange={(e) => {
                   setEmailOrUsername(e.target.value);
-                  // Optionally pre-fill reset email if it's a valid email format
                   if (e.target.value.includes('@')) {
                     setResetEmail(e.target.value);
                   }
