@@ -68,29 +68,6 @@ function ProfileStoryCard({ story, isPrivate = false }: ProfileStoryCardProps) {
   );
 }
 
-interface FollowingUserCardProps {
-  user: AppUser;
-}
-function FollowingUserCard({ user }: FollowingUserCardProps) {
-  const displayName = user.displayName || user.username;
-  return (
-    <div className="w-28 md:w-32 flex-shrink-0 text-center group">
-      <Link href={`/profile/${user.id}`} passHref>
-        <Avatar className="h-20 w-20 md:h-24 md:w-24 mx-auto border-2 border-border group-hover:border-primary transition-colors cursor-pointer">
-          <AvatarImage src={user.avatarUrl || 'https://placehold.co/100x100.png'} alt={displayName || 'User profile'} data-ai-hint={user.dataAiHint || "profile person"} />
-          <AvatarFallback>{(displayName || 'U').substring(0, 1).toUpperCase()}</AvatarFallback>
-        </Avatar>
-      </Link>
-      <Link href={`/profile/${user.id}`} passHref>
-        <p className="mt-2 text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors cursor-pointer">
-          {displayName || 'Unknown User'}
-        </p>
-      </Link>
-      <p className="text-xs text-muted-foreground">{user.followersCount || 0} Followers</p>
-    </div>
-  );
-}
-
 export default function UserProfilePage() {
   const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading, signOutFirebase } = useAuth();
   const params = useParams();
@@ -116,7 +93,14 @@ export default function UserProfilePage() {
       return;
     }
 
+    // Reset state when navigating to a new profile to prevent showing stale data
+    setProfileUser(null);
+    setPublishedWorks([]);
+    setPrivateWorks([]);
+    setFollowingDetails([]);
+    setFollowersDetails([]);
     setIsLoadingData(true);
+
     const userDocRef = doc(db, 'users', userId);
     const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -391,7 +375,7 @@ export default function UserProfilePage() {
           <ScrollArea className="w-full whitespace-nowrap rounded-md pb-4">
             <div className="flex space-x-4">
               {followingDetails.map(followedUser => (
-                <FollowingUserCard key={`following-${followedUser.id}`} user={followedUser} />
+                <FollowerUserCard key={`following-${followedUser.id}`} user={followedUser} />
               ))}
             </div>
             <ScrollBar orientation="horizontal" />
