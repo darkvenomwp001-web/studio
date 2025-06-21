@@ -15,8 +15,7 @@ import {
   Eye,
   Heart,
   ListOrdered,
-  BookCopy,
-  Share2,
+  BookmarkPlus,
   Loader2,
   Info,
   Edit,
@@ -88,18 +87,7 @@ export default function StoryOverviewPage() {
     if (!story) return;
     toast({ title: 'Added to Library (Mock)', description: `"${story.title}" has been added to your library.` });
   };
-
-  const handleShare = () => {
-    if (!story) return;
-    navigator.clipboard.writeText(window.location.href)
-      .then(() => {
-        toast({ title: 'Link Copied!', description: `Link to "${story.title}" copied to clipboard.` });
-      })
-      .catch(() => {
-        toast({ title: 'Share (Mock)', description: `Link to "${story.title}" would be shareable here.`});
-      });
-  };
-
+  
   const handleMoodMatcherClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -142,153 +130,154 @@ export default function StoryOverviewPage() {
   const isAuthorOrCollaborator = user && (story.author.id === user.id || story.collaborators?.some(c => c.id === user.id));
 
   return (
-    <div className="container mx-auto max-w-4xl py-8 px-4">
-      <div className="flex flex-col md:flex-row gap-8 items-start">
-        {/* Left Column: Cover & Actions */}
-        <div className="w-full md:w-1/3 flex flex-col items-center md:items-start">
-          <div className="relative aspect-[2/3] w-full max-w-xs md:max-w-none rounded-lg overflow-hidden shadow-2xl mb-6 group">
-            <Image
-              src={story.coverImageUrl || `https://placehold.co/512x800.png`}
-              alt={story.title}
-              layout="fill"
-              objectFit="cover"
-              data-ai-hint={story.dataAiHint || "book cover"}
-              priority
-            />
-             <button
-                onClick={handleMoodMatcherClick}
-                aria-label="Mood Matcher"
-                className="absolute top-3 left-3 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                title="Mood Matcher (Find similar vibes)"
-              >
-                <Sparkles className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="w-full max-w-xs md:max-w-none space-y-3">
-            {firstChapterId ? (
-              <Link href={`/stories/${story.id}/read/${firstChapterId}`} passHref className="w-full">
-                <Button size="lg" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg">
-                  <BookOpen className="mr-2 h-5 w-5" /> Read Now
-                </Button>
-              </Link>
-            ) : (
-              <Button size="lg" className="w-full text-lg" disabled>
-                 <BookOpen className="mr-2 h-5 w-5" /> No Chapters Yet
-              </Button>
-            )}
-            <Button size="lg" variant="outline" className="w-full text-lg" onClick={handleAddToLibrary}>
-              <BookCopy className="mr-2 h-5 w-5" /> Add to Library
-            </Button>
-            {isAuthorOrCollaborator && (
-              <Link href={`/write/edit-details?storyId=${story.id}`} passHref className="w-full">
-                <Button size="lg" variant="outline" className="w-full text-lg border-accent text-accent hover:bg-accent/10">
-                  <Edit className="mr-2 h-5 w-5" /> Edit Story Details
-                </Button>
-              </Link>
-            )}
-             <Button size="lg" variant="outline" className="w-full text-lg" onClick={handleShare}>
-              <Share2 className="mr-2 h-5 w-5" /> Share
-            </Button>
-          </div>
+    <div className="container mx-auto max-w-4xl py-8 px-4 space-y-6">
+      <div className="flex justify-center">
+        <div className="relative aspect-[2/3] w-full max-w-xs rounded-lg overflow-hidden shadow-2xl group">
+          <Image
+            src={story.coverImageUrl || `https://placehold.co/512x800.png`}
+            alt={story.title}
+            layout="fill"
+            objectFit="cover"
+            data-ai-hint={story.dataAiHint || "book cover"}
+            priority
+          />
+          <button
+            onClick={handleMoodMatcherClick}
+            aria-label="Mood Matcher"
+            className="absolute top-3 left-3 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+            title="Mood Matcher (Find similar vibes)"
+          >
+            <Sparkles className="w-5 h-5" />
+          </button>
         </div>
+      </div>
 
-        {/* Right Column: Details & Chapters */}
-        <div className="w-full md:w-2/3">
-          <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground mb-1">{story.title}</h1>
-          <p className="text-md text-muted-foreground mb-4">
-            by{' '}
-            <Link href={`/profile/${story.author.id}`} className="text-primary hover:underline font-medium">
-              {story.author.displayName || story.author.username}
-            </Link>
-          </p>
+      <div className="text-center space-y-3">
+        <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">{story.title}</h1>
+        <Link
+          href={`/profile/${story.author.id}`}
+          className="inline-flex items-center gap-2.5 text-md text-muted-foreground hover:text-primary transition-colors group"
+        >
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={story.author.avatarUrl} alt={story.author.username} data-ai-hint="profile person" />
+            <AvatarFallback>{story.author.username?.substring(0, 1).toUpperCase() || 'A'}</AvatarFallback>
+          </Avatar>
+          <span className="font-medium group-hover:underline">{story.author.displayName || story.author.username}</span>
+        </Link>
+      </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-6">
-            <div className="flex items-center gap-1.5" title="Reads">
-              <Eye className="w-4 h-4 text-accent" />
-              <span>{story.views ? (story.views / 1000).toFixed(1) + 'k' : '0'} reads</span>
-            </div>
-            <div className="flex items-center gap-1.5" title="Votes (Mock)">
-              <Heart className="w-4 h-4 text-accent" />
-              <span>{Math.floor((story.rating || 0) * (story.views || 0) / 5000) || 0} votes</span>
-            </div>
-            <div className="flex items-center gap-1.5" title="Published Chapters">
-              <ListOrdered className="w-4 h-4 text-accent" />
-              <span>{totalPublishedChapters} parts</span>
-            </div>
-            <div className="flex items-center gap-1.5" title="Estimated Read Time">
-              <BookOpen className="w-4 h-4 text-accent" />
-              <span>{estimatedReadTimeMinutes} min read</span>
-            </div>
-             <Badge variant={story.status === 'Completed' ? 'secondary' : 'default'}
-                    className={cn(
-                        story.status === 'Completed' && 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700',
-                        (story.status === 'Ongoing' || story.status === 'Public') && 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
-                        story.status === 'Draft' && 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600',
-                        (story.visibility === 'Private' || story.visibility === 'Unlisted') && 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700'
-                    )}>
-                {story.visibility === 'Public' && story.status !== 'Completed' && story.status !== 'Draft' ? 'Ongoing' : story.status || 'Public'}
-            </Badge>
-          </div>
+      <div className="flex justify-center items-center gap-2">
+        {firstChapterId ? (
+          <Link href={`/stories/${story.id}/read/${firstChapterId}`} passHref>
+            <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <BookOpen className="mr-2 h-5 w-5" /> Start Reading
+            </Button>
+          </Link>
+        ) : (
+          <Button size="lg" disabled>
+            <BookOpen className="mr-2 h-5 w-5" /> No Chapters Yet
+          </Button>
+        )}
+        <Button size="lg" variant="outline" onClick={handleAddToLibrary} title="Add to Library">
+          <BookmarkPlus className="h-5 w-5" />
+        </Button>
+        {isAuthorOrCollaborator && (
+          <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
+            <Button size="lg" variant="outline" title="Edit Story Details">
+              <Edit className="h-5 w-5" />
+            </Button>
+          </Link>
+        )}
+      </div>
 
-          <div className="mb-6 prose prose-sm sm:prose-base dark:prose-invert max-w-none">
-            <h2 className="text-xl font-headline font-semibold mb-2 text-foreground">Description</h2>
-            <p className={cn(!isDescriptionExpanded && "line-clamp-5", "whitespace-pre-line")}>
-              {story.summary || "No description available."}
-            </p>
-            {story.summary && story.summary.length > 200 && (
-                 <Button variant="link" onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="p-0 h-auto text-sm text-primary hover:underline">
-                    {isDescriptionExpanded ? "Show Less" : "Show More"}
-                </Button>
-            )}
-          </div>
-
-          <div className="mb-6">
-             <h3 className="text-lg font-headline font-semibold mb-2 text-foreground">Tags</h3>
-             <div className="flex flex-wrap gap-2">
-                {story.tags.map(tag => (
-                    <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-                ))}
-                {story.tags.length === 0 && <p className="text-xs text-muted-foreground">No tags for this story.</p>}
-            </div>
-          </div>
-
-          <Separator className="my-6" />
-
-          <div>
-            <h2 className="text-xl font-headline font-semibold mb-3 text-foreground">Table of Contents ({totalPublishedChapters} Published Parts)</h2>
-            {publishedChapters.length > 0 ? (
-              <ScrollArea className="max-h-[400px] pr-3 border rounded-md">
-                <ul className="space-y-0 divide-y divide-border">
-                  {publishedChapters.sort((a, b) => a.order - b.order).map((chapter) => (
-                    <li key={chapter.id}>
-                      <Link href={`/stories/${story.id}/read/${chapter.id}`} passHref>
-                        <div className="block p-3 hover:bg-muted/50 transition-colors cursor-pointer">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium text-foreground truncate pr-2">
-                              Part {chapter.order}: {chapter.title}
-                            </span>
-                            {chapter.publishedDate && (
-                              <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                                {formatDate(chapter.publishedDate)}
-                              </span>
-                            )}
-                          </div>
-                           {chapter.wordCount && (
-                              <span className="text-xs text-muted-foreground block mt-0.5">
-                                {Math.round(chapter.wordCount / 200) || 1} min read
-                              </span>
-                            )}
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </ScrollArea>
-            ) : (
-              <p className="text-muted-foreground text-center py-4 border rounded-md">No chapters published yet for this story.</p>
-            )}
-          </div>
+      <div className="flex flex-wrap items-start justify-center gap-x-8 gap-y-4 text-center text-muted-foreground py-4 border-y">
+        <div className="flex flex-col items-center" title="Reads">
+          <strong className="text-xl font-bold text-foreground">{story.views ? (story.views / 1000).toFixed(1) + 'k' : '0'}</strong>
+          <span className="text-xs">Reads</span>
         </div>
+        <div className="flex flex-col items-center" title="Votes (Mock)">
+          <strong className="text-xl font-bold text-foreground">{Math.floor((story.rating || 0) * (story.views || 0) / 5000) || 0}</strong>
+          <span className="text-xs">Votes</span>
+        </div>
+        <div className="flex flex-col items-center" title="Published Chapters">
+          <strong className="text-xl font-bold text-foreground">{totalPublishedChapters}</strong>
+          <span className="text-xs">Parts</span>
+        </div>
+        <div className="flex flex-col items-center" title="Estimated Read Time">
+          <strong className="text-xl font-bold text-foreground">{estimatedReadTimeMinutes}</strong>
+          <span className="text-xs">min read</span>
+        </div>
+      </div>
+      
+      <Badge variant={story.status === 'Completed' ? 'secondary' : 'default'}
+          className={cn(
+              "mx-auto block w-fit",
+              story.status === 'Completed' && 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700',
+              (story.status === 'Ongoing' || story.status === 'Public') && 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
+              story.status === 'Draft' && 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600',
+              (story.visibility === 'Private' || story.visibility === 'Unlisted') && 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700'
+          )}>
+          {story.visibility === 'Public' && story.status !== 'Completed' && story.status !== 'Draft' ? 'Ongoing' : story.status || 'Public'}
+      </Badge>
+
+
+      <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none pt-4">
+        <h2 className="text-xl font-headline font-semibold mb-2 text-foreground">Description</h2>
+        <p className={cn(!isDescriptionExpanded && "line-clamp-5", "whitespace-pre-line text-muted-foreground")}>
+          {story.summary || "No description available."}
+        </p>
+        {story.summary && story.summary.length > 200 && (
+              <Button variant="link" onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="p-0 h-auto text-sm text-primary hover:underline">
+                {isDescriptionExpanded ? "Show Less" : "Show More"}
+            </Button>
+        )}
+      </div>
+
+      <div className="mb-6">
+          <h3 className="text-lg font-headline font-semibold mb-2 text-foreground">Tags</h3>
+          <div className="flex flex-wrap gap-2">
+            {story.tags.map(tag => (
+                <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+            ))}
+            {story.tags.length === 0 && <p className="text-xs text-muted-foreground">No tags for this story.</p>}
+        </div>
+      </div>
+
+      <Separator className="my-6" />
+
+      <div>
+        <h2 className="text-xl font-headline font-semibold mb-3 text-foreground">Table of Contents ({totalPublishedChapters} Published Parts)</h2>
+        {publishedChapters.length > 0 ? (
+          <ScrollArea className="max-h-[400px] pr-3 border rounded-md">
+            <ul className="space-y-0 divide-y divide-border">
+              {publishedChapters.sort((a, b) => a.order - b.order).map((chapter) => (
+                <li key={chapter.id}>
+                  <Link href={`/stories/${story.id}/read/${chapter.id}`} passHref>
+                    <div className="block p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-foreground truncate pr-2">
+                          Part {chapter.order}: {chapter.title}
+                        </span>
+                        {chapter.publishedDate && (
+                          <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                            {formatDate(chapter.publishedDate)}
+                          </span>
+                        )}
+                      </div>
+                      {chapter.wordCount && (
+                          <span className="text-xs text-muted-foreground block mt-0.5">
+                            {Math.round(chapter.wordCount / 200) || 1} min read
+                          </span>
+                        )}
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
+        ) : (
+          <p className="text-muted-foreground text-center py-4 border rounded-md">No chapters published yet for this story.</p>
+        )}
       </div>
     </div>
   );
