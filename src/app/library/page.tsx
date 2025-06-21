@@ -86,15 +86,7 @@ export default function LibraryPage() {
     }
     
     return (
-        <div className="container mx-auto px-4 py-8 space-y-8">
-            <header className="mb-4">
-                <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary flex items-center gap-3">
-                    <Library className="h-8 w-8" />
-                    My Library
-                </h1>
-                <p className="text-muted-foreground mt-1">Your personal collection of saved stories. Dive back in!</p>
-            </header>
-            
+        <div>
             <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-3 border-b mb-6">
                 <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                     <div className="relative flex-grow">
