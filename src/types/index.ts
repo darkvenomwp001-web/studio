@@ -17,6 +17,7 @@ export interface Story {
   language?: string;
   visibility?: 'Public' | 'Private' | 'Unlisted';
   collaborators?: UserSummary[];
+  collaboratorIds?: string[];
 }
 
 export interface Chapter {

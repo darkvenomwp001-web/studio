@@ -1,80 +1,76 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    function isCollaborator(storyId) {
-      let story = get(/databases/$(database)/documents/stories/$(storyId)).data;
-      return request.auth.uid in story.collaborators.map(c => c.id);
+    function isSignedIn() {
+      return request.auth != null;
     }
     
-    function isStoryPublicOrUnlisted(storyId) {
-        let story = get(/databases/$(database)/documents/stories/$(storyId)).data;
-        return story.visibility == 'Public' || story.visibility == 'Unlisted';
+    function isAuthor() {
+      return isOwner(resource.data.author.id);
+    }
+    
+    function isCollaborator() {
+      // Check if the user's ID is in the list of collaborator IDs.
+      return isSignedIn() && request.auth.uid in resource.data.collaboratorIds;
     }
 
-    // USERS:
-    // - Anyone can read public user profiles.
-    // - Only the owner can create or write to their own profile.
-    match /users/{userId} {
-      allow read: if true;
-      allow create, update: if isOwner(userId);
-      // No delete for user profiles for safety.
-    }
-
-    // STORIES:
-    // - Anyone can read public stories.
-    // - Logged-in users can view unlisted stories (if they have the link).
-    // - Only owners/collaborators can read private stories.
-    // - Logged-in users can create stories.
-    // - Only owners/collaborators can update stories.
-    // - Only the original author can delete a story.
+    // Stories can be read by anyone if public, but only written/edited by the author or collaborators.
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || 
-                      (isSignedIn() && resource.data.visibility == 'Unlisted') ||
-                      (isSignedIn() && (isOwner(resource.data.author.id) || isCollaborator(storyId)));
-
+      // Allow read access based on story visibility or user role (author/collaborator)
+      allow read: if resource.data.visibility == 'Public' ||
+                   (resource.data.visibility == 'Unlisted' && isSignedIn()) ||
+                   (isSignedIn() && (isAuthor() || isCollaborator()));
+      
+      // Allow create only for authenticated users, who must be the author of the new story.
       allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
       
-      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || isCollaborator(storyId));
+      // Allow update only for the author or collaborators.
+      allow update: if isSignedIn() && (isAuthor() || isCollaborator());
 
-      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
+      // Allow delete only for the original author.
+      allow delete: if isSignedIn() && isAuthor();
+      
+      // Prevent access to unspecified subcollections
+      match /{allChildren=**} {
+        allow read, write: if false; 
+      }
     }
 
-    // COMMENTS:
-    // - Anyone can read comments on public/unlisted stories.
-    // - Logged-in users can create comments.
-    // - Only the owner of a comment can update or delete it.
-    match /comments/{commentId} {
-       allow read: if isStoryPublicOrUnlisted(resource.data.storyId);
-       allow create: if isSignedIn();
-       allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
-    }
-
-    // NOTIFICATIONS:
-    // - Only the user the notification is for can read or write to it.
-    match /notifications/{notificationId} {
-      allow read, create, update: if isSignedIn() && isOwner(resource.data.userId);
+    // User profiles are public, but can only be written by the user themselves.
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isSignedIn() && isOwner(userId);
     }
     
-    // CONVERSATIONS & MESSAGES:
-    // - Only participants of a conversation can read/write to it.
+    // Comments can be read by anyone, but only created/edited by authenticated users.
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
+    }
+    
+    // Notifications are private to each user.
+    match /notifications/{notificationId} {
+      allow read, write, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+    
+    // Conversations and messages are private to participants.
     match /conversations/{conversationId} {
-      allow read, create, update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      function isParticipant() {
+        return request.auth.uid in resource.data.participantIds;
+      }
+      
+      allow read, write, update: if isSignedIn() && isParticipant();
       
       match /messages/{messageId} {
-        allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        // No update/delete for messages for integrity.
+        allow read, write: if isSignedIn() && isParticipant();
       }
     }
   }

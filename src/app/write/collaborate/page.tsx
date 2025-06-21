@@ -118,9 +118,11 @@ export default function CollaboratePage() {
       };
 
       const updatedCollaborators = [...(story.collaborators || []), newCollaborator];
+      const updatedCollaboratorIds = [...(story.collaboratorIds || []), newCollaborator.id];
       const storyDocRef = doc(db, 'stories', story.id);
       await updateDoc(storyDocRef, { 
           collaborators: updatedCollaborators,
+          collaboratorIds: updatedCollaboratorIds,
           lastUpdated: serverTimestamp()
       });
       setCollaboratorUsername('');
@@ -141,10 +143,12 @@ export default function CollaboratePage() {
     }
     setIsProcessing(true);
     const updatedCollaborators = story.collaborators?.filter(c => c.id !== collaboratorId);
+    const updatedCollaboratorIds = story.collaboratorIds?.filter(id => id !== collaboratorId);
     try {
         const storyDocRef = doc(db, 'stories', story.id);
         await updateDoc(storyDocRef, { 
             collaborators: updatedCollaborators,
+            collaboratorIds: updatedCollaboratorIds,
             lastUpdated: serverTimestamp() 
         });
         toast({ title: "Collaborator Removed", description: `Collaborator access revoked.` });

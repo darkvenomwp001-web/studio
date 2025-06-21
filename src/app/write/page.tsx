@@ -45,44 +45,74 @@ export default function WriteDashboardPage() {
   useEffect(() => {
     if (user && !authLoading) {
       setIsLoadingStories(true);
+
       const storiesCollectionRef = collection(db, 'stories');
-      
-      const authorQuery = where('author.id', '==', user.id);
-      const collaboratorQuery = where('collaborators', 'array-contains', {
-        id: user.id,
-        username: user.username,
-        displayName: user.displayName,
-        avatarUrl: user.avatarUrl
-      });
-      
-      const q = query(
+
+      // Query for stories authored by the user
+      const authorQuery = query(
         storiesCollectionRef,
-        orderBy('lastUpdated', 'desc')
+        where('author.id', '==', user.id)
       );
 
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const stories = querySnapshot.docs.map(docSnap => {
-          const data = docSnap.data();
-          return {
+      // Query for stories where the user is a collaborator
+      const collaboratorQuery = query(
+        storiesCollectionRef,
+        where('collaboratorIds', 'array-contains', user.id)
+      );
+      
+      const mapDocToStory = (docSnap: any): Story => {
+        const data = docSnap.data();
+        return {
             id: docSnap.id,
             ...data,
             lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
             chapters: data.chapters || [],
             tags: data.tags || [],
           } as Story;
-        }).filter(story => 
-            story.author.id === user.id || 
-            (story.collaborators && story.collaborators.some(c => c.id === user.id))
-        );
-        setUserStories(stories);
+      }
+
+      let authoredStories: Story[] = [];
+      let collaboratingStories: Story[] = [];
+
+      const combineAndSetStories = () => {
+        const allStoriesMap = new Map<string, Story>();
+        [...authoredStories, ...collaboratingStories].forEach(story => {
+            allStoriesMap.set(story.id, story);
+        });
+        const combined = Array.from(allStoriesMap.values());
+        combined.sort((a,b) => {
+            const timeA = a.lastUpdated?.toDate ? a.lastUpdated.toDate().getTime() : new Date(a.lastUpdated).getTime();
+            const timeB = b.lastUpdated?.toDate ? b.lastUpdated.toDate().getTime() : new Date(b.lastUpdated).getTime();
+            return timeB - timeA;
+        });
+        setUserStories(combined);
+      }
+
+      const unsubscribeAuthor = onSnapshot(authorQuery, (querySnapshot) => {
+        authoredStories = querySnapshot.docs.map(mapDocToStory);
+        combineAndSetStories();
         setIsLoadingStories(false);
       }, (error) => {
-        console.error("Error fetching user stories: ", error);
-        toast({ title: "Error", description: "Could not load your stories.", variant: "destructive" });
+        console.error("Error fetching authored stories: ", error);
+        toast({ title: "Error", description: "Could not load your authored stories. Check Firestore rules.", variant: "destructive" });
         setIsLoadingStories(false);
       });
 
-      return () => unsubscribe();
+      const unsubscribeCollaborator = onSnapshot(collaboratorQuery, (querySnapshot) => {
+        collaboratingStories = querySnapshot.docs.map(mapDocToStory);
+        combineAndSetStories();
+        setIsLoadingStories(false);
+      }, (error) => {
+        console.error("Error fetching collaborating stories: ", error);
+        toast({ title: "Error", description: "Could not load stories you collaborate on. Check Firestore rules.", variant: "destructive" });
+        setIsLoadingStories(false);
+      });
+
+
+      return () => {
+          unsubscribeAuthor();
+          unsubscribeCollaborator();
+      };
     } else if (!authLoading && !user) {
       setIsLoadingStories(false);
       setUserStories([]);

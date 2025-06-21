@@ -127,6 +127,7 @@ export default function EditStoryDetailsPage() {
         isMature: false,
         visibility: 'Private',
         collaborators: [],
+        collaboratorIds: [],
       };
       setDoc(doc(db, 'stories', newStoryId), newStoryData).then(() => {
         router.replace(`/write/edit-details?storyId=${newStoryId}`, { scroll: false });
@@ -361,9 +362,11 @@ export default function EditStoryDetailsPage() {
       };
 
       const updatedCollaborators = [...(story.collaborators || []), newCollaborator];
+      const updatedCollaboratorIds = [...(story.collaboratorIds || []), newCollaborator.id];
       const storyDocRef = doc(db, 'stories', story.id);
       await updateDoc(storyDocRef, { 
           collaborators: updatedCollaborators,
+          collaboratorIds: updatedCollaboratorIds,
           lastUpdated: serverTimestamp()
       });
       setCollaboratorUsername('');
@@ -384,10 +387,12 @@ export default function EditStoryDetailsPage() {
     }
     setIsProcessingCollaboration(true);
     const updatedCollaborators = story.collaborators?.filter(c => c.id !== collaboratorId);
+    const updatedCollaboratorIds = story.collaboratorIds?.filter(id => id !== collaboratorId);
     try {
         const storyDocRef = doc(db, 'stories', story.id);
         await updateDoc(storyDocRef, { 
             collaborators: updatedCollaborators,
+            collaboratorIds: updatedCollaboratorIds,
             lastUpdated: serverTimestamp() 
         });
         toast({ title: "Collaborator Removed" });
