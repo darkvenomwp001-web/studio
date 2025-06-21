@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Zap, Users2, PenTool, BookmarkPlus } from 'lucide-react';
-import StoryCard from '@/components/shared/StoryCard';
+import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -197,11 +197,9 @@ export default function HomePage() {
             </Link>
         </div>
         <div className="relative">
-            <div className="flex overflow-x-auto space-x-6 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+            <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
             {trendingStories.map(story => (
-                <div key={`trending-${story.id}`} className="flex-shrink-0 w-72 md:w-80">
-                    <StoryCard story={story} />
-                </div>
+                <CompactStoryCard key={`trending-${story.id}`} story={story} />
             ))}
             {trendingStories.length === 0 && <p className="text-muted-foreground">No trending stories to display.</p>}
             <div className="flex-shrink-0 w-px"></div>
