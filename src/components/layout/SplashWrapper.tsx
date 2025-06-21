@@ -5,24 +5,38 @@ import { useState, useEffect } from 'react';
 import SplashScreen from './SplashScreen';
 
 export function SplashWrapper({ children }: { children: React.ReactNode }) {
-    const [isFirstVisit, setIsFirstVisit] = useState(false);
-    const [isChecking, setIsChecking] = useState(true);
+    const [showSplash, setShowSplash] = useState(false);
+    const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
-        if (sessionStorage.getItem('splashSeen') === null) {
+        // This runs only on the client-side
+        setIsClient(true);
+        if (sessionStorage.getItem('splashSeen') !== 'true') {
+            setShowSplash(true);
             sessionStorage.setItem('splashSeen', 'true');
-            setIsFirstVisit(true);
         }
-        setIsChecking(false);
     }, []);
 
-    if (isChecking) {
-        return null; // Render nothing while checking sessionStorage to avoid flash of content
+    useEffect(() => {
+        // This effect manages the timer to hide the splash screen
+        if (showSplash) {
+            const timer = setTimeout(() => {
+                setShowSplash(false);
+            }, 1500); // Faster 1.5-second splash
+
+            return () => clearTimeout(timer);
+        }
+    }, [showSplash]);
+
+    if (!isClient) {
+        // Render nothing on the server to avoid hydration mismatches with sessionStorage
+        return null;
     }
 
-    if (isFirstVisit) {
+    if (showSplash) {
         return <SplashScreen />;
     }
-
+    
+    // Once the splash is done (or was never shown), render the main app content
     return <>{children}</>;
 }
