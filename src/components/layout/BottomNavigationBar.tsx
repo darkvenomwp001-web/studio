@@ -23,7 +23,7 @@ export default function BottomNavigationBar() {
   const unreadNotificationsCount = user ? notifications.filter(n => !n.isRead).length : 0;
 
 
-  if (pathname.startsWith('/auth') || pathname.includes('/write/edit')) {
+  if (pathname.startsWith('/auth') || pathname.startsWith('/write') || pathname.includes('/read/')) {
     return null;
   }
 
