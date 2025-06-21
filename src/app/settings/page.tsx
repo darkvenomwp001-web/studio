@@ -11,10 +11,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, UserCog, Save, KeyRound, Mail } from 'lucide-react';
+import { Loader2, UserCog, Save, KeyRound, Mail, UploadCloud } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-// Removed: import { db } from '@/lib/firebase';
-// Removed: import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { storage } from '@/lib/firebase';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function SettingsPage() {
   const { user, loading: authLoadingGlobal, authLoading: specificAuthLoading, updateUserProfile, updateUserEmailFirebase, updateUserPasswordFirebase } = useAuth();
@@ -37,6 +37,7 @@ export default function SettingsPage() {
   const [isProfileUpdating, setIsProfileUpdating] = useState(false);
   const [isEmailUpdating, setIsEmailUpdating] = useState(false);
   const [isPasswordUpdating, setIsPasswordUpdating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -52,6 +53,10 @@ export default function SettingsPage() {
   const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+       if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        toast({ title: "Image too large", description: "Please select an image smaller than 2MB.", variant: "destructive" });
+        return;
+      }
       setAvatarFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -68,13 +73,25 @@ export default function SettingsPage() {
 
     let newAvatarUrl = user.avatarUrl;
     if (avatarFile) {
-      // Mocking upload - in a real app, upload to Firebase Storage then get URL
-      newAvatarUrl = avatarPreview || user.avatarUrl; 
-      toast({title: "Avatar Updated (Mock)", description: "Avatar preview updated. Real upload to storage would happen here."});
+      setIsUploading(true);
+      try {
+        const avatarStorageRef = storageRef(storage, `avatars/${user.id}/${avatarFile.name}`);
+        const snapshot = await uploadBytes(avatarStorageRef, avatarFile);
+        newAvatarUrl = await getDownloadURL(snapshot.ref);
+        toast({ title: "Avatar Uploaded", description: "Your new avatar has been uploaded." });
+      } catch (error) {
+        console.error("Error uploading avatar:", error);
+        toast({ title: "Avatar Upload Failed", description: "Could not upload your new avatar. Please try again.", variant: "destructive" });
+        setIsProfileUpdating(false);
+        setIsUploading(false);
+        return;
+      } finally {
+        setIsUploading(false);
+      }
     }
     
-    // updateUserProfile now handles Firestore update via useAuth hook
     await updateUserProfile({ displayName, username, avatarUrl: newAvatarUrl, bio, role });
+    setAvatarFile(null); // Clear file after submission
     setIsProfileUpdating(false);
   };
 
@@ -132,7 +149,7 @@ export default function SettingsPage() {
     return <div className="text-center py-10">Please log in to access settings. Redirecting...</div>;
   }
   
-  const anySubmitting = isProfileUpdating || isEmailUpdating || isPasswordUpdating || specificAuthLoading;
+  const anySubmitting = isProfileUpdating || isEmailUpdating || isPasswordUpdating || specificAuthLoading || isUploading;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -158,7 +175,7 @@ export default function SettingsPage() {
             <form onSubmit={handleProfileSubmit}>
               <CardHeader>
                 <CardTitle>Edit Your Profile</CardTitle>
-                <CardDescription>Update your public profile information. Changes are saved to Firestore.</CardDescription>
+                <CardDescription>Update your public profile information. Changes are saved to your account.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6">
@@ -167,7 +184,13 @@ export default function SettingsPage() {
                       <AvatarImage src={avatarPreview || `https://placehold.co/128x128.png`} alt={displayName} data-ai-hint="profile person" />
                       <AvatarFallback className="text-3xl">{displayName?.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
-                    <Input id="avatarUpload" type="file" accept="image/*" onChange={handleAvatarChange} className="text-sm file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-muted file:text-muted-foreground hover:file:bg-primary/10" disabled={anySubmitting} />
+                    <div className="relative">
+                      <Button type="button" onClick={() => document.getElementById('avatarUpload')?.click()} disabled={anySubmitting}>
+                         {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+                         {isUploading ? 'Uploading...' : 'Change Avatar'}
+                      </Button>
+                      <Input id="avatarUpload" type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" disabled={anySubmitting} />
+                    </div>
                     <Label htmlFor="avatarUpload" className="text-xs text-muted-foreground">JPG, PNG, GIF. Max 2MB.</Label>
                   </div>
                   <div className="space-y-4 flex-1 w-full">
@@ -200,7 +223,7 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button type="submit" disabled={anySubmitting || isProfileUpdating} className="bg-primary hover:bg-primary/90">
+                <Button type="submit" disabled={anySubmitting} className="bg-primary hover:bg-primary/90">
                   {isProfileUpdating || specificAuthLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save Profile Changes
                 </Button>

@@ -72,7 +72,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
-const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search', '/profile/', '/write/history'];
+const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search', '/profile/', '/write/history', '/settings'];
 const DEFAULT_REDIRECT_AUTHENTICATED = '/profile';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
@@ -291,6 +291,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       if (userCredential.user) {
         await updateFirebaseProfile(userCredential.user, { displayName: username });
+        const userRef = doc(db, 'users', userCredential.user.uid);
+        const newUserProfile: AppUser = {
+          id: userCredential.user.uid,
+          username: username,
+          displayName: username,
+          email: email,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        await setDoc(userRef, newUserProfile, { merge: true });
       }
       toast({ title: "Sign Up Successful", description: "Your account has been created. Welcome!" });
     } catch (error) {
@@ -372,9 +382,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await updateDoc(userRef, dataToUpdate);
       
       toast({ title: "Profile Updated", description: "Your profile information has been saved." });
-    } catch (error)
+    }
+    catch (error: any)
     {
-      handleAuthError(error as AuthError, "Profile Update");
+      if (error.code) {
+        handleAuthError(error as AuthError, "Profile Update");
+      } else {
+        console.error("Error updating profile:", error);
+        toast({ title: "Error", description: "Could not update profile.", variant: "destructive"});
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -403,34 +419,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
     setAuthLoading(true);
+    const reauthenticated = await reauthenticate(currentPasswordForReAuth);
+    if (!reauthenticated) {
+        setAuthLoading(false);
+        return false;
+    }
+    
     try {
         await updateFirebaseEmail(firebaseUser, newEmail);
         const userRef = doc(db, 'users', firebaseUser.uid);
         await updateDoc(userRef, { email: newEmail, updatedAt: serverTimestamp() });
         toast({ title: "Email Updated", description: `Your email has been successfully updated to ${newEmail}. You might need to sign in again.` });
-        setAuthLoading(false);
         return true;
-    } catch (error: any) {
-      if (error.code === 'auth/requires-recent-login') {
-        toast({ title: "Re-authentication Required", description: "Please enter your current password to verify and try again.", variant: "destructive" });
-        const reauthenticated = await reauthenticate(currentPasswordForReAuth);
-        if (reauthenticated) {
-          try {
-            await updateFirebaseEmail(firebaseUser, newEmail);
-            const userRef = doc(db, 'users', firebaseUser.uid);
-            await updateDoc(userRef, { email: newEmail, updatedAt: serverTimestamp() });
-            toast({ title: "Email Updated", description: `Your email has been successfully updated to ${newEmail} after re-authentication.` });
-            setAuthLoading(false);
-            return true;
-          } catch (retryError) {
-            handleAuthError(retryError as AuthError, "Email Update after Re-auth");
-          }
-        }
-      } else {
+    } catch (error) {
         handleAuthError(error as AuthError, "Email Update");
-      }
+        return false;
+    } finally {
       setAuthLoading(false);
-      return false;
     }
   };
 
@@ -441,30 +446,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
     setAuthLoading(true);
+    const reauthenticated = await reauthenticate(currentPasswordForReAuth);
+     if (!reauthenticated) {
+        setAuthLoading(false);
+        return false;
+    }
     try {
         await updateFirebasePassword(firebaseUser, newPasswordVal);
         toast({ title: "Password Updated", description: "Your password has been successfully changed." });
-        setAuthLoading(false);
         return true;
-    } catch (error: any) {
-        if (error.code === 'auth/requires-recent-login') {
-        toast({ title: "Re-authentication Required", description: "Please enter your current password to verify and try again.", variant: "destructive" });
-        const reauthenticated = await reauthenticate(currentPasswordForReAuth);
-        if (reauthenticated) {
-          try {
-            await updateFirebasePassword(firebaseUser, newPasswordVal);
-            toast({ title: "Password Updated", description: "Your password has been successfully changed after re-authentication." });
-            setAuthLoading(false);
-            return true;
-          } catch (retryError) {
-            handleAuthError(retryError as AuthError, "Password Update after Re-auth");
-          }
-        }
-      } else {
+    } catch (error) {
         handleAuthError(error as AuthError, "Password Update");
-      }
+        return false;
+    } finally {
       setAuthLoading(false);
-      return false;
     }
   };
 
