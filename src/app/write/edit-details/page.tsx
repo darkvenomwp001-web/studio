@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud, CheckCircle, AlertCircle, FileText, Star } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
@@ -481,7 +481,7 @@ export default function EditStoryDetailsPage() {
 
   return (
     <AlertDialog>
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-5xl mx-auto py-8 px-4 space-y-8">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary">
@@ -499,7 +499,7 @@ export default function EditStoryDetailsPage() {
         </div>
       </header>
 
-      <form onSubmit={(e) => e.preventDefault()} className="grid md:grid-cols-3 gap-6 items-start">
+      <div className="grid md:grid-cols-3 gap-8 items-start">
         <div className="md:col-span-1 space-y-6">
           <Card>
             <CardHeader>
@@ -507,7 +507,7 @@ export default function EditStoryDetailsPage() {
             </CardHeader>
             <CardContent className="flex flex-col items-center">
               <div
-                className="aspect-[2/3] w-full max-w-[240px] bg-muted rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity mb-2 shadow-md relative group"
+                className="aspect-[2/3] w-full max-w-[220px] bg-muted rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity mb-2 shadow-md relative group"
                 onClick={() => !isSaving && fileInputRef.current?.click()}
                 title="Click to change cover"
               >
@@ -543,25 +543,24 @@ export default function EditStoryDetailsPage() {
             <CardHeader><CardTitle>Core Details</CardTitle></CardHeader>
             <CardContent className="space-y-4">
                  <div>
-                    <Label htmlFor="storyTitle" className="text-base">Story Title</Label>
+                    <Label htmlFor="storyTitle">Story Title</Label>
                     <Input
                         id="storyTitle"
                         value={storyTitle}
                         onChange={(e) => setStoryTitle(e.target.value)}
                         placeholder="Your captivating story title"
-                        className="text-lg p-3 border-0 border-b-2 border-input focus:border-primary shadow-none rounded-none focus:ring-0 bg-transparent"
+                        className="text-lg"
                         disabled={isSaving}
                     />
                 </div>
                 <div>
-                    <Label htmlFor="summary" className="text-base">Story Description (Blurb)</Label>
+                    <Label htmlFor="summary">Story Description (Blurb)</Label>
                     <Textarea
                         id="summary"
                         value={summary}
                         onChange={(e) => setSummary(e.target.value)}
                         placeholder="A short, enticing summary to draw readers in..."
                         rows={6}
-                        className="text-base p-3 border-0 border-b-2 border-input focus:border-primary shadow-none rounded-none focus:ring-0 bg-transparent min-h-[120px]"
                         disabled={isSaving}
                     />
                 </div>
@@ -667,17 +666,29 @@ export default function EditStoryDetailsPage() {
                 <ScrollArea className="max-h-96 pr-3">
                   <ul className="space-y-2">
                     {story.chapters.sort((a, b) => a.order - b.order).map(chapter => (
-                      <li key={chapter.id} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50">
-                        <div>
-                          <Link href={`/write/edit?storyId=${story.id}&chapterId=${chapter.id}`} className="font-medium hover:underline">
-                            {chapter.order}. {chapter.title}
-                          </Link>
-                          <p className={cn("text-xs", getChapterStatusColor(chapter.status))}>
-                            Status: {chapter.status || 'Draft'}
-                            {chapter.publishedDate && chapter.status === 'Published' && ` - Published: ${formatDate(chapter.publishedDate)}`}
-                          </p>
+                      <li key={chapter.id} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 gap-2">
+                        <div className="flex-1 min-w-0">
+                            <Link href={`/write/edit?storyId=${story.id}&chapterId=${chapter.id}`} className="font-medium hover:underline truncate block">
+                                {chapter.order}. {chapter.title}
+                            </Link>
+                            <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-1 text-xs text-muted-foreground">
+                                <span className={cn(getChapterStatusColor(chapter.status))}>
+                                    {chapter.status || 'Draft'}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <FileText className="h-3 w-3" /> {chapter.wordCount || 0} words
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <Star className="h-3 w-3" /> {chapter.votes || 0} votes
+                                </span>
+                                {chapter.publishedDate && chapter.status === 'Published' && (
+                                    <span className="hidden sm:inline">
+                                        Published: {formatDate(chapter.publishedDate)}
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           <Link href={`/write/edit?storyId=${story.id}&chapterId=${chapter.id}`} passHref>
                             <Button variant="ghost" size="icon" title="Edit Chapter" disabled={isSaving}><Edit className="h-4 w-4"/></Button>
                           </Link>
@@ -709,9 +720,9 @@ export default function EditStoryDetailsPage() {
                     placeholder="Enter collaborator's username"
                     value={collaboratorUsername}
                     onChange={(e) => setCollaboratorUsername(e.target.value)}
-                    disabled={isProcessingCollaboration || story.author.id !== user.id || isSaving}
+                    disabled={isProcessingCollaboration || story.author.id !== user?.id || isSaving}
                     />
-                    <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim() || story.author.id !== user.id || isSaving}>
+                    <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim() || story.author.id !== user?.id || isSaving}>
                         {isProcessingCollaboration ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add
                     </Button>
                 </div>
@@ -733,7 +744,7 @@ export default function EditStoryDetailsPage() {
                                 size="icon" 
                                 onClick={() => handleRemoveCollaborator(collab.id)} 
                                 className="text-destructive hover:text-destructive" 
-                                disabled={isProcessingCollaboration || story.author.id !== user.id || isSaving}
+                                disabled={isProcessingCollaboration || story.author.id !== user?.id || isSaving}
                             >
                                 <Trash2 className="h-4 w-4" />
                             </Button>
@@ -749,7 +760,7 @@ export default function EditStoryDetailsPage() {
            </Card>
 
         </div>
-      </form>
+      </div>
 
       {chapterToDelete && (
         <AlertDialogContent>
