@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
@@ -88,7 +89,7 @@ export default function NotificationsPage() {
 
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row justify-between items-center">
-          <CardTitle>All Notifications</CardTitle>
+          <CardTitle className="text-lg">All Notifications</CardTitle>
           {notifications.length > 0 && (
             <Button variant="outline" size="sm" onClick={handleMarkAllRead} disabled={authLoading || notifications.every(n => n.isRead)}>
               {authLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
