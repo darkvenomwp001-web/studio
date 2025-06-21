@@ -55,7 +55,7 @@ export default function VersionHistoryPage() {
     setSelectedVersion(version);
   };
   
-  const editLink = `/write/edit${storyId ? `?storyId=${storyId}` : ''}`;
+  const editLink = `/write/edit?storyId=${storyId}&chapterId=${chapterId}`;
 
 
   return (

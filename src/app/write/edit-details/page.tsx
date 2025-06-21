@@ -481,7 +481,7 @@ export default function EditStoryDetailsPage() {
 
   return (
     <AlertDialog>
-    <div className="max-w-5xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary">
