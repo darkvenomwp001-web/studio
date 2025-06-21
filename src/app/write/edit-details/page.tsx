@@ -36,6 +36,8 @@ export default function EditStoryDetailsPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
+  const queryStoryId = searchParams.get('storyId');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -741,5 +743,7 @@ export default function EditStoryDetailsPage() {
     </AlertDialog>
   );
 }
+
+    
 
     
