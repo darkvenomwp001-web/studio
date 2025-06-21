@@ -1,0 +1,147 @@
+
+'use client';
+
+import Link from 'next/link';
+import Image from 'next/image';
+import type { Story } from '@/types';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Eye, Edit2, Trash2, BookOpen, Star } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+interface DashboardStoryCardProps {
+  story: Story;
+}
+
+export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const totalVotes = story.chapters?.reduce((acc, chapter) => acc + (chapter.votes || 0), 0) || 0;
+
+  const handleDeleteStory = async () => {
+    if (!user || story.author.id !== user.id) {
+      toast({ title: "Unauthorized", description: "Only the story author can delete it.", variant: "destructive" });
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'stories', story.id));
+      toast({ title: "Story Deleted", description: `"${story.title}" has been permanently deleted.` });
+    } catch (error) {
+      console.error("Error deleting story:", error);
+      toast({ title: "Error", description: "Could not delete the story.", variant: "destructive" });
+    }
+  };
+
+  const getStatusBadgeClasses = (status?: Story['status'], visibility?: Story['visibility']) => {
+    if (visibility === 'Private' || visibility === 'Unlisted') {
+      return 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-700/30 dark:text-yellow-300 dark:border-yellow-600';
+    }
+    switch (status) {
+      case 'Completed':
+        return 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
+      case 'Ongoing':
+        return 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700';
+      case 'Draft':
+        return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-700/50 dark:text-gray-300 dark:border-gray-600';
+      default:
+        return 'bg-muted text-muted-foreground border-border';
+    }
+  };
+
+  const displayStatus = story.visibility !== 'Public' ? story.visibility : (story.status || 'Draft');
+
+  return (
+    <AlertDialog>
+      <Card className="w-full overflow-hidden shadow-sm hover:shadow-lg transition-shadow">
+        <div className="flex">
+          <Link href={`/stories/${story.id}`} passHref className="block flex-shrink-0">
+            <div className="relative w-28 h-40 sm:w-32 sm:h-48 bg-muted">
+              <Image
+                src={story.coverImageUrl || 'https://placehold.co/512x800.png'}
+                alt={story.title}
+                layout="fill"
+                objectFit="cover"
+                data-ai-hint={story.dataAiHint || "book cover"}
+                className="hover:scale-105 transition-transform"
+              />
+            </div>
+          </Link>
+          <CardContent className="p-3 sm:p-4 flex flex-col justify-between flex-grow">
+            <div>
+              <div className="flex justify-between items-start mb-1">
+                <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
+                  <h3 className="font-headline text-lg sm:text-xl font-bold hover:underline line-clamp-1">{story.title}</h3>
+                </Link>
+                <Badge variant="outline" className={cn("text-xs capitalize h-fit", getStatusBadgeClasses(story.status, story.visibility))}>{displayStatus}</Badge>
+              </div>
+
+              <div className="flex items-center text-xs text-muted-foreground mb-3 gap-x-4 gap-y-1 flex-wrap">
+                <div className="flex items-center gap-1.5" title="Chapters">
+                  <BookOpen className="h-3.5 w-3.5" />
+                  <span>{story.chapters.length} Parts</span>
+                </div>
+                 <div className="flex items-center gap-1.5" title="Views">
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>{story.views?.toLocaleString() || 0}</span>
+                </div>
+                 <div className="flex items-center gap-1.5" title="Votes">
+                  <Star className="h-3.5 w-3.5" />
+                  <span>{totalVotes.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground line-clamp-2 hidden sm:block">{story.summary || "No description provided."}</p>
+            </div>
+            
+            <div className="flex items-center gap-2 mt-2">
+                <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
+                    <Button size="sm"><Edit2 className="mr-1.5 h-4 w-4"/>Edit Details</Button>
+                </Link>
+                <Link href={`/stories/${story.id}`} passHref>
+                    <Button size="sm" variant="outline"><Eye className="mr-1.5 h-4 w-4"/>View Story</Button>
+                </Link>
+                {user && user.id === story.author.id && (
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="destructive" className="ml-auto">
+                        <Trash2 className="h-4 w-4"/>
+                    </Button>
+                  </AlertDialogTrigger>
+                )}
+            </div>
+          </CardContent>
+        </div>
+      </Card>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{story.title}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+            This action is permanent and cannot be undone. All chapters and data associated with this story will be deleted.
+            </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteStory} className="bg-destructive hover:bg-destructive/90">
+                Delete Story
+            </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
