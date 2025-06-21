@@ -147,7 +147,7 @@ export default function HomePage() {
       {/* Story Spotlight Section */}
       {storySpotlight && (
         <section className="container mx-auto px-4">
-          <h2 className="text-3xl font-headline font-bold mb-8 text-center text-accent flex items-center justify-center gap-3">
+          <h2 className="text-2xl font-headline font-bold mb-8 text-center text-accent flex items-center justify-center gap-3">
             <Award className="h-8 w-8" /> Story Spotlight
           </h2>
           <Card className="w-full max-w-4xl mx-auto overflow-hidden shadow-2xl hover:shadow-primary/20 transition-all duration-300 group">
@@ -166,7 +166,7 @@ export default function HomePage() {
               <div className="p-6 md:p-8 flex flex-col justify-between flex-1 bg-card">
                 <div>
                   <Badge variant="secondary" className="mb-2 bg-accent text-accent-foreground">{storySpotlight.genre}</Badge>
-                  <CardTitle className="text-2xl md:text-3xl font-headline group-hover:text-primary transition-colors">{storySpotlight.title}</CardTitle>
+                  <CardTitle className="text-2xl font-headline group-hover:text-primary transition-colors">{storySpotlight.title}</CardTitle>
                   <CardDescription className="text-sm text-muted-foreground mt-1 mb-3">
                     By <Link href={`/profile/${storySpotlight.author.id}`} className="hover:underline font-medium">{storySpotlight.author.displayName || storySpotlight.author.username}</Link>
                   </CardDescription>
@@ -191,7 +191,7 @@ export default function HomePage() {
       {/* Trending Stories Section */}
       <section className="container mx-auto px-4">
         <div className="flex justify-between items-center mb-6">
-            <h2 className="text-3xl font-headline font-bold text-primary">Trending Stories</h2>
+            <h2 className="text-2xl font-headline font-bold text-primary">Trending Stories</h2>
             <Link href="/stories" passHref>
                 <Button variant="outline" className="text-sm">View All Stories <ArrowRight className="ml-2 h-4 w-4" /></Button>
             </Link>
@@ -209,7 +209,7 @@ export default function HomePage() {
       
       {/* Quick Dive Genre Teasers Section */}
       <section className="container mx-auto px-4">
-        <h2 className="text-3xl font-headline font-bold mb-8 text-center">Dive Into Your Next Obsession</h2>
+        <h2 className="text-2xl font-headline font-bold mb-8 text-center">Dive Into Your Next Obsession</h2>
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
           {popularGenres.map(genre => {
             const GenreIcon = genre.icon;
@@ -240,7 +240,7 @@ export default function HomePage() {
       {featuredAuthors.length > 0 && (
       <section className="container mx-auto px-4">
         <div className="flex justify-between items-center mb-6">
-            <h2 className="text-3xl font-headline font-bold text-accent">Featured Authors</h2>
+            <h2 className="text-2xl font-headline font-bold text-accent">Featured Authors</h2>
         </div>
          <div className="relative">
             <div className="flex overflow-x-auto space-x-6 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent">
