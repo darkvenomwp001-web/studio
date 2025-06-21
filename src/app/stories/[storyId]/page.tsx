@@ -22,17 +22,31 @@ import {
   Edit,
   Sparkles
 } from 'lucide-react';
-import { placeholderStories, formatDate, getUserById } from '@/lib/placeholder-data';
+import { formatDate } from '@/lib/placeholder-data';
 import type { Story, Chapter } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
-async function getStoryData(storyId: string): Promise<Story | undefined> {
-  // In a real app, this would fetch from a backend.
-  // For mock, we ensure placeholderStories is loaded (which it is globally)
-  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate async fetch
-  return placeholderStories.find(story => story.id === storyId);
+async function getStoryData(storyId: string): Promise<Story | null> {
+  try {
+    const storyDocRef = doc(db, 'stories', storyId);
+    const storySnap = await getDoc(storyDocRef);
+    if (storySnap.exists()) {
+      const data = storySnap.data();
+       return { 
+        id: storySnap.id, 
+        ...data,
+        lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
+      } as Story;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching story data:", error);
+    return null;
+  }
 }
 
 export default function StoryOverviewPage() {
@@ -51,23 +65,16 @@ export default function StoryOverviewPage() {
       setIsLoading(true);
       getStoryData(storyId).then(data => {
         if (data) {
-          // Visibility check: Drafts only for author, Private/Unlisted only if direct link by anyone (or author)
-          if (data.status === 'Draft' && data.author.id !== user?.id) {
-            setStory(null);
-          } else if ((data.visibility === 'Private' || data.visibility === 'Unlisted') && data.author.id !== user?.id && !user) {
-             // For non-authors, private/unlisted stories are not shown unless they have a direct link (which this page implies)
-             // This mock allows viewing if you have the link. A real system might have more granular permissions.
-             // If a non-logged in user tries to access private/unlisted, show not found.
-             // But if it's unlisted, it's generally viewable with link. Private more restrictive.
-             // For this mock: if private and not author, treat as not found. Unlisted viewable by link.
-             if(data.visibility === 'Private' && data.author.id !== user?.id) {
-                setStory(null);
-             } else {
-                setStory(data);
-             }
-          }
-          else {
+          const canView = 
+            data.visibility === 'Public' ||
+            data.visibility === 'Unlisted' ||
+            (data.visibility === 'Private' && user && (data.author.id === user.id || data.collaborators?.some(c => c.id === user.id))) ||
+            (data.status === 'Draft' && user && (data.author.id === user.id || data.collaborators?.some(c => c.id === user.id)));
+
+          if (canView) {
             setStory(data);
+          } else {
+            setStory(null);
           }
         } else {
           setStory(null);
@@ -123,7 +130,7 @@ export default function StoryOverviewPage() {
     );
   }
 
-  const firstChapterId = story.chapters?.find(ch => ch.status === 'Published')?.id || story.chapters?.[0]?.id; // Prioritize published
+  const firstChapterId = story.chapters?.find(ch => ch.status === 'Published')?.id;
   const publishedChapters = story.chapters?.filter(ch => ch.status === 'Published') || [];
   const totalPublishedChapters = publishedChapters.length;
   
@@ -132,8 +139,7 @@ export default function StoryOverviewPage() {
     : 1500;
   const estimatedReadTimeMinutes = Math.max(1, Math.round((totalPublishedChapters * averageWordCountPerChapter) / 200));
 
-  const isAuthor = user?.id === story.author.id;
-
+  const isAuthorOrCollaborator = user && (story.author.id === user.id || story.collaborators?.some(c => c.id === user.id));
 
   return (
     <div className="container mx-auto max-w-4xl py-8 px-4">
@@ -173,7 +179,7 @@ export default function StoryOverviewPage() {
             <Button size="lg" variant="outline" className="w-full text-lg" onClick={handleAddToLibrary}>
               <BookCopy className="mr-2 h-5 w-5" /> Add to Library
             </Button>
-            {isAuthor && (
+            {isAuthorOrCollaborator && (
               <Link href={`/write/edit-details?storyId=${story.id}`} passHref className="w-full">
                 <Button size="lg" variant="outline" className="w-full text-lg border-accent text-accent hover:bg-accent/10">
                   <Edit className="mr-2 h-5 w-5" /> Edit Story Details
@@ -218,7 +224,7 @@ export default function StoryOverviewPage() {
                         story.status === 'Completed' && 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700',
                         (story.status === 'Ongoing' || story.status === 'Public') && 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
                         story.status === 'Draft' && 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600',
-                        (story.status === 'Private' || story.status === 'Unlisted') && 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700'
+                        (story.visibility === 'Private' || story.visibility === 'Unlisted') && 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700'
                     )}>
                 {story.visibility === 'Public' && story.status !== 'Completed' && story.status !== 'Draft' ? 'Ongoing' : story.status || 'Public'}
             </Badge>

@@ -10,40 +10,87 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
-import { ArrowRight, BookOpen, LibrarySquare, TrendingUp, Sparkles, Users, Bookmark } from 'lucide-react';
-import { placeholderStories } from '@/lib/placeholder-data';
+import { ArrowRight, BookOpen, LibrarySquare, TrendingUp, Sparkles, Users, Bookmark, Loader2 } from 'lucide-react';
 import type { Story, ReadingListItem } from '@/types';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import YourStoryCard from '@/components/shared/YourStoryCard'; 
 import { useAuth } from '@/hooks/useAuth'; 
 import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from 'react';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 
-// Helper to get unique genres from published stories
-const getUniqueGenres = (stories: Story[]): string[] => {
-  const publishedStories = stories.filter(story => story.status !== 'Draft');
-  const allGenres = publishedStories.flatMap(story => story.genre.toLowerCase()); 
-  return Array.from(new Set(allGenres)).map(genre => genre.charAt(0).toUpperCase() + genre.slice(1));
-};
+async function fetchAllPublicStories(): Promise<Story[]> {
+  try {
+    const storiesCol = collection(db, 'stories');
+    const q = query(
+      storiesCol, 
+      where('visibility', '==', 'Public'),
+      where('status', '!=', 'Draft'),
+      orderBy('lastUpdated', 'desc')
+    );
+    const storySnapshot = await getDocs(q);
+    return storySnapshot.docs.map(doc => {
+      const data = doc.data();
+      const authorSummary = data.author 
+        ? { id: data.author.id || 'unknown', username: data.author.username || 'Unknown Author', displayName: data.author.displayName, avatarUrl: data.author.avatarUrl }
+        : { id: 'unknown', username: 'Unknown Author', displayName: 'Unknown Author' };
 
+      return { 
+        id: doc.id, 
+        ...data,
+        author: authorSummary,
+        lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
+        chapters: data.chapters || [],
+        tags: data.tags || [],
+      } as Story;
+    });
+  } catch (error) {
+    console.error("Error fetching all public stories:", error);
+    return [];
+  }
+}
 
 export default function StoriesPage() {
-  const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const [allStories, setAllStories] = useState<Story[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const publishedStories = placeholderStories.filter(story => story.status !== 'Draft');
+  useEffect(() => {
+    async function loadStories() {
+      setIsLoading(true);
+      const stories = await fetchAllPublicStories();
+      setAllStories(stories);
+      setIsLoading(false);
+    }
+    loadStories();
+  }, []);
 
-  const featuredStoriesForCarousel = publishedStories.slice(0, 5);
-  const popularStories = publishedStories.slice(0, 10);
-  const newReleases = [...publishedStories].sort((a,b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()).slice(0, 10);
-  const communityPicks = [...publishedStories].sort(() => 0.5 - Math.random()).slice(0, 10);
+  const featuredStoriesForCarousel = allStories.slice(0, 5);
+  const popularStories = [...allStories].sort((a,b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
+  const newReleases = [...allStories].sort((a,b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()).slice(0, 10);
+  const communityPicks = [...allStories].sort(() => 0.5 - Math.random()).slice(0, 10);
 
-  const uniqueGenres = getUniqueGenres(placeholderStories); // Still uses all stories to find genres, but filters within getStoriesByGenre
-  
+  const getUniqueGenres = (stories: Story[]): string[] => {
+    const allGenres = stories.flatMap(story => story.genre.toLowerCase()); 
+    return Array.from(new Set(allGenres)).map(genre => genre.charAt(0).toUpperCase() + genre.slice(1));
+  };
+  const uniqueGenres = getUniqueGenres(allStories);
+
   const getStoriesByGenre = (genre: string, limit: number = 10): Story[] => {
-    return placeholderStories.filter(story => story.genre.toLowerCase() === genre.toLowerCase() && story.status !== 'Draft').slice(0, limit);
+    return allStories.filter(story => story.genre.toLowerCase() === genre.toLowerCase()).slice(0, limit);
   };
 
   const userReadingList: ReadingListItem[] = user?.readingList || [];
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-4">Loading stories...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground space-y-12 py-8">
@@ -108,7 +155,6 @@ export default function StoriesPage() {
           </div>
         </section>
       )}
-
 
       {/* Popular Stories Section */}
       <section className="container mx-auto px-4">

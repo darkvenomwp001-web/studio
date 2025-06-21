@@ -38,7 +38,6 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { placeholderUsers } from '@/lib/placeholder-data';
 
 interface AppUser extends AppUserType {
   email?: string;
@@ -371,7 +370,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       await updateDoc(userRef, dataToUpdate);
       
-      // No need to call setUser, onSnapshot will handle it.
       toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     } catch (error)
     {
@@ -408,7 +406,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await updateFirebaseEmail(firebaseUser, newEmail);
         const userRef = doc(db, 'users', firebaseUser.uid);
         await updateDoc(userRef, { email: newEmail, updatedAt: serverTimestamp() });
-        // No need to call setUser, onSnapshot will handle it.
         toast({ title: "Email Updated", description: `Your email has been successfully updated to ${newEmail}. You might need to sign in again.` });
         setAuthLoading(false);
         return true;
@@ -490,8 +487,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     
-    // For announcements, userId might be null or a specific group identifier not yet implemented
-    // For user-specific notifications, ensure userId is set.
     if (notificationData.type !== 'announcement' && !notificationData.userId) return;
 
     const newNotifData = {
@@ -512,7 +507,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const notifRef = doc(db, 'notifications', notificationId);
       await updateDoc(notifRef, { isRead: true });
-      // Local state update will be handled by onSnapshot listener
     } catch (error) {
       console.error("Error marking notification as read:", error);
       toast({ title: "Error", description: "Could not update notification status.", variant: "destructive" });
@@ -544,7 +538,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-
   const followUser = async (targetUserId: string) => {
     if (!user) return;
     setAuthLoading(true);
@@ -567,7 +560,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 updatedAt: serverTimestamp()
             });
             
-            // Create notification for the target user
             const actorSummary: UserSummary = {
                 id: user.id,
                 username: user.username,
@@ -581,12 +573,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 link: `/profile/${user.id}`,
                 actor: actorSummary
             });
+             toast({title: "Followed", description: `You are now following ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
         }
-        
-        // No need to call setUser, onSnapshot will handle it.
-        
-        const targetUserDetails = placeholderUsers.find(u=>u.id === targetUserId) || (targetUserSnap.exists() ? targetUserSnap.data() as UserSummary : null);
-        toast({title: "Followed", description: `You are now following ${targetUserDetails?.displayName || targetUserDetails?.username || 'user'}.`});
     } catch (error) {
         console.error("Error following user:", error);
         toast({title: "Error", description: "Could not follow user.", variant: "destructive"});
@@ -616,12 +604,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 followersCount: Math.max(0, (targetUserData.followersCount || 0) - 1),
                 updatedAt: serverTimestamp()
             });
+            toast({title: "Unfollowed", description: `You have unfollowed ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
         }
-
-        // No need to call setUser, onSnapshot will handle it.
-
-        const targetUserDetails = placeholderUsers.find(u=>u.id === targetUserId) || (targetUserSnap.exists() ? targetUserSnap.data() as UserSummary : null);
-        toast({title: "Unfollowed", description: `You have unfollowed ${targetUserDetails?.displayName || targetUserDetails?.username || 'user'}.`});
     } catch (error) {
         console.error("Error unfollowing user:", error);
         toast({title: "Error", description: "Could not unfollow user.", variant: "destructive"});
@@ -662,5 +646,3 @@ export function useAuth() {
   }
   return context;
 }
-
-    

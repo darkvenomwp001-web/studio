@@ -42,34 +42,44 @@ import {
   Home
 } from 'lucide-react';
 import CommentSection from '@/components/comments/CommentSection';
-import { placeholderStories, getUserById } from '@/lib/placeholder-data';
-import type { Story, Chapter, UserSummary as CharacterSummary } from '@/types'; 
+import type { Story, Chapter, UserSummary } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
-async function getStoryAndChapterData(storyId: string, chapterIdParams: string, currentUserId?: string): Promise<{ story: Story; chapterIndex: number } | null> {
-  await new Promise(resolve => setTimeout(resolve, 100)); 
-  const story = placeholderStories.find(s => s.id === storyId);
-  
-  if (!story || !story.chapters) return null;
+async function getStoryAndChapterData(storyId: string, chapterId: string, currentUserId?: string): Promise<{ story: Story; chapterIndex: number } | null> {
+  try {
+    const storyDocRef = doc(db, 'stories', storyId);
+    const storySnap = await getDoc(storyDocRef);
+    
+    if (!storySnap.exists()) return null;
 
-  // Ensure draft stories are only readable by their authors
-  if (story.status === 'Draft' && story.author.id !== currentUserId) {
-    return null; 
+    const story = { id: storySnap.id, ...storySnap.data() } as Story;
+    
+    if (!story || !story.chapters) return null;
+
+    const chapterIndex = story.chapters.findIndex(c => c.id === chapterId);
+    if (chapterIndex === -1) return null;
+
+    const canView = 
+        story.visibility === 'Public' ||
+        story.visibility === 'Unlisted' ||
+        (story.visibility === 'Private' && currentUserId && (story.author.id === currentUserId || story.collaborators?.some(c => c.id === currentUserId))) ||
+        (story.status === 'Draft' && currentUserId && (story.author.id === currentUserId || story.collaborators?.some(c => c.id === currentUserId)));
+    
+    const chapterIsPublished = story.chapters[chapterIndex].status === 'Published';
+
+    if (canView && (chapterIsPublished || (currentUserId && (story.author.id === currentUserId || story.collaborators?.some(c => c.id === currentUserId))))) {
+        return { story, chapterIndex };
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error fetching story for reader:", error);
+    return null;
   }
-
-  const chapterIndex = story.chapters.findIndex(c => c.id === chapterIdParams);
-  if (chapterIndex === -1) return null;
-  
-  return { story, chapterIndex };
-}
-
-const mockStoryCharacters = (storyTitle?: string): CharacterSummary[] => {
-    if (!storyTitle) return [];
-    if (storyTitle.includes("Stargazer")) return [{id: "char1", displayName: "Elara Vayne"}, {id: "char2", displayName: "Commander REX"}, {id: "char3", displayName: "The Oracle"}, {id: "char4", displayName: "Jax Nebula"}].map(c => ({...c, username: c.displayName.replace(/\s+/g, '').toLowerCase()}));
-    if (storyTitle.includes("Shadow Forest")) return [{id: "char3", displayName: "Kaelen"}, {id: "char4", displayName: "Lyra the Sorceress"}].map(c => ({...c, username: c.displayName.replace(/\s+/g, '').toLowerCase()}));
-    return [{id: "charGen1", displayName: "Protagonist"}, {id: "charGen2", displayName: "Antagonist"}].map(c => ({...c, username: c.displayName.replace(/\s+/g, '').toLowerCase()}));
 }
 
 export default function StoryReaderPage() {
@@ -99,13 +109,12 @@ export default function StoryReaderPage() {
           setStory(data.story);
           setCurrentChapterIndex(data.chapterIndex);
         } else {
-          // If data is null, it means story/chapter not found OR draft access denied
           toast({
             title: "Chapter Not Accessible",
-            description: "This chapter may not exist or you may not have permission to view it (e.g., if it's a draft).",
+            description: "This chapter may not exist or you may not have permission to view it.",
             variant: "destructive"
           });
-          router.push(`/stories/${storyId}`); // Redirect to story overview or home
+          router.push(`/stories/${storyId}`);
         }
         setIsLoading(false);
       });
@@ -123,7 +132,6 @@ export default function StoryReaderPage() {
   }, [currentChapterIndex, story]);
 
   const currentChapter = story?.chapters?.[currentChapterIndex];
-  const characters = story ? mockStoryCharacters(story.title) : [];
 
   const toggleMainControls = () => {
     setControlsVisible(prev => !prev);
@@ -195,8 +203,15 @@ export default function StoryReaderPage() {
   }
   
   const author = story.author;
-  const prevChapterId = currentChapterIndex > 0 ? story.chapters[currentChapterIndex - 1].id : null;
-  const nextChapterId = currentChapterIndex < story.chapters.length - 1 ? story.chapters[currentChapterIndex + 1].id : null;
+  const publishedChapters = story.chapters.filter(ch => ch.status === 'Published');
+  const visibleChapters = currentUser && (story.author.id === currentUser.id || story.collaborators?.some(c => c.id === currentUser.id))
+    ? story.chapters // Author/collaborator sees all chapters
+    : publishedChapters; // Others see only published chapters
+
+  const currentVisibleChapterIndex = visibleChapters.findIndex(c => c.id === currentChapter.id);
+
+  const prevChapterId = currentVisibleChapterIndex > 0 ? visibleChapters[currentVisibleChapterIndex - 1].id : null;
+  const nextChapterId = currentVisibleChapterIndex < visibleChapters.length - 1 ? visibleChapters[currentVisibleChapterIndex + 1].id : null;
 
 
   return (
@@ -282,45 +297,24 @@ export default function StoryReaderPage() {
         </Button>
         
         <h4 className="font-semibold text-sm mt-2 mb-1 text-muted-foreground">Chapters</h4>
-        <ScrollArea className="flex-1 mb-3 max-h-60">
+        <ScrollArea className="flex-1 mb-3">
           <ul className="space-y-1">
-            {story.chapters.sort((a,b)=>a.order-b.order).map((chapter, index) => (
+            {visibleChapters.sort((a,b)=>a.order-b.order).map((chapter, index) => (
               <li key={chapter.id}>
                 <Button
-                  variant={index === currentChapterIndex ? 'secondary' : 'ghost'}
+                  variant={chapter.id === currentChapter.id ? 'secondary' : 'ghost'}
                   className="w-full justify-start text-left h-auto py-1.5 px-2 text-sm"
                   onClick={() => navigateToChapterById(chapter.id)}
                 >
-                  <span className={cn("truncate", index === currentChapterIndex ? "font-semibold" : "")}>
+                  <span className={cn("truncate", chapter.id === currentChapter.id ? "font-semibold" : "")}>
                     {chapter.order}. {chapter.title}
                   </span>
                 </Button>
               </li>
             ))}
-             {story.chapters.length === 0 && <p className="text-xs text-muted-foreground p-2">No chapters yet.</p>}
+             {visibleChapters.length === 0 && <p className="text-xs text-muted-foreground p-2">No chapters yet.</p>}
           </ul>
         </ScrollArea>
-
-        {characters.length > 0 && (
-            <>
-            <h4 className="font-semibold text-sm mt-2 mb-1 text-muted-foreground">Characters</h4>
-            <ScrollArea className="flex-1 mb-2 max-h-28">
-            <ul className="space-y-1">
-                {characters.map(char => (
-                <li key={char.id}>
-                    <Button
-                    variant="ghost"
-                    className="w-full justify-start text-left h-auto py-1 px-2 text-xs"
-                    onClick={() => handleCharacterClick(char.displayName || char.username)}
-                    >
-                    <Users className="mr-2 h-3 w-3" /> {char.displayName || char.username}
-                    </Button>
-                </li>
-                ))}
-            </ul>
-            </ScrollArea>
-            </>
-        )}
 
         {author && (
             <Link href={`/profile/${author.id}`} className="mt-auto pt-2 border-t">

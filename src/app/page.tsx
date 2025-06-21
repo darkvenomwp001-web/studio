@@ -3,9 +3,8 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Zap, Users2, PenTool, BookmarkPlus, Settings } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Zap, Users2, PenTool, BookmarkPlus } from 'lucide-react';
 import StoryCard from '@/components/shared/StoryCard';
-import { placeholderUsers, placeholderStories as staticPlaceholderStories, getUserById } from '@/lib/placeholder-data'; // Keep static for authors for now
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -17,82 +16,92 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
-  const storiesCol = collection(db, 'stories');
-  // Example query: fetch 'count' stories, ordered by lastUpdated, public visibility
-  const q = query(
-    storiesCol, 
-    where('visibility', '==', 'Public'), // Only public stories
-    orderBy('lastUpdated', 'desc'), 
-    firestoreLimit(count)
-  );
-  const storySnapshot = await getDocs(q);
-  const storyList = storySnapshot.docs.map(doc => {
-    const data = doc.data();
-    // Ensure author is in UserSummary format, if stored differently in Firestore.
-    // This is a simplified mapping. Real app might need more robust data transformation.
-    const authorSummary = data.author 
-      ? { id: data.author.id || 'unknown', username: data.author.username || 'Unknown Author', displayName: data.author.displayName, avatarUrl: data.author.avatarUrl }
-      : { id: 'unknown', username: 'Unknown Author', displayName: 'Unknown Author' };
+  try {
+    const storiesCol = collection(db, 'stories');
+    const q = query(
+      storiesCol, 
+      where('visibility', '==', 'Public'),
+      orderBy('lastUpdated', 'desc'), 
+      firestoreLimit(count)
+    );
+    const storySnapshot = await getDocs(q);
+    const storyList = storySnapshot.docs.map(doc => {
+      const data = doc.data();
+      const authorSummary = data.author 
+        ? { id: data.author.id || 'unknown', username: data.author.username || 'Unknown Author', displayName: data.author.displayName, avatarUrl: data.author.avatarUrl }
+        : { id: 'unknown', username: 'Unknown Author', displayName: 'Unknown Author' };
 
-    return { 
-      id: doc.id, 
-      ...data,
-      author: authorSummary, // Overwrite with UserSummary
-      // Handle potential Firestore Timestamps if you use them for date fields
-      lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
-      // Ensure chapters array exists
-      chapters: data.chapters || [],
-      tags: data.tags || [],
-    } as Story;
-  });
-  return storyList;
+      return { 
+        id: doc.id, 
+        ...data,
+        author: authorSummary,
+        lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
+        chapters: data.chapters || [],
+        tags: data.tags || [],
+      } as Story;
+    });
+    return storyList;
+  } catch (error) {
+    console.error("Error fetching stories from Firestore:", error);
+    return [];
+  }
 }
 
+async function fetchFeaturedAuthorsFromFirestore(count: number): Promise<UserSummary[]> {
+  try {
+    const usersCol = collection(db, 'users');
+    const q = query(
+      usersCol,
+      orderBy('followersCount', 'desc'),
+      firestoreLimit(count)
+    );
+    const userSnapshot = await getDocs(q);
+    return userSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        username: data.username,
+        displayName: data.displayName || data.username,
+        avatarUrl: data.avatarUrl,
+        bio: data.bio, // Include bio for card display
+        followersCount: data.followersCount,
+      } as UserSummary & { bio?: string, followersCount?: number };
+    });
+  } catch (error) {
+    console.error("Error fetching featured authors:", error);
+    return [];
+  }
+}
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
   const [storySpotlight, setStorySpotlight] = useState<Story | null>(null);
-  const [isStoriesLoading, setIsStoriesLoading] = useState(true);
-  
-  const allAuthorsFromStories = staticPlaceholderStories.map(s => s.author);
-  const uniqueAuthorsMap = new Map<string, UserSummary>();
-  allAuthorsFromStories.forEach(author => {
-    if (!uniqueAuthorsMap.has(author.id)) {
-      uniqueAuthorsMap.set(author.id, author);
-    }
-  });
-  const featuredAuthors = Array.from(uniqueAuthorsMap.values()).slice(0, 6);
-
+  const [featuredAuthors, setFeaturedAuthors] = useState<(UserSummary & { bio?: string, followersCount?: number })[]>([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
   useEffect(() => {
-    async function loadStories() {
-      setIsStoriesLoading(true);
-      try {
-        const fetchedStories = await fetchStoriesFromFirestore(8); // Fetch 8 for trending
-        setTrendingStories(fetchedStories.filter(s => s.status !== 'Draft'));
-        if (fetchedStories.length > 0) {
-          // Filter for spotlight (public, ongoing or completed)
-          const availableForSpotlight = fetchedStories.filter(s => s.visibility === 'Public' && (s.status === 'Ongoing' || s.status === 'Completed'));
-          if (availableForSpotlight.length > 0) {
-            setStorySpotlight(availableForSpotlight[Math.floor(Math.random() * availableForSpotlight.length)]);
-          } else if (fetchedStories.length > 0) {
-            setStorySpotlight(fetchedStories.filter(s => s.status !== 'Draft')[0]); // Fallback to any fetched story
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching stories from Firestore:", error);
-        // Fallback to static placeholders if Firestore fetch fails for demo
-        setTrendingStories(staticPlaceholderStories.filter(s => s.status !== 'Draft').slice(0,8));
-        const staticSpotlightCandidates = staticPlaceholderStories.filter(s => s.status !== 'Draft');
-        if(staticSpotlightCandidates.length > 0) {
-            setStorySpotlight(staticSpotlightCandidates[Math.floor(Math.random() * staticSpotlightCandidates.length)]);
-        }
+    async function loadData() {
+      setIsDataLoading(true);
+      const [fetchedStories, fetchedAuthors] = await Promise.all([
+        fetchStoriesFromFirestore(8),
+        fetchFeaturedAuthorsFromFirestore(6)
+      ]);
+      
+      setTrendingStories(fetchedStories.filter(s => s.status !== 'Draft'));
+      setFeaturedAuthors(fetchedAuthors);
 
+      if (fetchedStories.length > 0) {
+        const availableForSpotlight = fetchedStories.filter(s => s.visibility === 'Public' && (s.status === 'Ongoing' || s.status === 'Completed'));
+        if (availableForSpotlight.length > 0) {
+          setStorySpotlight(availableForSpotlight[Math.floor(Math.random() * availableForSpotlight.length)]);
+        } else if (fetchedStories.length > 0) {
+          setStorySpotlight(fetchedStories.filter(s => s.status !== 'Draft')[0]);
+        }
       }
-      setIsStoriesLoading(false);
+      setIsDataLoading(false);
     }
-    loadStories();
+    loadData();
   }, []);
   
   const popularGenres = [
@@ -101,14 +110,7 @@ export default function HomePage() {
     { name: "Romance", icon: HeartIcon, blurb: "Heartfelt connections & love stories.", dataAiHint: "couple sunset", cover: "https://placehold.co/512x800.png"},
   ];
 
-  const communityPulseItems = [
-    { icon: Zap, text: `${placeholderUsers[1].username} just published a new chapter for "${(trendingStories.find(s => s.author.id === placeholderUsers[1].id) || trendingStories[1])?.title || 'a story'}"!`},
-    { icon: Users2, text: `Welcome new writer: @${placeholderUsers[2].username}!`},
-    { icon: BookHeart, text: `"${trendingStories[0]?.title || 'a story'}" reached 10k reads today!`},
-  ].filter(item => item.text.includes("story") ? item.text.includes(trendingStories[0]?.title || trendingStories[1]?.title) : true);
-
-
-  if (authLoading || isStoriesLoading) {
+  if (authLoading || isDataLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -120,9 +122,6 @@ export default function HomePage() {
     <div className="space-y-16 md:space-y-24 py-8">
       {/* Hero Section */}
       <section className="relative py-20 md:py-32 rounded-lg overflow-hidden bg-gradient-to-br from-primary/10 via-background to-background shadow-xl">
-        <div className="absolute inset-0 opacity-5">
-           {/* <Image src="/path/to/hero-bg.svg" layout="fill" objectFit="cover" alt="Background pattern" /> */}
-        </div>
         <div className="container mx-auto px-4 text-center relative z-10">
           <h1 className="text-4xl md:text-6xl font-headline font-extrabold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary/70">
             Welcome to LitVerse
@@ -204,7 +203,7 @@ export default function HomePage() {
                     <StoryCard story={story} />
                 </div>
             ))}
-            {trendingStories.length === 0 && !isStoriesLoading && <p className="text-muted-foreground">No trending stories to display.</p>}
+            {trendingStories.length === 0 && <p className="text-muted-foreground">No trending stories to display.</p>}
             <div className="flex-shrink-0 w-px"></div>
             </div>
         </div>
@@ -240,6 +239,7 @@ export default function HomePage() {
       </section>
 
       {/* Featured Authors Section */}
+      {featuredAuthors.length > 0 && (
       <section className="container mx-auto px-4">
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-3xl font-headline font-bold text-accent">Featured Authors</h2>
@@ -255,7 +255,7 @@ export default function HomePage() {
                         <AvatarFallback className="text-3xl">{author.username.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <h3 className="text-lg font-semibold font-headline text-center group-hover:text-accent transition-colors">{author.displayName || author.username}</h3>
-                    <p className="text-xs text-muted-foreground text-center line-clamp-2 mt-1 flex-grow">{(getUserById(author.id)?.bio || "Passionate Creator").substring(0,60)}{getUserById(author.id)?.bio && getUserById(author.id)!.bio!.length > 60 ? "..." : ""}</p>
+                    <p className="text-xs text-muted-foreground text-center line-clamp-2 mt-1 flex-grow">{(author.bio || "Passionate Creator").substring(0,60)}{author.bio && author.bio.length > 60 ? "..." : ""}</p>
                     </Card>
                 </div>
                 </Link>
@@ -264,8 +264,10 @@ export default function HomePage() {
             </div>
         </div>
       </section>
+      )}
 
-      {/* Community Pulse Section (Mocked) */}
+      {/* Community Pulse Section */}
+      {trendingStories.length > 0 && (
       <section className="container mx-auto px-4">
         <Card className="bg-card shadow-lg">
           <CardHeader>
@@ -276,19 +278,25 @@ export default function HomePage() {
           </CardHeader>
           <CardContent>
             <ul className="space-y-3">
-              {communityPulseItems.map((item, index) => {
-                 const ItemIcon = item.icon;
-                 return (
-                    <li key={index} className="flex items-center gap-3 text-sm p-3 bg-background/50 rounded-md hover:bg-muted/50 transition-colors">
-                        <ItemIcon className="h-5 w-5 text-accent flex-shrink-0" />
-                        <span>{item.text}</span>
-                    </li>
-                 );
-              })}
+                <li className="flex items-center gap-3 text-sm p-3 bg-background/50 rounded-md hover:bg-muted/50 transition-colors">
+                    <Zap className="h-5 w-5 text-accent flex-shrink-0" />
+                    <span>{trendingStories[0].author.displayName || trendingStories[0].author.username} just updated "{trendingStories[0].title}"!</span>
+                </li>
+                {featuredAuthors.length > 0 && (
+                <li className="flex items-center gap-3 text-sm p-3 bg-background/50 rounded-md hover:bg-muted/50 transition-colors">
+                    <Users2 className="h-5 w-5 text-accent flex-shrink-0" />
+                    <span>Welcome our newest featured author, @{featuredAuthors[0].username}!</span>
+                </li>
+                )}
+                <li className="flex items-center gap-3 text-sm p-3 bg-background/50 rounded-md hover:bg-muted/50 transition-colors">
+                    <BookHeart className="h-5 w-5 text-accent flex-shrink-0" />
+                    <span>"{trendingStories[0].title}" is trending with {trendingStories[0].views || 0} reads!</span>
+                </li>
             </ul>
           </CardContent>
         </Card>
       </section>
+      )}
       
       {/* Call to Action - Start Writing */}
       <section className="container mx-auto px-4 py-16 bg-gradient-to-r from-accent/10 via-transparent to-primary/10 rounded-lg shadow-inner">
@@ -308,4 +316,3 @@ export default function HomePage() {
     </div>
   );
 }
-
