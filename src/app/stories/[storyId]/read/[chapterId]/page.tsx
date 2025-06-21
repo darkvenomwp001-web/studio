@@ -346,13 +346,13 @@ export default function StoryReaderPage() {
                 </div>
             )}
             </article>
-
-            {currentUser && story && currentChapter && currentUser.id !== story.author.id && (
-              <div className="max-w-3xl mx-auto px-4 sm:px-6 md:px-12 py-8">
-                <SendLetterForm story={story} chapter={currentChapter} />
-              </div>
-            )}
         </div>
+
+        {currentUser && story && currentChapter && currentUser.id !== story.author.id && (
+          <section className="max-w-3xl mx-auto px-4 sm:px-6 md:px-12 py-8 mt-8 border-t-2 border-dashed border-primary/20">
+            <SendLetterForm story={story} chapter={currentChapter} />
+          </section>
+        )}
       </main>
 
       <footer
