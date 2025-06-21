@@ -15,13 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud, CheckCircle, AlertCircle, FileText, Star } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud, CheckCircle, AlertCircle, FileText, Star, MoreVertical } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; 
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, deleteField, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import type { Story, Chapter, UserSummary, User as AppUser } from '@/types';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/placeholder-data'; 
@@ -416,6 +417,21 @@ export default function EditStoryDetailsPage() {
     }
   };
 
+  const handleDeleteStory = async () => {
+    if (!story || !user || story.author.id !== user.id) {
+      toast({ title: "Unauthorized", description: "Only the story author can delete it.", variant: "destructive" });
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'stories', story.id));
+      toast({ title: "Story Deleted", description: `"${story.title}" has been permanently deleted.` });
+      router.push('/write');
+    } catch (error) {
+      console.error("Error deleting story:", error);
+      toast({ title: "Error", description: "Could not delete the story.", variant: "destructive" });
+    }
+  };
+
 
   if (isLoading || authLoading || (queryStoryId && !story && !initialLoadComplete)) { 
     return (
@@ -481,7 +497,7 @@ export default function EditStoryDetailsPage() {
 
   return (
     <AlertDialog>
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-5xl mx-auto py-8 px-4 space-y-8">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary">
@@ -491,11 +507,28 @@ export default function EditStoryDetailsPage() {
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-2">
             <AutoSaveStatusIndicator />
-             {queryStoryId && story && (
-                <Link href={`/stories/${story.id}`} passHref>
-                    <Button variant="outline"><Eye className="mr-2 h-4 w-4" /> View Story Page</Button>
-                </Link>
-             )}
+            {queryStoryId && story && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href={`/stories/${story.id}`} className="flex items-center">
+                    <Eye className="mr-2 h-4 w-4" /> View Story Page
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Story
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </header>
 
@@ -774,6 +807,23 @@ export default function EditStoryDetailsPage() {
             <AlertDialogCancel onClick={() => setChapterToDelete(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => confirmDeleteChapter(chapterToDelete)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
               Yes, Delete Chapter
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      )}
+
+      {story && user?.id === story.author.id && (
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Story: "{story.title}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action is permanent and cannot be undone. All chapters, comments, and data associated with this story will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteStory} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              Yes, Permanently Delete Story
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

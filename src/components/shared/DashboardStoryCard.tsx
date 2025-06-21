@@ -7,23 +7,9 @@ import type { Story } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Edit2, Trash2, BookOpen, Star } from 'lucide-react';
+import { Eye, Edit2, BookOpen, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { doc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 interface DashboardStoryCardProps {
   story: Story;
@@ -31,23 +17,8 @@ interface DashboardStoryCardProps {
 
 export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
 
   const totalVotes = story.chapters?.reduce((acc, chapter) => acc + (chapter.votes || 0), 0) || 0;
-
-  const handleDeleteStory = async () => {
-    if (!user || story.author.id !== user.id) {
-      toast({ title: "Unauthorized", description: "Only the story author can delete it.", variant: "destructive" });
-      return;
-    }
-    try {
-      await deleteDoc(doc(db, 'stories', story.id));
-      toast({ title: "Story Deleted", description: `"${story.title}" has been permanently deleted.` });
-    } catch (error) {
-      console.error("Error deleting story:", error);
-      toast({ title: "Error", description: "Could not delete the story.", variant: "destructive" });
-    }
-  };
 
   const getStatusBadgeClasses = (status?: Story['status'], visibility?: Story['visibility']) => {
     if (visibility === 'Private' || visibility === 'Unlisted') {
@@ -68,7 +39,6 @@ export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
   const displayStatus = story.visibility !== 'Public' ? story.visibility : (story.status || 'Draft');
 
   return (
-    <AlertDialog>
       <Card className="w-full overflow-hidden shadow-sm hover:shadow-lg transition-shadow">
         <div className="flex">
           <Link href={`/stories/${story.id}`} passHref className="block flex-shrink-0">
@@ -117,31 +87,9 @@ export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
                 <Link href={`/stories/${story.id}`} passHref>
                     <Button size="sm" variant="outline"><Eye className="mr-1.5 h-4 w-4"/>View Story</Button>
                 </Link>
-                {user && user.id === story.author.id && (
-                  <AlertDialogTrigger asChild>
-                    <Button size="sm" variant="destructive" className="ml-auto">
-                        <Trash2 className="h-4 w-4"/>
-                    </Button>
-                  </AlertDialogTrigger>
-                )}
             </div>
           </CardContent>
         </div>
       </Card>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{story.title}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-            This action is permanent and cannot be undone. All chapters and data associated with this story will be deleted.
-            </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteStory} className="bg-destructive hover:bg-destructive/90">
-                Delete Story
-            </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   );
 }
