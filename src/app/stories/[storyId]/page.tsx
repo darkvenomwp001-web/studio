@@ -13,13 +13,15 @@ import { Separator } from '@/components/ui/separator';
 import {
   BookOpen,
   Eye,
-  Heart,
   ListOrdered,
   BookmarkPlus,
   Loader2,
   Info,
   Edit,
-  Sparkles
+  Sparkles,
+  Plus,
+  Star,
+  MessageSquare,
 } from 'lucide-react';
 import { formatDate } from '@/lib/placeholder-data';
 import type { Story, Chapter } from '@/types';
@@ -121,18 +123,13 @@ export default function StoryOverviewPage() {
   const firstChapterId = story.chapters?.find(ch => ch.status === 'Published')?.id;
   const publishedChapters = story.chapters?.filter(ch => ch.status === 'Published') || [];
   const totalPublishedChapters = publishedChapters.length;
-  
-  const averageWordCountPerChapter = totalPublishedChapters > 0
-    ? Math.round(publishedChapters.reduce((sum, chap) => sum + (chap.wordCount || 1500), 0) / totalPublishedChapters)
-    : 1500;
-  const estimatedReadTimeMinutes = Math.max(1, Math.round((totalPublishedChapters * averageWordCountPerChapter) / 200));
 
   const isAuthorOrCollaborator = user && (story.author.id === user.id || story.collaborators?.some(c => c.id === user.id));
 
   return (
-    <div className="container mx-auto max-w-4xl py-8 px-4 space-y-6">
+    <div className="container mx-auto max-w-4xl py-8 px-4 space-y-8">
       <div className="flex justify-center">
-        <div className="relative aspect-[2/3] w-full max-w-xs rounded-lg overflow-hidden shadow-2xl group">
+        <div className="relative aspect-[2/3] w-full max-w-[280px] rounded-lg overflow-hidden shadow-2xl group">
           <Image
             src={story.coverImageUrl || `https://placehold.co/512x800.png`}
             alt={story.title}
@@ -153,7 +150,7 @@ export default function StoryOverviewPage() {
       </div>
 
       <div className="text-center space-y-3">
-        <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">{story.title}</h1>
+        <h1 className="text-2xl md:text-3xl font-headline font-bold text-foreground">{story.title}</h1>
         <Link
           href={`/profile/${story.author.id}`}
           className="inline-flex items-center gap-2.5 text-md text-muted-foreground hover:text-primary transition-colors group"
@@ -178,47 +175,61 @@ export default function StoryOverviewPage() {
             <BookOpen className="mr-2 h-5 w-5" /> No Chapters Yet
           </Button>
         )}
-        <Button size="lg" variant="outline" onClick={handleAddToLibrary} title="Add to Library">
-          <BookmarkPlus className="h-5 w-5" />
+        <Button size="icon" variant="outline" onClick={handleAddToLibrary} title="Add to Library">
+          <Plus className="h-5 w-5" />
         </Button>
         {isAuthorOrCollaborator && (
           <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
-            <Button size="lg" variant="outline" title="Edit Story Details">
+            <Button size="icon" variant="outline" title="Edit Story Details">
               <Edit className="h-5 w-5" />
             </Button>
           </Link>
         )}
       </div>
 
-      <div className="flex flex-wrap items-start justify-center gap-x-8 gap-y-4 text-center text-muted-foreground py-4 border-y">
+      <div className="flex flex-wrap items-start justify-center gap-x-6 sm:gap-x-8 gap-y-4 text-center py-4 border-y">
         <div className="flex flex-col items-center" title="Reads">
-          <strong className="text-xl font-bold text-foreground">{story.views ? (story.views / 1000).toFixed(1) + 'k' : '0'}</strong>
-          <span className="text-xs">Reads</span>
+          <div className="flex items-center gap-1.5 text-foreground">
+            <Eye className="h-5 w-5" />
+            <strong className="text-xl font-bold">{story.views ? (story.views / 1000).toFixed(1) + 'k' : '0'}</strong>
+          </div>
+          <span className="text-xs text-muted-foreground mt-1">Reads</span>
         </div>
         <div className="flex flex-col items-center" title="Votes (Mock)">
-          <strong className="text-xl font-bold text-foreground">{Math.floor((story.rating || 0) * (story.views || 0) / 5000) || 0}</strong>
-          <span className="text-xs">Votes</span>
+          <div className="flex items-center gap-1.5 text-foreground">
+            <Star className="h-5 w-5" />
+            <strong className="text-xl font-bold">{Math.floor((story.rating || 0) * (story.views || 0) / 5000) || 0}</strong>
+          </div>
+          <span className="text-xs text-muted-foreground mt-1">Votes</span>
         </div>
         <div className="flex flex-col items-center" title="Published Chapters">
-          <strong className="text-xl font-bold text-foreground">{totalPublishedChapters}</strong>
-          <span className="text-xs">Parts</span>
+          <div className="flex items-center gap-1.5 text-foreground">
+            <ListOrdered className="h-5 w-5" />
+            <strong className="text-xl font-bold">{totalPublishedChapters}</strong>
+          </div>
+          <span className="text-xs text-muted-foreground mt-1">Parts</span>
         </div>
-        <div className="flex flex-col items-center" title="Estimated Read Time">
-          <strong className="text-xl font-bold text-foreground">{estimatedReadTimeMinutes}</strong>
-          <span className="text-xs">min read</span>
-        </div>
+         <div className="flex flex-col items-center" title="Comments (mock)">
+             <div className="flex items-center gap-1.5 text-foreground">
+                 <MessageSquare className="h-5 w-5" />
+                 <strong className="text-xl font-bold">{Math.floor(Math.random() * 500)}</strong>
+             </div>
+             <span className="text-xs text-muted-foreground mt-1">Comments</span>
+         </div>
       </div>
       
-      <Badge variant={story.status === 'Completed' ? 'secondary' : 'default'}
-          className={cn(
-              "mx-auto block w-fit",
-              story.status === 'Completed' && 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700',
-              (story.status === 'Ongoing' || story.status === 'Public') && 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
-              story.status === 'Draft' && 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600',
-              (story.visibility === 'Private' || story.visibility === 'Unlisted') && 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700'
-          )}>
-          {story.visibility === 'Public' && story.status !== 'Completed' && story.status !== 'Draft' ? 'Ongoing' : story.status || 'Public'}
-      </Badge>
+      <div className="flex justify-center">
+        <Badge variant={story.status === 'Completed' ? 'secondary' : 'default'}
+            className={cn(
+                "mx-auto block w-fit",
+                story.status === 'Completed' && 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700',
+                (story.status === 'Ongoing' || story.status === 'Public') && 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
+                story.status === 'Draft' && 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600',
+                (story.visibility === 'Private' || story.visibility === 'Unlisted') && 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700'
+            )}>
+            {story.visibility === 'Public' && story.status !== 'Completed' && story.status !== 'Draft' ? 'Ongoing' : story.status || 'Public'}
+        </Badge>
+      </div>
 
 
       <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none pt-4">
