@@ -92,6 +92,7 @@ export interface Conversation {
 
 export interface NotificationType {
   id: string;
+  userId: string;
   type: 'new_follower' | 'new_chapter' | 'story_update' | 'announcement' | 'comment_reply' | 'mention';
   message: string;
   link?: string;

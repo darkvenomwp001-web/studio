@@ -481,14 +481,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addNotification = useCallback(async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead' | 'userId'> & { userId?: string }) => {
-    if (!notificationData.userId && notificationData.type !== 'announcement') {
-      console.warn("Attempted to add notification without recipient userId or not an announcement:", notificationData);
-      return;
-    }
-    
-    if (notificationData.type !== 'announcement' && !notificationData.userId) return;
-
+  const addNotification = useCallback(async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
     const newNotifData = {
       ...notificationData,
       timestamp: serverTimestamp(),
