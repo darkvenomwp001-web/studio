@@ -348,7 +348,7 @@ export default function StoryReaderPage() {
             </article>
 
             {currentUser && story && currentChapter && currentUser.id !== story.author.id && (
-              <div className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12">
+              <div className="max-w-3xl mx-auto px-4 sm:px-6 md:px-12 py-8">
                 <SendLetterForm story={story} chapter={currentChapter} />
               </div>
             )}
