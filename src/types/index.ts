@@ -28,6 +28,7 @@ export interface Chapter {
   wordCount?: number;
   publishedDate?: string; // ISO String
   status?: 'Published' | 'Draft';
+  votes?: number;
 }
 
 export interface UserSummary {
@@ -42,6 +43,7 @@ export interface ReadingListItem {
   id: string;
   title: string;
   coverImageUrl?: string;
+  author?: UserSummary;
   chapters?: Chapter[];
   dataAiHint?: string;
 }

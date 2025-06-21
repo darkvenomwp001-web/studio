@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -41,46 +41,12 @@ import {
   Sparkles,
   Home
 } from 'lucide-react';
-import CommentSection from '@/components/comments/CommentSection';
 import type { Story, Chapter, UserSummary } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-
-async function getStoryAndChapterData(storyId: string, chapterId: string, currentUserId?: string): Promise<{ story: Story; chapterIndex: number } | null> {
-  try {
-    const storyDocRef = doc(db, 'stories', storyId);
-    const storySnap = await getDoc(storyDocRef);
-    
-    if (!storySnap.exists()) return null;
-
-    const story = { id: storySnap.id, ...storySnap.data() } as Story;
-    
-    if (!story || !story.chapters) return null;
-
-    const chapterIndex = story.chapters.findIndex(c => c.id === chapterId);
-    if (chapterIndex === -1) return null;
-
-    const canView = 
-        story.visibility === 'Public' ||
-        story.visibility === 'Unlisted' ||
-        (story.visibility === 'Private' && currentUserId && (story.author.id === currentUserId || story.collaborators?.some(c => c.id === currentUserId))) ||
-        (story.status === 'Draft' && currentUserId && (story.author.id === currentUserId || story.collaborators?.some(c => c.id === currentUserId)));
-    
-    const chapterIsPublished = story.chapters[chapterIndex].status === 'Published';
-
-    if (canView && (chapterIsPublished || (currentUserId && (story.author.id === currentUserId || story.collaborators?.some(c => c.id === currentUserId))))) {
-        return { story, chapterIndex };
-    }
-
-    return null;
-  } catch (error) {
-    console.error("Error fetching story for reader:", error);
-    return null;
-  }
-}
+import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function StoryReaderPage() {
   const params = useParams();
@@ -92,7 +58,7 @@ export default function StoryReaderPage() {
   const chapterIdParams = params.chapterId as string;
 
   const [story, setStory] = useState<Story | null>(null);
-  const [currentChapterIndex, setCurrentChapterIndex] = useState(-1);
+  const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -102,36 +68,55 @@ export default function StoryReaderPage() {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (storyId && chapterIdParams) {
-      setIsLoading(true);
-      getStoryAndChapterData(storyId, chapterIdParams, currentUser?.id).then(data => {
-        if (data) {
-          setStory(data.story);
-          setCurrentChapterIndex(data.chapterIndex);
+    if (!storyId) return;
+
+    setIsLoading(true);
+    const storyDocRef = doc(db, 'stories', storyId);
+
+    const unsubscribe = onSnapshot(storyDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
+        setStory(storyData);
+        
+        const chapterIndex = storyData.chapters.findIndex(c => c.id === chapterIdParams);
+        if (chapterIndex !== -1) {
+            const chapterData = storyData.chapters[chapterIndex];
+
+            const canViewChapter = 
+              chapterData.status === 'Published' || 
+              (currentUser && (storyData.author.id === currentUser.id || storyData.collaborators?.some(c => c.id === currentUser.id)));
+
+            if(canViewChapter) {
+              setCurrentChapter(chapterData);
+              const progress = ((chapterIndex + 1) / storyData.chapters.length) * 100;
+              setMockReadingProgress(Math.min(100, Math.max(0, progress)));
+            } else {
+              toast({ title: "Chapter not available", description: "This chapter is not published yet.", variant: "destructive" });
+              router.push(`/stories/${storyId}`);
+            }
         } else {
-          toast({
-            title: "Chapter Not Accessible",
-            description: "This chapter may not exist or you may not have permission to view it.",
-            variant: "destructive"
-          });
-          router.push(`/stories/${storyId}`);
+            toast({ title: "Chapter not found", description: "This chapter does not seem to exist.", variant: "destructive" });
+            router.push(`/stories/${storyId}`);
         }
-        setIsLoading(false);
-      });
-    }
+
+      } else {
+        toast({ title: "Story Not Found", description: "This story does not exist.", variant: "destructive" });
+        router.push('/');
+      }
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching story for reader:", error);
+      toast({ title: "Error", description: "Could not load the story.", variant: "destructive" });
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [storyId, chapterIdParams, router, currentUser, toast]);
 
   useEffect(() => {
-    if (story && story.chapters.length > 0 && currentChapterIndex !== -1) {
-      const progress = ((currentChapterIndex + 1) / story.chapters.length) * 100;
-      setMockReadingProgress(Math.min(100, Math.max(0, progress)));
-    } else {
-      setMockReadingProgress(0);
-    }
     contentRef.current?.scrollTo(0, 0);
-  }, [currentChapterIndex, story]);
+  }, [currentChapter]);
 
-  const currentChapter = story?.chapters?.[currentChapterIndex];
 
   const toggleMainControls = () => {
     setControlsVisible(prev => !prev);
@@ -156,13 +141,32 @@ export default function StoryReaderPage() {
     }
   };
 
-  const handleAddToLibrary = () => {
-    toast({ title: 'Added to Library (Mock)', description: `"${story?.title}" has been added to your library.` });
-  };
+  const handleVote = useCallback(async () => {
+    if (!story || !currentChapter) return;
+    
+    // In a real app, you would track if the user has already voted for this chapter.
+    // For now, we will just increment.
+    
+    const chapterIndex = story.chapters.findIndex(c => c.id === currentChapter.id);
+    if (chapterIndex === -1) return;
 
-  const handleVote = () => {
-    toast({ title: 'Voted (Mock)', description: `You voted for "${currentChapter?.title}".` });
-  };
+    const newChapters = [...story.chapters];
+    const newVotes = (newChapters[chapterIndex].votes || 0) + 1;
+    newChapters[chapterIndex] = { ...newChapters[chapterIndex], votes: newVotes };
+
+    const storyDocRef = doc(db, 'stories', story.id);
+    try {
+      await updateDoc(storyDocRef, { 
+        chapters: newChapters,
+        lastUpdated: serverTimestamp() 
+      });
+      toast({ title: 'Voted!', description: `You voted for "${currentChapter.title}".` });
+    } catch (error) {
+      console.error("Error voting for chapter:", error);
+      toast({ title: 'Error', description: 'Could not cast your vote.', variant: 'destructive' });
+    }
+  }, [story, currentChapter, toast]);
+
 
   const handleShare = () => {
      navigator.clipboard.writeText(window.location.href)
@@ -177,24 +181,8 @@ export default function StoryReaderPage() {
   const handleAmbianceMode = (mode: string) => {
     toast({ title: "Ambiance Mode (Mock)", description: `${mode} activated. Imagine immersive sounds and visuals!`});
   }
-  
-  const handleCharacterClick = (characterName: string) => {
-    toast({ title: "Character Info (Mock)", description: `Details for ${characterName}: A key figure in this tale... (Actual bio would show here).`});
-  }
 
-  const handleChapterEchoesClick = () => {
-    toast({
-        title: "Chapter Echoes (Coming Soon!)",
-        description: "See what others felt or thought at this point in the chapter!"
-    });
-  };
-
-  const scrollToComments = () => {
-    document.getElementById('comment-section')?.scrollIntoView({ behavior: 'smooth' });
-    setControlsVisible(true); 
-  }
-
-  if (isLoading || !story || currentChapterIndex === -1 || !currentChapter) {
+  if (isLoading || !story || !currentChapter) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -203,10 +191,9 @@ export default function StoryReaderPage() {
   }
   
   const author = story.author;
-  const publishedChapters = story.chapters.filter(ch => ch.status === 'Published');
   const visibleChapters = currentUser && (story.author.id === currentUser.id || story.collaborators?.some(c => c.id === currentUser.id))
     ? story.chapters // Author/collaborator sees all chapters
-    : publishedChapters; // Others see only published chapters
+    : story.chapters.filter(ch => ch.status === 'Published');
 
   const currentVisibleChapterIndex = visibleChapters.findIndex(c => c.id === currentChapter.id);
 
@@ -292,9 +279,6 @@ export default function StoryReaderPage() {
             data-ai-hint={story.dataAiHint || "book cover"}
           />
         </div>
-        <Button onClick={handleAddToLibrary} variant="outline" className="w-full mb-3">
-          <BookCopy className="mr-2 h-4 w-4" /> Add to Library
-        </Button>
         
         <h4 className="font-semibold text-sm mt-2 mb-1 text-muted-foreground">Chapters</h4>
         <ScrollArea className="flex-1 mb-3">
@@ -362,12 +346,6 @@ export default function StoryReaderPage() {
             )}
             </article>
         </div>
-        
-        {currentChapter && (
-            <div id="comment-section" className="px-4 sm:px-6 md:px-12 pt-8 pb-24">
-                <CommentSection storyId={story.id} chapterId={currentChapter.id} />
-            </div>
-        )}
       </main>
 
       <footer
@@ -390,16 +368,20 @@ export default function StoryReaderPage() {
                 </Button>
                 <Button variant="ghost" size="sm" onClick={handleVote} aria-label="Vote for this chapter">
                     <ThumbsUp className="h-5 w-5" />
-                    <span className="ml-1 hidden sm:inline">Vote</span>
+                    <span className="ml-1 hidden sm:inline">Vote ({currentChapter.votes || 0})</span>
                 </Button>
-                <Button variant="ghost" size="sm" onClick={scrollToComments} aria-label="View comments">
-                    <MessageSquareIcon className="h-5 w-5" />
-                    <span className="ml-1 hidden sm:inline">Comment</span>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleChapterEchoesClick} aria-label="Chapter Echoes">
-                    <MessagesSquare className="h-5 w-5" />
-                    <span className="ml-1 hidden sm:inline">Echoes</span>
-                </Button>
+                <Link href={`/stories/${storyId}/read/${chapterIdParams}/comments`} passHref>
+                  <Button variant="ghost" size="sm" aria-label="View comments">
+                      <MessageSquareIcon className="h-5 w-5" />
+                      <span className="ml-1 hidden sm:inline">Comment</span>
+                  </Button>
+                </Link>
+                <Link href={`/stories/${storyId}/read/${chapterIdParams}/echoes`} passHref>
+                  <Button variant="ghost" size="sm" aria-label="Chapter Echoes">
+                      <MessagesSquare className="h-5 w-5" />
+                      <span className="ml-1 hidden sm:inline">Echoes</span>
+                  </Button>
+                </Link>
                 <Button variant="ghost" size="sm" onClick={handleShare} aria-label="Share this story">
                     <Share2 className="h-5 w-5" />
                     <span className="ml-1 hidden sm:inline">Share</span>

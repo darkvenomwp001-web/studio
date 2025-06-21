@@ -21,6 +21,8 @@ import {
   Sparkles,
   Star,
   MessageSquare,
+  BookmarkPlus,
+  BookmarkCheck
 } from 'lucide-react';
 import { formatDate } from '@/lib/placeholder-data';
 import type { Story } from '@/types';
@@ -33,14 +35,14 @@ import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 export default function StoryOverviewPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, addToLibrary, removeFromLibrary, authLoading } = useAuth();
   const { toast } = useToast();
   const storyId = params.storyId as string;
 
   const [story, setStory] = useState<Story | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [commentCount, setCommentCount] = useState(0); // State for real-time comment count
+  const [commentCount, setCommentCount] = useState(0);
 
   useEffect(() => {
     if (!storyId) {
@@ -96,9 +98,20 @@ export default function StoryOverviewPage() {
     };
   }, [storyId, user, router, toast]);
 
-  const handleAddToLibrary = () => {
+  const handleLibraryAction = () => {
     if (!story) return;
-    toast({ title: 'Added to Library (Mock)', description: `"${story.title}" has been added to your library.` });
+    if (!user) {
+        toast({ title: "Please Sign In", description: "You must be logged in to manage your library.", variant: "destructive"});
+        router.push('/auth/signin');
+        return;
+    }
+
+    const isInLibrary = user.readingList?.some(item => item.id === story.id);
+    if (isInLibrary) {
+      removeFromLibrary(story.id);
+    } else {
+      addToLibrary(story);
+    }
   };
   
   const handleMoodMatcherClick = (e: React.MouseEvent) => {
@@ -120,7 +133,7 @@ export default function StoryOverviewPage() {
 
   if (!story) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-center px-4">
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-12rem)] text-center px-4">
         <Info className="w-16 h-16 text-destructive mb-4" />
         <h1 className="text-2xl font-bold mb-2">Story Not Found</h1>
         <p className="text-muted-foreground mb-6">The story you're looking for doesn't exist or you may not have permission to view it.</p>
@@ -136,8 +149,9 @@ export default function StoryOverviewPage() {
   const totalPublishedChapters = publishedChapters.length;
 
   const isAuthorOrCollaborator = user && (story.author.id === user.id || story.collaborators?.some(c => c.id === user.id));
-  
-  const votes = Math.floor((story.rating || 0) * (story.views || 0) / 5000) || 0;
+  const isInLibrary = user?.readingList?.some(item => item.id === story.id);
+
+  const totalVotes = story.chapters?.reduce((acc, chapter) => acc + (chapter.votes || 0), 0) || 0;
 
   return (
     <div className="container mx-auto max-w-4xl py-8 px-4 space-y-8">
@@ -185,8 +199,8 @@ export default function StoryOverviewPage() {
                 <BookOpen className="mr-2 h-5 w-5" /> No Chapters Yet
             </Button>
             )}
-            <Button size="icon" variant="outline" onClick={handleAddToLibrary} title="Add to Library">
-            <Plus className="h-5 w-5" />
+            <Button size="icon" variant="outline" onClick={handleLibraryAction} title={isInLibrary ? "In your library" : "Add to Library"} disabled={authLoading}>
+              {authLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : isInLibrary ? <BookmarkCheck className="h-5 w-5 text-primary" /> : <BookmarkPlus className="h-5 w-5" />}
             </Button>
             {isAuthorOrCollaborator && (
             <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
@@ -209,7 +223,7 @@ export default function StoryOverviewPage() {
         <div className="flex flex-col items-center" title="Votes">
           <div className="flex items-center gap-1.5 text-foreground">
             <Star className="h-5 w-5" />
-            <strong className="text-xl font-bold">{votes}</strong>
+            <strong className="text-xl font-bold">{totalVotes}</strong>
           </div>
           <span className="text-xs text-muted-foreground mt-1">Votes</span>
         </div>

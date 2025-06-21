@@ -3,25 +3,23 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpenText, Search, Bell, MessageSquare } from 'lucide-react';
+import { Home, Library, Search, Bell, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth'; // To get unread counts for notifications/messages
 
 const navItems = [
-  { href: '/stories', label: 'Stories', icon: BookOpenText, requiresAuth: false, countKey: null },
+  { href: '/', label: 'Home', icon: Home, requiresAuth: false, countKey: null },
+  { href: '/library', label: 'Library', icon: Library, requiresAuth: true, countKey: null },
   { href: '/search', label: 'Search', icon: Search, requiresAuth: false, countKey: null },
   { href: '/notifications', label: 'Notifications', icon: Bell, requiresAuth: true, countKey: 'notifications' },
-  { href: '/messages', label: 'Messages', icon: MessageSquare, requiresAuth: true, countKey: 'messages' }, // Assuming a future messagesCount
+  { href: '/messages', label: 'Messages', icon: MessageSquare, requiresAuth: true, countKey: 'messages' }, 
 ];
 
 export default function BottomNavigationBar() {
   const pathname = usePathname();
   const { user, notifications } = useAuth(); // Use notifications from useAuth
 
-  // Example for unread messages count - you'll need to implement this in useAuth if desired
-  // const unreadMessagesCount = user ? (user as any).unreadMessagesCount || 0 : 0;
   const unreadNotificationsCount = user ? notifications.filter(n => !n.isRead).length : 0;
-
 
   if (pathname.startsWith('/auth') || pathname.startsWith('/write') || pathname.includes('/read/')) {
     return null;
@@ -32,8 +30,6 @@ export default function BottomNavigationBar() {
       <div className="container mx-auto flex h-full items-center justify-around px-1">
         {navItems.map((item) => {
           if (item.requiresAuth && !user) {
-            // Optionally render a disabled or different version for non-logged-in users
-            // For now, just don't render it if auth is required and user is not logged in
             return null;
           }
 
@@ -43,9 +39,6 @@ export default function BottomNavigationBar() {
           if (item.countKey === 'notifications') {
             count = unreadNotificationsCount;
           }
-          // else if (item.countKey === 'messages') {
-          //   count = unreadMessagesCount;
-          // }
 
           return (
             <Link key={item.href} href={item.href} passHref>

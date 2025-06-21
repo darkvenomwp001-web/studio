@@ -5,7 +5,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, Save } from 'lucide-react';
+import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, Save, MoreHorizontal } from 'lucide-react';
 import type { Comment as CommentType } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -35,6 +35,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
 
 interface CommentProps {
@@ -106,11 +112,34 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
       <div className="flex-1">
         <div className="flex items-center justify-between mb-1">
           <span className="font-semibold text-sm text-foreground">{comment.user.displayName || comment.user.username}</span>
-          <span className="text-xs text-muted-foreground">
-            {comment.timestamp instanceof Timestamp 
-                ? formatDistanceToNow(comment.timestamp.toDate(), { addSuffix: true })
-                : comment.timestamp ? formatDistanceToNow(new Date(comment.timestamp), { addSuffix: true }) : 'Just now'}
-          </span>
+           <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {comment.timestamp instanceof Timestamp 
+                  ? formatDistanceToNow(comment.timestamp.toDate(), { addSuffix: true })
+                  : comment.timestamp ? formatDistanceToNow(new Date(comment.timestamp), { addSuffix: true }) : 'Just now'}
+            </span>
+             {isOwner && !isEditing && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleEdit}>
+                            <Edit3 className="mr-2 h-4 w-4" />
+                            Edit
+                        </DropdownMenuItem>
+                         <AlertDialogTrigger asChild>
+                            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                            </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
+           </div>
         </div>
         
         {isEditing ? (
@@ -151,18 +180,6 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
                 <button onClick={handleToggleReplies} className="flex items-center gap-1 hover:text-primary transition-colors">
                 {showReplies ? 'Hide' : 'Show'} {replies.length} {replies.length === 1 ? 'Reply' : 'Replies'}
                 </button>
-            )}
-            {isOwner && (
-                <>
-                <button onClick={handleEdit} className="flex items-center gap-1 hover:text-accent transition-colors">
-                    <Edit3 className="h-3.5 w-3.5" /> Edit
-                </button>
-                <AlertDialogTrigger asChild>
-                    <button className="flex items-center gap-1 text-destructive/80 hover:text-destructive transition-colors">
-                        <Trash2 className="h-3.5 w-3.5" /> Delete
-                    </button>
-                </AlertDialogTrigger>
-                </>
             )}
             </div>
         )}
@@ -213,7 +230,7 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
 
 interface CommentSectionProps {
   storyId: string;
-  chapterId?: string;
+  chapterId: string;
 }
 
 export default function CommentSection({ storyId, chapterId }: CommentSectionProps) {
@@ -305,24 +322,19 @@ export default function CommentSection({ storyId, chapterId }: CommentSectionPro
     const commentRef = doc(db, 'comments', commentId);
     await updateDoc(commentRef, {
       content: newContent,
-      // Optionally update an 'editedAt' timestamp here
     });
-    // Snapshot listener will update the UI
   };
 
   const handleCommentDelete = async (commentId: string) => {
     const commentRef = doc(db, 'comments', commentId);
-    // Before deleting, you might want to handle replies (e.g., mark as [deleted] or delete them too)
-    // For simplicity here, we'll just delete the comment.
     await deleteDoc(commentRef);
-    // Snapshot listener will update the UI
   };
 
   return (
     <AlertDialog>
-        <section className="mt-10 bg-card p-4 sm:p-6 rounded-lg shadow-md">
+        <section className="bg-card p-4 sm:p-6 rounded-lg shadow-md">
         <h3 className="text-xl sm:text-2xl font-headline font-semibold mb-6 text-foreground">
-            Interactive Comments ({topLevelComments.length})
+            Comments ({topLevelComments.length})
         </h3>
         
         {!authLoading && currentUser && (
@@ -382,5 +394,3 @@ export default function CommentSection({ storyId, chapterId }: CommentSectionPro
     </AlertDialog>
   );
 }
-
-    

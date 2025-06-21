@@ -3,7 +3,7 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import type { User as AppUserType, NotificationType, UserSummary } from '@/types';
+import type { User as AppUserType, NotificationType, UserSummary, Story, ReadingListItem } from '@/types';
 import { auth, db } from '@/lib/firebase';
 import {
   GoogleAuthProvider,
@@ -37,7 +37,9 @@ import {
   addDoc,
   writeBatch,
   getDocs,
-  increment
+  increment,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -69,6 +71,8 @@ interface AuthContextType {
   sendPasswordResetFirebase: (email: string) => Promise<boolean>;
   followUser: (targetUserId: string) => Promise<void>;
   unfollowUser: (targetUserId: string) => Promise<void>;
+  addToLibrary: (story: Story) => Promise<void>;
+  removeFromLibrary: (storyId: string) => Promise<void>;
   setRequiresPasswordSetup: (requires: boolean) => void;
   setNewUserPassword: (password: string) => Promise<boolean>;
 }
@@ -76,7 +80,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
-const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search', '/profile/', '/write/history', '/settings'];
+const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search', '/profile/', '/write/history', '/settings', '/library'];
 const DEFAULT_REDIRECT_AUTHENTICATED = '/profile';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
@@ -645,6 +649,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addToLibrary = async (story: Story) => {
+    if (!user) {
+        toast({ title: "Please Sign In", description: "You must be signed in to add stories to your library.", variant: "destructive" });
+        return;
+    }
+    setAuthLoading(true);
+    try {
+      const userRef = doc(db, 'users', user.id);
+      const itemToAdd: ReadingListItem = {
+        id: story.id,
+        title: story.title,
+        coverImageUrl: story.coverImageUrl,
+        author: story.author,
+      };
+      await updateDoc(userRef, {
+        readingList: arrayUnion(itemToAdd)
+      });
+      toast({ title: "Added to Library", description: `"${story.title}" has been added to your library.` });
+    } catch (error) {
+      console.error("Error adding to library:", error);
+      toast({ title: "Error", description: "Could not add story to library.", variant: "destructive" });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const removeFromLibrary = async (storyId: string) => {
+    if (!user || !user.readingList) {
+        return;
+    }
+    setAuthLoading(true);
+    try {
+      const userRef = doc(db, 'users', user.id);
+      const itemToRemove = user.readingList.find(item => item.id === storyId);
+      if (itemToRemove) {
+        await updateDoc(userRef, {
+          readingList: arrayRemove(itemToRemove)
+        });
+        toast({ title: "Removed from Library", description: "The story has been removed from your library." });
+      }
+    } catch (error) {
+      console.error("Error removing from library:", error);
+      toast({ title: "Error", description: "Could not remove story from library.", variant: "destructive" });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
         user,
@@ -665,6 +717,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sendPasswordResetFirebase,
         followUser,
         unfollowUser,
+        addToLibrary,
+        removeFromLibrary,
         setRequiresPasswordSetup,
         setNewUserPassword
     }}>
