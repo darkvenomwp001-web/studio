@@ -598,7 +598,18 @@ export default function EditStoryDetailsPage() {
                     <SelectContent>
                       <SelectItem value="English">English</SelectItem>
                       <SelectItem value="Spanish">Español (Spanish)</SelectItem>
+                      <SelectItem value="Tagalog">Tagalog</SelectItem>
                       <SelectItem value="French">Français (French)</SelectItem>
+                      <SelectItem value="German">Deutsch (German)</SelectItem>
+                      <SelectItem value="Portuguese">Português (Portuguese)</SelectItem>
+                      <SelectItem value="Russian">Русский (Russian)</SelectItem>
+                      <SelectItem value="Japanese">日本語 (Japanese)</SelectItem>
+                      <SelectItem value="Korean">한국어 (Korean)</SelectItem>
+                      <SelectItem value="Chinese">中文 (Chinese)</SelectItem>
+                      <SelectItem value="Italian">Italiano (Italian)</SelectItem>
+                      <SelectItem value="Hindi">हिन्दी (Hindi)</SelectItem>
+                      <SelectItem value="Arabic">العربية (Arabic)</SelectItem>
+                      <SelectItem value="Indonesian">Bahasa Indonesia</SelectItem>
                       <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
