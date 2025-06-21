@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageSquare, UserPlus, UserX, Edit, Edit3, Users, FileText, ShieldAlert, Settings, Sparkles } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Edit, Edit3, Users, FileText, ShieldAlert, Settings, Sparkles, LogOut } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Story, User as AppUser } from '@/types';
@@ -92,7 +92,7 @@ function FollowingUserCard({ user }: FollowingUserCardProps) {
 }
 
 export default function UserProfilePage() {
-  const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading } = useAuth();
+  const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading, signOutFirebase } = useAuth();
   const params = useParams();
   const router = useRouter();
   const userId = params.userId as string;
@@ -286,9 +286,12 @@ export default function UserProfilePage() {
           </div>
           <div className="flex flex-col sm:flex-row gap-2 mt-4 md:mt-0 self-center md:self-end">
             {isOwnProfile ? (
-              <Link href="/settings" passHref>
-                <Button variant="outline" className="w-full sm:w-auto"><Settings className="mr-2 h-4 w-4" /> Edit Profile</Button>
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Link href="/settings" passHref>
+                  <Button variant="outline" className="w-full sm:w-auto"><Settings className="mr-2 h-4 w-4" /> Profile Settings</Button>
+                </Link>
+                <Button variant="destructive" onClick={signOutFirebase} className="w-full sm:w-auto"><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
+              </div>
             ) : currentUser ? (
               <>
                 <Button
