@@ -1,72 +1,50 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Users collection rules
     match /users/{userId} {
       allow read: if true;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && (
-        // Case 1: The user is updating their own profile.
-        isOwner(userId) ||
-        // Case 2: Another user is following/unfollowing this user.
-        (
-          // Ensure ONLY followersCount and updatedAt are being changed.
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount', 'updatedAt']) &&
-          // Logic for a valid follow/unfollow action.
-          (
-            // Follow: Incrementing by 1
-            request.resource.data.followersCount == resource.data.followersCount + 1 ||
-            // Unfollow: Decrementing by 1, but only if the count is already > 0
-            (request.resource.data.followersCount == resource.data.followersCount - 1 && resource.data.followersCount > 0)
-          )
-        )
-      );
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId
+                    || (
+                      // Follow/Unfollow Rule
+                      request.auth.uid != null &&
+                      request.auth.uid != userId &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount', 'updatedAt']) &&
+                      // Ensure the change is only by 1 (either +1 or -1)
+                      (request.resource.data.followersCount - resource.data.followersCount == 1 ||
+                       request.resource.data.followersCount - resource.data.followersCount == -1) &&
+                      // If it's a decrement (unfollow), ensure the original count was > 0. If it's an increment (follow), this is always allowed.
+                      (request.resource.data.followersCount > resource.data.followersCount || resource.data.followersCount > 0)
+                    );
+    }
+    
+    match /stories/{storyId} {
+      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted'
+                  || (resource.data.visibility == 'Private' && request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds));
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
+      allow update: if request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
+      allow delete: if request.auth != null && request.auth.uid == resource.data.author.id;
     }
 
-    // Stories collection rules
-    match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' 
-                   || resource.data.visibility == 'Unlisted' 
-                   || (isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
-      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
-      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
-    }
-    
-    // Comments collection rules
     match /comments/{commentId} {
-        allow read: if true;
-        allow create: if isSignedIn();
-        allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.user.id;
+      allow update: if request.auth != null && request.auth.uid == resource.data.user.id;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.user.id;
     }
-    
-    // Conversations & Messages
-    match /conversations/{conversationId} {
-      allow read, create, update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
-      
-      match /messages/{messageId} {
-        allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-      }
-    }
-    
-    // Notifications
+
     match /notifications/{notificationId} {
-      allow read, update: if isSignedIn() && isOwner(resource.data.userId);
-      allow create: if isSignedIn(); // Allow any signed-in user to create a notification (e.g. for following someone)
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null;
+    }
+    
+    match /conversations/{conversationId} {
+      allow read, create, update: if request.auth != null && request.auth.uid in resource.data.participantIds;
+
+      match /messages/{messageId} {
+        allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      }
     }
   }
 }
