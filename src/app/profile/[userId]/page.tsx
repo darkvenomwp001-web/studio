@@ -149,22 +149,37 @@ export default function UserProfilePage() {
     setIsLoadingData(true);
     let unsubStories: Unsubscribe | undefined;
     let unsubFollowers: Unsubscribe | undefined;
-
-    const storiesQuery = query(
-        collection(db, 'stories'),
-        where('author.id', '==', profileUser.id),
-        orderBy('lastUpdated', 'desc')
-    );
+    
+    let storiesQuery;
+    if (isOwnProfile) {
+        // If it's my own profile, I can fetch all my stories regardless of visibility.
+        storiesQuery = query(
+            collection(db, 'stories'),
+            where('author.id', '==', profileUser.id),
+            orderBy('lastUpdated', 'desc')
+        );
+    } else {
+        // If I'm viewing someone else's profile, I can only fetch their public stories.
+        storiesQuery = query(
+            collection(db, 'stories'),
+            where('author.id', '==', profileUser.id),
+            where('visibility', '==', 'Public'),
+            orderBy('lastUpdated', 'desc')
+        );
+    }
+    
     unsubStories = onSnapshot(storiesQuery, (snapshot) => {
         const userWrittenStories = snapshot.docs.map(storyDoc => ({ id: storyDoc.id, ...storyDoc.data() } as Story));
-        const visiblePublished = userWrittenStories.filter(s => s.visibility === 'Public' && s.status !== 'Draft');
-        const visibleUnlistedOrOwn = userWrittenStories.filter(s => (s.visibility === 'Unlisted' || s.visibility === 'Private') && isOwnProfile);
         
-        setPublishedWorks([...visiblePublished, ...visibleUnlistedOrOwn.filter(s => s.status !== 'Draft')]);
-
         if (isOwnProfile) {
-            setDraftWorks(userWrittenStories.filter(s => s.status === 'Draft' || (s.visibility === 'Private' && s.status !== 'Published')));
+            // For own profile, separate drafts from published works
+            const drafts = userWrittenStories.filter(s => s.status === 'Draft');
+            const published = userWrittenStories.filter(s => s.status !== 'Draft');
+            setPublishedWorks(published);
+            setDraftWorks(drafts);
         } else {
+            // For others' profiles, all fetched stories are public. Show them as published works.
+            setPublishedWorks(userWrittenStories.filter(s => s.status !== 'Draft'));
             setDraftWorks([]);
         }
     }, (error) => {
