@@ -481,7 +481,7 @@ export default function EditStoryDetailsPage() {
 
   return (
     <AlertDialog>
-    <div className="max-w-5xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary">
@@ -507,7 +507,7 @@ export default function EditStoryDetailsPage() {
             </CardHeader>
             <CardContent className="flex flex-col items-center">
               <div
-                className="aspect-[2/3] w-full max-w-[220px] bg-muted rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity mb-2 shadow-md relative group"
+                className="aspect-[2/3] w-full max-w-[200px] bg-muted rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity mb-2 shadow-md relative group"
                 onClick={() => !isSaving && fileInputRef.current?.click()}
                 title="Click to change cover"
               >
