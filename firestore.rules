@@ -9,70 +9,89 @@ service cloud.firestore {
     }
     
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Users Collection
-    // Anyone can read public user profiles.
-    // A user can create their own profile.
-    // A user can update their own profile.
-    // Another user can only update the followersCount by +/- 1 (for following/unfollowing).
     match /users/{userId} {
+      // Anyone can read a user's public profile data
       allow read: if true;
+      
+      // A user can create their own document
       allow create: if isOwner(userId);
-      allow update: if isAuthenticated() &&
-        (isOwner(userId) ||
-         (request.resource.data.keys().hasOnly(['followersCount', 'updatedAt']) &&
-          (request.resource.data.followersCount == resource.data.followersCount + 1 ||
-           request.resource.data.followersCount == resource.data.followersCount - 1)));
+      
+      // A user can only update their own document
+      // Note: This is permissive. For production, you'd restrict fields like `followersCount`.
+      allow update: if isOwner(userId);
+                    
+      // Disallow client-side deletion of user profiles
+      allow delete: if false;
     }
 
-    // Stories Collection
-    // Public/Unlisted stories are readable by anyone. Private are for author/collaborators.
-    // Create/Update/Delete is restricted to author/collaborators.
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' ||
-                     resource.data.visibility == 'Unlisted' ||
-                     (isAuthenticated() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds));
+      // Access control for reading stories based on visibility
+      allow read: if resource.data.visibility == 'Public'
+                   || (resource.data.visibility == 'Unlisted' && isAuthenticated())
+                   || (isOwner(resource.data.author.id))
+                   || (isAuthenticated() && resource.data.collaboratorIds.hasAny([request.auth.uid]));
+
+      // Only authenticated users can create stories, and must be the author
       allow create: if isAuthenticated() && request.resource.data.author.id == request.auth.uid;
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if isAuthenticated() && request.auth.uid == resource.data.author.id;
-    }
+      
+      // Only the author or collaborators can update a story
+      allow update: if (isOwner(resource.data.author.id))
+                     || (isAuthenticated() && resource.data.collaboratorIds.hasAny([request.auth.uid]));
 
-    // Comments Collection
-    // All comments are public to read.
-    // Only authenticated users can CUD their own comments.
+      // Only the original author can delete a story
+      allow delete: if isOwner(resource.data.author.id);
+    }
+    
     match /comments/{commentId} {
+      // Anyone can read comments
       allow read: if true;
+
+      // Authenticated users can create comments, and must be the author of the comment
       allow create: if isAuthenticated() && request.resource.data.user.id == request.auth.uid;
-      allow update, delete: if isAuthenticated() && resource.data.user.id == request.auth.uid;
+
+      // Only the comment's author can update or delete it
+      allow update, delete: if isOwner(resource.data.user.id);
     }
 
-    // Notifications Collection
-    // Only the recipient can read/update their notifications.
-    // Any authenticated user can create a notification, but must be the actor.
-    match /notifications/{notificationId} {
-      allow read, update: if isAuthenticated() && request.auth.uid == resource.data.userId;
-      allow create: if isAuthenticated() && request.resource.data.actor.id == request.auth.uid;
-    }
-    
-    // Letters Collection
-    // Readable by sender or author.
-    // Can only be created by the sender (reader).
-    // Can only be updated by the recipient (author).
     match /letters/{letterId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.authorId);
-      allow create: if isAuthenticated() && request.resource.data.reader.id == request.auth.uid;
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.authorId;
+        // Reader can create a letter for an author
+        allow create: if isAuthenticated() && request.resource.data.reader.id == request.auth.uid;
+
+        // Reader, Author can read. Anyone can read if public.
+        allow read: if isOwner(resource.data.author.id) 
+                     || isOwner(resource.data.reader.id) 
+                     || resource.data.visibility == 'public';
+
+        // Author can update (to respond, pin, or mark as read)
+        allow update: if isOwner(resource.data.author.id);
+
+        // Nobody can delete letters from the client for record-keeping
+        allow delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+        // A user can read/update/delete their own notifications
+        allow read, update, delete: if isOwner(resource.data.userId);
+
+        // A user can create a notification for someone else (e.g., follow, comment, letter)
+        allow create: if isAuthenticated() && request.resource.data.actor.id == request.auth.uid;
     }
     
-    // Conversations and Messages
-    // Only participants can read or write.
     match /conversations/{conversationId} {
+      // Allow access only if the user is a participant
       allow read, create, update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
       
+      allow delete: if false;
+      
       match /messages/{messageId} {
+        // Allow read/create if the user is a participant in the parent conversation
         allow read, create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        
+        // Disallow update/delete to maintain chat history integrity
+        allow update, delete: if false;
       }
     }
   }
