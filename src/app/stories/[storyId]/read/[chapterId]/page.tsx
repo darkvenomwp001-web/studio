@@ -47,6 +47,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+import SendLetterForm from '@/components/letters/SendLetterForm';
 
 export default function StoryReaderPage() {
   const params = useParams();
@@ -345,6 +346,12 @@ export default function StoryReaderPage() {
                 </div>
             )}
             </article>
+
+            {currentUser && story && currentChapter && currentUser.id !== story.author.id && (
+              <div className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12">
+                <SendLetterForm story={story} chapter={currentChapter} />
+              </div>
+            )}
         </div>
       </main>
 

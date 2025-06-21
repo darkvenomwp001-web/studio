@@ -105,3 +105,19 @@ export interface NotificationType {
   isRead: boolean;
   actor?: UserSummary;
 }
+
+export interface Letter {
+  id: string;
+  storyId: string;
+  storyTitle: string;
+  chapterId: string;
+  chapterTitle: string;
+  authorId: string;
+  reader: UserSummary;
+  content: string;
+  visibility: 'public' | 'private';
+  timestamp: any;
+  isPinned?: boolean;
+  authorResponse?: string;
+  isReadByAuthor?: boolean;
+}

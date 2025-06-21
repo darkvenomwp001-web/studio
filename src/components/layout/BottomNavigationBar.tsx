@@ -3,16 +3,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Library, Search, Bell, MessageSquare } from 'lucide-react';
+import { Home, Library, Search, Bell, Mailbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/useAuth'; // To get unread counts for notifications/messages
+import { useAuth } from '@/hooks/useAuth'; 
 
 const navItems = [
   { href: '/', label: 'Home', icon: Home, requiresAuth: false, countKey: null },
   { href: '/library', label: 'Library', icon: Library, requiresAuth: true, countKey: null },
   { href: '/search', label: 'Search', icon: Search, requiresAuth: false, countKey: null },
-  { href: '/notifications', label: 'Notifications', icon: Bell, requiresAuth: true, countKey: 'notifications' },
-  { href: '/messages', label: 'Messages', icon: MessageSquare, requiresAuth: true, countKey: 'messages' }, 
+  { href: '/letters', label: 'Mailbox', icon: Mailbox, requiresAuth: true, countKey: null },
+  { href: '/notifications', label: 'Inbox', icon: Bell, requiresAuth: true, countKey: 'notifications' },
 ];
 
 export default function BottomNavigationBar() {
