@@ -46,9 +46,17 @@ export default function WriteDashboardPage() {
     if (user && !authLoading) {
       setIsLoadingStories(true);
       const storiesCollectionRef = collection(db, 'stories');
+      
+      const authorQuery = where('author.id', '==', user.id);
+      const collaboratorQuery = where('collaborators', 'array-contains', {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl
+      });
+      
       const q = query(
         storiesCollectionRef,
-        where('author.id', '==', user.id),
         orderBy('lastUpdated', 'desc')
       );
 
@@ -58,12 +66,14 @@ export default function WriteDashboardPage() {
           return {
             id: docSnap.id,
             ...data,
-            // Ensure date fields are handled correctly if they are Firestore Timestamps
             lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
-            chapters: data.chapters || [], // Ensure chapters array exists
-            tags: data.tags || [], // Ensure tags array exists
+            chapters: data.chapters || [],
+            tags: data.tags || [],
           } as Story;
-        });
+        }).filter(story => 
+            story.author.id === user.id || 
+            (story.collaborators && story.collaborators.some(c => c.id === user.id))
+        );
         setUserStories(stories);
         setIsLoadingStories(false);
       }, (error) => {
@@ -72,9 +82,8 @@ export default function WriteDashboardPage() {
         setIsLoadingStories(false);
       });
 
-      return () => unsubscribe(); // Cleanup listener on unmount
+      return () => unsubscribe();
     } else if (!authLoading && !user) {
-      // If user is not logged in and auth is not loading, clear stories
       setIsLoadingStories(false);
       setUserStories([]);
     }
@@ -83,24 +92,19 @@ export default function WriteDashboardPage() {
   const handleDeleteStory = async () => {
     if (!storyToDelete || !user) return;
 
-    // Ensure only the author can delete the story (though Firestore rules should also enforce this)
     if (storyToDelete.author.id !== user.id) {
-      toast({ title: "Unauthorized", description: "You can only delete your own stories.", variant: "destructive" });
+      toast({ title: "Unauthorized", description: "Only the original author can delete a story.", variant: "destructive" });
       setStoryToDelete(null);
       return;
     }
 
     const storyDocRef = doc(db, 'stories', storyToDelete.id);
     try {
-      // Attempt to delete cover image from Firebase Storage if it exists
       if (storyToDelete.coverImageUrl && storyToDelete.coverImageUrl.includes('firebasestorage.googleapis.com')) {
         try {
-          const imageHttpUrl = storyToDelete.coverImageUrl;
-          const imageRef = storageRef(storage, imageHttpUrl);
+          const imageRef = storageRef(storage, storyToDelete.coverImageUrl);
           await deleteObject(imageRef);
         } catch (storageError: any) {
-          // Log the error but don't necessarily block Firestore deletion
-          // Object-not-found is fine if it was already deleted or URL was manually changed
           if (storageError.code !== 'storage/object-not-found') {
             console.warn("Could not delete cover image from Firebase Storage:", storageError);
             toast({ title: "Storage Warning", description: "Story record will be deleted, but its cover image might remain in storage.", variant: "destructive" });
@@ -108,14 +112,12 @@ export default function WriteDashboardPage() {
         }
       }
 
-      // Delete the story document from Firestore
       await deleteDoc(storyDocRef);
 
       toast({
         title: "Story Deleted",
         description: `"${storyToDelete.title}" has been permanently deleted.`,
       });
-      // The onSnapshot listener will automatically update the UI by removing the story
     } catch (error) {
       console.error("Error deleting story from Firestore: ", error);
       toast({
@@ -124,11 +126,11 @@ export default function WriteDashboardPage() {
         variant: "destructive",
       });
     } finally {
-      setStoryToDelete(null); // Close dialog
+      setStoryToDelete(null);
     }
   };
   
-   const getStatusBadgeClasses = (status?: 'Ongoing' | 'Completed' | 'Draft' | 'Private' | 'Unlisted', visibility?: 'Public' | 'Private' | 'Unlisted') => {
+   const getStatusBadgeClasses = (status?: 'Ongoing' | 'Completed' | 'Draft', visibility?: 'Public' | 'Private' | 'Unlisted') => {
     if (visibility === 'Private' || visibility === 'Unlisted') {
       return 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-700/30 dark:text-yellow-300 dark:border-yellow-600';
     }
@@ -136,7 +138,6 @@ export default function WriteDashboardPage() {
       case 'Completed':
         return 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
       case 'Ongoing':
-      case 'Public': // Treat Public status like Ongoing if no other status set
         return 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700';
       case 'Draft':
         return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-700/50 dark:text-gray-300 dark:border-gray-600';
@@ -145,7 +146,7 @@ export default function WriteDashboardPage() {
     }
   };
   
-  const getDisplayStatus = (status?: 'Ongoing' | 'Completed' | 'Draft' | 'Private' | 'Unlisted', visibility?: 'Public' | 'Private' | 'Unlisted') => {
+  const getDisplayStatus = (status?: 'Ongoing' | 'Completed' | 'Draft', visibility?: 'Public' | 'Private' | 'Unlisted') => {
     if (visibility === 'Private') return 'Private';
     if (visibility === 'Unlisted') return 'Unlisted';
     return status || 'Draft';
@@ -234,11 +235,13 @@ export default function WriteDashboardPage() {
                   <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
                     <Button variant="default" size="sm" className="bg-primary/90 hover:bg-primary text-primary-foreground"><Edit2 className="mr-1.5 h-4 w-4" /> Edit</Button>
                   </Link>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" onClick={() => setStoryToDelete(story)}>
-                      <Trash2 className="mr-1.5 h-4 w-4" /> Delete
-                    </Button>
-                  </AlertDialogTrigger>
+                   {story.author.id === user.id && (
+                     <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" onClick={() => setStoryToDelete(story)}>
+                          <Trash2 className="mr-1.5 h-4 w-4" /> Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                   )}
                 </CardFooter>
               </Card>
             ))}

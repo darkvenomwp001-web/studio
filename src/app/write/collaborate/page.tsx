@@ -13,8 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Users, PlusCircle, Trash2, ArrowLeft, Save } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/firebase'; // Import db
-import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore'; // Firestore imports
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import type { Story, UserSummary, User as AppUser } from '@/types';
 
 export default function CollaboratePage() {
@@ -29,7 +29,6 @@ export default function CollaboratePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [collaboratorUsername, setCollaboratorUsername] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  // publishAccount state is removed as publishing is tied to original author.
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -45,7 +44,7 @@ export default function CollaboratePage() {
       unsubscribeStory = onSnapshot(storyDocRef, (docSnap) => {
         if (docSnap.exists()) {
           const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
-           if (storyData.author.id !== user.id) { // Only author can manage collaborators for now
+           if (storyData.author.id !== user.id) {
             toast({ title: "Access Denied", description: "Only the story author can manage collaborators.", variant: "destructive" });
             router.push(`/write/edit-details?storyId=${queryStoryId}`);
             return;
@@ -67,7 +66,7 @@ export default function CollaboratePage() {
         router.push('/write');
         setIsLoading(false);
     } else if (!user && !authLoading) {
-        setIsLoading(false); // Not loading if no user and auth check done
+        setIsLoading(false);
     }
     
     return () => {
@@ -124,7 +123,6 @@ export default function CollaboratePage() {
           collaborators: updatedCollaborators,
           lastUpdated: serverTimestamp()
       });
-      // Story state will update via onSnapshot
       setCollaboratorUsername('');
       toast({ title: "Collaborator Added", description: `${newCollaborator.displayName || newCollaborator.username} can now contribute to this story.` });
     } catch (error) {
@@ -149,7 +147,6 @@ export default function CollaboratePage() {
             collaborators: updatedCollaborators,
             lastUpdated: serverTimestamp() 
         });
-        // Story state will update via onSnapshot
         toast({ title: "Collaborator Removed", description: `Collaborator access revoked.` });
     } catch (error) {
         console.error("Error removing collaborator:", error);
@@ -169,7 +166,6 @@ export default function CollaboratePage() {
   }
 
   if (!story || !user) {
-    // This state should ideally be caught by the useEffect redirects or loaders
     return <div className="text-center py-10">Error loading story or user information. Please ensure you are logged in and the story ID is correct.</div>;
   }
 

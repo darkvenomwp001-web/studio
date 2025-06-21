@@ -37,7 +37,7 @@ const VersionHistoryManager = {
 export default function WriteEditorPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, addNotification, loading: authLoading } = useAuth(); // Added authLoading
+  const { user, addNotification, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const queryStoryId = searchParams.get('storyId');
@@ -58,7 +58,7 @@ export default function WriteEditorPage() {
 
 
   useEffect(() => {
-    if (authLoading) { // Wait for auth state to resolve
+    if (authLoading) {
         setIsLoading(true);
         return;
     }
@@ -97,7 +97,7 @@ export default function WriteEditorPage() {
           } else { 
             const newChapterOrder = storyData.chapters.length > 0 ? Math.max(...storyData.chapters.map(c => c.order)) + 1 : 1;
             const newChapterInstance: Chapter = {
-              id: `chapter-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // Ensure unique ID
+              id: `chapter-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
               title: `Chapter ${newChapterOrder}`,
               content: 'Start writing your amazing chapter here...',
               order: newChapterOrder,
@@ -136,74 +136,65 @@ export default function WriteEditorPage() {
     setWordCount(words);
   }, [content]);
 
-  useEffect(() => {
-    if (!storyDetails || !currentChapter || isLoading || authLoading) return;
-
-    const originalChapterInStory = storyDetails.chapters.find(c => c.id === currentChapter.id);
-    const contentChanged = content !== (originalChapterInStory?.content || (currentChapter.id.startsWith('chapter-') ? currentChapter.content : ''));
-    const titleChanged = chapterTitle !== (originalChapterInStory?.title || (currentChapter.id.startsWith('chapter-') ? currentChapter.title : ''));
-
-
-    if (content.length > 0 && (contentChanged || titleChanged)) {
-      setAutoSaveStatus('Saving...');
-      const timer = setTimeout(async () => {
-         if (autoSaveStatus === 'Saving...') {
-            await handleSaveDraft(false); // Pass false to suppress toast for auto-save
-         }
-      }, 2500);
-      return () => clearTimeout(timer);
-    } else if (originalChapterInStory && !contentChanged && !titleChanged) {
-        setAutoSaveStatus('No Changes');
-    }
-  }, [content, chapterTitle, storyDetails, currentChapter, isLoading, autoSaveStatus, authLoading]);
-
-  const handleSaveDraft = async (showToast: boolean = true) => {
+  const handleSaveDraft = useCallback(async (showToast: boolean = true) => {
     if (!storyDetails || !currentChapter || !user) {
-        if (showToast) toast({ title: "Error", description: "Cannot save draft. Story or chapter context missing.", variant: "destructive"});
-        return;
+      if (showToast) toast({ title: "Error", description: "Cannot save draft. Story or chapter context missing.", variant: "destructive" });
+      return;
     }
     setAutoSaveStatus('Saving...');
     VersionHistoryManager.addVersion(storyDetails.id, currentChapter.id, content, chapterTitle);
 
     const updatedChapter: Chapter = {
-        ...currentChapter,
-        title: chapterTitle,
-        content: content,
-        status: 'Draft', 
-        wordCount: content.trim().split(/\s+/).filter(Boolean).length,
+      ...currentChapter,
+      title: chapterTitle,
+      content: content,
+      status: currentChapter.status === 'Published' ? 'Published' : 'Draft', 
+      wordCount: content.trim().split(/\s+/).filter(Boolean).length,
     };
 
-    let chapterExists = false;
-    const updatedChapters = storyDetails.chapters.map(ch => {
-        if (ch.id === updatedChapter.id) {
-            chapterExists = true;
-            return updatedChapter;
-        }
-        return ch;
-    });
-    if (!chapterExists) {
-        updatedChapters.push(updatedChapter);
+    const chapterIndex = storyDetails.chapters.findIndex(ch => ch.id === updatedChapter.id);
+    const updatedChapters = [...storyDetails.chapters];
+    if (chapterIndex > -1) {
+      updatedChapters[chapterIndex] = updatedChapter;
+    } else {
+      updatedChapters.push(updatedChapter);
     }
 
     const storyUpdateData = {
-        lastUpdated: serverTimestamp(),
-        chapters: updatedChapters.sort((a,b) => a.order - b.order),
+      lastUpdated: serverTimestamp(),
+      chapters: updatedChapters.sort((a, b) => a.order - b.order),
     };
 
     try {
-        const storyDocRef = doc(db, 'stories', storyDetails.id);
-        await updateDoc(storyDocRef, storyUpdateData);
-        
-        setCurrentChapter(updatedChapter); // Ensure currentChapter state is the most up-to-date after save
+      const storyDocRef = doc(db, 'stories', storyDetails.id);
+      await updateDoc(storyDocRef, storyUpdateData);
+      
+      setCurrentChapter(updatedChapter);
 
-        setAutoSaveStatus('Saved');
-        if (showToast) toast({ title: "Draft Saved!", description: "Your chapter changes have been saved." });
+      setAutoSaveStatus('Saved');
+      if (showToast) toast({ title: "Draft Saved!", description: "Your chapter changes have been saved." });
     } catch (error) {
-        console.error("Error saving draft:", error);
-        setAutoSaveStatus('Error');
-        if (showToast) toast({ title: "Save Failed", description: "Could not save draft.", variant: "destructive"});
+      console.error("Error saving draft:", error);
+      setAutoSaveStatus('Error');
+      if (showToast) toast({ title: "Save Failed", description: "Could not save draft.", variant: "destructive" });
     }
-  };
+  }, [storyDetails, currentChapter, user, chapterTitle, content, toast]);
+
+  useEffect(() => {
+    if (!storyDetails || !currentChapter || isLoading || authLoading) return;
+
+    const originalChapterInStory = storyDetails.chapters.find(c => c.id === currentChapter.id);
+    const contentChanged = content !== (originalChapterInStory?.content ?? '');
+    const titleChanged = chapterTitle !== (originalChapterInStory?.title ?? '');
+
+    if (content.length > 0 && (contentChanged || titleChanged)) {
+      setAutoSaveStatus('Saving...');
+      const timer = setTimeout(() => {
+        handleSaveDraft(false);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [content, chapterTitle, storyDetails, currentChapter, isLoading, handleSaveDraft, authLoading]);
 
   const handlePublishChapter = async () => {
     if (!storyDetails || !currentChapter || !user) {
@@ -233,17 +224,8 @@ export default function WriteEditorPage() {
         updatedChapters.push(updatedChapterData);
     }
 
-    // Determine story status based on published chapters
-    const hasOtherPublishedChapters = updatedChapters.some(ch => ch.id !== updatedChapterData.id && ch.status === 'Published');
-    const newStoryStatus = (storyDetails.status === 'Completed' && !hasOtherPublishedChapters && updatedChapterData.status !== 'Published') 
-                            ? 'Draft' // If only chapter unpublishes from completed story
-                            : (updatedChapterData.status === 'Published' || hasOtherPublishedChapters) 
-                                ? 'Ongoing' 
-                                : 'Draft';
-
-
     const storyUpdateData = {
-        status: newStoryStatus, 
+        status: storyDetails.status === 'Completed' ? 'Completed' : 'Ongoing', 
         lastUpdated: serverTimestamp(),
         chapters: updatedChapters.sort((a,b) => a.order - b.order),
     };
@@ -257,10 +239,10 @@ export default function WriteEditorPage() {
         setAutoSaveStatus('Saved');
         toast({ title: "Chapter Published!", description: `Chapter "${chapterTitle}" is now live.` });
         
-        if (user.id === storyDetails.author.id) { // Only author publishing triggers notification
+        if (user.id === storyDetails.author.id) {
             addNotification({
             type: 'new_chapter',
-            userId: user.id, // This might be changed to notify followers in future
+            userId: user.id, // In a real app, this would iterate over followers
             message: `${user.displayName || user.username} published a new chapter "${chapterTitle}" for "${storyDetails.title}".`,
             link: `/stories/${storyDetails.id}/read/${updatedChapterData.id}`,
             actor: {id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl }
@@ -313,12 +295,12 @@ export default function WriteEditorPage() {
       );
   }
   
-  if (!user && !authLoading) { // Should be caught by useEffect redirect, but as a fallback
+  if (!user && !authLoading) {
      router.push('/auth/signin');
      return null;
   }
 
-  if (!storyDetails || !currentChapter) { // Should not happen if isLoading is false and queryStoryId exists
+  if (!storyDetails || !currentChapter) {
     return <div className="text-center py-10">Error loading story or chapter. Please try again.</div>;
   }
 
@@ -465,4 +447,3 @@ export default function WriteEditorPage() {
     </AlertDialog>
   );
 }
-    

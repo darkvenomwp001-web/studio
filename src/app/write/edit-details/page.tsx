@@ -122,7 +122,7 @@ export default function EditStoryDetailsPage() {
         chapters: [],
         status: 'Draft',
         lastUpdated: serverTimestamp(),
-        coverImageUrl: 'https://placehold.co/512x800.png',
+        coverImageUrl: '',
         language: 'English',
         isMature: false,
         visibility: 'Private',
@@ -156,7 +156,7 @@ export default function EditStoryDetailsPage() {
 
     let finalCoverImageUrl = story.coverImageUrl;
 
-    if (coverImageFile) { // This block handles cover image upload specifically
+    if (coverImageFile) {
       setIsUploadingCover(true);
       const imagePath = `storyCovers/${story.id}/${coverImageFile.name}`;
       const imageStorageRef = storageRef(storage, imagePath);
@@ -165,7 +165,7 @@ export default function EditStoryDetailsPage() {
         await new Promise<void>((resolve, reject) => {
             uploadTask.on(
                 'state_changed',
-                (snapshot) => {}, // Progress updates can be handled here if needed
+                (snapshot) => {},
                 (error) => {
                   console.error("Firebase Storage upload error details:", error);
                   reject(error);
@@ -181,20 +181,10 @@ export default function EditStoryDetailsPage() {
         setCoverImageFile(null); 
       } catch (error: any) {
         console.error("Error uploading cover image:", error);
-        let errorDescription = "Could not upload cover image. Please try again.";
-        if (error.code === 'storage/unauthorized') {
-            errorDescription = "Permission denied. Check your Firebase Storage security rules.";
-        } else if (error.code === 'storage/canceled') {
-            errorDescription = "Upload cancelled.";
-        } else if (error.code === 'storage/quota-exceeded') {
-            errorDescription = "Storage quota exceeded. Please free up space or upgrade your Firebase plan.";
-        } else if (error.code === 'storage/object-not-found' || error.code === 'storage/bucket-not-found') {
-            errorDescription = "Storage path/bucket not found. Contact support.";
-        }
-        toast({ title: "Upload Failed", description: errorDescription, variant: "destructive" });
+        toast({ title: "Upload Failed", description: "Could not upload cover image.", variant: "destructive" });
         if (!isCoverChange) setAutoSaveStatus('Error'); else setIsSaving(false);
         setIsUploadingCover(false);
-        return; // Stop further execution if cover upload fails
+        return;
       }
       setIsUploadingCover(false);
     }
@@ -208,23 +198,22 @@ export default function EditStoryDetailsPage() {
       language: language,
       isMature: isMature,
       visibility: visibility,
-      status: visibility === 'Public' && story.chapters.some(c => c.status === 'Published') ? 'Ongoing' : (story.status === 'Completed' ? 'Completed' : (story.status === 'Draft' ? 'Draft' : 'Draft')),
+      status: visibility === 'Public' && story.chapters.some(c => c.status === 'Published') ? 'Ongoing' : (story.status === 'Completed' ? 'Completed' : 'Draft'),
       lastUpdated: serverTimestamp(),
     };
 
     try {
       const storyDocRef = doc(db, 'stories', story.id);
-      await updateDoc(storyDocRef, storyDataToUpdate);
+      await updateDoc(storyDocRef, storyDataToUpdate as any);
       if (!isCoverChange) {
          setAutoSaveStatus('Saved');
       } else {
-        // Toast for successful cover image *application* to story doc (upload success is handled above)
-        toast({ title: "Cover Image Updated!", description: "Your new cover image has been applied to the story." });
+        toast({ title: "Cover Image Updated!", description: "Your new cover image has been applied." });
       }
     } catch (error) {
-      console.error("Error saving story details to Firestore:", error);
+      console.error("Error saving story details:", error);
       if (!isCoverChange) setAutoSaveStatus('Error');
-      toast({ title: "Save Failed", description: "Could not save story details to database.", variant: "destructive" });
+      toast({ title: "Save Failed", description: "Could not save story details.", variant: "destructive" });
     } finally {
       if (isCoverChange) setIsSaving(false);
     }
@@ -250,12 +239,12 @@ export default function EditStoryDetailsPage() {
                            story.language !== language ||
                            story.isMature !== isMature ||
                            story.visibility !== visibility ||
-                           coverImageFile !== null; // Include coverImageFile in change detection
+                           coverImageFile !== null;
 
         if (hasChanged) {
-          handleSaveChanges(coverImageFile !== null); // Pass true if coverImageFile initiated this save
+          handleSaveChanges(coverImageFile !== null);
         } else if (autoSaveStatus !== 'Idle' && autoSaveStatus !== 'Saved') {
-           setAutoSaveStatus(story.title === storyTitle && story.summary === summary ? 'Saved' : 'Idle');
+           setAutoSaveStatus('Idle');
         }
     }, AUTOSAVE_DELAY);
 
@@ -276,7 +265,7 @@ export default function EditStoryDetailsPage() {
             description: `Please select an image smaller than ${MAX_COVER_IMAGE_SIZE_BYTES / (1024*1024)}MB.`, 
             variant: "destructive" 
         });
-        if(fileInputRef.current) fileInputRef.current.value = ""; // Clear the input
+        if(fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
       setCoverImageFile(file);
@@ -309,10 +298,7 @@ export default function EditStoryDetailsPage() {
   };
 
   const handleAddCollaborator = async () => {
-    if (!story || !collaboratorUsername.trim() || !user) {
-      toast({ title: "Input Required", description: "Please enter a username to add.", variant: "destructive" });
-      return;
-    }
+    if (!story || !collaboratorUsername.trim() || !user) return;
     if (story.author.id !== user.id) {
         toast({ title: "Permission Denied", description: "Only the story author can add collaborators.", variant: "destructive" });
         return;
@@ -333,7 +319,7 @@ export default function EditStoryDetailsPage() {
       const collaboratorUserData = {id: collaboratorUserDoc.id, ...collaboratorUserDoc.data()} as AppUser;
 
       if (collaboratorUserData.id === user.id) {
-        toast({ title: "Cannot Add Self", description: "You are the author and cannot add yourself as a collaborator.", variant: "destructive" });
+        toast({ title: "Cannot Add Self", description: "You are the author.", variant: "destructive" });
         setIsProcessingCollaboration(false);
         return;
       }
@@ -357,10 +343,10 @@ export default function EditStoryDetailsPage() {
           lastUpdated: serverTimestamp()
       });
       setCollaboratorUsername('');
-      toast({ title: "Collaborator Added", description: `${newCollaborator.displayName || newCollaborator.username} can now contribute to this story.` });
+      toast({ title: "Collaborator Added", description: `${newCollaborator.displayName || newCollaborator.username} can now contribute.` });
     } catch (error) {
         console.error("Error adding collaborator:", error);
-        toast({title: "Error", description: "Could not add collaborator. Please try again.", variant: "destructive"});
+        toast({title: "Error", description: "Could not add collaborator.", variant: "destructive"});
     } finally {
         setIsProcessingCollaboration(false);
     }
@@ -380,10 +366,10 @@ export default function EditStoryDetailsPage() {
             collaborators: updatedCollaborators,
             lastUpdated: serverTimestamp() 
         });
-        toast({ title: "Collaborator Removed", description: `Collaborator access revoked.` });
+        toast({ title: "Collaborator Removed" });
     } catch (error) {
         console.error("Error removing collaborator:", error);
-        toast({title: "Error", description: "Could not remove collaborator. Please try again.", variant: "destructive"});
+        toast({title: "Error", description: "Could not remove collaborator.", variant: "destructive"});
     } finally {
         setIsProcessingCollaboration(false);
     }
@@ -657,7 +643,7 @@ export default function EditStoryDetailsPage() {
           <Card>
             <CardHeader>
                 <CardTitle>Collaboration</CardTitle>
-                <CardDescription>Invite other users to contribute to this story. Only the original author can add or remove collaborators.</CardDescription>
+                <CardDescription>Invite other users to contribute. Only the original author can add or remove collaborators.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex gap-2">
@@ -705,28 +691,6 @@ export default function EditStoryDetailsPage() {
             </CardContent>
            </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Publishing Account</CardTitle>
-                    <CardDescription>Story will be published under the original author's account. Collaborators can edit.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
-                        <Avatar className="h-8 w-8">
-                            <AvatarImage src={story.author.avatarUrl} data-ai-hint="profile person"/>
-                            <AvatarFallback>{story.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                            <p className="font-semibold">{story.author.displayName || story.author.username}</p>
-                            <p className="text-xs text-muted-foreground">Original Author (Publisher)</p>
-                        </div>
-                    </div>
-                     <p className="text-xs text-muted-foreground">
-                        To change the primary author, the story would need to be duplicated under a different account.
-                     </p>
-                </CardContent>
-            </Card>
-
         </div>
       </form>
 
@@ -735,7 +699,7 @@ export default function EditStoryDetailsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Chapter: "{chapterToDelete.title}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this chapter? This action cannot be undone and will remove the chapter permanently from this story.
+              Are you sure you want to delete this chapter? This action cannot be undone and will remove the chapter permanently.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -750,5 +714,3 @@ export default function EditStoryDetailsPage() {
     </AlertDialog>
   );
 }
-
-    

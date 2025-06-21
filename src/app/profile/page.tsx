@@ -37,7 +37,7 @@ interface ProfileStoryCardProps {
 function ProfileStoryCard({ story, isDraft = false }: ProfileStoryCardProps) {
    const editLink = story.status === 'Draft' || story.visibility === 'Private' || story.visibility === 'Unlisted' 
     ? `/write/edit-details?storyId=${story.id}` 
-    : `/stories/${story.id}`; // Or link to edit details for published too if desired
+    : `/stories/${story.id}`; 
   const viewLink = `/stories/${story.id}`;
 
 

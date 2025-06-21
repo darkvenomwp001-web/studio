@@ -152,7 +152,6 @@ export default function UserProfilePage() {
 
     setIsLoadingData(true);
     let unsubStories: Unsubscribe | undefined;
-    let unsubFollowing: Unsubscribe | undefined; // Placeholder, not used as following details are one-time fetch for now
     let unsubFollowers: Unsubscribe | undefined;
 
     // Fetch Stories
@@ -218,7 +217,6 @@ export default function UserProfilePage() {
 
     return () => {
         if (unsubStories) unsubStories();
-        // if (unsubFollowing) unsubFollowing(); // No unsub for getDocs
         if (unsubFollowers) unsubFollowers();
     };
   }, [profileUser, isOwnProfile, toast]);
@@ -236,8 +234,6 @@ export default function UserProfilePage() {
     } else {
       await followUser(profileUser.id);
     }
-    // Real-time updates from onSnapshot for profileUser should handle follower count changes.
-    // currentUser updates are handled by useAuth hook.
   };
 
   if (authLoading || isLoadingData) {
