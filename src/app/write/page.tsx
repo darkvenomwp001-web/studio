@@ -109,13 +109,15 @@ export default function WriteDashboardPage() {
   }, [userStories]);
 
   const { totalViews, totalVotes, storyCount } = useMemo(() => {
-    return userStories.reduce((acc, story) => {
+    const stats = publishedStories.reduce((acc, story) => {
       const votes = story.chapters?.reduce((voteSum, ch) => voteSum + (ch.votes || 0), 0) || 0;
       acc.totalViews += story.views || 0;
       acc.totalVotes += votes;
       return acc;
-    }, { totalViews: 0, totalVotes: 0, storyCount: userStories.length });
-  }, [userStories]);
+    }, { totalViews: 0, totalVotes: 0 });
+
+    return { ...stats, storyCount: publishedStories.length };
+  }, [publishedStories]);
 
 
   if (authLoading || (isLoadingStories && user)) {
