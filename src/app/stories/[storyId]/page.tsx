@@ -25,7 +25,7 @@ import {
   BookmarkCheck
 } from 'lucide-react';
 import { formatDate } from '@/lib/placeholder-data';
-import type { Story } from '@/types';
+import type { Story, UserSummary } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -40,6 +40,7 @@ export default function StoryOverviewPage() {
   const storyId = params.storyId as string;
 
   const [story, setStory] = useState<Story | null>(null);
+  const [authorInfo, setAuthorInfo] = useState<UserSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
@@ -66,6 +67,7 @@ export default function StoryOverviewPage() {
 
             if (canView) {
                 setStory(data);
+                setAuthorInfo(data.author); // Set initial author info from story data
             } else {
                 setStory(null);
                 toast({ title: "Access Denied", description: "You don't have permission to view this story.", variant: "destructive" });
@@ -97,6 +99,27 @@ export default function StoryOverviewPage() {
       unsubscribeComments();
     };
   }, [storyId, user, router, toast]);
+
+  // New useEffect to listen for real-time author updates
+  useEffect(() => {
+    if (!story?.author?.id) return;
+
+    const authorDocRef = doc(db, 'users', story.author.id);
+    const unsubscribeAuthor = onSnapshot(authorDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const authorData = docSnap.data() as UserSummary;
+        setAuthorInfo({
+            id: docSnap.id,
+            username: authorData.username,
+            displayName: authorData.displayName,
+            avatarUrl: authorData.avatarUrl
+        });
+      }
+    });
+
+    return () => unsubscribeAuthor();
+  }, [story?.author?.id]);
+
 
   const handleLibraryAction = () => {
     if (!story) return;
@@ -150,6 +173,7 @@ export default function StoryOverviewPage() {
 
   const isAuthorOrCollaborator = user && (story.author.id === user.id || story.collaborators?.some(c => c.id === user.id));
   const isInLibrary = user?.readingList?.some(item => item.id === story.id);
+  const displayAuthor = authorInfo || story.author; // Use live author info if available, otherwise fallback to story's data
 
   const totalVotes = story.chapters?.reduce((acc, chapter) => acc + (chapter.votes || 0), 0) || 0;
 
@@ -177,14 +201,14 @@ export default function StoryOverviewPage() {
 
         <h1 className="text-2xl md:text-3xl font-headline font-bold text-foreground">{story.title}</h1>
         <Link
-          href={`/profile/${story.author.id}`}
+          href={`/profile/${displayAuthor.id}`}
           className="inline-flex items-center gap-2.5 text-md text-muted-foreground hover:text-primary transition-colors group"
         >
           <Avatar className="h-8 w-8">
-            <AvatarImage src={story.author.avatarUrl} alt={story.author.username} data-ai-hint="profile person" />
-            <AvatarFallback>{story.author.username?.substring(0, 1).toUpperCase() || 'A'}</AvatarFallback>
+            <AvatarImage src={displayAuthor.avatarUrl} alt={displayAuthor.username} data-ai-hint="profile person" />
+            <AvatarFallback>{displayAuthor.username?.substring(0, 1).toUpperCase() || 'A'}</AvatarFallback>
           </Avatar>
-          <span className="font-medium group-hover:underline">{story.author.displayName || story.author.username}</span>
+          <span className="font-medium group-hover:underline">{displayAuthor.displayName || displayAuthor.username}</span>
         </Link>
       
         <div className="flex justify-center items-center gap-2">
