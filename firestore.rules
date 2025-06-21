@@ -2,99 +2,71 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is signed in
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
-
-    // Helper function to check if the user is the owner of the document
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    // Helper function to check if a story is public
-    function isPublic(story) {
-      return story.visibility == 'Public';
-    }
-    
-    // Helper function to check if a user is an author or collaborator
-    function isAuthorOrCollaborator(story) {
-        return isOwner(story.author.id) || request.auth.uid in story.collaboratorIds;
-    }
-    
-    // Helper function to securely handle follower count updates
-    function isUpdatingFollowerCount(request, resource) {
-      // Ensure only 'followersCount' and 'updatedAt' are being changed
-      let isOnlyAllowedFields = request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount', 'updatedAt']);
-      if (!isOnlyAllowedFields) {
-        return false;
-      }
-      
-      let countChange = request.resource.data.followersCount - resource.data.followersCount;
-      
-      // Allow incrementing by 1 (following)
-      if (countChange == 1) {
-        return true;
-      }
-      
-      // Allow decrementing by 1 (unfollowing), but only if the count is already > 0
-      if (countChange == -1) {
-        return resource.data.followersCount > 0;
-      }
-      
-      // Deny any other change
-      return false;
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // USER PROFILES
+    // Users collection rules
     match /users/{userId} {
-      // Anyone can read a user's public profile
       allow read: if true;
-      
-      // A user can create their own profile.
-      allow create: if isOwner(userId);
-      
-      // A user can update their own profile, OR another user can update their follower count.
-      allow update: if isOwner(userId) || isUpdatingFollowerCount(request, resource);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && (
+        // Case 1: The user is updating their own profile.
+        isOwner(userId) ||
+        // Case 2: Another user is following/unfollowing this user.
+        (
+          // Ensure ONLY followersCount and updatedAt are being changed.
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount', 'updatedAt']) &&
+          // Logic for a valid follow/unfollow action.
+          (
+            // Follow: Incrementing by 1
+            request.resource.data.followersCount == resource.data.followersCount + 1 ||
+            // Unfollow: Decrementing by 1, but only if the count is already > 0
+            (request.resource.data.followersCount == resource.data.followersCount - 1 && resource.data.followersCount > 0)
+          )
+        )
+      );
     }
-    
-    // STORIES
+
+    // Stories collection rules
     match /stories/{storyId} {
-      // Read access rules for stories
-      allow read: if resource.data.visibility == 'Public'
-                  || (resource.data.visibility == 'Unlisted' && isSignedIn())
-                  || (isSignedIn() && isAuthorOrCollaborator(resource.data));
-
-      // Create access: any signed-in user can create a story (it starts as a private draft)
+      allow read: if resource.data.visibility == 'Public' 
+                   || resource.data.visibility == 'Unlisted' 
+                   || (isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
       allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
-      
-      // Update access: only author or collaborator can update
-      allow update: if isSignedIn() && isAuthorOrCollaborator(resource.data);
-
-      // Delete access: only the original author can delete
+      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds);
       allow delete: if isSignedIn() && isOwner(resource.data.author.id);
     }
     
-    // COMMENTS
+    // Comments collection rules
     match /comments/{commentId} {
-      allow read: if true; // All comments are public
-      allow create: if isSignedIn(); // Any signed-in user can comment
-      allow update, delete: if isSignedIn() && isOwner(resource.data.user.id); // Only the comment owner can edit/delete
-    }
-
-    // NOTIFICATIONS
-    match /notifications/{notificationId} {
-       allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId); // Can only manage their own notifications
-       allow create: if isSignedIn(); // Allow client to create notifications (e.g. for new follower)
+        allow read: if true;
+        allow create: if isSignedIn();
+        allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
     }
     
-    // CONVERSATIONS
+    // Conversations & Messages
     match /conversations/{conversationId} {
       allow read, create, update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
       
       match /messages/{messageId} {
         allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
       }
+    }
+    
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read, update: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn(); // Allow any signed-in user to create a notification (e.g. for following someone)
     }
   }
 }
