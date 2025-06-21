@@ -208,7 +208,7 @@ export default function EditStoryDetailsPage() {
     };
 
     uploadCoverImage();
-  }, [coverImageFile, story?.id, toast]);
+  }, [coverImageFile, story, toast]);
 
   const handleAutoSaveChanges = useCallback(async () => {
     if (!story || !user || !initialLoadComplete) {
@@ -492,7 +492,7 @@ export default function EditStoryDetailsPage() {
 
   return (
     <AlertDialog>
-      <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
+      <div className="max-w-5xl mx-auto py-8 space-y-8">
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary">
@@ -530,7 +530,7 @@ export default function EditStoryDetailsPage() {
           </div>
         </header>
 
-        <div className="grid md:grid-cols-3 gap-8 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
           <div className="md:col-span-1 space-y-6">
             <Card>
               <CardHeader>
@@ -548,7 +548,7 @@ export default function EditStoryDetailsPage() {
                     width={512}
                     height={800}
                     className="object-cover w-full h-full"
-                    data-ai-hint="book cover design"
+                    data-ai-hint={story.dataAiHint || "book cover design"}
                     priority 
                   />
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -829,5 +829,3 @@ export default function EditStoryDetailsPage() {
     </AlertDialog>
   );
 }
-
-    
