@@ -13,8 +13,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, UserCog, Save, KeyRound, Mail, UploadCloud } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { storage } from '@/lib/firebase';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function SettingsPage() {
   const { user, loading: authLoadingGlobal, authLoading: specificAuthLoading, updateUserProfile, updateUserEmailFirebase, updateUserPasswordFirebase } = useAuth();
@@ -73,25 +71,54 @@ export default function SettingsPage() {
 
     let newAvatarUrl = user.avatarUrl;
     if (avatarFile) {
-      setIsUploading(true);
-      try {
-        const avatarStorageRef = storageRef(storage, `avatars/${user.id}/${avatarFile.name}`);
-        const snapshot = await uploadBytes(avatarStorageRef, avatarFile);
-        newAvatarUrl = await getDownloadURL(snapshot.ref);
-        toast({ title: "Avatar Uploaded", description: "Your new avatar has been uploaded." });
-      } catch (error) {
-        console.error("Error uploading avatar:", error);
-        toast({ title: "Avatar Upload Failed", description: "Could not upload your new avatar. Please try again.", variant: "destructive" });
-        setIsProfileUpdating(false);
-        setIsUploading(false);
-        return;
-      } finally {
-        setIsUploading(false);
-      }
+        setIsUploading(true);
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+        if (!cloudName || !uploadPreset) {
+            toast({
+                title: 'Configuration Error',
+                description: 'Cloudinary environment variables are not set. Cannot upload avatar.',
+                variant: 'destructive',
+            });
+            setIsUploading(false);
+            setIsProfileUpdating(false);
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', avatarFile);
+        formData.append('upload_preset', uploadPreset);
+
+        try {
+            const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await response.json();
+            if (data.secure_url) {
+                newAvatarUrl = data.secure_url;
+                toast({ title: 'Avatar Uploaded', description: 'Your new avatar has been uploaded to Cloudinary.' });
+            } else {
+                throw new Error(data.error?.message || 'Unknown Cloudinary error');
+            }
+        } catch (error) {
+            console.error('Error uploading avatar to Cloudinary:', error);
+            toast({
+                title: 'Avatar Upload Failed',
+                description: 'Could not upload your new avatar. Please try again.',
+                variant: 'destructive',
+            });
+            setIsProfileUpdating(false);
+            setIsUploading(false);
+            return;
+        } finally {
+            setIsUploading(false);
+        }
     }
     
     await updateUserProfile({ displayName, username, avatarUrl: newAvatarUrl, bio, role });
-    setAvatarFile(null); // Clear file after submission
+    setAvatarFile(null);
     setIsProfileUpdating(false);
   };
 

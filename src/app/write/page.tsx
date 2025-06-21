@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import {
   doc,
   collection,
@@ -32,7 +32,6 @@ import {
   onSnapshot,
   deleteDoc,
 } from 'firebase/firestore';
-import { ref as storageRef, deleteObject } from 'firebase/storage';
 import { cn } from '@/lib/utils';
 
 export default function WriteDashboardPage() {
@@ -130,16 +129,12 @@ export default function WriteDashboardPage() {
 
     const storyDocRef = doc(db, 'stories', storyToDelete.id);
     try {
-      if (storyToDelete.coverImageUrl && storyToDelete.coverImageUrl.includes('firebasestorage.googleapis.com')) {
-        try {
-          const imageRef = storageRef(storage, storyToDelete.coverImageUrl);
-          await deleteObject(imageRef);
-        } catch (storageError: any) {
-          if (storageError.code !== 'storage/object-not-found') {
-            console.warn("Could not delete cover image from Firebase Storage:", storageError);
-            toast({ title: "Storage Warning", description: "Story record will be deleted, but its cover image might remain in storage.", variant: "destructive" });
-          }
-        }
+      if (storyToDelete.coverImageUrl && storyToDelete.coverImageUrl.includes('res.cloudinary.com')) {
+        toast({
+          title: "Manual Deletion Required",
+          description: "The story record is deleted, but the cover image must be removed from your Cloudinary account manually.",
+          duration: 8000,
+        });
       }
 
       await deleteDoc(storyDocRef);
