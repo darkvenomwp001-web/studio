@@ -38,7 +38,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { placeholderUsers, placeholderStories } from '@/lib/placeholder-data'; // Keep for some fallbacks if needed
+import { placeholderUsers } from '@/lib/placeholder-data';
 
 interface AppUser extends AppUserType {
   email?: string;
@@ -86,58 +86,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      setLoading(true);
-      if (firebaseUser) {
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
+    let unsubscribeUserDoc: (() => void) | undefined;
 
-        if (userSnap.exists()) {
-          const firestoreUserData = userSnap.data() as AppUser;
-          setUser({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || firestoreUserData.email,
-            username: firestoreUserData.username || firebaseUser.displayName?.split(' ')[0] || 'User',
-            displayName: firestoreUserData.displayName || firebaseUser.displayName || firestoreUserData.username,
-            avatarUrl: firestoreUserData.avatarUrl || firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(firestoreUserData.username || 'U').charAt(0).toUpperCase()}`,
-            bio: firestoreUserData.bio || 'No bio yet.',
-            role: firestoreUserData.role || 'reader',
-            followersCount: firestoreUserData.followersCount || 0,
-            followingCount: firestoreUserData.followingIds?.length || 0,
-            followingIds: firestoreUserData.followingIds || [],
-            writtenStories: firestoreUserData.writtenStories || placeholderUsers.find(pu => pu.id === firebaseUser.uid)?.writtenStories || [],
-            readingList: firestoreUserData.readingList || placeholderUsers.find(pu => pu.id === firebaseUser.uid)?.readingList || [],
-            createdAt: firestoreUserData.createdAt,
-            updatedAt: firestoreUserData.updatedAt,
-          });
-        } else {
-          const username = firebaseUser.displayName?.split(' ')[0] || firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.substring(0,5)}`;
-          const newUserProfile: AppUser = {
-            id: firebaseUser.uid,
-            username: username,
-            displayName: firebaseUser.displayName || username,
-            email: firebaseUser.email || '',
-            avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${username.charAt(0).toUpperCase()}`,
-            bio: 'New to LitVerse! Ready to explore.',
-            role: 'reader',
-            followersCount: 0,
-            followingCount: 0,
-            followingIds: [],
-            writtenStories: [],
-            readingList: [],
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          };
-          await setDoc(userRef, newUserProfile);
-          setUser(newUserProfile);
-        }
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+      }
+
+      if (firebaseUser) {
+        setLoading(true);
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        
+        unsubscribeUserDoc = onSnapshot(userRef, async (userSnap) => {
+          if (userSnap.exists()) {
+            const firestoreUserData = userSnap.data() as AppUser;
+            setUser({
+              id: firebaseUser.uid,
+              email: firebaseUser.email || firestoreUserData.email,
+              username: firestoreUserData.username || firebaseUser.displayName?.split(' ')[0] || 'User',
+              displayName: firestoreUserData.displayName || firebaseUser.displayName || firestoreUserData.username,
+              avatarUrl: firestoreUserData.avatarUrl || firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(firestoreUserData.username || 'U').charAt(0).toUpperCase()}`,
+              bio: firestoreUserData.bio || 'No bio yet.',
+              role: firestoreUserData.role || 'reader',
+              followersCount: firestoreUserData.followersCount || 0,
+              followingCount: firestoreUserData.followingIds?.length || 0,
+              followingIds: firestoreUserData.followingIds || [],
+              writtenStories: firestoreUserData.writtenStories || [],
+              readingList: firestoreUserData.readingList || [],
+              createdAt: firestoreUserData.createdAt,
+              updatedAt: firestoreUserData.updatedAt,
+            });
+          } else {
+            // This logic runs once if the user document doesn't exist, e.g., on first Google Sign-In
+            const username = firebaseUser.displayName?.split(' ')[0] || firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.substring(0,5)}`;
+            const newUserProfile: AppUser = {
+              id: firebaseUser.uid,
+              username: username,
+              displayName: firebaseUser.displayName || username,
+              email: firebaseUser.email || '',
+              avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${username.charAt(0).toUpperCase()}`,
+              bio: 'New to LitVerse! Ready to explore.',
+              role: 'reader',
+              followersCount: 0,
+              followingCount: 0,
+              followingIds: [],
+              writtenStories: [],
+              readingList: [],
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            };
+            await setDoc(userRef, newUserProfile);
+            setUser(newUserProfile); // The snapshot listener will also fire and set this, but we set it here for immediate feedback
+          }
+          setLoading(false);
+        }, (error) => {
+            console.error("Error listening to user document:", error);
+            setUser(null);
+            setLoading(false);
+        });
+        
       } else {
         setUser(null);
         setNotifications([]);
+        setLoading(false);
       }
-      setLoading(false);
     });
-    return () => unsubscribeAuth();
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+      }
+    };
   }, []);
 
 
@@ -351,12 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       await updateDoc(userRef, dataToUpdate);
       
-      setUser(prevUser => {
-        if (!prevUser) return null;
-        const updatedUser = { ...prevUser, ...dataToUpdate };
-        return updatedUser;
-      });
-
+      // No need to call setUser, onSnapshot will handle it.
       toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     } catch (error)
     {
@@ -393,7 +408,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await updateFirebaseEmail(firebaseUser, newEmail);
         const userRef = doc(db, 'users', firebaseUser.uid);
         await updateDoc(userRef, { email: newEmail, updatedAt: serverTimestamp() });
-        setUser(prev => prev ? ({ ...prev, email: newEmail }) : null);
+        // No need to call setUser, onSnapshot will handle it.
         toast({ title: "Email Updated", description: `Your email has been successfully updated to ${newEmail}. You might need to sign in again.` });
         setAuthLoading(false);
         return true;
@@ -406,7 +421,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await updateFirebaseEmail(firebaseUser, newEmail);
             const userRef = doc(db, 'users', firebaseUser.uid);
             await updateDoc(userRef, { email: newEmail, updatedAt: serverTimestamp() });
-            setUser(prev => prev ? ({ ...prev, email: newEmail }) : null);
             toast({ title: "Email Updated", description: `Your email has been successfully updated to ${newEmail} after re-authentication.` });
             setAuthLoading(false);
             return true;
@@ -470,7 +484,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addNotification = useCallback(async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
+  const addNotification = useCallback(async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead' | 'userId'> & { userId?: string }) => {
     if (!notificationData.userId && notificationData.type !== 'announcement') {
       console.warn("Attempted to add notification without recipient userId or not an announcement:", notificationData);
       return;
@@ -569,11 +583,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
         }
         
-        setUser(prev => prev ? { 
-            ...prev, 
-            followingIds: newFollowingIds, 
-            followingCount: newFollowingIds.length 
-        } : null);
+        // No need to call setUser, onSnapshot will handle it.
         
         const targetUserDetails = placeholderUsers.find(u=>u.id === targetUserId) || (targetUserSnap.exists() ? targetUserSnap.data() as UserSummary : null);
         toast({title: "Followed", description: `You are now following ${targetUserDetails?.displayName || targetUserDetails?.username || 'user'}.`});
@@ -608,11 +618,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
         }
 
-        setUser(prev => prev ? { 
-            ...prev, 
-            followingIds: newFollowingIds,
-            followingCount: newFollowingIds.length 
-        } : null);
+        // No need to call setUser, onSnapshot will handle it.
 
         const targetUserDetails = placeholderUsers.find(u=>u.id === targetUserId) || (targetUserSnap.exists() ? targetUserSnap.data() as UserSummary : null);
         toast({title: "Unfollowed", description: `You have unfollowed ${targetUserDetails?.displayName || targetUserDetails?.username || 'user'}.`});
@@ -656,3 +662,5 @@ export function useAuth() {
   }
   return context;
 }
+
+    
