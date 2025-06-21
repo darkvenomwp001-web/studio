@@ -93,9 +93,9 @@ export default function StoriesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground space-y-12 py-8">
+    <div className="min-h-screen bg-background text-foreground space-y-12 -mt-8">
       {/* Hero Carousel Section */}
-      <section className="container mx-auto px-0 sm:px-4">
+      <section>
         <Carousel
           plugins={[
             Autoplay({
@@ -107,7 +107,7 @@ export default function StoriesPage() {
             align: "start",
             loop: true,
           }}
-          className="w-full shadow-xl rounded-lg overflow-hidden max-w-6xl mx-auto"
+          className="w-full shadow-xl rounded-lg overflow-hidden max-w-7xl mx-auto"
         >
           <CarouselContent>
             {featuredStoriesForCarousel.map((story, index) => (
