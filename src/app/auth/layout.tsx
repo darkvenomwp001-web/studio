@@ -18,9 +18,6 @@ export default function AuthLayout({
       <div className="w-full max-w-md">
         {children}
       </div>
-      <footer className="mt-8 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} D4RKV3NOM. All rights reserved.
-      </footer>
     </div>
   )
 }
