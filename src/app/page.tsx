@@ -166,7 +166,7 @@ export default function HomePage() {
               <div className="p-6 md:p-8 flex flex-col justify-between flex-1 bg-card">
                 <div>
                   <Badge variant="secondary" className="mb-2 bg-accent text-accent-foreground">{storySpotlight.genre}</Badge>
-                  <CardTitle className="text-3xl font-headline group-hover:text-primary transition-colors">{storySpotlight.title}</CardTitle>
+                  <CardTitle className="text-2xl md:text-3xl font-headline group-hover:text-primary transition-colors">{storySpotlight.title}</CardTitle>
                   <CardDescription className="text-sm text-muted-foreground mt-1 mb-3">
                     By <Link href={`/profile/${storySpotlight.author.id}`} className="hover:underline font-medium">{storySpotlight.author.displayName || storySpotlight.author.username}</Link>
                   </CardDescription>
