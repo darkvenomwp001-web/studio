@@ -302,6 +302,8 @@ function AuthorUpdatesSection() {
         setSelectedPost(post);
     };
 
+    if (!user) return null;
+
     return (
         <>
             <Dialog open={isCreatePostOpen} onOpenChange={setIsCreatePostOpen}>
