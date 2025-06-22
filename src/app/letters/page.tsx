@@ -81,9 +81,9 @@ export default function LettersPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="text-center space-y-4">
         <div>
-          <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
+          <h1 className="text-4xl font-headline font-bold text-primary flex items-center justify-center gap-3">
             <Mailbox className="h-10 w-10" />
             Mailbox
           </h1>
