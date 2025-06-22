@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -67,6 +66,12 @@ export default function CreateStoryDialog({ isOpen, onOpenChange }: CreateStoryD
       <DialogContent className="sm:max-w-md p-0 border-0" onInteractOutside={(e) => {
           if (isSubmitting) e.preventDefault();
       }}>
+        <DialogHeader className="sr-only">
+          <DialogTitle>Create a new story post</DialogTitle>
+          <DialogDescription>
+            Share a short text update that will be visible to your followers for 24 hours.
+          </DialogDescription>
+        </DialogHeader>
         <div className={cn("relative flex flex-col items-center justify-center p-8 h-96 w-full rounded-t-lg transition-colors", selectedBg)}>
             <Textarea
               value={content}
@@ -78,7 +83,7 @@ export default function CreateStoryDialog({ isOpen, onOpenChange }: CreateStoryD
             <span className="absolute bottom-2 right-4 text-xs text-white/60">{content.length}/280</span>
         </div>
         <div className="p-4 bg-background rounded-b-lg">
-            <DialogDescription className="mb-2 text-xs">Choose a background:</DialogDescription>
+            <p className="mb-2 text-xs text-muted-foreground">Choose a background:</p>
             <div className="flex gap-2 mb-4">
                 {backgroundColors.map(color => (
                     <button
