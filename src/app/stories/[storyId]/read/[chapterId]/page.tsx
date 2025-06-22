@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -47,7 +46,6 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
-import SendLetterForm from '@/components/letters/SendLetterForm';
 
 export default function StoryReaderPage() {
   const params = useParams();
@@ -347,16 +345,6 @@ export default function StoryReaderPage() {
             )}
             </article>
         </div>
-
-        {currentUser && story && currentChapter && currentUser.id !== story.author.id && (
-          <section className="max-w-3xl mx-auto px-4 sm:px-6 md:px-12 py-8 mt-12">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-headline font-bold text-primary">Enjoyed This Chapter?</h2>
-              <p className="text-lg text-muted-foreground mt-2">Send a personal letter to the author to share your thoughts.</p>
-            </div>
-            <SendLetterForm story={story} chapter={currentChapter} />
-          </section>
-        )}
       </main>
 
       <footer

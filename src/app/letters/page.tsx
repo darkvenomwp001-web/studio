@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,6 +11,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import LetterCard from '@/components/letters/LetterCard';
+import ComposeLetterDialog from '@/components/letters/ComposeLetterDialog';
 
 export default function LettersPage() {
   const { user, loading } = useAuth();
@@ -81,12 +81,15 @@ export default function LettersPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <header>
-        <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
-          <Mailbox className="h-10 w-10" />
-          Mailbox
-        </h1>
-        <p className="text-muted-foreground">Heartfelt messages from readers and authors.</p>
+      <header className="flex justify-between items-start sm:items-center">
+        <div>
+          <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
+            <Mailbox className="h-10 w-10" />
+            Mailbox
+          </h1>
+          <p className="text-muted-foreground">Heartfelt messages from readers and authors.</p>
+        </div>
+        <ComposeLetterDialog />
       </header>
 
       <Tabs defaultValue="received" className="w-full">
