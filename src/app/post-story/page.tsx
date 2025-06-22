@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Send, Users, UserCheck } from 'lucide-react';
+import { Loader2, Send, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createUserStory } from '@/app/actions/storyActions';
 import type { UserSummary } from '@/types';
@@ -32,9 +32,6 @@ export default function PostStoryPage() {
 
   const [content, setContent] = useState('');
   const [selectedBg, setSelectedBg] = useState(backgroundColors[0]);
-  const [audience, setAudience] = useState<'yourStory' | 'closeFriends'>(
-    'yourStory'
-  );
 
   useEffect(() => {
     const storyType = searchParams.get('type');
@@ -65,7 +62,6 @@ export default function PostStoryPage() {
         avatarUrl: user.avatarUrl,
       };
 
-      // For now, "Close Friends" posts as a public story.
       const result = await createUserStory(userSummary, content, selectedBg);
 
       if (result.success) {
@@ -127,30 +123,21 @@ export default function PostStoryPage() {
 
       <footer className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/50 to-transparent">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button
-              variant={audience === 'yourStory' ? 'secondary' : 'ghost'}
-              onClick={() => setAudience('yourStory')}
-              className="rounded-full text-white bg-black/40 hover:bg-black/60"
-            >
-              <Users className="mr-2 h-4 w-4" />
-              Your Story
-            </Button>
-            <Button
-              variant={audience === 'closeFriends' ? 'secondary' : 'ghost'}
-              onClick={() => {
-                setAudience('closeFriends');
-                toast({
-                  title: 'Close Friends Feature',
-                  description: 'Posting to Close Friends is coming soon! For now, this will post to Your Story.',
-                });
-              }}
-              className="rounded-full text-white bg-black/40 hover:bg-black/60"
-            >
-              <UserCheck className="mr-2 h-4 w-4" />
-              Close Friends
-            </Button>
-          </div>
+          <Button
+            onClick={() => {
+              toast({
+                title: 'Posting to Your Story',
+                description: 'The "Close Friends" feature is coming soon. For now, this will be shared with everyone.',
+              });
+              handleSubmit();
+            }}
+            disabled={isSubmitting || content.trim().length === 0}
+            className="rounded-full text-white bg-black/40 hover:bg-black/60"
+          >
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}
+            Close Friends
+          </Button>
+
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting || content.trim().length === 0}
@@ -161,7 +148,7 @@ export default function PostStoryPage() {
             ) : (
               <Send className="mr-2 h-4 w-4" />
             )}
-            Post Story
+            Your Story
           </Button>
         </div>
       </footer>
