@@ -32,6 +32,7 @@ import {
   Moon,
   Sparkles
 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 import type { Story, Chapter, UserSummary, AllowedUser } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
