@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Flame, UserPlus, PenSquare, BookmarkPlus, BookUp2 } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Flame, UserPlus, PenSquare, BookmarkPlus, BookUp2, PlusCircle } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,8 +15,8 @@ import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import CreatePostForm from '@/components/feed/CreatePostForm';
-import HomeFeed from '@/components/feed/HomeFeed';
+import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
 
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
@@ -244,29 +244,58 @@ function LoggedOutHomeContent() {
   );
 }
 
+function AuthorUpdatesSection() {
+    const mockAuthorsWithUpdates = [
+        { id: '1', username: 'FantasyWriter', avatarUrl: 'https://placehold.co/100x100.png' },
+        { id: '2', username: 'SciFiAuthor', avatarUrl: 'https://placehold.co/100x100.png' },
+        { id: '3', username: 'RomanceQueen', avatarUrl: 'https://placehold.co/100x100.png' },
+        { id: '4', username: 'MysteryReader', avatarUrl: 'https://placehold.co/100x100.png' },
+        { id: '5', username: 'HorrorMaster', avatarUrl: 'https://placehold.co/100x100.png' },
+        { id: '6', username: 'PoetLaureate', avatarUrl: 'https://placehold.co/100x100.png' },
+    ];
+
+    const { toast } = useToast();
+    const { user } = useAuth();
+
+    return (
+        <Card>
+            <CardContent className="p-3">
+                <div className="flex items-center space-x-4">
+                    {user?.role === 'writer' && (
+                        <div className="text-center w-16 flex-shrink-0">
+                            <button onClick={() => toast({ title: "Coming Soon!", description: "You'll soon be able to post updates here." })} className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
+                                <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border hover:border-primary">
+                                    <PlusCircle className="h-6 w-6" />
+                                </div>
+                                <span className="text-xs font-medium truncate">Add Update</span>
+                            </button>
+                        </div>
+                    )}
+                    <div className="flex-1 overflow-hidden">
+                         <div className="flex overflow-x-auto space-x-6 pb-2 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
+                            {mockAuthorsWithUpdates.map(author => (
+                                <button key={author.id} onClick={() => toast({ title: `Viewing ${author.username}'s update!`, description: "This feature is coming soon." })} className="flex-shrink-0 w-16 text-center group">
+                                    <div className="h-14 w-14 rounded-full p-0.5 bg-gradient-to-tr from-yellow-400 to-pink-500 via-red-500 group-hover:scale-105 transition-transform">
+                                        <div className="bg-background p-0.5 rounded-full h-full w-full">
+                                             <Avatar className="h-full w-full">
+                                                <AvatarImage src={author.avatarUrl} alt={author.username} data-ai-hint="profile person" />
+                                                <AvatarFallback>{author.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs font-medium text-muted-foreground truncate mt-1 group-hover:text-primary">{author.username}</p>
+                                </button>
+                            ))}
+                         </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
 
 function ForYouTabContent() {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-20rem)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // If user is logged in, show the personalized feed content.
-  if (user) {
-    return (
-        <div className="max-w-2xl mx-auto py-8 space-y-6">
-            {user.role === 'writer' && <CreatePostForm user={user} />}
-            <HomeFeed user={user} />
-        </div>
-    );
-  }
-
-  // If logged out, show the generic discovery content.
+  // Always show the generic discovery content as requested.
   return <LoggedOutHomeContent />;
 }
 
@@ -344,7 +373,9 @@ export default function HomePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <AuthorUpdatesSection />
+
       <Tabs defaultValue="for-you" className="w-full">
         <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
           <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
