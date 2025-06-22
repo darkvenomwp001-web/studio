@@ -273,7 +273,7 @@ function AuthorUpdatesSection() {
             collection(db, 'feedPosts'),
             where('authorId', 'in', followedAuthors),
             orderBy('timestamp', 'desc'),
-            limit(50) // Fetch recent 50 posts to find latest from each author
+            firestoreLimit(50) // Fetch recent 50 posts to find latest from each author
         );
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -306,15 +306,6 @@ function AuthorUpdatesSection() {
 
     return (
         <>
-            <Dialog open={isCreatePostOpen} onOpenChange={setIsCreatePostOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Create a New Post</DialogTitle>
-                    </DialogHeader>
-                    {user && <CreatePostForm user={user} onSuccess={() => setIsCreatePostOpen(false)} />}
-                </DialogContent>
-            </Dialog>
-
             {selectedPost && (
                 <Dialog open={!!selectedPost} onOpenChange={(isOpen) => !isOpen && setSelectedPost(null)}>
                     <DialogContent className="p-0 max-w-md w-full aspect-[9/16] flex flex-col">
@@ -343,47 +334,55 @@ function AuthorUpdatesSection() {
                 </Dialog>
             )}
 
-            <Card>
-                <CardContent className="p-3">
-                    <div className="flex items-center space-x-4">
-                        {user?.role === 'writer' && (
-                            <DialogTrigger asChild>
-                                <div className="text-center w-16 flex-shrink-0">
-                                    <button onClick={() => setIsCreatePostOpen(true)} className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
-                                        <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border hover:border-primary">
-                                            <PlusCircle className="h-6 w-6" />
-                                        </div>
-                                        <span className="text-xs font-medium truncate">Add Update</span>
-                                    </button>
-                                </div>
-                            </DialogTrigger>
-                        )}
-                        <div className="flex-1 overflow-hidden">
-                             <div className="flex overflow-x-auto space-x-6 pb-2 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
-                                {isLoading ? (
-                                    <div className="flex items-center text-muted-foreground text-sm"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Loading updates...</div>
-                                ) : feedPosts.length > 0 ? (
-                                    feedPosts.map(post => (
-                                        <button key={post.id} onClick={() => handleViewPost(post)} className="flex-shrink-0 w-16 text-center group">
-                                            <div className="h-14 w-14 rounded-full p-0.5 bg-gradient-to-tr from-yellow-400 to-pink-500 via-red-500 group-hover:scale-105 transition-transform">
-                                                <div className="bg-background p-0.5 rounded-full h-full w-full">
-                                                     <Avatar className="h-full w-full">
-                                                        <AvatarImage src={post.author.avatarUrl} alt={post.author.username} data-ai-hint="profile person" />
-                                                        <AvatarFallback>{post.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                                                    </Avatar>
-                                                </div>
+            <Dialog open={isCreatePostOpen} onOpenChange={setIsCreatePostOpen}>
+                <Card>
+                    <CardContent className="p-3">
+                        <div className="flex items-center space-x-4">
+                            {user?.role === 'writer' && (
+                                <DialogTrigger asChild>
+                                    <div className="text-center w-16 flex-shrink-0">
+                                        <button className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
+                                            <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border hover:border-primary">
+                                                <PlusCircle className="h-6 w-6" />
                                             </div>
-                                            <p className="text-xs font-medium text-muted-foreground truncate mt-1 group-hover:text-primary">{post.author.displayName}</p>
+                                            <span className="text-xs font-medium truncate">Add Update</span>
                                         </button>
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">No recent updates from authors you follow.</p>
-                                )}
-                             </div>
+                                    </div>
+                                </DialogTrigger>
+                            )}
+                            <div className="flex-1 overflow-hidden">
+                                 <div className="flex overflow-x-auto space-x-6 pb-2 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
+                                    {isLoading ? (
+                                        <div className="flex items-center text-muted-foreground text-sm"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Loading updates...</div>
+                                    ) : feedPosts.length > 0 ? (
+                                        feedPosts.map(post => (
+                                            <button key={post.id} onClick={() => handleViewPost(post)} className="flex-shrink-0 w-16 text-center group">
+                                                <div className="h-14 w-14 rounded-full p-0.5 bg-gradient-to-tr from-yellow-400 to-pink-500 via-red-500 group-hover:scale-105 transition-transform">
+                                                    <div className="bg-background p-0.5 rounded-full h-full w-full">
+                                                         <Avatar className="h-full w-full">
+                                                            <AvatarImage src={post.author.avatarUrl} alt={post.author.username} data-ai-hint="profile person" />
+                                                            <AvatarFallback>{post.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                                        </Avatar>
+                                                    </div>
+                                                </div>
+                                                <p className="text-xs font-medium text-muted-foreground truncate mt-1 group-hover:text-primary">{post.author.displayName}</p>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">No recent updates from authors you follow.</p>
+                                    )}
+                                 </div>
+                            </div>
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Create a New Post</DialogTitle>
+                    </DialogHeader>
+                    {user && <CreatePostForm user={user} onSuccess={() => setIsCreatePostOpen(false)} />}
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
