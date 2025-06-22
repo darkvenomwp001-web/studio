@@ -665,24 +665,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const addToLibrary = async (story: Story) => {
     if (!user) {
-        toast({ title: "Please Sign In", description: "You must be signed in to add stories to your library.", variant: "destructive" });
-        return;
+      toast({ title: "Please Sign In", description: "You must be logged in to add stories to your library.", variant: "destructive" });
+      return;
     }
     setAuthLoading(true);
     try {
       const userRef = doc(db, 'users', user.id);
-      const itemToAdd: ReadingListItem = {
+      
+      // Build the itemToAdd object carefully, excluding any undefined fields to prevent Firestore errors.
+      const itemToAdd: { [key: string]: any } = {
         id: story.id,
         title: story.title,
-        coverImageUrl: story.coverImageUrl,
         author: story.author,
-        chapters: story.chapters,
-        dataAiHint: story.dataAiHint,
-        status: story.status,
+        chapters: story.chapters || [],
         lastUpdated: story.lastUpdated,
       };
+
+      if (story.coverImageUrl) {
+        itemToAdd.coverImageUrl = story.coverImageUrl;
+      }
+      if (story.dataAiHint) {
+        itemToAdd.dataAiHint = story.dataAiHint;
+      }
+      if (story.status) {
+        itemToAdd.status = story.status;
+      }
+
       await updateDoc(userRef, {
-        readingList: arrayUnion(itemToAdd)
+        readingList: arrayUnion(itemToAdd as ReadingListItem)
       });
       toast({ title: "Added to Library", description: `"${story.title}" has been added to your library.` });
     } catch (error) {
