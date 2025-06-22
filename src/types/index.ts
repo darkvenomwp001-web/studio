@@ -117,7 +117,7 @@ export interface NotificationType {
 }
 
 export interface Letter {
-  id: string;
+  id:string;
   storyId: string;
   storyTitle: string;
   chapterId: string;
@@ -145,4 +145,14 @@ export interface FeedPost {
   likesCount: number;
   likedBy: string[]; // List of user IDs who liked it
   commentsCount: number;
+}
+
+export interface UserStory {
+  id: string;
+  author: UserSummary;
+  type: 'text'; // Future: 'image'
+  content: string;
+  backgroundColor: string;
+  createdAt: Timestamp;
+  expiresAt: Timestamp;
 }

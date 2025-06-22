@@ -100,13 +100,18 @@ export default {
           'from': { opacity: '0' },
           'to': { opacity: '1' },
         },
+        'width-grow': {
+          '0%': { width: '0%' },
+          '100%': { width: '100%' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-in': 'fade-in 1.5s ease-in-out',
+        'width-grow': 'width-grow 5s linear forwards',
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [require('tailwindcss-animate'), require('tailwind-scrollbar')],
 } satisfies Config;
