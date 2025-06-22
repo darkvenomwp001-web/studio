@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, ChangeEvent, FormEvent, useRef, useCallback } from 'react';
@@ -26,6 +25,7 @@ import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, g
 import type { Story, Chapter, UserSummary, User as AppUser, AllowedUser } from '@/types';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/placeholder-data'; 
+import { Separator } from '@/components/ui/separator';
 
 const AUTOSAVE_DELAY = 2000; // 2 seconds
 const MAX_COVER_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
