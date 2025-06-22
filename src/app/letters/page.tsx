@@ -80,8 +80,8 @@ export default function LettersPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <header className="flex justify-between items-start sm:items-center">
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
             <Mailbox className="h-10 w-10" />
@@ -90,7 +90,7 @@ export default function LettersPage() {
           <p className="text-muted-foreground">Heartfelt messages from readers and authors.</p>
         </div>
         <ComposeLetterDialog />
-      </header>
+      </div>
 
       <Tabs defaultValue="received" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
