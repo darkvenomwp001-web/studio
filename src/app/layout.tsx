@@ -43,12 +43,8 @@ export default function RootLayout({
           <AuthProvider>
             <ScrollToTop />
             <div className="relative flex min-h-screen flex-col">
-              <Header />
-              <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8"> {/* Added pb-24 for bottom nav space, revert to pb-8 on md */}
-                {children}
-              </main>
+              {children}
             </div>
-            <BottomNavigationBar />
             <Toaster />
             <PasswordSetupDialog />
           </AuthProvider>

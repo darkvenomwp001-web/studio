@@ -39,6 +39,8 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment } from 'firebase/firestore';
+import Header from '@/components/layout/Header';
+import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 
 export default function StoryReaderPage() {
   const params = useParams();
@@ -202,6 +204,7 @@ export default function StoryReaderPage() {
 
 
   return (
+    <>
     <div className={cn("relative min-h-screen bg-background text-foreground overflow-hidden", {'select-none': currentChapter.accessType === 'premium'})}>
       <header
         className={cn(
@@ -391,5 +394,12 @@ export default function StoryReaderPage() {
         </div>
       </footer>
     </div>
+    <div className="hidden md:block">
+      {/* This ensures the BottomNav is not rendered on desktop for this page */}
+    </div>
+    <div className="md:hidden">
+       <BottomNavigationBar />
+    </div>
+    </>
   );
 }

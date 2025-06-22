@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,8 +7,8 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import { Loader2, PlusCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import CreateStoryDialog from './CreateStoryDialog';
 import StoryViewer from './StoryViewer';
+import Link from 'next/link';
 
 interface GroupedStory {
     author: UserSummary;
@@ -20,7 +19,6 @@ export default function StoryTray() {
     const { user } = useAuth();
     const [groupedStories, setGroupedStories] = useState<GroupedStory[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
     
     const [viewerState, setViewerState] = useState<{
         isOpen: boolean;
@@ -95,18 +93,17 @@ export default function StoryTray() {
                     onClose={() => setViewerState({ isOpen: false, startIndex: 0 })}
                 />
             )}
-            <CreateStoryDialog isOpen={isCreateOpen} onOpenChange={setIsCreateOpen} />
-
+            
             <div className="w-full border-b pb-3">
                 <div className="flex overflow-x-auto space-x-4 py-2 px-4 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
-                    <div className="text-center w-16 flex-shrink-0">
-                        <button onClick={() => setIsCreateOpen(true)} className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
+                    <Link href="/instapost" className="text-center w-16 flex-shrink-0">
+                        <div className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
                             <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border hover:border-primary">
                                 <PlusCircle className="h-6 w-6" />
                             </div>
                             <span className="text-xs font-medium truncate">Add Story</span>
-                        </button>
-                    </div>
+                        </div>
+                    </Link>
 
                     {isLoading ? (
                          <div className="flex items-center text-muted-foreground text-sm"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Loading stories...</div>
