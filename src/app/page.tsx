@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Flame, UserPlus, PenSquare } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Flame, UserPlus, PenSquare, BookmarkPlus, BookUp2 } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -272,10 +272,10 @@ function ForYouTabContent() {
 
 function LiveFeedTabContent() {
     const mockFeed = [
-        { type: 'new_chapter', user: 'FantasyWriter', story: 'The Last Dragon', icon: BookUp, color: 'text-green-500' },
+        { type: 'new_chapter', user: 'FantasyWriter', story: 'The Last Dragon', icon: BookUp2, color: 'text-green-500' },
         { type: 'trending', story: 'CyberHeart', icon: Flame, color: 'text-red-500' },
         { type: 'new_follower', user: 'MysteryReader', follower: 'ThrillerFan', icon: UserPlus, color: 'text-blue-500' },
-        { type: 'new_chapter', user: 'SciFiAuthor', story: 'Galaxy\'s Edge', icon: BookUp, color: 'text-green-500' },
+        { type: 'new_chapter', user: 'SciFiAuthor', story: 'Galaxy\'s Edge', icon: BookUp2, color: 'text-green-500' },
     ];
     return (
         <div className="py-8 max-w-2xl mx-auto">
