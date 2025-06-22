@@ -22,7 +22,8 @@ import {
   Star,
   MessageSquare,
   BookmarkPlus,
-  BookmarkCheck
+  BookmarkCheck,
+  Lock
 } from 'lucide-react';
 import { formatDate } from '@/lib/placeholder-data';
 import type { Story, UserSummary } from '@/types';
@@ -184,7 +185,7 @@ export default function StoryOverviewPage() {
   }
 
   const firstChapterId = story.chapters?.find(ch => ch.status === 'Published')?.id;
-  const publishedChapters = story.chapters?.filter(ch => ch.status === 'Published') || [];
+  const publishedChapters = story.chapters?.filter(ch => ch.status === 'Published' || ch.accessType === 'premium') || [];
   const totalPublishedChapters = publishedChapters.length;
 
   const isAuthorOrCollaborator = user && (story.author.id === user.id || story.collaborators?.some(c => c.id === user.id));
@@ -332,8 +333,9 @@ export default function StoryOverviewPage() {
                   <Link href={`/stories/${story.id}/read/${chapter.id}`} passHref>
                     <div className="block p-3 hover:bg-muted/50 transition-colors cursor-pointer">
                       <div className="flex justify-between items-center">
-                        <span className="font-medium text-foreground truncate pr-2">
+                        <span className="font-medium text-foreground truncate pr-2 flex items-center gap-2">
                           Part {chapter.order}: {chapter.title}
+                          {chapter.accessType === 'premium' && <Lock className="h-3 w-3 text-yellow-500 flex-shrink-0" titleAccess="Premium Chapter" />}
                         </span>
                         {chapter.publishedDate && (
                           <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">

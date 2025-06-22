@@ -16,14 +16,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud, CheckCircle, AlertCircle, FileText, Star, BarChartBig, ListChecks } from 'lucide-react';
+import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud, CheckCircle, AlertCircle, FileText, Star, BarChartBig, ListChecks, Sparkles, UserPlus, Lock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; 
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, deleteDoc } from 'firebase/firestore';
-import type { Story, Chapter, UserSummary, User as AppUser } from '@/types';
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, deleteDoc, Timestamp } from 'firebase/firestore';
+import type { Story, Chapter, UserSummary, User as AppUser, AllowedUser } from '@/types';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/placeholder-data'; 
 
@@ -33,7 +33,7 @@ const MAX_COVER_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 export default function EditStoryDetailsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, addNotification } = useAuth();
   const { toast } = useToast();
 
   const queryStoryId = searchParams.get('storyId');
@@ -58,6 +58,12 @@ export default function EditStoryDetailsPage() {
   const [storyToDelete, setStoryToDelete] = useState<Story | null>(null);
   const [collaboratorUsername, setCollaboratorUsername] = useState('');
   const [isProcessingCollaboration, setIsProcessingCollaboration] = useState(false);
+
+  const [premiumAccessChapter, setPremiumAccessChapter] = useState<Chapter | null>(null);
+  const [premiumUsername, setPremiumUsername] = useState('');
+  const [premiumDuration, setPremiumDuration] = useState('24h');
+  const [isProcessingPremium, setIsProcessingPremium] = useState(false);
+
 
   const [autoSaveStatus, setAutoSaveStatus] = useState<'Idle' | 'Typing' | 'Saving' | 'Saved' | 'Error'>('Idle');
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
@@ -129,6 +135,7 @@ export default function EditStoryDetailsPage() {
         visibility: 'Private',
         collaborators: [],
         collaboratorIds: [],
+        views: 0,
       };
       setDoc(doc(db, 'stories', newStoryId), newStoryData).then(() => {
         router.replace(`/write/edit-details?storyId=${newStoryId}`, { scroll: false });
@@ -429,6 +436,72 @@ export default function EditStoryDetailsPage() {
     }
   };
 
+  const handleGrantPremiumAccess = async () => {
+    if (!story || !premiumAccessChapter || !premiumUsername.trim()) return;
+
+    setIsProcessingPremium(true);
+
+    try {
+        // Find user by username
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('username', '==', premiumUsername.trim()));
+        const userSnapshot = await getDocs(q);
+
+        if (userSnapshot.empty) {
+            toast({ title: "User Not Found", description: `User @${premiumUsername} does not exist.`, variant: "destructive"});
+            return;
+        }
+
+        const targetUser = userSnapshot.docs[0];
+        const targetUserId = targetUser.id;
+
+        const chapters = story.chapters || [];
+        const chapterIndex = chapters.findIndex(c => c.id === premiumAccessChapter.id);
+
+        if (chapterIndex === -1) {
+            toast({ title: "Error", description: "Chapter not found in story.", variant: "destructive" });
+            return;
+        }
+
+        const expiryDate = new Date();
+        if (premiumDuration === '24h') expiryDate.setDate(expiryDate.getDate() + 1);
+        if (premiumDuration === '2d') expiryDate.setDate(expiryDate.getDate() + 2);
+        if (premiumDuration === '1w') expiryDate.setDate(expiryDate.getDate() + 7);
+        if (premiumDuration === '1m') expiryDate.setMonth(expiryDate.getMonth() + 1);
+
+        const newAllowedUser: AllowedUser = {
+            userId: targetUserId,
+            username: targetUser.data().username,
+            expiresAt: Timestamp.fromDate(expiryDate),
+        };
+
+        const existingAllowedUsers = chapters[chapterIndex].allowedUsers || [];
+        const updatedAllowedUsers = [...existingAllowedUsers.filter(u => u.userId !== targetUserId), newAllowedUser];
+
+        chapters[chapterIndex].allowedUsers = updatedAllowedUsers;
+        chapters[chapterIndex].accessType = 'premium';
+
+        const storyDocRef = doc(db, 'stories', story.id);
+        await updateDoc(storyDocRef, { chapters });
+
+        await addNotification({
+            userId: targetUserId,
+            type: 'premium_access',
+            message: `You've been granted premium access to a chapter in "${story.title}" by ${story.author.displayName || story.author.username}!`,
+            link: `/stories/${story.id}/read/${premiumAccessChapter.id}`,
+            actor: story.author
+        });
+
+        toast({ title: "Access Granted!", description: `@${premiumUsername} can now view "${premiumAccessChapter.title}".`});
+        setPremiumUsername('');
+    } catch(error) {
+        console.error("Error granting premium access:", error);
+        toast({title: "Error", description: "Could not grant premium access.", variant: "destructive"});
+    } finally {
+        setIsProcessingPremium(false);
+    }
+  };
+
   if (isLoading || authLoading || (queryStoryId && !story && !initialLoadComplete)) { 
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
@@ -463,7 +536,8 @@ export default function EditStoryDetailsPage() {
     );
   }
 
-  const getChapterStatusColor = (status?: 'Published' | 'Draft') => {
+  const getChapterStatusColor = (status?: 'Published' | 'Draft', accessType?: 'public' | 'premium') => {
+    if (accessType === 'premium') return 'text-yellow-500 dark:text-yellow-400';
     if (status === 'Published') return 'text-green-600 dark:text-green-400';
     if (status === 'Draft') return 'text-yellow-600 dark:text-yellow-400';
     return 'text-muted-foreground';
@@ -498,21 +572,19 @@ export default function EditStoryDetailsPage() {
             <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary truncate" title={storyTitle}>
                 {storyTitle}
             </h1>
-            <p className="text-muted-foreground">Editing Story Dashboard</p>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-2">
             <AutoSaveStatusIndicator />
-            <Button asChild variant="outline" size="sm"><Link href={`/stories/${story.id}`}><Eye className="mr-2 h-4 w-4" /> View Story</Link></Button>
           </div>
         </header>
 
-        <Tabs defaultValue="details" className="w-full">
+        <Tabs defaultValue="content" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="details"><ListChecks className="mr-2 h-4 w-4" />Details &amp; Content</TabsTrigger>
+                <TabsTrigger value="content"><ListChecks className="mr-2 h-4 w-4" />Content</TabsTrigger>
                 <TabsTrigger value="analytics"><BarChartBig className="mr-2 h-4 w-4" />Analytics</TabsTrigger>
                 <TabsTrigger value="settings"><Settings className="mr-2 h-4 w-4" />Settings</TabsTrigger>
             </TabsList>
-            <TabsContent value="details" className="mt-6">
+            <TabsContent value="content" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
                     <div className="md:col-span-1 space-y-6">
                         <Card>
@@ -598,8 +670,8 @@ export default function EditStoryDetailsPage() {
                                             {chapter.order}. {chapter.title}
                                         </Link>
                                         <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-1 text-xs text-muted-foreground">
-                                            <span className={cn(getChapterStatusColor(chapter.status))}>
-                                                {chapter.status || 'Draft'}
+                                            <span className={cn('capitalize', getChapterStatusColor(chapter.status, chapter.accessType))}>
+                                                {chapter.accessType === 'premium' ? 'Premium' : (chapter.status || 'Draft')}
                                             </span>
                                             <span className="flex items-center gap-1">
                                                 <FileText className="h-3 w-3" /> {chapter.wordCount || 0} words
@@ -615,6 +687,11 @@ export default function EditStoryDetailsPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1 flex-shrink-0">
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" title="Manage Premium Access" disabled={isSaving} onClick={() => setPremiumAccessChapter(chapter)}>
+                                                <Sparkles className="h-4 w-4" />
+                                            </Button>
+                                        </AlertDialogTrigger>
                                         <Link href={`/write/edit?storyId=${story.id}&chapterId=${chapter.id}`} passHref>
                                         <Button variant="ghost" size="icon" title="Edit Chapter" disabled={isSaving}><Edit className="h-4 w-4"/></Button>
                                         </Link>
@@ -828,6 +905,57 @@ export default function EditStoryDetailsPage() {
               Yes, Delete Chapter
             </AlertDialogAction>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      )}
+
+       {premiumAccessChapter && (
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Manage Premium Access for "{premiumAccessChapter.title}"</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Grant temporary access to this chapter for specific users. They will receive a notification.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                    <Label htmlFor="premium-username">Username to grant access</Label>
+                    <div className="flex gap-2">
+                        <Input id="premium-username" value={premiumUsername} onChange={e => setPremiumUsername(e.target.value)} placeholder="@username" />
+                        <Select value={premiumDuration} onValueChange={setPremiumDuration}>
+                            <SelectTrigger className="w-[120px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="24h">24 Hours</SelectItem>
+                                <SelectItem value="2d">2 Days</SelectItem>
+                                <SelectItem value="1w">1 Week</SelectItem>
+                                <SelectItem value="1m">1 Month</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <Button onClick={handleGrantPremiumAccess} disabled={isProcessingPremium || !premiumUsername.trim()}>
+                    {isProcessingPremium ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                    Grant Access
+                </Button>
+                <Separator />
+                <div>
+                    <h4 className="text-sm font-medium mb-2">Users with Access</h4>
+                    <ScrollArea className="h-40">
+                        <div className="space-y-2 pr-4">
+                        {(premiumAccessChapter.allowedUsers && premiumAccessChapter.allowedUsers.length > 0) ? premiumAccessChapter.allowedUsers.map(allowed => (
+                            <div key={allowed.userId} className="flex justify-between items-center text-sm p-2 bg-muted rounded-md">
+                                <span>@{allowed.username}</span>
+                                <span className="text-xs text-muted-foreground">Expires {formatDate(allowed.expiresAt)}</span>
+                            </div>
+                        )) : <p className="text-xs text-muted-foreground text-center pt-4">No users have premium access to this chapter yet.</p>}
+                        </div>
+                    </ScrollArea>
+                </div>
+            </div>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setPremiumAccessChapter(null)}>Close</AlertDialogCancel>
+            </AlertDialogFooter>
         </AlertDialogContent>
       )}
 

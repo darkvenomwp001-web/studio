@@ -134,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               displayName: firebaseUser.displayName || username,
               email: firebaseUser.email || '',
               avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${username.charAt(0).toUpperCase()}`,
-              bio: 'New to D4RKV3NOM! Ready to explore.',
+              bio: 'New to LitVerse! Ready to explore.',
               role: 'reader',
               followersCount: 0,
               followingCount: 0,
@@ -752,5 +752,3 @@ export function useAuth() {
   }
   return context;
 }
-
-    

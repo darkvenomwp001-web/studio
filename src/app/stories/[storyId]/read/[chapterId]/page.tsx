@@ -14,38 +14,29 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuPortal,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft,
   ArrowRight,
-  BookCopy,
-  MessageSquare as MessageSquareIcon, 
-  MessagesSquare, // For Chapter Echoes icon
+  Bookmark,
+  MessageSquare,
   ThumbsUp,
   Share2,
   X,
   ListOrdered,
   Settings2,
   Loader2,
-  BookOpen,
-  Users,
-  Sun,
+  Home,
   Moon,
-  Volume2,
-  Sparkles,
-  Home
+  Sparkles
 } from 'lucide-react';
-import type { Story, Chapter, UserSummary } from '@/types'; 
+import type { Story, Chapter, UserSummary, AllowedUser } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment } from 'firebase/firestore';
 
 export default function StoryReaderPage() {
   const params = useParams();
@@ -62,9 +53,23 @@ export default function StoryReaderPage() {
   
   const [controlsVisible, setControlsVisible] = useState(true);
   const [tocVisible, setTocVisible] = useState(false);
-  const [mockReadingProgress, setMockReadingProgress] = useState(0);
+  const [readingProgress, setReadingProgress] = useState(0);
+  const [isAccessGranted, setIsAccessGranted] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
+  const viewIncrementedRef = useRef(false);
+
+  const incrementViewCount = useCallback(async () => {
+    if (viewIncrementedRef.current || !storyId) return;
+    try {
+      const storyRef = doc(db, 'stories', storyId);
+      await updateDoc(storyRef, { views: increment(1) });
+      viewIncrementedRef.current = true;
+    } catch (error) {
+      console.error("Error incrementing view count:", error);
+    }
+  }, [storyId]);
+
 
   useEffect(() => {
     if (!storyId) return;
@@ -77,22 +82,49 @@ export default function StoryReaderPage() {
         const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
         setStory(storyData);
         
-        const chapterIndex = storyData.chapters.findIndex(c => c.id === chapterIdParams);
-        if (chapterIndex !== -1) {
-            const chapterData = storyData.chapters[chapterIndex];
+        const chapterData = storyData.chapters.find(c => c.id === chapterIdParams);
 
-            const canViewChapter = 
-              chapterData.status === 'Published' || 
-              (currentUser && (storyData.author.id === currentUser.id || storyData.collaborators?.some(c => c.id === currentUser.id)));
+        if (chapterData) {
+            setCurrentChapter(chapterData);
+            
+            const visibleChapters = storyData.chapters.filter(c => c.status === 'Published' || c.accessType === 'premium');
+            const chapterIndex = visibleChapters.findIndex(c => c.id === chapterIdParams);
+            const progress = visibleChapters.length > 0 ? ((chapterIndex + 1) / visibleChapters.length) * 100 : 0;
+            setReadingProgress(Math.min(100, Math.max(0, progress)));
 
-            if(canViewChapter) {
-              setCurrentChapter(chapterData);
-              const progress = ((chapterIndex + 1) / storyData.chapters.length) * 100;
-              setMockReadingProgress(Math.min(100, Math.max(0, progress)));
+            // --- Access Control Logic ---
+            let hasAccess = false;
+            if (chapterData.accessType === 'premium') {
+              if (currentUser) {
+                // Author always has access
+                if (storyData.author.id === currentUser.id) {
+                  hasAccess = true;
+                }
+                // Check if user is in the allowed list and if access is still valid
+                const userAccessRecord = chapterData.allowedUsers?.find(u => u.userId === currentUser.id);
+                if (userAccessRecord && userAccessRecord.expiresAt) {
+                  const expiryDate = (userAccessRecord.expiresAt as Timestamp).toDate();
+                  if (expiryDate > new Date()) {
+                    hasAccess = true;
+                  }
+                }
+              }
             } else {
-              toast({ title: "Chapter not available", description: "This chapter is not published yet.", variant: "destructive" });
-              router.push(`/stories/${storyId}`);
+              // Public chapters are accessible to everyone
+              hasAccess = chapterData.status === 'Published';
             }
+            
+            // Collaborators also have access
+            if (currentUser && storyData.collaboratorIds?.includes(currentUser.id)) {
+              hasAccess = true;
+            }
+
+            setIsAccessGranted(hasAccess);
+
+            if (hasAccess) {
+              incrementViewCount();
+            }
+
         } else {
             toast({ title: "Chapter not found", description: "This chapter does not seem to exist.", variant: "destructive" });
             router.push(`/stories/${storyId}`);
@@ -110,7 +142,7 @@ export default function StoryReaderPage() {
     });
 
     return () => unsubscribe();
-  }, [storyId, chapterIdParams, router, currentUser, toast]);
+  }, [storyId, chapterIdParams, router, currentUser, toast, incrementViewCount]);
 
   useEffect(() => {
     contentRef.current?.scrollTo(0, 0);
@@ -139,34 +171,7 @@ export default function StoryReaderPage() {
         }
     }
   };
-
-  const handleVote = useCallback(async () => {
-    if (!story || !currentChapter) return;
-    
-    // In a real app, you would track if the user has already voted for this chapter.
-    // For now, we will just increment.
-    
-    const chapterIndex = story.chapters.findIndex(c => c.id === currentChapter.id);
-    if (chapterIndex === -1) return;
-
-    const newChapters = [...story.chapters];
-    const newVotes = (newChapters[chapterIndex].votes || 0) + 1;
-    newChapters[chapterIndex] = { ...newChapters[chapterIndex], votes: newVotes };
-
-    const storyDocRef = doc(db, 'stories', story.id);
-    try {
-      await updateDoc(storyDocRef, { 
-        chapters: newChapters,
-        lastUpdated: serverTimestamp() 
-      });
-      toast({ title: 'Voted!', description: `You voted for "${currentChapter.title}".` });
-    } catch (error) {
-      console.error("Error voting for chapter:", error);
-      toast({ title: 'Error', description: 'Could not cast your vote.', variant: 'destructive' });
-    }
-  }, [story, currentChapter, toast]);
-
-
+  
   const handleShare = () => {
      navigator.clipboard.writeText(window.location.href)
       .then(() => {
@@ -176,10 +181,6 @@ export default function StoryReaderPage() {
         toast({ title: 'Share (Mock)', description: `Link would be shareable here.`});
       });
   };
-  
-  const handleAmbianceMode = (mode: string) => {
-    toast({ title: "Ambiance Mode (Mock)", description: `${mode} activated. Imagine immersive sounds and visuals!`});
-  }
 
   if (isLoading || !story || !currentChapter) {
     return (
@@ -190,9 +191,7 @@ export default function StoryReaderPage() {
   }
   
   const author = story.author;
-  const visibleChapters = currentUser && (story.author.id === currentUser.id || story.collaborators?.some(c => c.id === currentUser.id))
-    ? story.chapters // Author/collaborator sees all chapters
-    : story.chapters.filter(ch => ch.status === 'Published');
+  const visibleChapters = story.chapters.filter(ch => ch.status === 'Published' || (currentUser && (story.author.id === currentUser.id || story.collaboratorIds?.includes(currentUser.id))));
 
   const currentVisibleChapterIndex = visibleChapters.findIndex(c => c.id === currentChapter.id);
 
@@ -201,11 +200,11 @@ export default function StoryReaderPage() {
 
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground overflow-hidden">
+    <div className={cn("relative min-h-screen bg-background text-foreground overflow-hidden", {'select-none': currentChapter.accessType === 'premium'})}>
       <header
         className={cn(
           'fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b shadow-sm transition-all duration-300 ease-in-out p-2 sm:p-3 flex items-center justify-between w-full',
-          controlsVisible ? 'translate-y-0' : '-translate-y-full',
+          controlsVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0',
           tocVisible ? 'md:w-[calc(100%-20rem)]' : 'w-full' 
         )}
       >
@@ -221,7 +220,6 @@ export default function StoryReaderPage() {
         </div>
         <div className="truncate text-center mx-2 flex-1">
             <h1 className="text-md sm:text-lg font-headline font-semibold text-primary truncate">{story.title}</h1>
-            <p className="text-xs text-muted-foreground truncate">{currentChapter?.title || 'Chapter'}</p>
         </div>
         <div className="flex items-center">
             <DropdownMenu>
@@ -234,23 +232,10 @@ export default function StoryReaderPage() {
                 <DropdownMenuLabel>Appearance</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem disabled>Font Size (Soon)</DropdownMenuItem>
-                <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>Theme (Soon)</DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                        <DropdownMenuSubContent>
-                            <DropdownMenuItem><Sun className="mr-2 h-4 w-4" /> Light</DropdownMenuItem>
-                            <DropdownMenuItem><Moon className="mr-2 h-4 w-4" /> Dark</DropdownMenuItem>
-                            <DropdownMenuItem><BookOpen className="mr-2 h-4 w-4" /> Sepia</DropdownMenuItem>
-                        </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                </DropdownMenuSub>
+                <DropdownMenuItem disabled>Theme (Soon)</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>Ambiance Mode</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => handleAmbianceMode("Forest Sounds")}>
-                    <Volume2 className="mr-2 h-4 w-4" /> Forest Sounds
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAmbianceMode("Rainy Day")}>
-                    <Sparkles className="mr-2 h-4 w-4" /> Rainy Day
+                 <DropdownMenuItem onClick={() => toast({title: "Night Reading Portal Coming Soon!"})}>
+                    <Moon className="mr-2 h-4 w-4" /> Night Reading Portal
                 </DropdownMenuItem>
             </DropdownMenuContent>
             </DropdownMenu>
@@ -282,7 +267,7 @@ export default function StoryReaderPage() {
         <h4 className="font-semibold text-sm mt-2 mb-1 text-muted-foreground">Chapters</h4>
         <ScrollArea className="flex-1 mb-3">
           <ul className="space-y-1">
-            {visibleChapters.sort((a,b)=>a.order-b.order).map((chapter, index) => (
+            {visibleChapters.sort((a,b)=>a.order-b.order).map((chapter) => (
               <li key={chapter.id}>
                 <Button
                   variant={chapter.id === currentChapter.id ? 'secondary' : 'ghost'}
@@ -292,6 +277,7 @@ export default function StoryReaderPage() {
                   <span className={cn("truncate", chapter.id === currentChapter.id ? "font-semibold" : "")}>
                     {chapter.order}. {chapter.title}
                   </span>
+                   {chapter.accessType === 'premium' && <Sparkles className="h-3 w-3 text-yellow-500 ml-auto flex-shrink-0" />}
                 </Button>
               </li>
             ))}
@@ -319,10 +305,13 @@ export default function StoryReaderPage() {
           tocVisible ? 'md:w-[calc(100%-20rem)]' : 'w-full' 
         )}
         onClick={(e) => {
-            if (e.target === e.currentTarget && e.button === 0) {
+            const target = e.target as HTMLElement;
+            // Toggle controls if clicking on the main background, but not on text content itself
+            if (target.tagName !== 'P' && target.tagName !== 'H2' && target.id === 'main-reader') {
                 toggleMainControls();
             }
         }}
+        id="main-reader"
         role="button" 
         tabIndex={0} 
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleMainControls();}}
@@ -330,17 +319,20 @@ export default function StoryReaderPage() {
         aria-label="Reading area, click to toggle controls"
       >
         <div ref={contentRef} className="min-h-[calc(100vh-10rem)]"> 
-            <article className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20">
-            {currentChapter ? (
+            <article className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20 prose-reading">
+            {isAccessGranted ? (
                 <>
-                <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4">{currentChapter.title}</h2>
+                <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4 text-center">{currentChapter.title}</h2>
                 {currentChapter.content.split('\n').map((paragraph, index) => (
                   <p key={index} className="leading-relaxed my-4">{paragraph || '\u00A0'}</p>
                 ))}
                 </>
             ) : (
-                <div className="text-center py-10">
-                <p className="text-muted-foreground">Chapter not found or story has no chapters.</p>
+                <div className="text-center py-10 flex flex-col items-center gap-4">
+                  <Sparkles className="w-16 h-16 text-yellow-500" />
+                  <h2 className="text-2xl font-headline font-bold">Premium Chapter</h2>
+                  <p className="text-muted-foreground max-w-md">This chapter is a special release available only to users granted premium access by the author.</p>
+                  <Button onClick={() => router.push(`/stories/${storyId}`)}>Back to Story Overview</Button>
                 </div>
             )}
             </article>
@@ -349,44 +341,43 @@ export default function StoryReaderPage() {
 
       <footer
         className={cn(
-          'fixed bottom-0 left-0 z-40 bg-card/80 backdrop-blur-md border-t p-2 transform transition-transform duration-300 ease-in-out',
-          controlsVisible ? 'translate-y-0' : 'translate-y-full',
+          'fixed bottom-0 left-0 z-40 bg-card/80 backdrop-blur-md border-t transform transition-transform duration-300 ease-in-out',
+          controlsVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0',
           tocVisible ? 'md:w-[calc(100%-20rem)]' : 'w-full'  
         )}
       >
-        <div className="max-w-4xl mx-auto flex flex-col gap-2 px-2">
-            <div className="flex items-center gap-2 w-full">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Ch. {currentChapter?.order || 'N/A'}</span>
-                <Progress value={mockReadingProgress} className="w-full h-1.5" aria-label={`Reading progress ${mockReadingProgress.toFixed(0)}%`} />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">{mockReadingProgress.toFixed(0)}%</span>
+        <div className="max-w-4xl mx-auto flex flex-col gap-3 px-2 py-2">
+            <div className="flex items-center gap-3 w-full">
+                <span className="text-xs text-muted-foreground whitespace-nowrap hidden sm:inline">Ch. {currentChapter?.order || 'N/A'}</span>
+                <Progress value={readingProgress} className="w-full h-1.5" aria-label={`Reading progress ${readingProgress.toFixed(0)}%`} />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{readingProgress.toFixed(0)}%</span>
             </div>
-            <div className="flex justify-around items-center w-full">
-                <Button variant="ghost" size="sm" onClick={() => prevChapterId && navigateToChapterById(prevChapterId)} disabled={!prevChapterId} aria-label="Previous Chapter">
+            <div className="flex justify-between items-center w-full">
+                <Button variant="ghost" size="icon" onClick={() => prevChapterId && navigateToChapterById(prevChapterId)} disabled={!prevChapterId} aria-label="Previous Chapter">
                     <ArrowLeft className="h-5 w-5" />
-                    <span className="ml-1 hidden sm:inline">Prev</span>
                 </Button>
-                <Button variant="ghost" size="sm" onClick={handleVote} aria-label="Vote for this chapter">
-                    <ThumbsUp className="h-5 w-5" />
-                    <span className="ml-1 hidden sm:inline">Vote ({currentChapter.votes || 0})</span>
-                </Button>
-                <Link href={`/stories/${storyId}/read/${chapterIdParams}/comments`} passHref>
-                  <Button variant="ghost" size="sm" aria-label="View comments">
-                      <MessageSquareIcon className="h-5 w-5" />
-                      <span className="ml-1 hidden sm:inline">Comment</span>
-                  </Button>
-                </Link>
-                <Link href={`/stories/${storyId}/read/${chapterIdParams}/echoes`} passHref>
-                  <Button variant="ghost" size="sm" aria-label="Chapter Echoes">
-                      <MessagesSquare className="h-5 w-5" />
-                      <span className="ml-1 hidden sm:inline">Echoes</span>
-                  </Button>
-                </Link>
-                <Button variant="ghost" size="sm" onClick={handleShare} aria-label="Share this story">
-                    <Share2 className="h-5 w-5" />
-                    <span className="ml-1 hidden sm:inline">Share</span>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => nextChapterId && navigateToChapterById(nextChapterId)} disabled={!nextChapterId} aria-label="Next Chapter">
-                    <span className="mr-1 hidden sm:inline">Next</span>
+                
+                <div className="flex items-center gap-2 rounded-full bg-muted/50 px-4 py-1">
+                    <Button variant="ghost" size="icon" onClick={() => toast({title: "Vote feature coming soon!"})} aria-label="Vote for this chapter">
+                        <ThumbsUp className="h-5 w-5" />
+                    </Button>
+                    <Separator orientation="vertical" className="h-6" />
+                    <Link href={`/stories/${storyId}/read/${chapterIdParams}/comments`} passHref>
+                      <Button variant="ghost" size="icon" aria-label="View comments">
+                          <MessageSquare className="h-5 w-5" />
+                      </Button>
+                    </Link>
+                    <Separator orientation="vertical" className="h-6" />
+                     <Button variant="ghost" size="icon" onClick={() => toast({title: "Bookmark feature coming soon!"})} aria-label="Bookmark">
+                        <Bookmark className="h-5 w-5" />
+                    </Button>
+                    <Separator orientation="vertical" className="h-6" />
+                    <Button variant="ghost" size="icon" onClick={handleShare} aria-label="Share this story">
+                        <Share2 className="h-5 w-5" />
+                    </Button>
+                </div>
+                
+                <Button variant="ghost" size="icon" onClick={() => nextChapterId && navigateToChapterById(nextChapterId)} disabled={!nextChapterId} aria-label="Next Chapter">
                     <ArrowRight className="h-5 w-5" />
                 </Button>
             </div>

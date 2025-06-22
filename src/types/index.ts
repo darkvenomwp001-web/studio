@@ -1,4 +1,12 @@
 
+import type { Timestamp } from 'firebase/firestore';
+
+export interface AllowedUser {
+  userId: string;
+  username: string; // For display purposes
+  expiresAt: Timestamp;
+}
+
 export interface Story {
   id: string;
   title: string;
@@ -29,6 +37,8 @@ export interface Chapter {
   publishedDate?: string; // ISO String
   status?: 'Published' | 'Draft';
   votes?: number;
+  accessType: 'public' | 'premium';
+  allowedUsers?: AllowedUser[];
 }
 
 export interface UserSummary {
@@ -98,7 +108,7 @@ export interface Conversation {
 export interface NotificationType {
   id: string;
   userId: string;
-  type: 'new_follower' | 'new_chapter' | 'story_update' | 'announcement' | 'comment_reply' | 'mention' | 'new_letter' | 'letter_response';
+  type: 'new_follower' | 'new_chapter' | 'story_update' | 'announcement' | 'comment_reply' | 'mention' | 'new_letter' | 'letter_response' | 'premium_access';
   message: string;
   link?: string;
   timestamp: string; // ISO String

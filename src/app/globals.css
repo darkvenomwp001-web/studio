@@ -110,4 +110,11 @@ body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+   /* Custom prose styles for tighter paragraph spacing */
+  .prose-reading p {
+    @apply my-2; /* Reduced vertical margin for paragraphs */
+  }
+  .prose-reading h2 {
+    @apply text-center;
+  }
 }

@@ -11,8 +11,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, UserCog, Save, KeyRound, Mail, UploadCloud } from 'lucide-react';
+import { Loader2, UserCog, Save, KeyRound, Mail, UploadCloud, Info, FileText, ShieldCheck, HelpCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import Link from 'next/link';
 
 export default function SettingsPage() {
   const { user, loading: authLoadingGlobal, authLoading: specificAuthLoading, updateUserProfile, updateUserEmailFirebase, updateUserPasswordFirebase } = useAuth();
@@ -188,13 +190,10 @@ export default function SettingsPage() {
       </header>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-lg shadow-sm">
-          <TabsTrigger value="profile" className="font-headline data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">
-            Profile
-          </TabsTrigger>
-          <TabsTrigger value="account" className="font-headline data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md">
-            Account
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 rounded-lg shadow-sm">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="account">Account</TabsTrigger>
+          <TabsTrigger value="about">About & Help</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="mt-6">
@@ -228,7 +227,7 @@ export default function SettingsPage() {
                     <div>
                       <Label htmlFor="username">Username</Label>
                       <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Your unique username" disabled={anySubmitting} />
-                      <p className="text-xs text-muted-foreground mt-1">Your D4RKV3NOM URL: D4RKV3NOM.com/user/{username || 'yourusername'}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Your LitVerse URL: litverse.app/user/{username || 'yourusername'}</p>
                     </div>
                   </div>
                 </div>
@@ -319,6 +318,50 @@ export default function SettingsPage() {
               </form>
             </Card>
           </div>
+        </TabsContent>
+        <TabsContent value="about" className="mt-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>About LitVerse</CardTitle>
+                    <CardDescription>Information, policies, and help resources for the LitVerse platform.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem value="item-1">
+                            <AccordionTrigger>
+                                <div className="flex items-center gap-2"><Info className="h-4 w-4 text-accent" /> About LitVerse</div>
+                            </AccordionTrigger>
+                            <AccordionContent className="prose prose-sm dark:prose-invert">
+                                LitVerse is a next-generation platform for readers and writers to connect, create, and share captivating stories. Our mission is to empower storytellers and build a vibrant community around the magic of words.
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-2">
+                            <AccordionTrigger>
+                                 <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-accent" /> Terms of Service</div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <p className="text-sm text-muted-foreground">Please review our <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> to understand the rules and guidelines for using LitVerse.</p>
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-3">
+                            <AccordionTrigger>
+                                 <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-accent" /> Privacy Policy</div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <p className="text-sm text-muted-foreground">Your privacy is important to us. Learn how we collect, use, and protect your data in our <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.</p>
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-4">
+                            <AccordionTrigger>
+                                 <div className="flex items-center gap-2"><HelpCircle className="h-4 w-4 text-accent" /> Help & Support</div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <p className="text-sm text-muted-foreground">Have questions or need help? Visit our Help Center or <Link href="/contact" className="text-primary hover:underline">contact our support team</Link>.</p>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
+                </CardContent>
+            </Card>
         </TabsContent>
       </Tabs>
     </div>

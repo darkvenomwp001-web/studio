@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Save, History, EyeOff, Brain, CheckCircle, AlertTriangle, Maximize, Minimize, Send, FileText, Settings, Loader2 } from 'lucide-react';
+import { Save, History, EyeOff, Brain, CheckCircle, AlertTriangle, Maximize, Minimize, Send, FileText, Settings, Loader2, Eye, Undo, Redo, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import AiAssistantPanel from '@/components/writing/AiAssistantPanel';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,12 @@ import { useToast } from '@/hooks/use-toast';
 import type { Story, Chapter } from '@/types';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 const VersionHistoryManager = {
   getKey: (storyId: string, chapterId: string) => `versionHistory-${storyId}-${chapterId}`,
@@ -48,6 +54,7 @@ export default function WriteEditorPage() {
 
   const [chapterTitle, setChapterTitle] = useState('');
   const [content, setContent] = useState('');
+  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('left');
 
   const [isDistractionFree, setIsDistractionFree] = useState(false);
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
@@ -55,6 +62,7 @@ export default function WriteEditorPage() {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving...' | 'Error' | 'No Changes'>('No Changes');
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
 
   useEffect(() => {
@@ -102,6 +110,7 @@ export default function WriteEditorPage() {
               content: 'Start writing your amazing chapter here...',
               order: newChapterOrder,
               status: 'Draft',
+              accessType: 'public'
             };
             setCurrentChapter(newChapterInstance);
             setChapterTitle(newChapterInstance.title);
@@ -285,6 +294,11 @@ export default function WriteEditorPage() {
     if (!storyDetails?.id || !internalChapterId || internalChapterId.startsWith('temp-chapter-id')) return '';
     return `/write/history/${storyDetails.id}/${internalChapterId}`;
   }, [storyDetails, internalChapterId]);
+  
+  const handleFormat = (formatType: 'bold' | 'italic' | 'underline') => {
+    // This is a mock function. A real implementation would use a library like Slate.js or TipTap.
+    toast({ title: `${formatType.charAt(0).toUpperCase() + formatType.slice(1)} Formatting`, description: "Rich text formatting is coming soon!"});
+  };
 
   if (isLoading || authLoading || (!storyDetails && queryStoryId) || (!currentChapter && queryStoryId)) {
       return (
@@ -304,14 +318,16 @@ export default function WriteEditorPage() {
     return <div className="text-center py-10">Error loading story or chapter. Please try again.</div>;
   }
 
-
   if (isDistractionFree) {
     return (
       <div className="fixed inset-0 bg-background z-[100] p-4 sm:p-8 flex flex-col items-center">
         <Textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className="w-full max-w-3xl h-full text-lg p-6 border-none focus-visible:ring-0 shadow-none resize-none bg-background"
+          className={cn("w-full max-w-3xl h-full text-lg p-6 border-none focus-visible:ring-0 shadow-none resize-none bg-background", 
+            textAlign === 'center' && 'text-center',
+            textAlign === 'right' && 'text-right'
+          )}
           placeholder="Let your story flow..."
         />
         <Button
@@ -333,64 +349,101 @@ export default function WriteEditorPage() {
     <AlertDialog>
       <div className={`flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-10rem)] ${isFullScreen ? 'fixed inset-0 bg-background z-[99] p-4' : ''}`}>
         <div className="flex-1 flex flex-col">
-          <header className="mb-6 p-4 bg-card rounded-lg shadow-sm">
-            <div className="flex justify-between items-center mb-2">
+          <header className="mb-4 p-4 bg-card rounded-lg shadow-sm">
+            <div className="flex justify-between items-center mb-4">
                 <h1 className="text-xl font-headline text-muted-foreground truncate">
-                    Editing chapter for: <span className="text-primary font-semibold">{storyDetails.title}</span>
+                    Editing: <span className="text-primary font-semibold">{storyDetails.title}</span>
                 </h1>
-                <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
-                    <Button variant="outline" size="sm">
-                        <Settings className="mr-2 h-4 w-4" /> Manage Story Details
-                    </Button>
-                </Link>
+                <div className="flex items-center gap-2">
+                    <div className={cn("flex items-center gap-1 text-xs", autoSaveStatus === 'Saved' ? 'text-green-600' : autoSaveStatus === 'Saving...' ? 'text-yellow-600' :  autoSaveStatus === 'Error' ? 'text-red-600' : 'text-muted-foreground')}>
+                        {autoSaveStatus === 'Saved' && <CheckCircle className="h-3 w-3" />}
+                        {autoSaveStatus === 'Saving...' && <Loader2 className="h-3 w-3 animate-spin" />}
+                        {autoSaveStatus === 'Error' && <AlertTriangle className="h-3 w-3" />}
+                        {autoSaveStatus !== 'Saving...' && autoSaveStatus !== 'Saved' && autoSaveStatus !== 'Error' && <FileText className="h-3 w-3" />}
+                        {autoSaveStatus}
+                    </div>
+                    <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
+                        <Button variant="ghost" size="icon" title="Manage Story Details">
+                            <Settings className="h-5 w-5" />
+                        </Button>
+                    </Link>
+                </div>
             </div>
             <Input
               type="text"
               value={chapterTitle}
               onChange={(e) => setChapterTitle(e.target.value)}
               placeholder="Chapter Title"
-              className="text-2xl font-semibold h-12 focus-visible:ring-primary"
+              className="text-2xl font-semibold h-12 focus-visible:ring-primary border-0 shadow-none px-2"
             />
+             <div className="p-2 mt-2 bg-muted/50 rounded-md flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" title="Undo (Coming Soon)"><Undo className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" title="Redo (Coming Soon)"><Redo className="h-4 w-4" /></Button>
+                     <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" title="Format Text"><Bold className="h-4 w-4" /></Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-fit p-1">
+                           <div className="flex items-center gap-1">
+                             <Button variant="ghost" size="icon" onClick={() => handleFormat('bold')}><Bold className="h-4 w-4" /></Button>
+                             <Button variant="ghost" size="icon" onClick={() => handleFormat('italic')}><Italic className="h-4 w-4" /></Button>
+                             <Button variant="ghost" size="icon" onClick={() => handleFormat('underline')}><Underline className="h-4 w-4" /></Button>
+                           </div>
+                        </PopoverContent>
+                    </Popover>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                             <Button variant="ghost" size="icon" title="Align Text"><AlignLeft className="h-4 w-4" /></Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-fit p-1">
+                           <div className="flex items-center gap-1">
+                             <Button variant="ghost" size="icon" onClick={() => setTextAlign('left')}><AlignLeft className="h-4 w-4" /></Button>
+                             <Button variant="ghost" size="icon" onClick={() => setTextAlign('center')}><AlignCenter className="h-4 w-4" /></Button>
+                             <Button variant="ghost" size="icon" onClick={() => setTextAlign('right')}><AlignRight className="h-4 w-4" /></Button>
+                           </div>
+                        </PopoverContent>
+                    </Popover>
+                </div>
+                 <div className="flex items-center gap-1">
+                    {versionHistoryLink ? (
+                      <Link href={versionHistoryLink} passHref>
+                        <Button variant="ghost" size="icon" title="Version History"><History className="h-4 w-4" /></Button>
+                      </Link>
+                    ) : (
+                      <Button variant="ghost" size="icon" title="Version History" disabled><History className="h-4 w-4" /></Button>
+                    )}
+                     <AlertDialogTrigger asChild>
+                         <Button variant="ghost" size="icon" title="Preview Chapter"><Eye className="h-4 w-4" /></Button>
+                     </AlertDialogTrigger>
+                </div>
+            </div>
           </header>
 
           <Textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Start writing your amazing chapter here..."
-            className="flex-grow min-h-[400px] p-4 text-base rounded-md shadow-sm focus-visible:ring-2 focus-visible:ring-primary resize-none bg-card"
+            className={cn(
+              "flex-grow min-h-[400px] p-4 text-base rounded-md shadow-sm focus-visible:ring-2 focus-visible:ring-primary resize-none bg-card",
+              textAlign === 'center' && 'text-center',
+              textAlign === 'right' && 'text-right'
+            )}
             aria-label="Chapter content editor"
           />
 
           <footer className="mt-4 p-2 bg-card rounded-lg shadow-sm flex justify-between items-center text-sm">
             <div>{wordCount} words</div>
-            <div className={`flex items-center gap-1 ${autoSaveStatus === 'Saved' ? 'text-green-600' : autoSaveStatus === 'Saving...' ? 'text-yellow-600' :  autoSaveStatus === 'Error' ? 'text-red-600' : 'text-muted-foreground'}`}>
-              {autoSaveStatus === 'Saved' && <CheckCircle className="h-4 w-4" />}
-              {autoSaveStatus === 'Saving...' && <Loader2 className="h-4 w-4 animate-spin" />}
-              {autoSaveStatus === 'Error' && <AlertTriangle className="h-4 w-4" />}
-              {autoSaveStatus === 'No Changes' && <FileText className="h-4 w-4" />}
-              {autoSaveStatus}
+            <div className="flex items-center gap-2">
+                 <Button onClick={() => handleSaveDraft(true)} variant="outline" size="sm"><Save className="mr-2 h-4 w-4" /> Save</Button>
+                <AlertDialogTrigger asChild>
+                    <Button size="sm" className="bg-primary hover:bg-primary/90 flex-shrink-0"><Send className="mr-2 h-4 w-4" />Publish...</Button>
+                </AlertDialogTrigger>
             </div>
           </footer>
         </div>
 
         <aside className="w-full lg:w-80 xl:w-96 space-y-6">
-          <div className="p-4 bg-card rounded-lg shadow-sm">
-            <h2 className="text-lg font-headline font-semibold mb-3">Chapter Actions</h2>
-            <div className="grid grid-cols-2 gap-2">
-              <Button onClick={() => handleSaveDraft(true)} className="w-full bg-primary hover:bg-primary/90"><Save className="mr-2 h-4 w-4" /> Save Draft</Button>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="w-full"><Send className="mr-2 h-4 w-4" />Publish Chapter</Button>
-              </AlertDialogTrigger>
-              {versionHistoryLink ? (
-                <Link href={versionHistoryLink} passHref className="w-full col-span-2">
-                  <Button variant="outline" className="w-full"><History className="mr-2 h-4 w-4" /> Version History</Button>
-                </Link>
-              ) : (
-                <Button variant="outline" className="w-full col-span-2" disabled><History className="mr-2 h-4 w-4" /> Version History</Button>
-              )}
-            </div>
-          </div>
-
           <div className="p-4 bg-card rounded-lg shadow-sm">
               <h2 className="text-lg font-headline font-semibold mb-3">Editor Tools</h2>
               <div className="space-y-3">
@@ -443,6 +496,26 @@ export default function WriteEditorPage() {
             <AlertDialogAction onClick={handlePublishChapter} className="bg-primary hover:bg-primary/90">Publish Chapter</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
+
+        {/* Preview Dialog */}
+        <AlertDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+            <AlertDialogContent className="max-w-3xl">
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{chapterTitle}</AlertDialogTitle>
+                    <AlertDialogDescription>A preview of how your chapter will look to readers.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <ScrollArea className="max-h-[60vh] my-4">
+                    <div className="prose dark:prose-invert prose-reading p-2">
+                        {content.split('\n').map((paragraph, index) => (
+                          <p key={index}>{paragraph || '\u00A0'}</p>
+                        ))}
+                    </div>
+                </ScrollArea>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Close Preview</AlertDialogCancel>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AlertDialog>
   );
