@@ -157,15 +157,3 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
         </div>
     );
 }
-
-// Add keyframes to globals.css or tailwind.config.js for width-grow
-// In tailwind.config.ts:
-// keyframes: {
-//   'width-grow': {
-//     '0%': { width: '0%' },
-//     '100%': { width: '100%' },
-//   },
-// },
-// animation: {
-//   'width-grow': 'width-grow linear forwards',
-// },

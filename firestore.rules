@@ -1,75 +1,98 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Allow public read of stories marked as Public
-    match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public';
-      allow get: if request.auth != null; // Allow logged-in users to get any story document by ID
-      
-      // Allow create/update/delete only for the author or collaborators
-      allow create: if request.auth != null && request.resource.data.author.id == request.auth.uid;
-      allow update, delete: if request.auth != null && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    function isCollaborator(storyId) {
+        return get(/databases/$(database)/documents/stories/$(storyId)).data.collaboratorIds.hasAny([request.auth.uid]);
+    }
+    function isFollowing(userId) {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.followingIds.hasAny([userId]);
     }
     
-    // User profiles can be read by anyone, but only edited by the owner
+    // Users collection rules
     match /users/{userId} {
-      allow read: if true;
-      allow update: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId;
+      allow read;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
     }
+    
+    // Stories collection rules
+    match /stories/{storyId} {
+        // Anyone can read a public story
+        allow read: if resource.data.visibility == 'Public'
+                    // Unlisted stories are readable with a link
+                    || resource.data.visibility == 'Unlisted'
+                    // Owners and collaborators can read their own private stories
+                    || (isSignedIn() && (isOwner(resource.data.author.id) || isCollaborator(storyId)));
 
-    // Comments can be created by any authenticated user
-    // Comments can only be edited/deleted by their original author
+        // Only owners can create stories
+        allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
+
+        // Owners and collaborators can update stories
+        allow update: if isSignedIn() && (isOwner(resource.data.author.id) || isCollaborator(storyId));
+
+        // Only the owner can delete a story
+        allow delete: if isSignedIn() && isOwner(resource.data.author.id);
+    }
+    
+    // Comments collection rules
     match /comments/{commentId} {
-      allow read: if true;
-      allow create: if request.auth != null && request.resource.data.user.id == request.auth.uid;
-      allow update, delete: if request.auth != null && resource.data.user.id == request.auth.uid;
+        // Anyone can read comments on a public story
+        allow read: if get(/databases/$(database)/documents/stories/$(resource.data.storyId)).data.visibility == 'Public';
+        
+        // Signed-in users can create comments
+        allow create: if isSignedIn() && isOwner(request.resource.data.user.id);
+        
+        // Owners can update/delete their own comments
+        allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
     }
-
-    // Notifications are private to the user
+    
+    // Notifications collection rules
     match /notifications/{notificationId} {
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null; // Can be created by server actions/other users
+        // Users can only read their own notifications
+        allow read, update: if isSignedIn() && isOwner(resource.data.userId);
+        // Server-side logic handles creation
+        allow create: if isSignedIn();
     }
 
-    // Conversations are private to participants
-    match /conversations/{conversationId} {
-      allow read, update, create, delete: if request.auth != null && request.auth.uid in resource.data.participantIds;
-      
-      match /messages/{messageId} {
-        allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        allow update, delete: if false; // Messages are immutable
-      }
-    }
-
-    // Letters are readable by author and reader. Writable by reader. Updatable by author (for response)
+    // Letters collection rules
     match /letters/{letterId} {
-      allow read: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
-      allow create: if request.auth != null && request.resource.data.reader.id == request.auth.uid;
-      allow update: if request.auth != null && request.auth.uid == resource.data.authorId;
+      // Only the sender (reader) and receiver (author) can read the letter
+      allow read: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
+      // Only the sender can create the letter
+      allow create: if isSignedIn() && isOwner(request.resource.data.reader.id);
+      // Only the author can update the letter (to respond or pin)
+      allow update: if isSignedIn() && isOwner(resource.data.authorId);
     }
 
-    // Feed posts can be created by their author. Read by anyone. Liked (updated) by anyone. Deleted only by author.
+    // Feed Posts collection rules
     match /feedPosts/{postId} {
-      allow read: if true;
-      allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
-      allow update: if request.auth != null; // For toggling likes
-      allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+        // Followers can read posts
+        allow read: if isSignedIn() && isFollowing(resource.data.authorId);
+        // Only owner can create
+        allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
+        // Only owner can delete
+        allow delete: if isSignedIn() && isOwner(resource.data.authorId);
+        // Allow anyone signed in to update (for likes)
+        allow update: if isSignedIn();
     }
 
-    // User Stories can be created by the user, and read only by followers or the user themselves.
+    // User Stories collection rules
     match /userStories/{storyId} {
-      allow read: if request.auth != null && (
-        resource.data.author.id == request.auth.uid ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.followingIds.hasAny([resource.data.author.id]))
-      );
-      
-      allow create: if request.auth != null && request.resource.data.author.id == request.auth.uid;
-      allow update, delete: if request.auth != null && resource.data.author.id == request.auth.uid;
+      // Allow read if user is the author or if the reader is following the author
+      allow read: if isSignedIn() && (isOwner(resource.data.author.id) || isFollowing(resource.data.author.id));
+      // Allow create if user is the author of the story
+      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
+      // Nobody can update/delete from client (handled by TTL policy or Cloud Function)
+      allow update, delete: if false;
     }
 
   }
