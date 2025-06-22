@@ -17,9 +17,21 @@ export async function createPost(authorSummary: UserSummary, content: string): P
     return { success: false, error: 'Post content cannot exceed 1000 characters.' };
   }
 
+  // Sanitize the author object to remove undefined fields before saving to Firestore.
+  const authorForFirestore: UserSummary = {
+    id: authorSummary.id,
+    username: authorSummary.username,
+  };
+  if (authorSummary.displayName) {
+    authorForFirestore.displayName = authorSummary.displayName;
+  }
+  if (authorSummary.avatarUrl) {
+    authorForFirestore.avatarUrl = authorSummary.avatarUrl;
+  }
+
   const newPost: Omit<FeedPost, 'id'> = {
     authorId: authorSummary.id,
-    author: authorSummary,
+    author: authorForFirestore,
     content: content.trim(),
     timestamp: serverTimestamp(),
     likesCount: 0,
