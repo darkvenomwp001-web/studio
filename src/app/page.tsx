@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Zap, Users2, PenTool, BookmarkPlus, BookUp, Flame, UserPlus, PenSquare } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Flame, UserPlus, PenSquare } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,6 +15,9 @@ import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import CreatePostForm from '@/components/feed/CreatePostForm';
+import HomeFeed from '@/components/feed/HomeFeed';
+
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
   try {
@@ -74,7 +77,7 @@ async function fetchFeaturedAuthorsFromFirestore(count: number): Promise<UserSum
   }
 }
 
-function ForYouTabContent() {
+function LoggedOutHomeContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
   const [storySpotlight, setStorySpotlight] = useState<Story | null>(null);
   const [featuredAuthors, setFeaturedAuthors] = useState<(UserSummary & { bio?: string, followersCount?: number })[]>([]);
@@ -241,6 +244,32 @@ function ForYouTabContent() {
   );
 }
 
+
+function ForYouTabContent() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-20rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // If user is logged in, show the personalized feed content.
+  if (user) {
+    return (
+        <div className="max-w-2xl mx-auto py-8 space-y-6">
+            {user.role === 'writer' && <CreatePostForm user={user} />}
+            <HomeFeed user={user} />
+        </div>
+    );
+  }
+
+  // If logged out, show the generic discovery content.
+  return <LoggedOutHomeContent />;
+}
+
 function LiveFeedTabContent() {
     const mockFeed = [
         { type: 'new_chapter', user: 'FantasyWriter', story: 'The Last Dragon', icon: BookUp, color: 'text-green-500' },
@@ -325,7 +354,7 @@ export default function HomePage() {
           </TabsList>
         </div>
         
-        <TabsContent value="for-you" className="mt-6">
+        <TabsContent value="for-you" className="mt-0">
           <ForYouTabContent />
         </TabsContent>
         <TabsContent value="live-feed" className="mt-6">

@@ -132,3 +132,17 @@ export interface Letter {
   authorResponse?: string;
   isReadByAuthor?: boolean;
 }
+
+export interface FeedPost {
+  id: string;
+  authorId: string;
+  author: UserSummary; // Denormalized for easy display
+  content: string;
+  timestamp: any; // Firestore Server Timestamp
+  storyId?: string; // Optional attached story
+  storyTitle?: string;
+  storyCoverUrl?: string;
+  likesCount: number;
+  likedBy: string[]; // List of user IDs who liked it
+  commentsCount: number;
+}
