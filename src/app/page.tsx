@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Zap, Users2, PenTool, BookmarkPlus } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Zap, Users2, PenTool, BookmarkPlus, BookUp, Flame, UserPlus, PenSquare } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,6 +14,7 @@ import type { Story, UserSummary } from '@/types';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
   try {
@@ -73,8 +74,7 @@ async function fetchFeaturedAuthorsFromFirestore(count: number): Promise<UserSum
   }
 }
 
-export default function HomePage() {
-  const { user, loading: authLoading } = useAuth();
+function ForYouTabContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
   const [storySpotlight, setStorySpotlight] = useState<Story | null>(null);
   const [featuredAuthors, setFeaturedAuthors] = useState<(UserSummary & { bio?: string, followersCount?: number })[]>([]);
@@ -109,10 +109,10 @@ export default function HomePage() {
     { name: "Sci-Fi", icon: Rocket, blurb: "Explore galaxies & future tech.", dataAiHint: "space station", cover: "https://placehold.co/512x800.png"},
     { name: "Romance", icon: HeartIcon, blurb: "Heartfelt connections & love stories.", dataAiHint: "couple sunset", cover: "https://placehold.co/512x800.png"},
   ];
-
-  if (authLoading || isDataLoading) {
+  
+  if (isDataLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
+      <div className="flex justify-center items-center min-h-[calc(100vh-20rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -120,33 +120,9 @@ export default function HomePage() {
 
   return (
     <div className="space-y-16 md:space-y-24 py-8">
-      {/* Hero Section */}
-      <section className="relative py-20 md:py-32 rounded-lg overflow-hidden bg-gradient-to-br from-primary/10 via-background to-background shadow-xl">
-        <div className="container mx-auto px-4 text-center relative z-10">
-          <h1 className="text-4xl md:text-6xl font-headline font-extrabold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary/70">
-            Welcome to LitVerse
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-10">
-            Unleash your imagination. Discover captivating stories, share your own tales, and connect with a global community of creators and fans.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/stories" passHref>
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-transform hover:scale-105 text-lg py-3 px-8">
-                Explore Stories <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-            <Link href="/write" passHref>
-              <Button size="lg" variant="outline" className="shadow-md transition-transform hover:scale-105 text-lg py-3 px-8 border-primary text-primary hover:bg-primary/5">
-                Start Writing <Edit className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* Story Spotlight Section */}
       {storySpotlight && (
-        <section className="container mx-auto px-4">
+        <section>
           <h2 className="text-2xl font-headline font-bold mb-8 text-center text-accent flex items-center justify-center gap-3">
             <Award className="h-8 w-8" /> Story Spotlight
           </h2>
@@ -189,7 +165,7 @@ export default function HomePage() {
       )}
 
       {/* Trending Stories Section */}
-      <section className="container mx-auto px-4">
+      <section>
         <div className="flex flex-col mb-6">
             <Link href="/stories" passHref className="self-end">
                 <Button variant="outline" className="text-sm">View All Stories <ArrowRight className="ml-2 h-4 w-4" /></Button>
@@ -208,7 +184,7 @@ export default function HomePage() {
       </section>
       
       {/* Quick Dive Genre Teasers Section */}
-      <section className="container mx-auto px-4">
+      <section>
         <h2 className="text-2xl font-headline font-bold mb-8 text-center">Dive Into Your Next Obsession</h2>
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
           {popularGenres.map(genre => {
@@ -238,7 +214,7 @@ export default function HomePage() {
 
       {/* Featured Authors Section */}
       {featuredAuthors.length > 0 && (
-      <section className="container mx-auto px-4">
+      <section>
         <h2 className="text-2xl font-headline font-bold text-accent mb-6">Featured Authors</h2>
          <div className="relative">
             <div className="flex overflow-x-auto space-x-6 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent">
@@ -261,39 +237,104 @@ export default function HomePage() {
         </div>
       </section>
       )}
+    </div>
+  );
+}
 
-      {/* Community Pulse Section */}
-      {trendingStories.length > 0 && (
-      <section className="container mx-auto px-4">
-        <Card className="bg-card shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-2xl font-headline text-primary flex items-center gap-2">
-              <Users2 className="h-7 w-7" /> Community Pulse
-            </CardTitle>
-            <CardDescription>What's happening right now on LitVerse.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-3">
-                <li className="flex items-center gap-3 text-sm p-3 bg-background/50 rounded-md hover:bg-muted/50 transition-colors">
-                    <Zap className="h-5 w-5 text-accent flex-shrink-0" />
-                    <span>{trendingStories[0].author.displayName || trendingStories[0].author.username} just updated "{trendingStories[0].title}"!</span>
-                </li>
-                {featuredAuthors.length > 0 && (
-                <li className="flex items-center gap-3 text-sm p-3 bg-background/50 rounded-md hover:bg-muted/50 transition-colors">
-                    <Users2 className="h-5 w-5 text-accent flex-shrink-0" />
-                    <span>Welcome our newest featured author, @{featuredAuthors[0].username}!</span>
-                </li>
-                )}
-                <li className="flex items-center gap-3 text-sm p-3 bg-background/50 rounded-md hover:bg-muted/50 transition-colors">
-                    <BookHeart className="h-5 w-5 text-accent flex-shrink-0" />
-                    <span>"{trendingStories[0].title}" is trending with {trendingStories[0].views || 0} reads!</span>
-                </li>
-            </ul>
-          </CardContent>
-        </Card>
-      </section>
-      )}
-      
+function LiveFeedTabContent() {
+    const mockFeed = [
+        { type: 'new_chapter', user: 'FantasyWriter', story: 'The Last Dragon', icon: BookUp, color: 'text-green-500' },
+        { type: 'trending', story: 'CyberHeart', icon: Flame, color: 'text-red-500' },
+        { type: 'new_follower', user: 'MysteryReader', follower: 'ThrillerFan', icon: UserPlus, color: 'text-blue-500' },
+        { type: 'new_chapter', user: 'SciFiAuthor', story: 'Galaxy\'s Edge', icon: BookUp, color: 'text-green-500' },
+    ];
+    return (
+        <div className="py-8 max-w-2xl mx-auto">
+            <h2 className="text-2xl font-headline font-bold text-center mb-6">Community Pulse</h2>
+            <div className="space-y-4">
+                {mockFeed.map((item, index) => (
+                    <Card key={index} className="p-4 flex items-center gap-4">
+                        <item.icon className={`h-8 w-8 flex-shrink-0 ${item.color}`} />
+                        <div className="text-sm">
+                            {item.type === 'new_chapter' && <p><span className="font-semibold">{item.user}</span> just published a new chapter for <span className="font-semibold text-primary">{item.story}</span>!</p>}
+                            {item.type === 'trending' && <p><span className="font-semibold text-primary">{item.story}</span> is now trending! Check it out.</p>}
+                            {item.type === 'new_follower' && <p><span className="font-semibold">{item.follower}</span> started following <span className="font-semibold">{item.user}</span>.</p>}
+                        </div>
+                    </Card>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function WritingPromptsTabContent() {
+    const mockPrompts = [
+        { title: 'Weekly Prompt #24', prompt: 'A character wakes up with the ability to hear the thoughts of plants. What do they learn?', genre: 'Fantasy / Comedy' },
+        { title: 'The Five-Sentence Challenge', prompt: 'Write a complete, compelling story in exactly five sentences.', genre: 'Flash Fiction' },
+    ];
+    return (
+        <div className="py-8 max-w-3xl mx-auto">
+             <h2 className="text-2xl font-headline font-bold text-center mb-6">Prompts &amp; Challenges</h2>
+             <div className="space-y-6">
+                {mockPrompts.map((item, index) => (
+                    <Card key={index}>
+                        <CardHeader>
+                            <div className="flex items-center gap-3">
+                               <PenSquare className="h-6 w-6 text-accent"/>
+                               <CardTitle className="font-headline">{item.title}</CardTitle>
+                            </div>
+                            <CardDescription>Genre: {item.genre}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-foreground/90">{item.prompt}</p>
+                        </CardContent>
+                        <CardFooter>
+                            <Link href="/write" passHref>
+                                <Button>
+                                    <Edit className="mr-2 h-4 w-4"/>
+                                    Start Writing
+                                </Button>
+                            </Link>
+                        </CardFooter>
+                    </Card>
+                ))}
+             </div>
+        </div>
+    );
+}
+
+export default function HomePage() {
+  const { loading: authLoading } = useAuth();
+  
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Tabs defaultValue="for-you" className="w-full">
+        <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
+          <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
+            <TabsTrigger value="for-you">For You</TabsTrigger>
+            <TabsTrigger value="live-feed">Live Feed</TabsTrigger>
+            <TabsTrigger value="writing-prompts">Prompts</TabsTrigger>
+          </TabsList>
+        </div>
+        
+        <TabsContent value="for-you" className="mt-6">
+          <ForYouTabContent />
+        </TabsContent>
+        <TabsContent value="live-feed" className="mt-6">
+          <LiveFeedTabContent />
+        </TabsContent>
+        <TabsContent value="writing-prompts" className="mt-6">
+          <WritingPromptsTabContent />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

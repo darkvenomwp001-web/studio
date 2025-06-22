@@ -48,6 +48,7 @@ export default function RootLayout({
                 {children}
               </main>
             </div>
+            <BottomNavigationBar />
             <Toaster />
             <PasswordSetupDialog />
           </AuthProvider>
