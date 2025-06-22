@@ -308,8 +308,7 @@ export default function StoryReaderPage() {
         )}
         onClick={(e) => {
             const target = e.target as HTMLElement;
-            // Toggle controls if clicking on the main background, but not on text content itself
-            if (target.tagName !== 'P' && target.tagName !== 'H2' && target.id === 'main-reader') {
+            if (target.id === 'main-reader') {
                 toggleMainControls();
             }
         }}
@@ -320,13 +319,19 @@ export default function StoryReaderPage() {
         aria-pressed={controlsVisible}
         aria-label="Reading area, click to toggle controls"
       >
-        <div ref={contentRef} className="min-h-[calc(100vh-10rem)]"> 
+        <div ref={contentRef} className="min-h-[calc(100vh-10rem)]" onClick={(e) => {
+             const target = e.target as HTMLElement;
+            // Toggle controls if clicking on the main background, but not on text content itself
+            if (target.tagName !== 'P' && target.tagName !== 'H2') {
+                toggleMainControls();
+            }
+        }}> 
             <article className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20 prose-reading">
             {isAccessGranted ? (
                 <>
                 <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4 text-center">{currentChapter.title}</h2>
                 {currentChapter.content.split('\n').map((paragraph, index) => (
-                  <p key={index} className="leading-relaxed my-4">{paragraph || '\u00A0'}</p>
+                  <p key={index} className="my-2">{paragraph || '\u00A0'}</p>
                 ))}
                 </>
             ) : (

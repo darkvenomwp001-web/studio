@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { createPost } from '@/app/actions/feedActions';
 import type { User } from '@/types';
 
-export default function CreatePostForm({ user }: { user: User }) {
+export default function CreatePostForm({ user, onSuccess }: { user: User, onSuccess?: () => void }) {
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -28,6 +28,7 @@ export default function CreatePostForm({ user }: { user: User }) {
     if (result.success) {
       setContent('');
       toast({ title: 'Posted!', description: 'Your update is now live in your followers\' feeds.' });
+      onSuccess?.();
     } else {
       toast({ title: 'Error', description: result.error, variant: 'destructive' });
     }
@@ -35,7 +36,7 @@ export default function CreatePostForm({ user }: { user: User }) {
   };
 
   return (
-    <Card className="w-full">
+    <Card className="w-full shadow-none border-0">
       <CardHeader className="p-4">
         <div className="flex items-center gap-3">
           <Avatar>
@@ -47,7 +48,7 @@ export default function CreatePostForm({ user }: { user: User }) {
             onChange={(e) => setContent(e.target.value)}
             placeholder={`What's on your mind, ${user.displayName || user.username}?`}
             className="flex-1 bg-transparent border-0 focus-visible:ring-0 shadow-none resize-none p-0"
-            rows={1}
+            rows={3}
             maxLength={1000}
           />
         </div>

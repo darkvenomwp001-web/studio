@@ -10,13 +10,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import type { Story, UserSummary } from '@/types';
+import type { Story, UserSummary, FeedPost } from '@/types';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit as firestoreLimit, onSnapshot } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import CreatePostForm from '@/components/feed/CreatePostForm';
+import { formatDistanceToNow } from 'date-fns';
 
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
@@ -245,52 +247,142 @@ function LoggedOutHomeContent() {
 }
 
 function AuthorUpdatesSection() {
-    const mockAuthorsWithUpdates = [
-        { id: '1', username: 'FantasyWriter', avatarUrl: 'https://placehold.co/100x100.png' },
-        { id: '2', username: 'SciFiAuthor', avatarUrl: 'https://placehold.co/100x100.png' },
-        { id: '3', username: 'RomanceQueen', avatarUrl: 'https://placehold.co/100x100.png' },
-        { id: '4', username: 'MysteryReader', avatarUrl: 'https://placehold.co/100x100.png' },
-        { id: '5', username: 'HorrorMaster', avatarUrl: 'https://placehold.co/100x100.png' },
-        { id: '6', username: 'PoetLaureate', avatarUrl: 'https://placehold.co/100x100.png' },
-    ];
-
-    const { toast } = useToast();
     const { user } = useAuth();
+    const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+    const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
+
+    useEffect(() => {
+        if (!user) {
+            setIsLoading(false);
+            return;
+        }
+
+        // Fetch posts from authors the user follows, PLUS their own posts.
+        const authorIdsToFetch = [...new Set([...(user.followingIds || []), user.id])];
+        
+        // Firestore 'in' query is limited to 30 items.
+        const followedAuthors = authorIdsToFetch.slice(0, 30);
+        if (followedAuthors.length === 0) {
+            setIsLoading(false);
+            return;
+        }
+
+        const q = query(
+            collection(db, 'feedPosts'),
+            where('authorId', 'in', followedAuthors),
+            orderBy('timestamp', 'desc'),
+            limit(50) // Fetch recent 50 posts to find latest from each author
+        );
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FeedPost));
+            
+            // Get unique authors and their latest post for the story circles
+            const latestPostsByAuthor = new Map<string, FeedPost>();
+            for (const post of posts) {
+                // Only show posts from within the last 24 hours
+                const postDate = post.timestamp?.toDate ? post.timestamp.toDate() : new Date();
+                if ((new Date().getTime() - postDate.getTime()) / (1000 * 60 * 60) > 24) continue;
+
+                if (!latestPostsByAuthor.has(post.authorId)) {
+                    latestPostsByAuthor.set(post.authorId, post);
+                }
+            }
+
+            setFeedPosts(Array.from(latestPostsByAuthor.values()));
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
+
+    const handleViewPost = (post: FeedPost) => {
+        setSelectedPost(post);
+    };
 
     return (
-        <Card>
-            <CardContent className="p-3">
-                <div className="flex items-center space-x-4">
-                    {user?.role === 'writer' && (
-                        <div className="text-center w-16 flex-shrink-0">
-                            <button onClick={() => toast({ title: "Coming Soon!", description: "You'll soon be able to post updates here." })} className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
-                                <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border hover:border-primary">
-                                    <PlusCircle className="h-6 w-6" />
+        <>
+            <Dialog open={isCreatePostOpen} onOpenChange={setIsCreatePostOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Create a New Post</DialogTitle>
+                    </DialogHeader>
+                    {user && <CreatePostForm user={user} onSuccess={() => setIsCreatePostOpen(false)} />}
+                </DialogContent>
+            </Dialog>
+
+            {selectedPost && (
+                <Dialog open={!!selectedPost} onOpenChange={(isOpen) => !isOpen && setSelectedPost(null)}>
+                    <DialogContent className="p-0 max-w-md w-full aspect-[9/16] flex flex-col">
+                        <div className="absolute top-0 left-0 right-0 p-4 z-10 bg-gradient-to-b from-black/50 to-transparent">
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10 border-2 border-white">
+                                    <AvatarImage src={selectedPost.author.avatarUrl} alt={selectedPost.author.username} data-ai-hint="profile person" />
+                                    <AvatarFallback>{selectedPost.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="font-semibold text-white drop-shadow-sm">{selectedPost.author.displayName}</p>
+                                    <p className="text-xs text-white/80 drop-shadow-sm">{selectedPost.timestamp?.toDate ? formatDistanceToNow(selectedPost.timestamp.toDate(), { addSuffix: true }) : 'Just now'}</p>
                                 </div>
-                                <span className="text-xs font-medium truncate">Add Update</span>
-                            </button>
+                            </div>
                         </div>
-                    )}
-                    <div className="flex-1 overflow-hidden">
-                         <div className="flex overflow-x-auto space-x-6 pb-2 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
-                            {mockAuthorsWithUpdates.map(author => (
-                                <button key={author.id} onClick={() => toast({ title: `Viewing ${author.username}'s update!`, description: "This feature is coming soon." })} className="flex-shrink-0 w-16 text-center group">
-                                    <div className="h-14 w-14 rounded-full p-0.5 bg-gradient-to-tr from-yellow-400 to-pink-500 via-red-500 group-hover:scale-105 transition-transform">
-                                        <div className="bg-background p-0.5 rounded-full h-full w-full">
-                                             <Avatar className="h-full w-full">
-                                                <AvatarImage src={author.avatarUrl} alt={author.username} data-ai-hint="profile person" />
-                                                <AvatarFallback>{author.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                                            </Avatar>
+                        {selectedPost.storyCoverUrl ? (
+                            <Image src={selectedPost.storyCoverUrl} alt="Post background" layout="fill" objectFit="cover" className="opacity-30" />
+                        ) : (
+                            <div className="absolute inset-0 bg-gradient-to-br from-primary to-accent opacity-30"></div>
+                        )}
+                        <div className="relative flex-1 flex items-center justify-center p-8">
+                            <p className="text-center text-lg md:text-xl font-medium text-white drop-shadow-md whitespace-pre-line">{selectedPost.content}</p>
+                        </div>
+                        <DialogClose className="absolute top-4 right-4" />
+                    </DialogContent>
+                </Dialog>
+            )}
+
+            <Card>
+                <CardContent className="p-3">
+                    <div className="flex items-center space-x-4">
+                        {user?.role === 'writer' && (
+                            <DialogTrigger asChild>
+                                <div className="text-center w-16 flex-shrink-0">
+                                    <button onClick={() => setIsCreatePostOpen(true)} className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
+                                        <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border hover:border-primary">
+                                            <PlusCircle className="h-6 w-6" />
                                         </div>
-                                    </div>
-                                    <p className="text-xs font-medium text-muted-foreground truncate mt-1 group-hover:text-primary">{author.username}</p>
-                                </button>
-                            ))}
-                         </div>
+                                        <span className="text-xs font-medium truncate">Add Update</span>
+                                    </button>
+                                </div>
+                            </DialogTrigger>
+                        )}
+                        <div className="flex-1 overflow-hidden">
+                             <div className="flex overflow-x-auto space-x-6 pb-2 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
+                                {isLoading ? (
+                                    <div className="flex items-center text-muted-foreground text-sm"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Loading updates...</div>
+                                ) : feedPosts.length > 0 ? (
+                                    feedPosts.map(post => (
+                                        <button key={post.id} onClick={() => handleViewPost(post)} className="flex-shrink-0 w-16 text-center group">
+                                            <div className="h-14 w-14 rounded-full p-0.5 bg-gradient-to-tr from-yellow-400 to-pink-500 via-red-500 group-hover:scale-105 transition-transform">
+                                                <div className="bg-background p-0.5 rounded-full h-full w-full">
+                                                     <Avatar className="h-full w-full">
+                                                        <AvatarImage src={post.author.avatarUrl} alt={post.author.username} data-ai-hint="profile person" />
+                                                        <AvatarFallback>{post.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                                    </Avatar>
+                                                </div>
+                                            </div>
+                                            <p className="text-xs font-medium text-muted-foreground truncate mt-1 group-hover:text-primary">{post.author.displayName}</p>
+                                        </button>
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">No recent updates from authors you follow.</p>
+                                )}
+                             </div>
+                        </div>
                     </div>
-                </div>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+        </>
     );
 }
 
