@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createPost } from '@/app/actions/feedActions';
-import type { User } from '@/types';
+import type { User, UserSummary } from '@/types';
 
 export default function CreatePostForm({ user, onSuccess }: { user: User, onSuccess?: () => void }) {
   const [content, setContent] = useState('');
@@ -23,7 +23,13 @@ export default function CreatePostForm({ user, onSuccess }: { user: User, onSucc
       return;
     }
     setIsSubmitting(true);
-    const result = await createPost(user, content);
+    const authorSummary: UserSummary = {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+    };
+    const result = await createPost(authorSummary, content);
 
     if (result.success) {
       setContent('');

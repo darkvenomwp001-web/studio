@@ -2,12 +2,12 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { FeedPost, User, UserSummary } from '@/types';
+import { FeedPost, UserSummary } from '@/types';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
-export async function createPost(author: User, content: string): Promise<{ success: boolean; error?: string }> {
-  if (!author || !author.id) {
+export async function createPost(authorSummary: UserSummary, content: string): Promise<{ success: boolean; error?: string }> {
+  if (!authorSummary || !authorSummary.id) {
     return { success: false, error: 'User is not authenticated.' };
   }
   if (content.trim().length === 0) {
@@ -17,15 +17,8 @@ export async function createPost(author: User, content: string): Promise<{ succe
     return { success: false, error: 'Post content cannot exceed 1000 characters.' };
   }
 
-  const authorSummary: UserSummary = {
-    id: author.id,
-    username: author.username,
-    displayName: author.displayName,
-    avatarUrl: author.avatarUrl,
-  };
-
   const newPost: Omit<FeedPost, 'id'> = {
-    authorId: author.id,
+    authorId: authorSummary.id,
     author: authorSummary,
     content: content.trim(),
     timestamp: serverTimestamp(),
