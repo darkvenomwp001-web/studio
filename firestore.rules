@@ -1,107 +1,72 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
 
-    // Users Collection
-    // Users can read anyone's public profile.
-    // Users can only write to their own document.
+    // Users can read/write their own profile, public can read basic info
     match /users/{userId} {
-      allow read: if true;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if false; // Don't allow users to delete their own accounts from the client
+      allow read; // Allow public read for profiles
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // Stories Collection (Books)
+
+    // Stories (Books)
     match /stories/{storyId} {
-      // Anyone can read a story if it's public.
-      // The author/collaborator can read it even if it's private/unlisted.
-      allow read: if resource.data.visibility == 'Public' || 
-                   (isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
+      // Public stories are readable by anyone
+      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted';
+      // Private stories readable only by author/collaborators
+      allow read: if request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
       
-      // Only signed-in users can create stories. The author ID must match the creator's ID.
-      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
-
-      // Only author or collaborators can update.
-      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds);
-      
-      // Only the author can delete.
-      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
+      // Allow create if user is the author
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
+      // Allow update/delete if user is author or collaborator
+      allow update, delete: if request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
     }
     
-    // UserStories Collection (Instagram-style)
+    // User Stories (Instagram-style)
     match /userStories/{userStoryId} {
-      // The client query filters securely, so we only need to check for authentication here.
-      allow read: if isSignedIn();
-      
-      // Allow create if the user is the author of the story they are creating.
-      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
-      
-      // Only the author can update or delete their own story.
-      allow update, delete: if isSignedIn() && isOwner(resource.data.author.id);
-    }
-    
-    // Comments Collection
-    match /comments/{commentId} {
-        allow read: if true;
-        // User must be signed in to create.
-        // User ID in the comment must match their own.
-        allow create: if isSignedIn() && isOwner(request.resource.data.user.id);
+        // Grant public read access for all stories, as per the guide.
+        allow read;
         
-        // Only the comment owner can update or delete.
-        allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
-    }
-    
-    // Notifications Collection
-    match /notifications/{notificationId} {
-        // Only the user the notification is for can read, update or delete it.
-        allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+        // Users can only create stories for themselves.
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
         
-        // This rule allows any signed-in user to create a notification, which is what `addNotification` does.
-        allow create: if isSignedIn();
+        // Only the author can update or delete their story.
+        allow update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
     }
-    
-    // FeedPosts Collection
+
+    // Feed Posts
     match /feedPosts/{postId} {
-        allow read: if isSignedIn(); // Client-side query filters by followers
-        allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
-        allow update: if isSignedIn(); // For liking
-        allow delete: if isSignedIn() && isOwner(resource.data.authorId);
+      allow read;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+      allow update: if request.auth != null; // Allow any authenticated user to like/unlike
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
     }
 
-    // Letters Collection
+    // Comments
+    match /comments/{commentId} {
+      allow read;
+      allow create, update, delete: if request.auth != null;
+    }
+
+    // Letters
     match /letters/{letterId} {
-        // Only the author of the story or the reader who sent the letter can read it.
-        allow read: if isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id));
-        allow create: if isSignedIn() && isOwner(request.resource.data.reader.id); // Only the reader can create a letter
-        allow update: if isSignedIn() && isOwner(resource.data.authorId); // Only the author can update (respond, pin)
-        allow delete: if false;
+      allow read: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && request.auth.uid == resource.data.authorId;
     }
 
-    // Conversations & Messages
-    match /conversations/{conversationId} {
-      // Only participants can read/update the conversation document
-      allow read, update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
-      // Participants must be in the conversation to create it.
-      allow create: if isSignedIn() && request.auth.uid in request.resource.data.participantIds;
+    // Notifications
+    match /notifications/{notificationId} {
+        allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
+        allow create: if request.auth != null; // Allow server-side actions or other users to create notifications
+    }
 
-      match /messages/{messageId} {
-        // Only participants can read messages
-        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        // Only the sender can create a message, and they must be a participant.
-        allow create: if isSignedIn() && isOwner(request.resource.data.senderId) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-      }
+    // Conversations (Messages)
+    match /conversations/{conversationId} {
+        allow read, write: if request.auth.uid in resource.data.participantIds;
+        match /messages/{messageId} {
+             allow read, write: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        }
     }
   }
 }

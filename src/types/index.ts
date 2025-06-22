@@ -149,10 +149,13 @@ export interface FeedPost {
 
 export interface UserStory {
   id: string;
-  author: UserSummary;
+  authorId: string; // The ID of the user who posted the story.
+  author: UserSummary; // Denormalized author info for easy display
   type: 'text' | 'image' | 'video';
-  content: string; // For text, this is the text. For image/video, this is the URL.
-  backgroundColor?: string; // Optional, only for text stories
+  content: string; // For text, or URL for media
+  backgroundColor?: string;
   createdAt: Timestamp;
   expiresAt: Timestamp;
+  duration?: number; // Optional, e.g., for videos
+  views?: number;
 }

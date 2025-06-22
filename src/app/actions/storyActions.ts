@@ -34,10 +34,12 @@ export async function createUserStory(
   }
 
   const newStory: Omit<UserStory, 'id' | 'createdAt' | 'expiresAt'> & { createdAt: any, expiresAt: any } = {
+    authorId: author.id,
     author: authorForFirestore,
     type: 'text',
     content: content.trim(),
     backgroundColor,
+    views: 0,
     createdAt: serverTimestamp(),
     expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)), // 24 hours from now
   };
@@ -78,9 +80,12 @@ export async function createMediaUserStory(
   }
 
   const newStory: Omit<UserStory, 'id' | 'createdAt' | 'expiresAt'> & { createdAt: any, expiresAt: any } = {
+    authorId: author.id,
     author: authorForFirestore,
     type: mediaType,
     content: mediaUrl,
+    views: 0,
+    // duration can be added here if available from the client upload
     createdAt: serverTimestamp(),
     expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)), // 24 hours from now
   };
