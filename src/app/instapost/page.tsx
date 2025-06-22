@@ -60,7 +60,7 @@ export default function InstapostPage() {
           icon={Type}
           title="Text"
           description="Share a quick thought or update."
-          href="/post-story?type=text"
+          href="/post-story"
         />
         <FeatureCard
           icon={Music}
@@ -72,7 +72,7 @@ export default function InstapostPage() {
           icon={ImageIcon}
           title="Gallery"
           description="Post a photo or video from your gallery."
-          onClick={() => handleComingSoon('Gallery')}
+          href="/post-story/gallery"
         />
       </div>
     </div>

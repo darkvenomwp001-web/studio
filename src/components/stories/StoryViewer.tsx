@@ -10,6 +10,7 @@ import { X, Heart, MessageCircle } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
+import Image from 'next/image';
 
 interface GroupedStory {
     author: UserSummary;
@@ -27,6 +28,7 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
     const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     const activeGroup = groupedStories[currentUserIndex];
     const activeStory = activeGroup?.stories[currentStoryIndex];
@@ -67,12 +69,22 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
 
     useEffect(() => {
         if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(advanceStory, 5000); // 5 seconds per story
+        // Videos control their own advancement via the 'onEnded' event
+        if (activeStory?.type !== 'video') {
+            timerRef.current = setTimeout(advanceStory, 5000); // 5 seconds per story
+        }
 
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
         };
-    }, [currentStoryIndex, currentUserIndex, advanceStory]);
+    }, [currentStoryIndex, currentUserIndex, advanceStory, activeStory?.type]);
+
+    useEffect(() => {
+        if (activeStory?.type === 'video' && videoRef.current) {
+            videoRef.current.currentTime = 0;
+            videoRef.current.play().catch(e => console.error("Video autoplay failed:", e));
+        }
+    }, [activeStory]);
 
     const handleNext = () => {
         advanceStory();
@@ -94,6 +106,19 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
 
     if (!activeStory || !activeGroup) return null;
 
+    const renderContent = () => {
+        switch(activeStory.type) {
+            case 'text':
+                return <p className="text-center text-xl md:text-2xl font-medium text-white drop-shadow-md whitespace-pre-line">{activeStory.content}</p>;
+            case 'image':
+                return <Image src={activeStory.content} alt={`Story from ${activeGroup.author.displayName}`} layout="fill" objectFit="contain" />;
+            case 'video':
+                return <video ref={videoRef} src={activeStory.content} className="w-full h-full object-contain" autoPlay muted onEnded={advanceStory} playsInline />;
+            default:
+                return null;
+        }
+    }
+
     return (
         <div 
             className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center animate-in fade-in"
@@ -109,8 +134,8 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
                             <div
                                 className={cn("h-full bg-white transition-all duration-300", 
                                     index < currentStoryIndex && 'w-full',
-                                    index === currentStoryIndex && isPaused && 'w-full',
-                                    index === currentStoryIndex && !isPaused && 'animate-[width-grow_5s_linear_forwards]',
+                                    index === currentStoryIndex && activeStory.type !== 'video' && !isPaused && 'animate-[width-grow_5s_linear_forwards]',
+                                    index === currentStoryIndex && (activeStory.type === 'video' || isPaused) && 'w-0', // For video, progress is handled by video element if desired
                                     index > currentStoryIndex && 'w-0'
                                 )}
                                 style={{
@@ -139,8 +164,8 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
                 </div>
             </div>
 
-            <div className={cn("relative flex items-center justify-center p-8 h-full w-full max-w-sm aspect-[9/16] rounded-lg overflow-hidden", activeStory.backgroundColor)}>
-                <p className="text-center text-xl md:text-2xl font-medium text-white drop-shadow-md whitespace-pre-line">{activeStory.content}</p>
+            <div className={cn("relative flex items-center justify-center p-0 h-full w-full max-w-sm aspect-[9/16] rounded-lg overflow-hidden", activeStory.type === 'text' && activeStory.backgroundColor)}>
+                {renderContent()}
             </div>
             
              <div className="absolute bottom-0 left-0 right-0 p-4 z-20 bg-gradient-to-t from-black/50 to-transparent flex items-center justify-end gap-2">
@@ -152,8 +177,8 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
                 </Button>
             </div>
 
-            <div className="absolute inset-y-0 left-0 w-1/2 z-10" onClick={handlePrev} />
-            <div className="absolute inset-y-0 right-0 w-1/2 z-10" onClick={handleNext} />
+            <div className="absolute inset-y-0 left-0 w-1/2 z-10" onClick={handleNext} />
+            <div className="absolute inset-y-0 right-0 w-1/2 z-10" onClick={handlePrev} />
         </div>
     );
 }

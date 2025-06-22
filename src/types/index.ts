@@ -150,9 +150,9 @@ export interface FeedPost {
 export interface UserStory {
   id: string;
   author: UserSummary;
-  type: 'text'; // Future: 'image'
-  content: string;
-  backgroundColor: string;
+  type: 'text' | 'image' | 'video';
+  content: string; // For text, this is the text. For image/video, this is the URL.
+  backgroundColor?: string; // Optional, only for text stories
   createdAt: Timestamp;
   expiresAt: Timestamp;
 }

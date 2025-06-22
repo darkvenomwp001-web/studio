@@ -51,3 +51,46 @@ export async function createUserStory(
     return { success: false, error: 'Could not create the story. Please try again.' };
   }
 }
+
+
+export async function createMediaUserStory(
+    author: UserSummary, 
+    mediaUrl: string,
+    mediaType: 'image' | 'video'
+): Promise<{ success: boolean; error?: string }> {
+  if (!author || !author.id) {
+    return { success: false, error: 'User is not authenticated.' };
+  }
+  if (!mediaUrl) {
+    return { success: false, error: 'Media URL is missing.' };
+  }
+
+  // Sanitize the author object to remove undefined fields before saving to Firestore.
+  const authorForFirestore: UserSummary = {
+    id: author.id,
+    username: author.username,
+  };
+  if (author.displayName) {
+    authorForFirestore.displayName = author.displayName;
+  }
+  if (author.avatarUrl) {
+    authorForFirestore.avatarUrl = author.avatarUrl;
+  }
+
+  const newStory: Omit<UserStory, 'id' | 'createdAt' | 'expiresAt'> & { createdAt: any, expiresAt: any } = {
+    author: authorForFirestore,
+    type: mediaType,
+    content: mediaUrl,
+    createdAt: serverTimestamp(),
+    expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)), // 24 hours from now
+  };
+
+  try {
+    await addDoc(collection(db, 'userStories'), newStory);
+    revalidatePath('/'); // Revalidate the homepage to show the new story
+    return { success: true };
+  } catch (error) {
+    console.error('Error creating media user story:', error);
+    return { success: false, error: 'Could not create the story. Please try again.' };
+  }
+}
