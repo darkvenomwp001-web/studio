@@ -47,7 +47,6 @@ export default function RootLayout({
               <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8"> {/* Added pb-24 for bottom nav space, revert to pb-8 on md */}
                 {children}
               </main>
-              <BottomNavigationBar />
             </div>
             <Toaster />
             <PasswordSetupDialog />

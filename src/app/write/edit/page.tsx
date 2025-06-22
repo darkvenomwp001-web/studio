@@ -23,6 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const VersionHistoryManager = {
   getKey: (storyId: string, chapterId: string) => `versionHistory-${storyId}-${chapterId}`,
@@ -346,7 +347,7 @@ export default function WriteEditorPage() {
   }
 
   return (
-    <AlertDialog>
+    <AlertDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
       <div className={`flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-10rem)] ${isFullScreen ? 'fixed inset-0 bg-background z-[99] p-4' : ''}`}>
         <div className="flex-1 flex flex-col">
           <header className="mb-4 p-4 bg-card rounded-lg shadow-sm">
@@ -436,9 +437,24 @@ export default function WriteEditorPage() {
             <div>{wordCount} words</div>
             <div className="flex items-center gap-2">
                  <Button onClick={() => handleSaveDraft(true)} variant="outline" size="sm"><Save className="mr-2 h-4 w-4" /> Save</Button>
-                <AlertDialogTrigger asChild>
-                    <Button size="sm" className="bg-primary hover:bg-primary/90 flex-shrink-0"><Send className="mr-2 h-4 w-4" />Publish...</Button>
-                </AlertDialogTrigger>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button size="sm" className="bg-primary hover:bg-primary/90 flex-shrink-0"><Send className="mr-2 h-4 w-4" />Publish...</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Ready to Publish Chapter?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                        This will make your chapter "{chapterTitle}" visible to readers.
+                        Are you sure you want to publish this chapter? Story details (title, cover, etc.) are managed separately.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handlePublishChapter} className="bg-primary hover:bg-primary/90">Publish Chapter</AlertDialogAction>
+                    </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
           </footer>
         </div>
@@ -483,39 +499,23 @@ export default function WriteEditorPage() {
 
         </aside>
 
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Ready to Publish Chapter?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will make your chapter "{chapterTitle}" visible to readers.
-              Are you sure you want to publish this chapter? Story details (title, cover, etc.) are managed separately.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePublishChapter} className="bg-primary hover:bg-primary/90">Publish Chapter</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-
         {/* Preview Dialog */}
-        <AlertDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-            <AlertDialogContent className="max-w-3xl">
-                <AlertDialogHeader>
-                    <AlertDialogTitle>{chapterTitle}</AlertDialogTitle>
-                    <AlertDialogDescription>A preview of how your chapter will look to readers.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <ScrollArea className="max-h-[60vh] my-4">
-                    <div className="prose dark:prose-invert prose-reading p-2">
-                        {content.split('\n').map((paragraph, index) => (
-                          <p key={index}>{paragraph || '\u00A0'}</p>
-                        ))}
-                    </div>
-                </ScrollArea>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Close Preview</AlertDialogCancel>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+        <AlertDialogContent className="max-w-3xl">
+            <AlertDialogHeader>
+                <AlertDialogTitle>{chapterTitle}</AlertDialogTitle>
+                <AlertDialogDescription>A preview of how your chapter will look to readers.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <ScrollArea className="max-h-[60vh] my-4">
+                <div className="prose dark:prose-invert prose-reading p-2">
+                    {content.split('\n').map((paragraph, index) => (
+                      <p key={index}>{paragraph || '\u00A0'}</p>
+                    ))}
+                </div>
+            </ScrollArea>
+            <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setIsPreviewOpen(false)}>Close Preview</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
       </div>
     </AlertDialog>
   );
