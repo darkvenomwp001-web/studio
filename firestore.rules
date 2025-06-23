@@ -1,63 +1,55 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    function isOwnerOrCollaborator(storyId, userId) {
-      let story = get(/databases/$(database)/documents/stories/$(storyId)).data;
-      return userId == story.author.id || userId in story.collaboratorIds;
-    }
 
     match /users/{userId} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && request.auth.uid == userId;
     }
 
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' 
-                   || (resource.data.visibility == 'Unlisted' && request.auth != null)
-                   || (request.auth != null && isOwnerOrCollaborator(storyId, request.auth.uid));
-      allow write: if request.auth != null && isOwnerOrCollaborator(storyId, request.auth.uid);
+      allow read: if resource.data.visibility == 'Public' || (request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds));
+      allow create, update, delete: if request.auth != null && request.auth.uid == request.resource.data.author.id;
     }
     
     match /userStories/{userStoryId} {
-       allow read: if request.auth != null;
-       allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
-       allow delete: if request.auth != null && request.auth.uid == resource.data.author.id;
-    }
-
-    match /comments/{commentId} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.user.id;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+      allow update, delete: if false;
     }
 
     match /feedPosts/{postId} {
-      allow read, list: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
-      allow update: if request.auth != null;
+      allow read;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+      allow update: if request.auth != null; // For liking
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
     }
 
     match /letters/{letterId} {
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.reader.id;
       allow read, update: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.reader.id;
     }
 
     match /notifications/{notificationId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
-      // Notifications are created by server actions, which might need broader create rules if they act on behalf of the system.
-      // For user-generated notifications (e.g. from one user to another), the rule should check the actor's ID.
-      // For now, we assume notifications are created in a trusted environment (like a server action triggered by a user).
+      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create, delete: if false;
+    }
+    
+    match /comments/{commentId} {
+      allow read;
       allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
     }
 
     match /conversations/{conversationId} {
-        allow read, create, update: if request.auth != null && request.auth.uid in resource.data.participantIds;
-        
-        match /messages/{messageId} {
-            allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        }
+      allow read, update, delete, create: if request.auth != null && request.auth.uid in resource.data.participantIds;
+
+      match /messages/{messageId} {
+        allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow update, delete: if false;
+      }
     }
   }
 }
