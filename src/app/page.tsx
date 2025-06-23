@@ -18,6 +18,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StoryTray from '@/components/stories/StoryTray';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
+import CreatePostForm from '@/components/feed/CreatePostForm';
+import HomeFeed from '@/components/feed/HomeFeed';
+import { Separator } from '@/components/ui/separator';
 
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
@@ -252,29 +255,30 @@ function ForYouTabContent() {
 }
 
 function LiveFeedTabContent() {
-    const mockFeed = [
-        { type: 'new_chapter', user: 'FantasyWriter', story: 'The Last Dragon', icon: BookUp2, color: 'text-green-500' },
-        { type: 'trending', story: 'CyberHeart', icon: Flame, color: 'text-red-500' },
-        { type: 'new_follower', user: 'MysteryReader', follower: 'ThrillerFan', icon: UserPlus, color: 'text-blue-500' },
-        { type: 'new_chapter', user: 'SciFiAuthor', story: 'Galaxy\'s Edge', icon: BookUp2, color: 'text-green-500' },
-    ];
+  const { user } = useAuth();
+  
+  if (!user) {
     return (
-        <div className="py-8 max-w-2xl mx-auto">
-            <h2 className="text-2xl font-headline font-bold text-center mb-6">Community Pulse</h2>
-            <div className="space-y-4">
-                {mockFeed.map((item, index) => (
-                    <Card key={index} className="p-4 flex items-center gap-4">
-                        <item.icon className={`h-8 w-8 flex-shrink-0 ${item.color}`} />
-                        <div className="text-sm">
-                            {item.type === 'new_chapter' && <p><span className="font-semibold">{item.user}</span> just published a new chapter for <span className="font-semibold text-primary">{item.story}</span>!</p>}
-                            {item.type === 'trending' && <p><span className="font-semibold text-primary">{item.story}</span> is now trending! Check it out.</p>}
-                            {item.type === 'new_follower' && <p><span className="font-semibold">{item.follower}</span> started following <span className="font-semibold">{item.user}</span>.</p>}
-                        </div>
-                    </Card>
-                ))}
-            </div>
-        </div>
+      <div className="py-8 max-w-2xl mx-auto text-center">
+        <h2 className="text-2xl font-headline font-bold text-center mb-6">Community Pulse</h2>
+        <Card>
+            <CardContent className="p-6">
+                <p className="text-muted-foreground">
+                    <Link href="/auth/signin" className="text-primary hover:underline">Sign in</Link> to see updates from authors you follow.
+                </p>
+            </CardContent>
+        </Card>
+      </div>
     );
+  }
+
+  return (
+    <div className="py-8 max-w-2xl mx-auto space-y-8">
+      <CreatePostForm user={user} />
+      <Separator />
+      <HomeFeed user={user} />
+    </div>
+  );
 }
 
 function WritingPromptsTabContent() {
