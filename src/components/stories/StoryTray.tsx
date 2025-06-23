@@ -4,27 +4,20 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { PlusCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import CreateStoryDialog from './CreateStoryDialog'; // Keep this for testing the feature
+import CreateStoryDialog from './CreateStoryDialog';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 // Mock user data for display purposes
 const mockUsers = [
-  { id: '1', username: 'Alex', avatarUrl: 'https://placehold.co/60x60.png', dataAiHint: "profile person" },
-  { id: '2', username: 'Bella', avatarUrl: 'https://placehold.co/60x60.png', dataAiHint: "profile person" },
-  { id: '3', username: 'Chris', avatarUrl: 'https://placehold.co/60x60.png', dataAiHint: "profile person" },
+  { id: 'mock-1', username: 'Alex', avatarUrl: 'https://placehold.co/60x60.png', dataAiHint: "profile person" },
+  { id: 'mock-2', username: 'Bella', avatarUrl: 'https://placehold.co/60x60.png', dataAiHint: "profile person" },
+  { id: 'mock-3', username: 'Chris', avatarUrl: 'https://placehold.co/60x60.png', dataAiHint: "profile person" },
 ];
 
 export default function StoryTray() {
   const { user } = useAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const { toast } = useToast();
-
-  const handleMockStoryClick = (username: string) => {
-    toast({
-      title: `Viewing ${username}'s Story`,
-      description: "This is a mock story. The real feature is being worked on!",
-    });
-  };
 
   // The tray is only shown if the user is logged in, to allow creating stories.
   if (!user) {
@@ -51,9 +44,9 @@ export default function StoryTray() {
           
           {/* Mock user avatars */}
           {mockUsers.map((mockUser) => (
-            <button 
+            <Link 
               key={mockUser.id}
-              onClick={() => handleMockStoryClick(mockUser.username)}
+              href={`/stories/view/${mockUser.id}`}
               className="flex-shrink-0 w-16 text-center group"
               aria-label={`View ${mockUser.username}'s story`}
             >
@@ -66,12 +59,12 @@ export default function StoryTray() {
                 </div>
               </div>
               <p className="text-xs font-medium text-muted-foreground truncate mt-1 group-hover:text-primary">{mockUser.username}</p>
-            </button>
+            </Link>
           ))}
         </div>
       </div>
 
-      {/* The dialog for creating a real story remains, so you can test it */}
+      {/* The dialog for creating a real story */}
       <CreateStoryDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} />
     </>
   );

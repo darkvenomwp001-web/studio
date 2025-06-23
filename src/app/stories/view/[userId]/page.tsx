@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -14,6 +13,35 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+
+const mockAuthorData: { [key: string]: UserSummary } = {
+    'mock-1': { id: 'mock-1', username: 'Alex', displayName: 'Alex', avatarUrl: 'https://placehold.co/100x100.png' },
+    'mock-2': { id: 'mock-2', username: 'Bella', displayName: 'Bella', avatarUrl: 'https://placehold.co/100x100.png' },
+    'mock-3': { id: 'mock-3', username: 'Chris', displayName: 'Chris', avatarUrl: 'https://placehold.co/100x100.png' },
+};
+
+const getMockStories = (author: UserSummary): UserStory[] => [
+    {
+        id: 'mock-story-1',
+        authorId: author.id,
+        author: author,
+        type: 'text',
+        content: `A mock story from ${author.displayName}! This is just a placeholder to show how stories will look.`,
+        backgroundColor: '#4A90E2',
+        createdAt: Timestamp.fromDate(new Date(Date.now() - 60 * 1000 * 5)),
+        expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+    },
+    {
+        id: 'mock-story-2',
+        authorId: author.id,
+        author: author,
+        type: 'image',
+        content: 'https://placehold.co/1080x1920.png',
+        dataAiHint: 'abstract landscape',
+        createdAt: Timestamp.fromDate(new Date(Date.now() - 60 * 1000 * 2)),
+        expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+    }
+];
 
 export default function ViewUserStoriesPage() {
     const params = useParams();
@@ -34,6 +62,23 @@ export default function ViewUserStoriesPage() {
             router.push('/');
             return;
         }
+
+        // Handle Mock Users
+        if (userId.startsWith('mock-')) {
+            const mockAuthor = mockAuthorData[userId];
+            if (mockAuthor) {
+                setAuthor(mockAuthor);
+                setStories(getMockStories(mockAuthor));
+                setIsLoading(false);
+                return;
+            } else {
+                // If it's a mock ID we don't recognize, just go back.
+                router.back();
+                return;
+            }
+        }
+
+        // Handle Real Users
         setIsLoading(true);
         const twentyFourHoursAgo = Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
         
@@ -51,7 +96,6 @@ export default function ViewUserStoriesPage() {
                 setAuthor(fetchedStories[0].author);
             } else {
                 setStories([]);
-                // If no stories are found, redirect back.
                 router.back();
             }
             setIsLoading(false);
@@ -132,7 +176,6 @@ export default function ViewUserStoriesPage() {
     }
     
     if (!activeStory || !author) {
-        // This case is handled by the redirect in useEffect, but as a fallback:
         return (
             <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center">
                 <p className="text-white">Could not load stories.</p>
@@ -145,7 +188,7 @@ export default function ViewUserStoriesPage() {
             case 'text':
                 return <p className="text-center text-xl md:text-2xl font-medium text-white drop-shadow-md whitespace-pre-line p-4">{activeStory.content}</p>;
             case 'image':
-                return <Image src={activeStory.content} alt={`Story from ${author.displayName}`} layout="fill" objectFit="contain" />;
+                return <Image src={activeStory.content} alt={`Story from ${author.displayName}`} layout="fill" objectFit="contain" data-ai-hint={activeStory.dataAiHint} />;
             case 'video':
                 return <video ref={videoRef} src={activeStory.content} className="w-full h-full object-contain" autoPlay muted onEnded={advanceStory} playsInline />;
             default:
