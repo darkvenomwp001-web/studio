@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -5,10 +6,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import CreateStoryDialog from './CreateStoryDialog';
-import StoryViewer from './StoryViewer';
 import type { UserStory, UserSummary } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import Link from 'next/link';
 
 interface GroupedStory {
   author: UserSummary;
@@ -18,8 +19,6 @@ interface GroupedStory {
 export default function StoryTray() {
   const { user, loading } = useAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isViewerOpen, setIsViewerOpen] = useState(false);
-  const [startIndex, setStartIndex] = useState(0);
   const [stories, setStories] = useState<UserStory[]>([]);
   const [isLoadingStories, setIsLoadingStories] = useState(true);
 
@@ -78,20 +77,21 @@ export default function StoryTray() {
       }
       groups[story.author.id].stories.push(story);
     });
-    // Ensure newest stories for each user are first
+    // Ensure stories within a group are sorted oldest to newest to play in order
     Object.values(groups).forEach(group => {
-        group.stories.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+        group.stories.sort((a, b) => {
+            const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+            const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+            return timeA - timeB;
+        });
     });
-    // Sort groups by the latest story in each group
-    return Object.values(groups).sort((a, b) => 
-        b.stories[0].createdAt.toMillis() - a.stories[0].createdAt.toMillis()
-    );
+    // Sort groups by the latest story in each group, so newest groups appear first
+    return Object.values(groups).sort((a, b) => {
+        const lastStoryA = a.stories[a.stories.length - 1]?.createdAt?.toDate ? a.stories[a.stories.length - 1].createdAt.toDate().getTime() : 0;
+        const lastStoryB = b.stories[b.stories.length - 1]?.createdAt?.toDate ? b.stories[b.stories.length - 1].createdAt.toDate().getTime() : 0;
+        return lastStoryB - lastStoryA;
+    });
   }, [stories]);
-
-  const handleAvatarClick = (index: number) => {
-    setStartIndex(index);
-    setIsViewerOpen(true);
-  };
   
   if (!user) {
     return null; // Don't show the tray if not logged in
@@ -118,8 +118,8 @@ export default function StoryTray() {
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            groupedStories.map((group, index) => (
-              <button key={group.author.id} onClick={() => handleAvatarClick(index)} className="flex-shrink-0 w-16 text-center group">
+            groupedStories.map((group) => (
+              <Link href={`/stories/view/${group.author.id}`} key={group.author.id} className="flex-shrink-0 w-16 text-center group">
                 <div className="h-14 w-14 rounded-full p-0.5 bg-gradient-to-tr from-yellow-400 to-pink-500 via-red-500 group-hover:scale-105 transition-transform">
                   <div className="bg-background p-0.5 rounded-full h-full w-full">
                     <Avatar className="h-full w-full">
@@ -129,21 +129,13 @@ export default function StoryTray() {
                   </div>
                 </div>
                 <p className="text-xs font-medium text-muted-foreground truncate mt-1 group-hover:text-primary">{group.author.displayName || group.author.username}</p>
-              </button>
+              </Link>
             ))
           )}
         </div>
       </div>
 
       <CreateStoryDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} />
-
-      {isViewerOpen && (
-        <StoryViewer
-          groupedStories={groupedStories}
-          startIndex={startIndex}
-          onClose={() => setIsViewerOpen(false)}
-        />
-      )}
     </>
   );
 }

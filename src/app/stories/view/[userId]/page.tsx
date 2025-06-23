@@ -2,58 +2,84 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import type { UserStory, UserSummary } from '@/types';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
-import { X, Heart, MessageCircle } from 'lucide-react';
+import { X, Heart, MessageCircle, Loader2 } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Button } from '../ui/button';
+import { Button } from '@/components/ui/button';
 import Image from 'next/image';
+import { db } from '@/lib/firebase';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 
-interface GroupedStory {
-    author: UserSummary;
-    stories: UserStory[];
-}
+export default function ViewUserStoriesPage() {
+    const params = useParams();
+    const router = useRouter();
+    const userId = Array.isArray(params.userId) ? params.userId[0] : params.userId;
 
-interface StoryViewerProps {
-    groupedStories: GroupedStory[];
-    startIndex: number;
-    onClose: () => void;
-}
+    const [stories, setStories] = useState<UserStory[]>([]);
+    const [author, setAuthor] = useState<UserSummary | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-export default function StoryViewer({ groupedStories, startIndex, onClose }: StoryViewerProps) {
-    const [currentUserIndex, setCurrentUserIndex] = useState(startIndex);
     const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
-    const videoRef = useRef<HTMLVideoElement>(null);
+    const videoRef = useRef<HTMLVideoElement | null>(null);
 
-    const activeGroup = groupedStories[currentUserIndex];
-    const activeStory = activeGroup?.stories[currentStoryIndex];
+    useEffect(() => {
+        if (!userId) {
+            router.push('/');
+            return;
+        }
+        setIsLoading(true);
+        const twentyFourHoursAgo = Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+        
+        const q = query(
+            collection(db, 'userStories'),
+            where('authorId', '==', userId),
+            where('expiresAt', '>=', twentyFourHoursAgo),
+            orderBy('expiresAt', 'asc')
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedStories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserStory));
+            if (fetchedStories.length > 0) {
+                setStories(fetchedStories);
+                setAuthor(fetchedStories[0].author);
+            } else {
+                setStories([]);
+                // If no stories are found, redirect back.
+                router.back();
+            }
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching stories:", error);
+            setIsLoading(false);
+            router.back();
+        });
+
+        return () => unsubscribe();
+    }, [userId, router]);
+
+    const activeStory = stories[currentStoryIndex];
 
     const advanceStory = useCallback(() => {
         if (isPaused) return;
 
-        const storiesForCurrentUser = groupedStories[currentUserIndex]?.stories;
-        if (currentStoryIndex < storiesForCurrentUser.length - 1) {
-            // Go to next story for the same user
+        if (currentStoryIndex < stories.length - 1) {
             setCurrentStoryIndex(prev => prev + 1);
-        } else if (currentUserIndex < groupedStories.length - 1) {
-            // Go to the first story of the next user
-            setCurrentUserIndex(prev => prev + 1);
-            setCurrentStoryIndex(0);
         } else {
-            // Last story of the last user, close the viewer
-            onClose();
+            router.back();
         }
-    }, [currentStoryIndex, currentUserIndex, groupedStories, isPaused, onClose]);
+    }, [currentStoryIndex, stories.length, isPaused, router]);
 
     useEffect(() => {
         document.body.style.overflow = 'hidden';
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') router.back();
             if (e.key === 'ArrowRight') handleNext();
             if (e.key === 'ArrowLeft') handlePrev();
         };
@@ -65,20 +91,18 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
             window.removeEventListener('keydown', handleKeyDown);
             if (timerRef.current) clearTimeout(timerRef.current);
         };
-    }, [onClose]);
+    }, [router]);
 
     useEffect(() => {
         if (timerRef.current) clearTimeout(timerRef.current);
-        // Videos control their own advancement via the 'onEnded' event
         if (activeStory?.type !== 'video') {
-            timerRef.current = setTimeout(advanceStory, 5000); // 5 seconds per story
+            timerRef.current = setTimeout(advanceStory, 5000);
         }
-
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
         };
-    }, [currentStoryIndex, currentUserIndex, advanceStory, activeStory?.type]);
-
+    }, [currentStoryIndex, advanceStory, activeStory?.type]);
+    
     useEffect(() => {
         if (activeStory?.type === 'video' && videoRef.current) {
             videoRef.current.currentTime = 0;
@@ -93,25 +117,35 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
     const handlePrev = () => {
         if (currentStoryIndex > 0) {
             setCurrentStoryIndex(prev => prev - 1);
-        } else if (currentUserIndex > 0) {
-            setCurrentUserIndex(prev => prev - 1);
-            // Go to the last story of the previous user
-            const prevUserStories = groupedStories[currentUserIndex - 1]?.stories;
-            setCurrentStoryIndex(prevUserStories.length - 1);
         }
     };
     
     const pauseTimer = () => setIsPaused(true);
     const resumeTimer = () => setIsPaused(false);
 
-    if (!activeStory || !activeGroup) return null;
+    if (isLoading) {
+        return (
+            <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center">
+                <Loader2 className="h-12 w-12 text-white animate-spin" />
+            </div>
+        );
+    }
+    
+    if (!activeStory || !author) {
+        // This case is handled by the redirect in useEffect, but as a fallback:
+        return (
+            <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center">
+                <p className="text-white">Could not load stories.</p>
+            </div>
+        );
+    }
 
     const renderContent = () => {
         switch(activeStory.type) {
             case 'text':
-                return <p className="text-center text-xl md:text-2xl font-medium text-white drop-shadow-md whitespace-pre-line">{activeStory.content}</p>;
+                return <p className="text-center text-xl md:text-2xl font-medium text-white drop-shadow-md whitespace-pre-line p-4">{activeStory.content}</p>;
             case 'image':
-                return <Image src={activeStory.content} alt={`Story from ${activeGroup.author.displayName}`} layout="fill" objectFit="contain" />;
+                return <Image src={activeStory.content} alt={`Story from ${author.displayName}`} layout="fill" objectFit="contain" />;
             case 'video':
                 return <video ref={videoRef} src={activeStory.content} className="w-full h-full object-contain" autoPlay muted onEnded={advanceStory} playsInline />;
             default:
@@ -129,14 +163,13 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
         >
             <div className="absolute top-0 left-0 right-0 p-4 z-20 bg-gradient-to-b from-black/50 to-transparent">
                 <div className="flex items-center gap-2 mb-2">
-                    {activeGroup.stories.map((story, index) => (
+                    {stories.map((story, index) => (
                         <div key={story.id} className="w-full h-1 bg-white/30 rounded-full overflow-hidden">
                             <div
-                                className={cn("h-full bg-white transition-all duration-300", 
+                                className={cn("h-full bg-white", 
                                     index < currentStoryIndex && 'w-full',
-                                    index === currentStoryIndex && activeStory.type !== 'video' && !isPaused && 'animate-[width-grow_5s_linear_forwards]',
-                                    index === currentStoryIndex && (activeStory.type === 'video' || isPaused) && 'w-0', // For video, progress is handled by video element if desired
-                                    index > currentStoryIndex && 'w-0'
+                                    index > currentStoryIndex && 'w-0',
+                                    index === currentStoryIndex && activeStory.type !== 'video' && 'animate-[width-grow_5s_linear]',
                                 )}
                                 style={{
                                     animationPlayState: isPaused ? 'paused' : 'running',
@@ -147,18 +180,18 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
                 </div>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link href={`/profile/${activeGroup.author.id}`} onClick={onClose}>
+                        <Link href={`/profile/${author.id}`}>
                             <Avatar className="h-10 w-10 border-2 border-white/80">
-                                <AvatarImage src={activeGroup.author.avatarUrl} alt={activeGroup.author.username} data-ai-hint="profile person" />
-                                <AvatarFallback>{activeGroup.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                <AvatarImage src={author.avatarUrl} alt={author.username} data-ai-hint="profile person" />
+                                <AvatarFallback>{author.username.substring(0,1).toUpperCase()}</AvatarFallback>
                             </Avatar>
                         </Link>
                         <div>
-                            <Link href={`/profile/${activeGroup.author.id}`} onClick={onClose} className="font-semibold text-white drop-shadow-sm hover:underline">{activeGroup.author.displayName}</Link>
+                            <Link href={`/profile/${author.id}`} className="font-semibold text-white drop-shadow-sm hover:underline">{author.displayName}</Link>
                             <p className="text-xs text-white/80 drop-shadow-sm">{formatDistanceToNowStrict(activeStory.createdAt.toDate())} ago</p>
                         </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20 hover:text-white">
+                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-white hover:bg-white/20 hover:text-white">
                         <X className="h-6 w-6" />
                     </Button>
                 </div>
@@ -177,8 +210,8 @@ export default function StoryViewer({ groupedStories, startIndex, onClose }: Sto
                 </Button>
             </div>
 
-            <div className="absolute inset-y-0 left-0 w-1/2 z-10" onClick={handleNext} />
-            <div className="absolute inset-y-0 right-0 w-1/2 z-10" onClick={handlePrev} />
+            <div className="absolute inset-y-0 right-0 w-1/2 z-10" onClick={handleNext} />
+            <div className="absolute inset-y-0 left-0 w-1/2 z-10" onClick={handlePrev} />
         </div>
     );
 }
