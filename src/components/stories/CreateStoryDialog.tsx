@@ -1,25 +1,16 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Send, Palette } from 'lucide-react';
+import { Loader2, Send, UploadCloud, Film, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { createUserStory } from '@/app/actions/storyActions';
-import { cn } from '@/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { createMediaUserStory } from '@/app/actions/storyActions';
 import type { UserSummary } from '@/types';
-
-const backgroundColors = [
-  "bg-gradient-to-br from-gray-700 via-gray-900 to-black",
-  "bg-gradient-to-br from-blue-500 to-purple-600",
-  "bg-gradient-to-br from-green-400 to-blue-500",
-  "bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500",
-  "bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500",
-];
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 interface CreateStoryDialogProps {
   open: boolean;
@@ -29,78 +20,144 @@ interface CreateStoryDialogProps {
 export default function CreateStoryDialog({ open, onOpenChange }: CreateStoryDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [content, setContent] = useState('');
-  const [selectedBg, setSelectedBg] = useState(backgroundColors[0]);
+  
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
   const [isPosting, setIsPosting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 25 * 1024 * 1024) { // 25MB limit
+        toast({ title: "File too large", description: "Please select a file smaller than 25MB.", variant: "destructive" });
+        return;
+      }
+      setMediaFile(file);
+      setMediaType(file.type.startsWith('image') ? 'image' : 'video');
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setMediaPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const resetState = () => {
+    setMediaFile(null);
+    setMediaPreview(null);
+    setMediaType(null);
+    setIsPosting(false);
+  };
 
   const handlePost = async () => {
     if (!user) {
       toast({ title: 'You must be logged in to post.', variant: 'destructive' });
       return;
     }
-    if (content.trim().length === 0) {
-      toast({ title: 'Story content cannot be empty.', variant: 'destructive' });
+    if (!mediaFile || !mediaType) {
+      toast({ title: 'No file selected', description: 'Please select a photo or video to post.', variant: 'destructive' });
       return;
     }
+    
     setIsPosting(true);
 
-    const authorSummary: UserSummary = {
-        id: user.id,
-        username: user.username,
-        displayName: user.displayName,
-        avatarUrl: user.avatarUrl,
-    };
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
-    const result = await createUserStory(authorSummary, content, selectedBg);
-    if (result.success) {
-      toast({ title: 'Story Posted!', description: 'Your story is now live for 24 hours.' });
-      setContent('');
-      setSelectedBg(backgroundColors[0]);
-      onOpenChange(false);
-    } else {
-      toast({ title: 'Error Posting Story', description: result.error, variant: 'destructive' });
+    if (!cloudName || !uploadPreset) {
+      toast({ title: 'Configuration Error', description: 'Cannot upload media.', variant: 'destructive' });
+      setIsPosting(false);
+      return;
     }
-    setIsPosting(false);
+    
+    const formData = new FormData();
+    formData.append('file', mediaFile);
+    formData.append('upload_preset', uploadPreset);
+
+    try {
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'image' ? 'image' : 'video'}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (data.secure_url) {
+        const authorSummary: UserSummary = {
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+        };
+        const result = await createMediaUserStory(authorSummary, data.secure_url, mediaType);
+        
+        if (result.success) {
+          toast({ title: 'Story Posted!', description: 'Your story is now live for 24 hours.' });
+          resetState();
+          onOpenChange(false);
+        } else {
+          toast({ title: 'Error Posting Story', description: result.error, variant: 'destructive' });
+        }
+
+      } else {
+        throw new Error(data.error?.message || 'Unknown Cloudinary error');
+      }
+    } catch (error) {
+      console.error("Error posting media story:", error);
+      toast({ title: 'Upload Failed', description: 'Could not post your story. Please try again.', variant: 'destructive' });
+    } finally {
+      setIsPosting(false);
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] p-0 border-0 bg-transparent shadow-none">
-          <DialogHeader className="sr-only">
+    <Dialog open={open} onOpenChange={(isOpen) => {
+        onOpenChange(isOpen);
+        if (!isOpen) resetState();
+    }}>
+      <DialogContent className="sm:max-w-[425px] p-0 border-0 bg-background shadow-lg">
+          <DialogHeader className="p-6 pb-0">
             <DialogTitle>Create a new story</DialogTitle>
+            <DialogDescription>Upload a photo or a short video clip to share with your followers.</DialogDescription>
           </DialogHeader>
-          <div className={cn("rounded-lg p-6 flex flex-col items-center justify-center aspect-[9/16] min-h-[400px] w-full", selectedBg)}>
-            <Textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="What's on your mind?"
-              maxLength={280}
-              className="bg-transparent border-none text-white text-2xl font-bold text-center resize-none shadow-none focus-visible:ring-0 placeholder:text-white/70 h-full"
+
+          <div className="p-6 pt-2">
+            <div 
+                className={cn(
+                    "aspect-square w-full rounded-md border-2 border-dashed border-border flex items-center justify-center text-muted-foreground transition-colors",
+                    !mediaPreview && "hover:border-primary hover:text-primary cursor-pointer"
+                )}
+                onClick={() => fileInputRef.current?.click()}
+            >
+                {mediaPreview ? (
+                    <div className="relative w-full h-full">
+                        {mediaType === 'image' && <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="cover" className="rounded-md" />}
+                        {mediaType === 'video' && <video src={mediaPreview} className="w-full h-full object-cover rounded-md" controls />}
+                    </div>
+                ) : (
+                    <div className="text-center">
+                        <UploadCloud className="mx-auto h-12 w-12" />
+                        <p>Click to upload</p>
+                        <p className="text-xs">PNG, JPG, MP4, WEBM (Max 25MB)</p>
+                    </div>
+                )}
+            </div>
+             <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*,video/*"
+                className="hidden"
             />
           </div>
-          <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center bg-transparent px-2">
-             <Popover>
-                <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="rounded-full bg-black/40 text-white hover:bg-black/60 hover:text-white">
-                        <Palette />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-2 bg-black/50 border-none">
-                    <div className="flex gap-2">
-                        {backgroundColors.map((color) => (
-                            <button
-                                key={color}
-                                className={cn('h-8 w-8 rounded-full border-2', selectedBg === color ? 'border-white' : 'border-transparent', color)}
-                                onClick={() => setSelectedBg(color)}
-                            />
-                        ))}
-                    </div>
-                </PopoverContent>
-            </Popover>
-            <Button onClick={handlePost} disabled={isPosting} size="icon" className="rounded-full bg-white text-black hover:bg-gray-200">
-                {isPosting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+          
+          <DialogFooter className="p-6 pt-0">
+            <Button onClick={handlePost} disabled={isPosting || !mediaFile} className="w-full">
+                {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                {isPosting ? 'Posting...' : 'Post Story'}
             </Button>
-          </div>
+          </DialogFooter>
       </DialogContent>
     </Dialog>
   );
