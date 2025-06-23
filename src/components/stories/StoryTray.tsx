@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -24,7 +23,7 @@ export default function NoteTray() {
 
   useEffect(() => {
     // This query fetches non-expired notes and orders them.
-    // It requires a composite index in Firestore.
+    // It requires a composite index in Firestore. If it fails, Firebase will provide a link in the console to create it.
     const q = query(
         collection(db, 'userNotes'),
         where('expiresAt', '>', Timestamp.now()),
@@ -33,7 +32,21 @@ export default function NoteTray() {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetchedNotes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NoteWithAuthor));
-        setNotes(fetchedNotes);
+        
+        // Filter notes based on visibility rules on the client
+        const filteredNotes = fetchedNotes.filter(note => {
+            if (note.visibility === 'public') {
+                return true;
+            }
+            if (user && note.visibility === 'followers') {
+                // Show if it's the current user's own note OR they follow the author
+                return note.authorId === user.id || user.followingIds?.includes(note.authorId);
+            }
+            // If user is not logged in, they only see public notes (covered by the first check)
+            return false;
+        });
+
+        setNotes(filteredNotes);
     }, (error) => {
         console.error("Error fetching notes for tray:", error);
         if (error.code === 'failed-precondition') {
@@ -43,11 +56,18 @@ export default function NoteTray() {
                 variant: "destructive",
                 duration: 10000,
             });
+        } else if (error.code === 'permission-denied') {
+             toast({
+                title: "Permission Error",
+                description: "Could not fetch notes. Please check your Firestore security rules.",
+                variant: "destructive",
+                duration: 10000,
+            });
         }
     });
 
     return () => unsubscribe();
-  }, [toast]);
+  }, [toast, user]);
   
   const handleAddNoteClick = () => {
     if (user) {
