@@ -4,52 +4,79 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users collection
+    // Helper functions
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    function isCollaborator(storyId) {
+      return request.auth != null && request.auth.uid in get(/databases/$(database)/documents/stories/$(storyId)).data.collaboratorIds;
+    }
+    
+    function isStoryPublic(storyId) {
+      return get(/databases/$(database)/documents/stories/$(storyId)).data.visibility == 'Public';
+    }
+
+    // USER PROFILES
     match /users/{userId} {
-      allow read: if true;
-      allow create: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId;
+      allow read: if true; // Anyone can read a user profile
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if isOwner(userId);
     }
-
-    // Stories collection (long-form content)
+    
+    // STORIES (book-like)
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || (request.auth != null && (request.auth.uid == resource.data.author.id || resource.data.collaboratorIds[request.auth.uid] == true));
-      allow create: if request.auth.uid == request.resource.data.author.id;
-      allow update: if request.auth.uid == resource.data.author.id || resource.data.collaboratorIds[request.auth.uid] == true;
-      allow delete: if request.auth.uid == resource.data.author.id;
+      allow read: if isStoryPublic(storyId) || isOwner(resource.data.author.id) || isCollaborator(storyId);
+      allow create: if isOwner(request.resource.data.author.id);
+      allow update: if isOwner(resource.data.author.id) || isCollaborator(storyId);
+      allow delete: if isOwner(resource.data.author.id);
     }
-    
-    // Comments on stories
+
+    // COMMENTS
     match /comments/{commentId} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth.uid == resource.data.user.id;
+        allow read: if true; // Anyone can read comments
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.user.id;
+        allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
     }
     
-    // Notifications
+    // NOTIFICATIONS
     match /notifications/{notificationId} {
-      allow read, update, delete: if request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null; // Server-side logic should validate who can create what
+      allow read, update, delete: if isOwner(resource.data.userId);
+      // Writes are handled by server actions/backend logic, so no client `create` needed
+      allow create: if false; 
     }
-
-    // Letters between users and authors
+    
+    // LETTERS
     match /letters/{letterId} {
-      allow read, update: if request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id;
-      allow create: if request.auth.uid == request.resource.data.reader.id;
+      allow read: if isOwner(resource.data.authorId) || isOwner(resource.data.reader.id);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.reader.id;
+      allow update: if isOwner(resource.data.authorId); // Only author can pin/respond
     }
 
-    // User stories (ephemeral, like Instagram stories)
+    // USER STORIES (Instagram-style)
     match /userStories/{userStoryId} {
-      allow read: if true; // Anyone can read stories
+      allow read: if true; // Anyone can view stories
       allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+      // Stories expire, they are not updated or deleted by users.
+      allow update, delete: if false; 
     }
 
-    // Feed posts
+    // FEED POSTS
     match /feedPosts/{postId} {
-      allow read: if true; // Anyone can read the feed
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
-      allow update: if request.auth != null; // Liking is an update
+        allow read: if true;
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+        allow update: if request.auth != null; // Allow any logged-in user to like (update likedBy array)
+        allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+    }
+
+    // CONVERSATIONS
+    match /conversations/{conversationId} {
+        allow read, create, update: if request.auth != null && request.auth.uid in resource.data.participantIds;
+
+        // MESSAGES Subcollection
+        match /messages/{messageId} {
+            allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        }
     }
   }
 }
