@@ -36,18 +36,24 @@ export default function ViewUserStoriesPage() {
         }
 
         setIsLoading(true);
-        // Correctly query for stories that have not yet expired
-        const now = Timestamp.now();
-        
+        // This simplified query fetches the user's stories and we filter on the client.
+        // This avoids needing a composite index.
         const q = query(
             collection(db, 'userStories'),
             where('authorId', '==', userId),
-            where('expiresAt', '>=', now),
-            orderBy('expiresAt', 'asc')
+            orderBy('createdAt', 'asc') // Order by creation time
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedStories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserStory));
+            const now = new Date();
+            const fetchedStories = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() } as UserStory))
+                .filter(story => { // Filter for non-expired stories on the client
+                    if (!story.expiresAt) return false;
+                    const expires = (story.expiresAt as Timestamp).toDate();
+                    return expires > now;
+                });
+
             if (fetchedStories.length > 0) {
                 setStories(fetchedStories);
                 setAuthor(fetchedStories[0].author);
@@ -206,7 +212,7 @@ export default function ViewUserStoriesPage() {
                         <div>
                             <Link href={`/profile/${author.id}`} className="font-semibold text-white drop-shadow-sm hover:underline">{author.displayName || author.username}</Link>
                             {activeStory.createdAt && (
-                                <p className="text-xs text-white/80 drop-shadow-sm">{formatDistanceToNowStrict(activeStory.createdAt.toDate())} ago</p>
+                                <p className="text-xs text-white/80 drop-shadow-sm">{formatDistanceToNowStrict((activeStory.createdAt as Timestamp).toDate())} ago</p>
                             )}
                         </div>
                     </div>

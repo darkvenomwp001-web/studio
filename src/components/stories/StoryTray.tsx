@@ -9,7 +9,7 @@ import CreateStoryDialog from './CreateStoryDialog';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, Timestamp, getDoc, doc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, Timestamp, limit, getDoc, doc } from 'firebase/firestore';
 import type { UserStory, UserSummary } from '@/types';
 
 export default function StoryTray() {
@@ -19,18 +19,27 @@ export default function StoryTray() {
   const [storyAuthors, setStoryAuthors] = useState<UserSummary[]>([]);
 
   useEffect(() => {
-    // Correctly query for stories that have not yet expired.
-    const now = Timestamp.now();
-    
+    // This simplified query fetches the 30 most recent stories.
+    // It does NOT require a composite index.
     const q = query(
         collection(db, 'userStories'),
-        where('expiresAt', '>=', now),
-        orderBy('expiresAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        limit(30) // Limit to a reasonable number to avoid fetching too much data
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-        const stories = snapshot.docs.map(doc => doc.data() as UserStory);
-        const uniqueAuthorIds = [...new Set(stories.map(story => story.authorId))];
+        const now = new Date();
+        const allFetchedStories = snapshot.docs.map(doc => doc.data() as UserStory);
+
+        // Client-side filtering: only show stories that have not expired.
+        const validStories = allFetchedStories.filter(story => {
+            if (!story.expiresAt) return false;
+            // Convert Firestore Timestamp to JS Date for comparison
+            const expires = (story.expiresAt as Timestamp).toDate(); 
+            return expires > now;
+        });
+
+        const uniqueAuthorIds = [...new Set(validStories.map(story => story.authorId))];
 
         if (uniqueAuthorIds.length > 0) {
             const authorPromises = uniqueAuthorIds.map(id => getDoc(doc(db, 'users', id)));
@@ -45,14 +54,15 @@ export default function StoryTray() {
             setStoryAuthors([]);
         }
     }, (error) => {
-        // This is where the index error will appear in the console.
-        console.error("Error fetching stories for tray. This might be a missing Firestore index.", error);
-        toast({
-            title: "Could not load stories",
-            description: "Please check the developer console for an error message from Firestore. It may contain a link to create a required database index.",
-            variant: "destructive",
-            duration: 10000,
-        })
+        console.error("Error fetching stories for tray:", error);
+        if (error.code === 'permission-denied') {
+             toast({
+                title: "Error Loading Stories",
+                description: "Permission denied. Please ensure your firestore.rules are set up correctly to allow reads on the 'userStories' collection.",
+                variant: "destructive",
+                duration: 10000,
+            });
+        }
     });
 
     return () => unsubscribe();
