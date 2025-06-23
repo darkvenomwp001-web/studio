@@ -1,9 +1,9 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -11,60 +11,74 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
+    
+    function canUpdateFollowerCount() {
+      return isSignedIn() && 
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount', 'updatedAt']);
+    }
 
-    // ===== USERS COLLECTION =====
+    // USERS
     match /users/{userId} {
       allow read: if true;
-      allow create, update: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || canUpdateFollowerCount();
       allow delete: if false;
     }
 
-    // ===== STORIES COLLECTION (Books) =====
+    // STORIES (Books)
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || 
-                    resource.data.visibility == 'Unlisted' || 
-                    (isSignedIn() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds));
-      allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if isSignedIn() && resource.data.author.id == request.auth.uid;
-    }
-
-    // ===== USER NOTES (Messenger-style notes) =====
-    // ANY signed-in user can read the notes collection. 
-    // The client is responsible for filtering notes based on visibility (public vs followers).
-    // This is simpler and avoids complex/impossible-to-secure queries.
-    match /userNotes/{userNoteId} {
-      allow read: if isSignedIn();
-      allow create: if isOwner(request.resource.data.authorId);
-      allow update, delete: if false; // Notes are short-lived and not meant to be updated.
+      allow read: if resource.data.visibility == 'Public' ||
+                    resource.data.visibility == 'Unlisted' ||
+                    (isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
+      allow create: if isOwner(request.resource.data.author.id);
+      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds);
+      allow delete: if isOwner(resource.data.author.id);
     }
     
-    // ===== FEED POSTS COLLECTION =====
+    // USER NOTES (Messenger-style)
+    match /userNotes/{noteId} {
+      allow read: if isSignedIn(); // Client filters for public/follower
+      allow create: if isOwner(request.resource.data.authorId);
+      allow update, delete: if false;
+    }
+
+    // FEED POSTS
     match /feedPosts/{postId} {
       allow read: if true;
-      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.authorId);
       allow update: if isSignedIn(); // For likes
       allow delete: if isOwner(resource.data.authorId);
     }
 
-    // ===== COMMENTS COLLECTION =====
+    // CONVERSATIONS and MESSAGES
+    match /conversations/{conversationId} {
+      allow read, create, update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow update, delete: if false;
+      }
+    }
+    
+    // LETTERS
+    match /letters/{letterId} {
+      allow read, update: if isSignedIn() && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.reader.id;
+      allow delete: if false;
+    }
+
+    // COMMENTS
     match /comments/{commentId} {
       allow read: if true;
       allow create: if isSignedIn();
       allow update, delete: if isOwner(resource.data.user.id);
     }
 
-    // ===== LETTERS COLLECTION =====
-     match /letters/{letterId} {
-      allow read, update: if isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id));
-      allow create: if isSignedIn() && isOwner(request.resource.data.reader.id);
-      allow delete: if false;
-    }
-
-    // ===== NOTIFICATIONS COLLECTION =====
+    // NOTIFICATIONS
     match /notifications/{notificationId} {
+      allow create: if isSignedIn();
       allow read, update, delete: if isOwner(resource.data.userId);
-      allow create: if true; // Created by trusted actions/server logic
     }
   }
 }
