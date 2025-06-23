@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -18,11 +19,19 @@ const mockUsers = [
 export default function StoryTray() {
   const { user } = useAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const { toast } = useToast();
 
-  // The tray is only shown if the user is logged in, to allow creating stories.
-  if (!user) {
-    return null;
-  }
+  const handleAddStoryClick = () => {
+    if (user) {
+      setIsCreateDialogOpen(true);
+    } else {
+      toast({
+        title: "Please Sign In",
+        description: "You need to be logged in to post a story.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <>
@@ -30,7 +39,7 @@ export default function StoryTray() {
         <div className="flex overflow-x-auto space-x-4 py-2 px-4 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
           {/* Button to add a new story */}
           <button
-            onClick={() => setIsCreateDialogOpen(true)}
+            onClick={handleAddStoryClick}
             className="text-center w-16 flex-shrink-0"
             aria-label="Add a new story"
           >

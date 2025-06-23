@@ -158,4 +158,5 @@ export interface UserStory {
   expiresAt: Timestamp;
   duration?: number; // Optional, e.g., for videos
   views?: number;
+  dataAiHint?: string;
 }

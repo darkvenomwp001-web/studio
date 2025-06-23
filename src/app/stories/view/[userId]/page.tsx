@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -165,7 +166,7 @@ export default function ViewUserStoriesPage() {
     };
     
     const pauseTimer = () => setIsPaused(true);
-    const resumeTimer = () => setIsPaused(false);
+    const resumeTimer = () => resumeTimer();
 
     if (isLoading) {
         return (

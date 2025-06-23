@@ -5,7 +5,7 @@ import { useState, useRef, ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, UploadCloud, Film, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Send, UploadCloud } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createMediaUserStory } from '@/app/actions/storyActions';
 import type { UserSummary } from '@/types';
@@ -117,12 +117,12 @@ export default function CreateStoryDialog({ open, onOpenChange }: CreateStoryDia
         if (!isOpen) resetState();
     }}>
       <DialogContent className="sm:max-w-[425px] p-0 border-0 bg-background shadow-lg">
-          <DialogHeader className="p-6 pb-0">
+          <DialogHeader className="p-6 pb-0 sr-only">
             <DialogTitle>Create a new story</DialogTitle>
             <DialogDescription>Upload a photo or a short video clip to share with your followers.</DialogDescription>
           </DialogHeader>
 
-          <div className="p-6 pt-2">
+          <div className="p-6 pt-6">
             <div 
                 className={cn(
                     "aspect-square w-full rounded-md border-2 border-dashed border-border flex items-center justify-center text-muted-foreground transition-colors",
