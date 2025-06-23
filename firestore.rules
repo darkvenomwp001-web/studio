@@ -4,61 +4,75 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users can only be created by themselves, and can only update their own profile.
-    // Public profile information is readable by anyone.
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Users can read all profiles, but only write to their own.
     match /users/{userId} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
+      allow write: if isOwner(userId);
     }
 
-    // Stories can be read by anyone if public.
-    // They can only be created, updated, or deleted by the author or a collaborator.
+    // Rules for written book-style stories
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || 
-                   (request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds));
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
-      allow update, delete: if request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
+      allow read: if resource.data.visibility == 'Public' 
+                    || resource.data.visibility == 'Unlisted' 
+                    || (request.auth != null && isOwner(resource.data.author.id)) 
+                    || (request.auth != null && request.auth.uid in resource.data.collaboratorIds);
+
+      allow create: if request.auth != null && isOwner(request.resource.data.author.id);
+      
+      allow update, delete: if request.auth != null && (isOwner(resource.data.author.id) || (request.auth.uid in resource.data.collaboratorIds));
     }
 
-    // User Stories ("My Day") are public to read.
-    // They can only be created by the user who owns them.
+    // Rules for ephemeral, Instagram-style "My Day" stories
     match /userStories/{userStoryId} {
-      allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+      // Allow anyone to read a story if it hasn't expired.
+      allow read: if resource.data.expiresAt > request.time;
+      
+      // Allow a user to create a story if they are the author.
+      allow create: if request.auth != null && isOwner(request.resource.data.authorId);
+      
+      // Allow a user to delete their own story.
+      allow delete: if request.auth != null && isOwner(resource.data.authorId);
     }
 
-    // Comments are public to read.
-    // Any authenticated user can create one.
-    // Only the owner of a comment can edit or delete it.
-    match /comments/{commentId} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
-    }
-
-    // Notifications can only be read or updated by the user they are intended for.
-    // Any authenticated user (via a server action) can create a notification.
-    match /notifications/{notificationId} {
-      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null;
-    }
-
-    // Letters can be read by the author or the reader.
-    // An authenticated user can create a letter.
-    // Only the author can update a letter (to respond or pin it).
-    match /letters/{letterId} {
-      allow read, update: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
-      allow create: if request.auth != null;
-    }
-
-    // Feed posts are public to read.
-    // They can only be created, updated (for likes), or deleted by the author.
+    // Rules for the social feed
     match /feedPosts/{postId} {
-      allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+      allow read: if true; // Feed is public for simplicity
+      allow create: if request.auth != null && isOwner(request.resource.data.author.id);
+      allow update: if request.auth != null; // Allow any logged-in user to update (for liking)
+      allow delete: if request.auth != null && isOwner(resource.data.author.id);
+    }
+
+    // Rules for comments on stories
+    match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null && isOwner(request.resource.data.user.id);
+        allow update, delete: if request.auth != null && isOwner(resource.data.user.id);
+    }
+    
+    // Rules for private letters between users and authors
+    match /letters/{letterId} {
+        allow read, update: if request.auth != null && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id));
+        allow create: if request.auth != null && isOwner(request.resource.data.reader.id);
+    }
+    
+    // Rules for private messaging
+    match /conversations/{conversationId} {
+        allow read, update, create: if request.auth != null && request.auth.uid in resource.data.participantIds;
+
+        match /messages/{messageId} {
+            allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        }
+    }
+    
+    // Rules for notifications
+    match /notifications/{notificationId} {
+        allow read, update: if request.auth != null && isOwner(resource.data.userId);
+        // Creation is handled by trusted server actions or client-side logic where the creator is the intended recipient.
+        allow create: if request.auth != null;
     }
   }
 }
