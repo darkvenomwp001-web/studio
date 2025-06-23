@@ -1,8 +1,11 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { ArrowLeft, BarChart, Quote, Users, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { UserStory, UserSummary } from '@/types';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,10 +13,10 @@ import Link from 'next/link';
 import { X, Heart, MessageCircle, Loader2 } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+
 
 const mockAuthorData: { [key: string]: UserSummary } = {
     'mock-1': { id: 'mock-1', username: 'Alex', displayName: 'Alex', avatarUrl: 'https://placehold.co/100x100.png' },
@@ -166,7 +169,7 @@ export default function ViewUserStoriesPage() {
     };
     
     const pauseTimer = () => setIsPaused(true);
-    const resumeTimer = () => resumeTimer();
+    const resumeTimer = () => setIsPaused(false);
 
     if (isLoading) {
         return (
@@ -259,3 +262,5 @@ export default function ViewUserStoriesPage() {
         </div>
     );
 }
+
+    
