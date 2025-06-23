@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
@@ -33,12 +34,16 @@ export default function PostStoryPage() {
   const [content, setContent] = useState('');
   const [selectedBg, setSelectedBg] = useState(backgroundColors[0]);
 
+  // useSearchParams() can suspend. We read the value once it's available.
+  const storyType = searchParams.get('type');
+
   useEffect(() => {
-    const storyType = searchParams.get('type');
-    if (storyType !== 'text') {
-      router.push('/instapost');
+    // This effect handles the redirection if the type is incorrect.
+    // We check for `storyType` being non-null to avoid redirecting before params are loaded.
+    if (storyType && storyType !== 'text') {
+      router.replace('/instapost');
     }
-  }, [searchParams, router, toast]);
+  }, [storyType, router]);
 
   const handleSubmit = () => {
     if (!user) {
@@ -71,6 +76,16 @@ export default function PostStoryPage() {
       }
     });
   };
+
+  // Render a loading state or null while params are loading or redirect is happening.
+  // This prevents the main component from rendering with potentially invalid state.
+  if (storyType !== 'text') {
+    return (
+      <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-white" />
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
