@@ -81,7 +81,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
 const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search', '/profile/', '/write/history', '/settings', '/library'];
-const DEFAULT_REDIRECT_AUTHENTICATED = '/profile';
+const DEFAULT_REDIRECT_AUTHENTICATED = '/';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -109,6 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         unsubscribeUserDoc = onSnapshot(userRef, async (userSnap) => {
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
+            // Fetch the user's written stories to populate the `writtenStories` field
+            const storiesQuery = query(collection(db, "stories"), where("author.id", "==", firebaseUser.uid));
+            const storiesSnapshot = await getDocs(storiesQuery);
+            const writtenStories = storiesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
+
             setUser({
               id: firebaseUser.uid,
               email: firebaseUser.email || firestoreUserData.email,
@@ -120,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followersCount: firestoreUserData.followersCount || 0,
               followingCount: firestoreUserData.followingIds?.length || 0,
               followingIds: firestoreUserData.followingIds || [],
-              writtenStories: firestoreUserData.writtenStories || [],
+              writtenStories: writtenStories,
               readingList: firestoreUserData.readingList || [],
               createdAt: firestoreUserData.createdAt,
               updatedAt: firestoreUserData.updatedAt,

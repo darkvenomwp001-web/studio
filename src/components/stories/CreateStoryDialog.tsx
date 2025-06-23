@@ -1,161 +1,114 @@
 
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, UploadCloud } from 'lucide-react';
+import { Loader2, Send, Users, Globe } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { createMediaUserStory } from '@/app/actions/storyActions';
+import { createUserNote } from '@/app/actions/storyActions';
 import type { UserSummary } from '@/types';
-import Image from 'next/image';
-import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
-interface CreateStoryDialogProps {
+interface CreateNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function CreateStoryDialog({ open, onOpenChange }: CreateStoryDialogProps) {
+export default function CreateNoteDialog({ open, onOpenChange }: CreateNoteDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
+  const [content, setContent] = useState('');
+  const [visibility, setVisibility] = useState<'public' | 'followers'>('public');
   const [isPosting, setIsPosting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const characterLimit = 60;
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 25 * 1024 * 1024) { // 25MB limit
-        toast({ title: "File too large", description: "Please select a file smaller than 25MB.", variant: "destructive" });
-        return;
-      }
-      setMediaFile(file);
-      setMediaType(file.type.startsWith('image') ? 'image' : 'video');
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMediaPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+  useEffect(() => {
+    if (!open) {
+        setContent('');
+        setVisibility('public');
+        setIsPosting(false);
     }
-  };
-
-  const resetState = () => {
-    setMediaFile(null);
-    setMediaPreview(null);
-    setMediaType(null);
-    setIsPosting(false);
-  };
+  }, [open]);
 
   const handlePost = async () => {
     if (!user) {
       toast({ title: 'You must be logged in to post.', variant: 'destructive' });
       return;
     }
-    if (!mediaFile || !mediaType) {
-      toast({ title: 'No file selected', description: 'Please select a photo or video to post.', variant: 'destructive' });
+    if (content.trim().length === 0) {
+      toast({ title: 'Note cannot be empty', variant: 'destructive' });
       return;
     }
     
     setIsPosting(true);
-
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-
-    if (!cloudName || !uploadPreset) {
-      toast({ title: 'Configuration Error', description: 'Cannot upload media.', variant: 'destructive' });
-      setIsPosting(false);
-      return;
-    }
+    const authorSummary: UserSummary = {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+    };
+    const result = await createUserNote(authorSummary, content, visibility);
     
-    const formData = new FormData();
-    formData.append('file', mediaFile);
-    formData.append('upload_preset', uploadPreset);
-
-    try {
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'image' ? 'image' : 'video'}/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-
-      if (data.secure_url) {
-        const authorSummary: UserSummary = {
-          id: user.id,
-          username: user.username,
-          displayName: user.displayName,
-          avatarUrl: user.avatarUrl,
-        };
-        const result = await createMediaUserStory(authorSummary, data.secure_url, mediaType);
-        
-        if (result.success) {
-          toast({ title: 'Story Posted!', description: 'Your story is now live for 24 hours.' });
-          resetState();
-          onOpenChange(false);
-        } else {
-          toast({ title: 'Error Posting Story', description: result.error, variant: 'destructive' });
-        }
-
-      } else {
-        throw new Error(data.error?.message || 'Unknown Cloudinary error');
-      }
-    } catch (error) {
-      console.error("Error posting media story:", error);
-      toast({ title: 'Upload Failed', description: 'Could not post your story. Please try again.', variant: 'destructive' });
-    } finally {
-      setIsPosting(false);
+    if (result.success) {
+        toast({ title: 'Note Posted!', description: 'Your note is now live for 24 hours.' });
+        onOpenChange(false);
+    } else {
+        toast({ title: 'Error Posting Note', description: result.error, variant: 'destructive' });
     }
+    setIsPosting(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-        onOpenChange(isOpen);
-        if (!isOpen) resetState();
-    }}>
-      <DialogContent className="sm:max-w-[425px] p-0 border-0 bg-background shadow-lg">
-          <DialogHeader className="p-6 pb-0 sr-only">
-            <DialogTitle>Create a new story</DialogTitle>
-            <DialogDescription>Upload a photo or a short video clip to share with your followers.</DialogDescription>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md bg-background shadow-lg rounded-lg">
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-lg">Share a Note</DialogTitle>
+            <DialogDescription>
+                Your note will be visible for 24 hours.
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="p-6 pt-6">
-            <div 
-                className={cn(
-                    "aspect-square w-full rounded-md border-2 border-dashed border-border flex items-center justify-center text-muted-foreground transition-colors",
-                    !mediaPreview && "hover:border-primary hover:text-primary cursor-pointer"
-                )}
-                onClick={() => fileInputRef.current?.click()}
-            >
-                {mediaPreview ? (
-                    <div className="relative w-full h-full">
-                        {mediaType === 'image' && <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="cover" className="rounded-md" />}
-                        {mediaType === 'video' && <video src={mediaPreview} className="w-full h-full object-cover rounded-md" controls />}
-                    </div>
-                ) : (
-                    <div className="text-center">
-                        <UploadCloud className="mx-auto h-12 w-12" />
-                        <p>Click to upload</p>
-                        <p className="text-xs">PNG, JPG, MP4, WEBM (Max 25MB)</p>
-                    </div>
-                )}
-            </div>
-             <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="image/*,video/*"
-                className="hidden"
-            />
+          <div className="flex flex-col items-center gap-4 py-4">
+              <Avatar className="h-20 w-20">
+                <AvatarImage src={user?.avatarUrl} alt={user?.username} data-ai-hint="profile person" />
+                <AvatarFallback>{user?.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="w-full relative">
+                <textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    maxLength={characterLimit}
+                    placeholder="What's on your mind?"
+                    className="w-full h-24 p-3 text-center text-sm bg-muted rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <p className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                    {content.length}/{characterLimit}
+                </p>
+              </div>
           </div>
           
-          <DialogFooter className="p-6 pt-0">
-            <Button onClick={handlePost} disabled={isPosting || !mediaFile} className="w-full">
+          <DialogFooter className="flex-col gap-2">
+            <div>
+                 <p className="text-sm font-medium mb-2 text-center">Who can see this note?</p>
+                 <RadioGroup value={visibility} onValueChange={(v) => setVisibility(v as 'public' | 'followers')} className="flex gap-4 justify-center" disabled={isPosting}>
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="public" id="visPublic" />
+                        <Label htmlFor="visPublic" className="font-normal flex items-center gap-1"><Globe className="h-4 w-4"/>Public</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="followers" id="visFollowers" />
+                        <Label htmlFor="visFollowers" className="font-normal flex items-center gap-1"><Users className="h-4 w-4"/>Followers</Label>
+                    </div>
+                </RadioGroup>
+            </div>
+            <Button onClick={handlePost} disabled={isPosting || content.trim().length === 0} className="w-full">
                 {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                {isPosting ? 'Posting...' : 'Post Story'}
+                {isPosting ? 'Posting...' : 'Post Note'}
             </Button>
           </DialogFooter>
       </DialogContent>

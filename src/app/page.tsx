@@ -15,7 +15,7 @@ import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import StoryTray from '@/components/stories/StoryTray';
+import NoteTray from '@/components/stories/StoryTray';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import CreatePostForm from '@/components/feed/CreatePostForm';
@@ -282,16 +282,18 @@ function LiveFeedTabContent() {
 }
 
 function WritingPromptsTabContent() {
-    const mockPrompts = [
-        { title: 'Weekly Prompt #24', prompt: 'A character wakes up with the ability to hear the thoughts of plants. What do they learn?', genre: 'Fantasy / Comedy' },
-        { title: 'The Five-Sentence Challenge', prompt: 'Write a complete, compelling story in exactly five sentences.', genre: 'Flash Fiction' },
+    const prompts = [
+        { title: 'The Silent Artifact', prompt: 'An ancient artifact is discovered that absorbs all sound around it. Describe the first team to study it and what happens when it "activates".', genre: 'Sci-Fi / Horror' },
+        { title: 'A Favor for a Ghost', prompt: 'The ghost of a long-lost friend appears and asks you for one last favor. You must complete it before sunrise.', genre: 'Fantasy / Drama' },
+        { title: 'The Last Bookstore', prompt: 'In a future where all books are digital, you run the last physical bookstore on Earth. Who is your final customer and what book do they want?', genre: 'Dystopian / Sentimental' },
+        { title: 'Five-Sentence Challenge', prompt: 'Write a complete, compelling story in exactly five sentences. The story must include the word "shadow".', genre: 'Flash Fiction' }
     ];
     return (
         <div className="py-8 max-w-3xl mx-auto">
              <h2 className="text-2xl font-headline font-bold text-center mb-6">Prompts &amp; Challenges</h2>
              <div className="space-y-6">
-                {mockPrompts.map((item, index) => (
-                    <Card key={index}>
+                {prompts.map((item, index) => (
+                    <Card key={index} className="shadow-sm hover:shadow-md transition-shadow">
                         <CardHeader>
                             <div className="flex items-center gap-3">
                                <PenSquare className="h-6 w-6 text-accent"/>
@@ -333,7 +335,7 @@ export default function HomePage() {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
         <div className="space-y-6">
-          <StoryTray />
+          <NoteTray />
 
           <Tabs defaultValue="for-you" className="w-full">
             <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">

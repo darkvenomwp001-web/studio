@@ -12,7 +12,7 @@ export interface User {
   followersCount?: number;
   followingCount?: number;
   followingIds?: string[];
-  writtenStories?: string[];
+  writtenStories?: Story[]; // Changed to hold full story objects for attach feature
   readingList?: ReadingListItem[];
   createdAt?: any;
   updatedAt?: any;
@@ -66,18 +66,14 @@ export interface AllowedUser {
   expiresAt: any; // Can be Timestamp
 }
 
-export interface UserStory {
-    id: string;
-    authorId: string;
-    author: UserSummary;
-    type: 'text' | 'image' | 'video';
-    content: string; // URL for media or text content
-    backgroundColor?: string; // For text stories
-    views: number;
-    createdAt: Timestamp; // Changed to Timestamp
-    expiresAt: Timestamp; // Changed to Timestamp
-    duration?: number;
-    dataAiHint?: string;
+export interface UserNote {
+  id: string;
+  authorId: string;
+  author: UserSummary;
+  content: string;
+  visibility: 'public' | 'followers';
+  createdAt: Timestamp;
+  expiresAt: Timestamp;
 }
 
 export interface Comment {
@@ -141,7 +137,6 @@ export interface FeedPost {
     commentsCount: number;
     storyId?: string; // Optional attached story
     storyTitle?: string;
-
     storyCoverUrl?: string;
 }
 

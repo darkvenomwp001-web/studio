@@ -2,26 +2,25 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { UserSummary, UserStory } from '@/types';
+import type { UserSummary } from '@/types';
 import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
-export async function createUserStory(
+export async function createUserNote(
     author: UserSummary, 
     content: string, 
-    backgroundColor: string
+    visibility: 'public' | 'followers'
 ): Promise<{ success: boolean; error?: string }> {
   if (!author || !author.id) {
     return { success: false, error: 'User is not authenticated.' };
   }
   if (content.trim().length === 0) {
-    return { success: false, error: 'Story content cannot be empty.' };
+    return { success: false, error: 'Note content cannot be empty.' };
   }
-  if (content.length > 280) { // Limit story length
-    return { success: false, error: 'Story content cannot exceed 280 characters.' };
+  if (content.length > 60) {
+    return { success: false, error: 'Note content cannot exceed 60 characters.' };
   }
 
-  // Sanitize the author object to remove undefined fields before saving to Firestore.
   const authorForFirestore: UserSummary = {
     id: author.id,
     username: author.username,
@@ -33,70 +32,21 @@ export async function createUserStory(
     authorForFirestore.avatarUrl = author.avatarUrl;
   }
 
-  const newStory: Omit<UserStory, 'id' | 'createdAt' | 'expiresAt'> & { createdAt: any, expiresAt: any } = {
+  const newNote = {
     authorId: author.id,
     author: authorForFirestore,
-    type: 'text',
     content: content.trim(),
-    backgroundColor,
-    views: 0,
+    visibility,
     createdAt: serverTimestamp(),
     expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)), // 24 hours from now
   };
 
   try {
-    await addDoc(collection(db, 'userStories'), newStory);
-    revalidatePath('/'); // Revalidate homepage to show the new story
+    await addDoc(collection(db, 'userNotes'), newNote);
+    revalidatePath('/'); // Revalidate homepage to show the new note
     return { success: true };
   } catch (error) {
-    console.error('Error creating user story:', error);
-    return { success: false, error: 'Could not create the story. Please try again.' };
+    console.error('Error creating user note:', error);
+    return { success: false, error: 'Could not create the note. Please try again.' };
   }
 }
-
-
-export async function createMediaUserStory(
-    author: UserSummary, 
-    mediaUrl: string,
-    mediaType: 'image' | 'video'
-): Promise<{ success: boolean; error?: string }> {
-  if (!author || !author.id) {
-    return { success: false, error: 'User is not authenticated.' };
-  }
-  if (!mediaUrl) {
-    return { success: false, error: 'Media URL is missing.' };
-  }
-
-  // Sanitize the author object to remove undefined fields before saving to Firestore.
-  const authorForFirestore: UserSummary = {
-    id: author.id,
-    username: author.username,
-  };
-  if (author.displayName) {
-    authorForFirestore.displayName = author.displayName;
-  }
-  if (author.avatarUrl) {
-    authorForFirestore.avatarUrl = author.avatarUrl;
-  }
-
-  const newStory: Omit<UserStory, 'id' | 'createdAt' | 'expiresAt'> & { createdAt: any, expiresAt: any } = {
-    authorId: author.id,
-    author: authorForFirestore,
-    type: mediaType,
-    content: mediaUrl,
-    views: 0,
-    // duration can be added here if available from the client upload
-    createdAt: serverTimestamp(),
-    expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)), // 24 hours from now
-  };
-
-  try {
-    await addDoc(collection(db, 'userStories'), newStory);
-    revalidatePath('/'); // Revalidate the homepage to show the new story
-    return { success: true };
-  } catch (error) {
-    console.error('Error creating media user story:', error);
-    return { success: false, error: 'Could not create the story. Please try again.' };
-  }
-}
-

@@ -151,7 +151,7 @@ export default function StoryOverviewPage() {
     if ('error' in result) {
       toast({
         title: "Mood Matcher Error",
-        description: "Couldn't determine the mood. Please try again.",
+        description: `Couldn't determine the mood: ${result.error}`,
         variant: "destructive",
       });
     } else {
@@ -210,7 +210,7 @@ export default function StoryOverviewPage() {
             onClick={handleMoodMatcherClick}
             aria-label="Mood Matcher"
             className="absolute top-3 left-3 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
-            title="Mood Matcher (Find similar vibes)"
+            title="AI Mood Matcher (Find similar vibes)"
             disabled={isMoodLoading}
           >
             {isMoodLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}

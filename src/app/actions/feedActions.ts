@@ -6,7 +6,13 @@ import { FeedPost, UserSummary } from '@/types';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
-export async function createPost(authorSummary: UserSummary, content: string): Promise<{ success: boolean; error?: string }> {
+export async function createPost(
+  authorSummary: UserSummary, 
+  content: string,
+  storyId?: string,
+  storyTitle?: string,
+  storyCoverUrl?: string
+): Promise<{ success: boolean; error?: string }> {
   if (!authorSummary || !authorSummary.id) {
     return { success: false, error: 'User is not authenticated.' };
   }
@@ -17,7 +23,6 @@ export async function createPost(authorSummary: UserSummary, content: string): P
     return { success: false, error: 'Post content cannot exceed 1000 characters.' };
   }
 
-  // Sanitize the author object to remove undefined fields before saving to Firestore.
   const authorForFirestore: UserSummary = {
     id: authorSummary.id,
     username: authorSummary.username,
@@ -38,6 +43,14 @@ export async function createPost(authorSummary: UserSummary, content: string): P
     likedBy: [],
     commentsCount: 0,
   };
+
+  if (storyId && storyTitle) {
+    newPost.storyId = storyId;
+    newPost.storyTitle = storyTitle;
+    if (storyCoverUrl) {
+      newPost.storyCoverUrl = storyCoverUrl;
+    }
+  }
 
   try {
     await addDoc(collection(db, 'feedPosts'), newPost);
