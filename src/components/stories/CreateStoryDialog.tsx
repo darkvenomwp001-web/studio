@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -10,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { createUserStory } from '@/app/actions/storyActions';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { UserSummary } from '@/types';
 
 const backgroundColors = [
   "bg-gradient-to-br from-gray-700 via-gray-900 to-black",
@@ -41,7 +43,15 @@ export default function CreateStoryDialog({ open, onOpenChange }: CreateStoryDia
       return;
     }
     setIsPosting(true);
-    const result = await createUserStory(user, content, selectedBg);
+
+    const authorSummary: UserSummary = {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+    };
+
+    const result = await createUserStory(authorSummary, content, selectedBg);
     if (result.success) {
       toast({ title: 'Story Posted!', description: 'Your story is now live for 24 hours.' });
       setContent('');
