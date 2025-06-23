@@ -4,7 +4,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { PlusCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
 
 // Mock data for story authors
 const mockStoryAuthors = [
@@ -51,14 +50,17 @@ export default function StoryTray() {
     return (
         <div className="w-full border-b pb-3">
             <div className="flex overflow-x-auto space-x-4 py-2 px-4 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
-                <Link href="/instapost" className="text-center w-16 flex-shrink-0">
+                <button
+                    onClick={() => toast({ title: 'Feature Coming Soon!', description: 'A new story creation experience is being built.' })}
+                    className="text-center w-16 flex-shrink-0"
+                >
                     <div className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
                         <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border hover:border-primary">
                             <PlusCircle className="h-6 w-6" />
                         </div>
                         <span className="text-xs font-medium truncate">Add Story</span>
                     </div>
-                </Link>
+                </button>
 
                 {mockStoryAuthors.map((author) => (
                     <button key={author.id} onClick={handleMockStoryClick} className="flex-shrink-0 w-16 text-center group">
