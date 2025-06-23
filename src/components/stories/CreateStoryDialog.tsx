@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, Palette } from 'lucide-react';
@@ -56,6 +56,9 @@ export default function CreateStoryDialog({ open, onOpenChange }: CreateStoryDia
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] p-0 border-0 bg-transparent shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Create a new story</DialogTitle>
+          </DialogHeader>
           <div className={cn("rounded-lg p-6 flex flex-col items-center justify-center aspect-[9/16] min-h-[400px] w-full", selectedBg)}>
             <Textarea
               value={content}
