@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, MessageSquare } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import CreateNoteDialog from './CreateStoryDialog';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp, where } from 'firebase/firestore';
 import type { UserNote } from '@/types';
-import { cn } from '@/lib/utils';
 
 interface NoteWithAuthor extends UserNote {
   // The 'author' field is already part of UserNote, but this makes it explicit.
@@ -57,12 +56,9 @@ export default function NoteTray() {
                 duration: 10000,
             });
         } else if (error.code === 'permission-denied') {
-             toast({
-                title: "Permission Error",
-                description: "Could not fetch notes. Please check your Firestore security rules.",
-                variant: "destructive",
-                duration: 10000,
-            });
+             // This might still happen for logged-out users if rules are strict.
+            // The rules should be public read for this to work for everyone.
+            console.log("Permission error likely due to Firestore rules. Notes might not appear for logged-out users.");
         }
     });
 
@@ -100,40 +96,28 @@ export default function NoteTray() {
         <div className="flex overflow-x-auto space-x-4 py-2 px-4 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
           <div
             onClick={handleAddNoteClick}
-            className="text-center w-16 flex-shrink-0 cursor-pointer"
+            className="flex-shrink-0 w-24 h-32 bg-muted/50 rounded-lg p-2 flex flex-col items-center justify-center text-center text-muted-foreground hover:bg-muted hover:text-primary transition-colors cursor-pointer border-2 border-dashed border-border"
             aria-label="Add a new note"
           >
-            <div className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
-              <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border hover:border-primary">
-                <Plus className="h-6 w-6" />
-              </div>
-              <span className="text-xs font-medium truncate">Add Note</span>
-            </div>
+            <Plus className="h-8 w-8 mb-2" />
+            <span className="text-xs font-medium">Add Note</span>
           </div>
           
           {uniqueAuthorNotes.map((note) => (
-            <div 
+            <div
               key={note.authorId}
-              className="flex-shrink-0 w-16 text-center group relative cursor-pointer"
+              className="relative flex-shrink-0 w-24 h-32 bg-gradient-to-br from-primary/10 to-accent/10 rounded-lg shadow-sm p-2 flex flex-col justify-between group cursor-pointer overflow-hidden"
               aria-label={`View ${note.author.displayName || note.author.username}'s note`}
-              onClick={user?.id === note.authorId ? handleAddNoteClick : undefined}
             >
-              <div className={cn(
-                  "absolute -top-6 left-1/2 -translate-x-1/2 z-10 w-auto max-w-[120px] bg-card text-card-foreground p-2 rounded-lg shadow-lg text-xs",
-                  "opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" // Show on hover for non-own notes
-              )}>
-                 {note.content}
-                 <div className="absolute bottom-0 left-1/2 w-0 h-0 -translate-x-1/2 translate-y-1/2 border-x-8 border-x-transparent border-t-8 border-t-card"></div>
+              <Avatar className="absolute top-1.5 left-1.5 h-7 w-7 border-2 border-background shadow-sm">
+                <AvatarImage src={note.author.avatarUrl} alt={note.author.username} data-ai-hint="profile person" />
+                <AvatarFallback>{(note.author.displayName || note.author.username).substring(0, 1).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 flex items-end">
+                <p className="text-xs font-medium text-foreground line-clamp-4 leading-snug">
+                  {note.content}
+                </p>
               </div>
-              <div className="h-14 w-14 rounded-full p-0.5 bg-gradient-to-tr from-primary/70 to-accent/70 group-hover:scale-105 transition-transform">
-                <div className="bg-background p-0.5 rounded-full h-full w-full">
-                  <Avatar className="h-full w-full">
-                    <AvatarImage src={note.author.avatarUrl} alt={note.author.username} data-ai-hint={'profile person'} />
-                    <AvatarFallback>{(note.author.displayName || note.author.username).substring(0, 1).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                </div>
-              </div>
-              <p className="text-xs font-medium text-muted-foreground truncate mt-1 group-hover:text-primary">{note.author.displayName || note.author.username}</p>
             </div>
           ))}
         </div>
