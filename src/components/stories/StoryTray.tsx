@@ -1,25 +1,52 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { PlusCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import CreateStoryDialog from './CreateStoryDialog';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-
-// Mock user data for display purposes
-const mockUsers = [
-  { id: 'mock-1', username: 'Alex', avatarUrl: 'https://placehold.co/60x60.png', dataAiHint: "profile person" },
-  { id: 'mock-2', username: 'Bella', avatarUrl: 'https://placehold.co/60x60.png', dataAiHint: "profile person" },
-  { id: 'mock-3', username: 'Chris', avatarUrl: 'https://placehold.co/60x60.png', dataAiHint: "profile person" },
-];
+import { db } from '@/lib/firebase';
+import { collection, query, where, orderBy, onSnapshot, Timestamp, getDoc } from 'firebase/firestore';
+import type { UserStory, UserSummary } from '@/types';
 
 export default function StoryTray() {
   const { user } = useAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { toast } = useToast();
+  const [storyAuthors, setStoryAuthors] = useState<UserSummary[]>([]);
+
+  useEffect(() => {
+    const twentyFourHoursAgo = Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    
+    const q = query(
+        collection(db, 'userStories'),
+        where('expiresAt', '>=', twentyFourHoursAgo),
+        orderBy('expiresAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+        const stories = snapshot.docs.map(doc => doc.data() as UserStory);
+        const uniqueAuthorIds = [...new Set(stories.map(story => story.authorId))];
+
+        if (uniqueAuthorIds.length > 0) {
+            const authorPromises = uniqueAuthorIds.map(id => getDoc(doc(db, 'users', id)));
+            const authorDocs = await Promise.all(authorPromises);
+            
+            const authors = authorDocs
+                .filter(docSnap => docSnap.exists())
+                .map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as UserSummary));
+            
+            setStoryAuthors(authors);
+        } else {
+            setStoryAuthors([]);
+        }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleAddStoryClick = () => {
     if (user) {
@@ -51,23 +78,23 @@ export default function StoryTray() {
             </div>
           </button>
           
-          {/* Mock user avatars */}
-          {mockUsers.map((mockUser) => (
+          {/* Real user avatars with stories */}
+          {storyAuthors.map((storyAuthor) => (
             <Link 
-              key={mockUser.id}
-              href={`/stories/view/${mockUser.id}`}
+              key={storyAuthor.id}
+              href={`/stories/view/${storyAuthor.id}`}
               className="flex-shrink-0 w-16 text-center group"
-              aria-label={`View ${mockUser.username}'s story`}
+              aria-label={`View ${storyAuthor.displayName || storyAuthor.username}'s story`}
             >
               <div className="h-14 w-14 rounded-full p-0.5 bg-gradient-to-tr from-yellow-400 to-pink-500 via-red-500 group-hover:scale-105 transition-transform">
                 <div className="bg-background p-0.5 rounded-full h-full w-full">
                   <Avatar className="h-full w-full">
-                    <AvatarImage src={mockUser.avatarUrl} alt={mockUser.username} data-ai-hint={mockUser.dataAiHint || 'profile person'} />
-                    <AvatarFallback>{mockUser.username.substring(0, 1).toUpperCase()}</AvatarFallback>
+                    <AvatarImage src={storyAuthor.avatarUrl} alt={storyAuthor.username} data-ai-hint={'profile person'} />
+                    <AvatarFallback>{(storyAuthor.displayName || storyAuthor.username).substring(0, 1).toUpperCase()}</AvatarFallback>
                   </Avatar>
                 </div>
               </div>
-              <p className="text-xs font-medium text-muted-foreground truncate mt-1 group-hover:text-primary">{mockUser.username}</p>
+              <p className="text-xs font-medium text-muted-foreground truncate mt-1 group-hover:text-primary">{storyAuthor.displayName || storyAuthor.username}</p>
             </Link>
           ))}
         </div>

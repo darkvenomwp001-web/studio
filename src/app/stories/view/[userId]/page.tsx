@@ -3,11 +3,8 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { ArrowLeft, BarChart, Quote, Users, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { UserStory, UserSummary } from '@/types';
-import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { X, Heart, MessageCircle, Loader2 } from 'lucide-react';
@@ -17,35 +14,6 @@ import Image from 'next/image';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 
-
-const mockAuthorData: { [key: string]: UserSummary } = {
-    'mock-1': { id: 'mock-1', username: 'Alex', displayName: 'Alex', avatarUrl: 'https://placehold.co/100x100.png' },
-    'mock-2': { id: 'mock-2', username: 'Bella', displayName: 'Bella', avatarUrl: 'https://placehold.co/100x100.png' },
-    'mock-3': { id: 'mock-3', username: 'Chris', displayName: 'Chris', avatarUrl: 'https://placehold.co/100x100.png' },
-};
-
-const getMockStories = (author: UserSummary): UserStory[] => [
-    {
-        id: 'mock-story-1',
-        authorId: author.id,
-        author: author,
-        type: 'text',
-        content: `A mock story from ${author.displayName}! This is just a placeholder to show how stories will look.`,
-        backgroundColor: '#4A90E2',
-        createdAt: Timestamp.fromDate(new Date(Date.now() - 60 * 1000 * 5)),
-        expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
-    },
-    {
-        id: 'mock-story-2',
-        authorId: author.id,
-        author: author,
-        type: 'image',
-        content: 'https://placehold.co/1080x1920.png',
-        dataAiHint: 'abstract landscape',
-        createdAt: Timestamp.fromDate(new Date(Date.now() - 60 * 1000 * 2)),
-        expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
-    }
-];
 
 export default function ViewUserStoriesPage() {
     const params = useParams();
@@ -67,22 +35,6 @@ export default function ViewUserStoriesPage() {
             return;
         }
 
-        // Handle Mock Users
-        if (userId.startsWith('mock-')) {
-            const mockAuthor = mockAuthorData[userId];
-            if (mockAuthor) {
-                setAuthor(mockAuthor);
-                setStories(getMockStories(mockAuthor));
-                setIsLoading(false);
-                return;
-            } else {
-                // If it's a mock ID we don't recognize, just go back.
-                router.back();
-                return;
-            }
-        }
-
-        // Handle Real Users
         setIsLoading(true);
         const twentyFourHoursAgo = Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
         
@@ -100,6 +52,7 @@ export default function ViewUserStoriesPage() {
                 setAuthor(fetchedStories[0].author);
             } else {
                 setStories([]);
+                // If there are no stories, go back to the previous page.
                 router.back();
             }
             setIsLoading(false);
@@ -143,20 +96,24 @@ export default function ViewUserStoriesPage() {
 
     useEffect(() => {
         if (timerRef.current) clearTimeout(timerRef.current);
-        if (activeStory?.type !== 'video') {
+        if (activeStory?.type !== 'video' && !isPaused) {
             timerRef.current = setTimeout(advanceStory, 5000);
         }
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
         };
-    }, [currentStoryIndex, advanceStory, activeStory?.type]);
+    }, [currentStoryIndex, advanceStory, activeStory?.type, isPaused]);
     
     useEffect(() => {
         if (activeStory?.type === 'video' && videoRef.current) {
             videoRef.current.currentTime = 0;
-            videoRef.current.play().catch(e => console.error("Video autoplay failed:", e));
+            if (!isPaused) {
+                videoRef.current.play().catch(e => console.error("Video autoplay failed:", e));
+            } else {
+                 videoRef.current.pause();
+            }
         }
-    }, [activeStory]);
+    }, [activeStory, isPaused]);
 
     const handleNext = () => {
         advanceStory();
@@ -168,8 +125,13 @@ export default function ViewUserStoriesPage() {
         }
     };
     
-    const pauseTimer = () => setIsPaused(true);
-    const resumeTimer = () => setIsPaused(false);
+    const pauseTimer = () => {
+        setIsPaused(true);
+        if (timerRef.current) clearTimeout(timerRef.current);
+    };
+    const resumeTimer = () => {
+        setIsPaused(false);
+    };
 
     if (isLoading) {
         return (
@@ -180,9 +142,11 @@ export default function ViewUserStoriesPage() {
     }
     
     if (!activeStory || !author) {
+        // This state can be reached briefly before router.back() is called,
+        // or if there's an error.
         return (
             <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center">
-                <p className="text-white">Could not load stories.</p>
+                <p className="text-white">Loading stories or no stories to display...</p>
             </div>
         );
     }
@@ -213,15 +177,19 @@ export default function ViewUserStoriesPage() {
                     {stories.map((story, index) => (
                         <div key={story.id} className="w-full h-1 bg-white/30 rounded-full overflow-hidden">
                             <div
-                                className={cn("h-full bg-white", 
+                                className={cn("h-full bg-white transition-all duration-100", 
                                     index < currentStoryIndex && 'w-full',
                                     index > currentStoryIndex && 'w-0',
-                                    index === currentStoryIndex && activeStory.type !== 'video' && 'animate-[width-grow_5s_linear]',
                                 )}
-                                style={{
-                                    animationPlayState: isPaused ? 'paused' : 'running',
-                                }}
-                            />
+                            >
+                            {index === currentStoryIndex && (
+                                 <div className={cn("h-full bg-white", activeStory.type !== 'video' && 'animate-[width-grow_5s_linear]')}
+                                    style={{
+                                        animationPlayState: isPaused ? 'paused' : 'running',
+                                    }}
+                                 />
+                            )}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -230,11 +198,11 @@ export default function ViewUserStoriesPage() {
                         <Link href={`/profile/${author.id}`}>
                             <Avatar className="h-10 w-10 border-2 border-white/80">
                                 <AvatarImage src={author.avatarUrl} alt={author.username} data-ai-hint="profile person" />
-                                <AvatarFallback>{author.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                <AvatarFallback>{(author.displayName || author.username).substring(0,1).toUpperCase()}</AvatarFallback>
                             </Avatar>
                         </Link>
                         <div>
-                            <Link href={`/profile/${author.id}`} className="font-semibold text-white drop-shadow-sm hover:underline">{author.displayName}</Link>
+                            <Link href={`/profile/${author.id}`} className="font-semibold text-white drop-shadow-sm hover:underline">{author.displayName || author.username}</Link>
                             <p className="text-xs text-white/80 drop-shadow-sm">{formatDistanceToNowStrict(activeStory.createdAt.toDate())} ago</p>
                         </div>
                     </div>
@@ -262,5 +230,3 @@ export default function ViewUserStoriesPage() {
         </div>
     );
 }
-
-    
