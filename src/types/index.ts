@@ -1,162 +1,124 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
-export interface AllowedUser {
-  userId: string;
-  username: string; // For display purposes
-  expiresAt: Timestamp;
+// NOTE: This type definition file has been updated based on a new data model schema.
+// This may cause compilation errors in components that still use old type definitions.
+
+/**
+ * Represents a user in the system. Corresponds to the `User` table.
+ * Fields are based on the provided schema.
+ */
+export interface User {
+  id: string; // Document ID from Firestore (auth UID)
+  username: string;
+  email?: string;
+  bio?: string;
+  profilePicture?: string;
+  createdAt: Timestamp;
 }
 
-export interface Story {
-  id: string;
-  title: string;
-  author: UserSummary;
-  genre: string;
-  coverImageUrl?: string;
-  dataAiHint?: string;
-  summary: string;
-  tags: string[];
-  chapters: Chapter[];
-  rating?: number;
-  views?: number;
-  isMature?: boolean;
-  status?: 'Ongoing' | 'Completed' | 'Draft' | 'Unlisted' | 'Private';
-  lastUpdated: any; // Can be ISO String or Firestore Timestamp
-  language?: string;
-  visibility?: 'Public' | 'Private' | 'Unlisted';
-  collaborators?: UserSummary[];
-  collaboratorIds?: string[];
-}
-
-export interface Chapter {
-  id: string;
-  title: string;
-  content: string;
-  order: number;
-  wordCount?: number;
-  publishedDate?: string; // ISO String
-  status?: 'Published' | 'Draft';
-  votes?: number;
-  accessType: 'public' | 'premium';
-  allowedUsers?: AllowedUser[];
-}
-
+/**
+ * A summary of a user for embedding in other documents to denormalize data,
+ * which is a common practice in Firestore.
+ */
 export interface UserSummary {
   id: string;
   username: string;
-  avatarUrl?: string;
-  displayName?: string;
-  dataAiHint?: string;
+  profilePicture?: string;
+  displayName?: string; // Kept for compatibility, should be populated with username
 }
 
-export interface ReadingListItem {
-  id: string;
+/**
+ * Represents a main literary work. Corresponds to the `Story` table.
+ */
+export interface Story {
+  id:string;
+  // The schema has `author: User!`. In Firestore, we store a summary.
+  author: UserSummary;
   title: string;
-  coverImageUrl?: string;
-  author?: UserSummary;
+  description: string;
+  genre: string;
+  createdAt: Timestamp;
+  coverImage?: string;
+  tags?: string[];
+  // Chapters can be a sub-collection or a nested array.
   chapters?: Chapter[];
-  dataAiHint?: string;
-  status?: 'Ongoing' | 'Completed' | 'Draft' | 'Unlisted' | 'Private';
-  lastUpdated: any;
 }
 
-export interface User extends UserSummary {
-  bio?: string;
-  role?: 'reader' | 'writer';
-  writtenStories?: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'status'>[];
-  readingList?: ReadingListItem[];
-  followersCount?: number;
-  followingCount?: number;
-  followingIds?: string[];
-  followers?: UserSummary[];
-  email?: string;
-  createdAt?: any; // Firestore Timestamp or ISO string
-  updatedAt?: any; // Firestore Timestamp or ISO string
+/**
+ * Represents a chapter within a Story. Corresponds to the `Chapter` table.
+ */
+export interface Chapter {
+  id: string;
+  // The schema has `story: Story!`. This is implied by chapters being nested in a Story document.
+  title: string;
+  content: string;
+  chapterNumber: number;
+  createdAt: Timestamp;
 }
 
+/**
+ * Represents an ephemeral, Instagram-style story post. Corresponds to the `ShortStory` table.
+ */
+export interface ShortStory {
+  id: string;
+  // The schema has `author: User!`. In Firestore, we store a summary.
+  author: UserSummary;
+  createdAt: Timestamp;
+  mediaType: 'image' | 'video' | 'text';
+  mediaUrl?: string; // URL for image or video
+  text?: string;     // Content for text-based stories
+  expiration: Timestamp;
+}
+
+/**
+ * Represents the relationship between two users. Corresponds to the `Follow` table.
+ * The document ID would typically be `followerId_followingId`.
+ */
+export interface Follow {
+  followerId: string;
+  followingId: string;
+  createdAt: Timestamp;
+}
+
+/**
+ * Represents a comment on a Story or Chapter. Corresponds to the `Comment` table.
+ */
 export interface Comment {
   id: string;
-  user: UserSummary; // Information about the user who posted
+  // The schema has `user: User!`, `story: Story!`, `chapter: Chapter`.
+  // In Firestore, we store summaries or IDs.
+  user: UserSummary;
   storyId: string;
-  chapterId?: string; // Optional if comments can be on stories directly
-  parentId?: string | null; // For replies
-  content: string;
-  timestamp: any; // Firestore Timestamp, or string/Date for client-side display
-  likes?: number;
-}
-
-export interface Message {
-  id: string;
-  senderId: string; // UID of the sender
-  content: string;
-  timestamp: any; // Firestore Timestamp, or string for client-side display
-}
-
-export interface Conversation {
-  id: string;
-  participantIds: string[]; // Array of UIDs of participants
-  participantInfo: { [key: string]: UserSummary }; // Map UID to UserSummary for easy lookup
-  lastMessage: { 
-    id: string;
-    content: string;
-    senderId: string;
-    timestamp: any; 
-  };
-  updatedAt: any; // Firestore Timestamp for sorting conversations
-}
-
-export interface NotificationType {
-  id: string;
-  userId: string;
-  type: 'new_follower' | 'new_chapter' | 'story_update' | 'announcement' | 'comment_reply' | 'mention' | 'new_letter' | 'letter_response' | 'premium_access';
-  message: string;
-  link?: string;
-  timestamp: string; // ISO String
-  isRead: boolean;
-  actor?: UserSummary;
-}
-
-export interface Letter {
-  id:string;
-  storyId: string;
-  storyTitle: string;
-  chapterId: string;
-  chapterTitle: string;
-  authorId: string;
-  author: UserSummary;
-  reader: UserSummary;
-  content: string;
-  visibility: 'public' | 'private';
-  timestamp: any;
-  isPinned?: boolean;
-  authorResponse?: string;
-  isReadByAuthor?: boolean;
-}
-
-export interface FeedPost {
-  id: string;
-  authorId: string;
-  author: UserSummary; // Denormalized for easy display
-  content: string;
-  timestamp: any; // Firestore Server Timestamp
-  storyId?: string; // Optional attached story
-  storyTitle?: string;
-  storyCoverUrl?: string;
-  likesCount: number;
-  likedBy: string[]; // List of user IDs who liked it
-  commentsCount: number;
-}
-
-export interface UserStory {
-  id: string;
-  authorId: string; // The ID of the user who posted the story.
-  author: UserSummary; // Denormalized author info for easy display
-  type: 'text' | 'image' | 'video';
-  content: string; // For text, or URL for media
-  backgroundColor?: string;
+  chapterId?: string;
+  text: string;
   createdAt: Timestamp;
-  expiresAt: Timestamp;
-  duration?: number; // Optional, e.g., for videos
-  views?: number;
-  dataAiHint?: string;
+  parentId?: string | null; // Kept for threaded replies
+}
+
+/**
+ * Represents a user-created list for organizing stories. Corresponds to the `ReadingList` table.
+ */
+export interface ReadingList {
+  id: string;
+  // The schema has `user: User!`. In Firestore, we store the user's ID.
+  userId: string;
+  name: string;
+  description?: string;
+  createdAt: Timestamp;
+}
+
+/**
+ * Represents a story's inclusion in a ReadingList. Corresponds to the `ReadingListEntry` table.
+ * The document ID would typically be `readingListId_storyId`.
+ */
+export interface ReadingListEntry {
+  readingListId: string;
+  storyId: string;
+  // Denormalized story info for easy display in a list.
+  storySummary: {
+    title: string;
+    coverImage?: string;
+    author: UserSummary;
+  };
+  position: number;
 }
