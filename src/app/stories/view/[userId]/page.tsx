@@ -36,12 +36,13 @@ export default function ViewUserStoriesPage() {
         }
 
         setIsLoading(true);
-        const twentyFourHoursAgo = Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+        // Correctly query for stories that have not yet expired
+        const now = Timestamp.now();
         
         const q = query(
             collection(db, 'userStories'),
             where('authorId', '==', userId),
-            where('expiresAt', '>=', twentyFourHoursAgo),
+            where('expiresAt', '>=', now),
             orderBy('expiresAt', 'asc')
         );
 
@@ -129,6 +130,7 @@ export default function ViewUserStoriesPage() {
         setIsPaused(true);
         if (timerRef.current) clearTimeout(timerRef.current);
     };
+
     const resumeTimer = () => {
         setIsPaused(false);
     };
@@ -203,7 +205,9 @@ export default function ViewUserStoriesPage() {
                         </Link>
                         <div>
                             <Link href={`/profile/${author.id}`} className="font-semibold text-white drop-shadow-sm hover:underline">{author.displayName || author.username}</Link>
-                            <p className="text-xs text-white/80 drop-shadow-sm">{formatDistanceToNowStrict(activeStory.createdAt.toDate())} ago</p>
+                            {activeStory.createdAt && (
+                                <p className="text-xs text-white/80 drop-shadow-sm">{formatDistanceToNowStrict(activeStory.createdAt.toDate())} ago</p>
+                            )}
                         </div>
                     </div>
                     <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-white hover:bg-white/20 hover:text-white">

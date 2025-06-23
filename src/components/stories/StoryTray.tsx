@@ -9,7 +9,7 @@ import CreateStoryDialog from './CreateStoryDialog';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, Timestamp, getDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, Timestamp, getDoc, doc } from 'firebase/firestore';
 import type { UserStory, UserSummary } from '@/types';
 
 export default function StoryTray() {
@@ -19,11 +19,12 @@ export default function StoryTray() {
   const [storyAuthors, setStoryAuthors] = useState<UserSummary[]>([]);
 
   useEffect(() => {
-    const twentyFourHoursAgo = Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    // Correctly query for stories that have not yet expired.
+    const now = Timestamp.now();
     
     const q = query(
         collection(db, 'userStories'),
-        where('expiresAt', '>=', twentyFourHoursAgo),
+        where('expiresAt', '>=', now),
         orderBy('expiresAt', 'desc')
     );
 
@@ -43,10 +44,19 @@ export default function StoryTray() {
         } else {
             setStoryAuthors([]);
         }
+    }, (error) => {
+        // This is where the index error will appear in the console.
+        console.error("Error fetching stories for tray. This might be a missing Firestore index.", error);
+        toast({
+            title: "Could not load stories",
+            description: "Please check the developer console for an error message from Firestore. It may contain a link to create a required database index.",
+            variant: "destructive",
+            duration: 10000,
+        })
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [toast]);
 
   const handleAddStoryClick = () => {
     if (user) {

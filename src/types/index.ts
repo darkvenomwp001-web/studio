@@ -1,124 +1,166 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
-// NOTE: This type definition file has been updated based on a new data model schema.
-// This may cause compilation errors in components that still use old type definitions.
-
-/**
- * Represents a user in the system. Corresponds to the `User` table.
- * Fields are based on the provided schema.
- */
 export interface User {
   id: string; // Document ID from Firestore (auth UID)
   username: string;
   email?: string;
   bio?: string;
-  profilePicture?: string;
-  createdAt: Timestamp;
+  avatarUrl?: string; // Sticking with avatarUrl for consistency with app code
+  displayName?: string;
+  role?: 'reader' | 'writer';
+  followersCount?: number;
+  followingCount?: number;
+  followingIds?: string[];
+  writtenStories?: string[];
+  readingList?: ReadingListItem[];
+  createdAt?: any;
+  updatedAt?: any;
+  dataAiHint?: string; // Added for AI image hints
 }
 
-/**
- * A summary of a user for embedding in other documents to denormalize data,
- * which is a common practice in Firestore.
- */
 export interface UserSummary {
   id: string;
   username: string;
-  profilePicture?: string;
-  displayName?: string; // Kept for compatibility, should be populated with username
+  avatarUrl?: string;
+  displayName?: string;
 }
 
-/**
- * Represents a main literary work. Corresponds to the `Story` table.
- */
 export interface Story {
-  id:string;
-  // The schema has `author: User!`. In Firestore, we store a summary.
+  id: string;
   author: UserSummary;
   title: string;
-  description: string;
+  summary: string; // Changed from description for consistency
   genre: string;
-  createdAt: Timestamp;
-  coverImage?: string;
-  tags?: string[];
-  // Chapters can be a sub-collection or a nested array.
-  chapters?: Chapter[];
+  chapters: Chapter[];
+  status: 'Ongoing' | 'Completed' | 'Draft';
+  visibility: 'Public' | 'Private' | 'Unlisted';
+  lastUpdated: any; // Can be serverTimestamp or string
+  coverImageUrl?: string;
+  language?: string;
+  isMature?: boolean;
+  tags: string[];
+  views?: number;
+  collaborators?: UserSummary[];
+  collaboratorIds?: string[];
+  dataAiHint?: string;
+  rating?: number;
 }
 
-/**
- * Represents a chapter within a Story. Corresponds to the `Chapter` table.
- */
 export interface Chapter {
   id: string;
-  // The schema has `story: Story!`. This is implied by chapters being nested in a Story document.
   title: string;
   content: string;
-  chapterNumber: number;
-  createdAt: Timestamp;
+  order: number;
+  status: 'Published' | 'Draft';
+  wordCount?: number;
+  votes?: number;
+  publishedDate?: string;
+  accessType: 'public' | 'premium';
+  allowedUsers?: AllowedUser[];
 }
 
-/**
- * Represents an ephemeral, Instagram-style story post. Corresponds to the `ShortStory` table.
- */
-export interface ShortStory {
-  id: string;
-  // The schema has `author: User!`. In Firestore, we store a summary.
-  author: UserSummary;
-  createdAt: Timestamp;
-  mediaType: 'image' | 'video' | 'text';
-  mediaUrl?: string; // URL for image or video
-  text?: string;     // Content for text-based stories
-  expiration: Timestamp;
+export interface AllowedUser {
+  userId: string;
+  username: string;
+  expiresAt: any; // Can be Timestamp
 }
 
-/**
- * Represents the relationship between two users. Corresponds to the `Follow` table.
- * The document ID would typically be `followerId_followingId`.
- */
-export interface Follow {
-  followerId: string;
-  followingId: string;
-  createdAt: Timestamp;
+export interface UserStory {
+    id: string;
+    authorId: string;
+    author: UserSummary;
+    type: 'text' | 'image' | 'video';
+    content: string; // URL for media or text content
+    backgroundColor?: string; // For text stories
+    views: number;
+    createdAt: Timestamp; // Changed to Timestamp
+    expiresAt: Timestamp; // Changed to Timestamp
+    duration?: number;
+    dataAiHint?: string;
 }
 
-/**
- * Represents a comment on a Story or Chapter. Corresponds to the `Comment` table.
- */
 export interface Comment {
   id: string;
-  // The schema has `user: User!`, `story: Story!`, `chapter: Chapter`.
-  // In Firestore, we store summaries or IDs.
   user: UserSummary;
   storyId: string;
-  chapterId?: string;
-  text: string;
-  createdAt: Timestamp;
-  parentId?: string | null; // Kept for threaded replies
+  chapterId: string;
+  content: string; // Changed from text
+  timestamp: any; // Can be serverTimestamp or Timestamp
+  parentId?: string | null;
+  likes?: number;
 }
 
-/**
- * Represents a user-created list for organizing stories. Corresponds to the `ReadingList` table.
- */
-export interface ReadingList {
+export interface ReadingListItem {
   id: string;
-  // The schema has `user: User!`. In Firestore, we store the user's ID.
-  userId: string;
-  name: string;
-  description?: string;
-  createdAt: Timestamp;
+  title: string;
+  author: UserSummary;
+  chapters: Chapter[];
+  lastUpdated: any;
+  coverImageUrl?: string;
+  dataAiHint?: string;
+  status?: 'Ongoing' | 'Completed' | 'Draft';
 }
 
-/**
- * Represents a story's inclusion in a ReadingList. Corresponds to the `ReadingListEntry` table.
- * The document ID would typically be `readingListId_storyId`.
- */
-export interface ReadingListEntry {
-  readingListId: string;
-  storyId: string;
-  // Denormalized story info for easy display in a list.
-  storySummary: {
-    title: string;
-    coverImage?: string;
+export interface NotificationType {
+    id: string;
+    userId: string;
+    type: 'new_follower' | 'new_chapter' | 'story_update' | 'comment_reply' | 'mention' | 'announcement' | 'new_letter' | 'letter_response' | 'premium_access';
+    message: string;
+    link: string;
+    isRead: boolean;
+    timestamp: any; // Can be serverTimestamp or string from converted date
+    actor: UserSummary; // The user who performed the action
+}
+
+export interface Letter {
+    id: string;
+    storyId: string;
+    storyTitle: string;
+    chapterId: string;
+    chapterTitle: string;
+    authorId: string;
     author: UserSummary;
-  };
-  position: number;
+    reader: UserSummary;
+    content: string;
+    visibility: 'public' | 'private';
+    timestamp: Timestamp;
+    isPinned: boolean;
+    isReadByAuthor: boolean;
+    authorResponse?: string;
+}
+
+export interface FeedPost {
+    id: string;
+    authorId: string;
+    author: UserSummary;
+    content: string;
+    timestamp: any;
+    likesCount: number;
+    likedBy: string[]; // Array of user IDs
+    commentsCount: number;
+    storyId?: string; // Optional attached story
+    storyTitle?: string;
+
+    storyCoverUrl?: string;
+}
+
+export interface Conversation {
+    id: string;
+    participantIds: string[];
+    participantInfo: { [key: string]: UserSummary };
+    updatedAt: any;
+    lastMessage: {
+        id: string;
+        content: string;
+        senderId: string;
+        timestamp: any;
+    };
+}
+
+export interface Message {
+    id: string;
+    senderId: string;
+    content: string;
+    timestamp: any;
 }

@@ -4,67 +4,74 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // Helper function to check if a user is signed in
     function isSignedIn() {
       return request.auth != null;
     }
+
+    // Helper function to check if the requesting user is the owner of a document
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Users: Can read their own data, can create their own doc, can update their own doc. Public read is allowed for profiles.
+    // ===== USERS COLLECTION =====
+    // Public read is allowed for profiles. Only the user can create/update their own profile.
     match /users/{userId} {
-      allow read: if true; // Public profiles
+      allow read: if true;
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
-      allow delete: if false; // Generally don't allow users to delete their own accounts from the client
+      allow delete: if false; // Deletion from client is disabled
     }
 
-    // Stories (Books): Public can read. Only author/collaborators can create/update.
+    // ===== STORIES COLLECTION (Books) =====
+    // Public can read if story is 'Public' or 'Unlisted'. Only author/collaborators can manage content.
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' || (isSignedIn() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds));
+      allow read: if resource.data.visibility == 'Public' || 
+                    resource.data.visibility == 'Unlisted' || 
+                    (isSignedIn() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds));
       allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
       allow update: if isSignedIn() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
       allow delete: if isSignedIn() && resource.data.author.id == request.auth.uid;
     }
-    
-    // UserStories (Instagram-style): Public can read for 24h. Only author can create.
+
+    // ===== USER STORIES COLLECTION (Instagram-style Stories) =====
+    // Corrected rule: Anyone can read a story if it has not expired. Only the author can create one.
     match /userStories/{userStoryId} {
-      // Allow reads if the story has not expired.
-      allow read: if true;
-      // Allow create if user is the author.
+      allow read: if resource.data.expiresAt > request.time;
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.authorId;
-      // No updates or deletes from client for simplicity.
       allow update, delete: if false;
     }
-    
-    // Comments: Public can read. Signed-in users can create. Owner can update/delete.
+
+    // ===== COMMENTS COLLECTION =====
+    // Comments are public to read. Only the creator can edit/delete their own comment.
     match /comments/{commentId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && resource.data.user.id == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.user.id);
     }
 
-    // Letters: Can only be read by author or reader. Can only be created by reader. Can only be updated by author (for response).
+    // ===== LETTERS COLLECTION =====
+    // Only the sender (reader) or receiver (author) can read/update. Only reader can create.
     match /letters/{letterId} {
-      allow read, update: if isSignedIn() && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
+      allow read, update: if isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid == resource.data.reader.id);
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.reader.id;
       allow delete: if false;
     }
 
-    // FeedPosts: Public can read. Signed-in users can create/like. Owner can delete.
+    // ===== FEED POSTS COLLECTION =====
+    // Feed posts are public. Only the author can create/delete. Any signed-in user can update (for likes).
     match /feedPosts/{postId} {
       allow read: if true;
-      allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
-      // Anyone signed in can like/unlike a post.
-      allow update: if isSignedIn(); 
-      allow delete: if isSignedIn() && resource.data.author.id == request.auth.uid;
+      allow create: if isOwner(request.resource.data.author.id);
+      allow update: if isSignedIn();
+      allow delete: if isOwner(resource.data.author.id);
     }
 
-    // Notifications: Can only be accessed by the user the notification is for.
+    // ===== NOTIFICATIONS COLLECTION =====
+    // Notifications are private to the user they are intended for.
     match /notifications/{notificationId} {
-      allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.userId;
-      allow create: if true; // Typically created by server-side logic or trusted client actions. For now, allow client creation.
+      allow read, update, delete: if isOwner(resource.data.userId);
+      allow create: if true; // Created by trusted server actions
     }
   }
 }
