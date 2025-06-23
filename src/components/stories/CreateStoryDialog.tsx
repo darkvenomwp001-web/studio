@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -76,7 +75,7 @@ export default function CreateNoteDialog({ open, onOpenChange }: CreateNoteDialo
           <div className="flex flex-col items-center gap-4 py-4">
               <Avatar className="h-20 w-20">
                 <AvatarImage src={user?.avatarUrl} alt={user?.username} data-ai-hint="profile person" />
-                <AvatarFallback>{user?.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{user?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="w-full relative">
                 <textarea

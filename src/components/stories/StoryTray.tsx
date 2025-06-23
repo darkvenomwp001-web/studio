@@ -80,8 +80,11 @@ export default function NoteTray() {
       });
     }
   };
-
-  const authorsWithNotes = notes.reduce((acc, note) => {
+  
+  // Filter out any notes that don't have a valid server timestamp yet to prevent crashes
+  const validNotes = notes.filter(note => note.createdAt && typeof note.createdAt.toMillis === 'function');
+  
+  const authorsWithNotes = validNotes.reduce((acc, note) => {
       // Group notes by author, keeping only the most recent note per author
       if (!acc[note.authorId] || note.createdAt.toMillis() > acc[note.authorId].createdAt.toMillis()) {
           acc[note.authorId] = note;
