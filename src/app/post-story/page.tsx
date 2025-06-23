@@ -5,13 +5,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Send, UserCheck } from 'lucide-react';
+import { Loader2, Send, UserCheck, ArrowLeft, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createUserStory } from '@/app/actions/storyActions';
 import type { UserSummary } from '@/types';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const backgroundColors = [
   'bg-gradient-to-br from-gray-700 via-gray-900 to-black',
@@ -36,11 +36,6 @@ export default function PostStoryPage() {
   useEffect(() => {
     const storyType = searchParams.get('type');
     if (storyType !== 'text') {
-      toast({
-        title: 'Invalid Story Type',
-        description: 'This page is for text stories only.',
-        variant: 'destructive',
-      });
       router.push('/instapost');
     }
   }, [searchParams, router, toast]);
@@ -79,28 +74,38 @@ export default function PostStoryPage() {
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      <header className="absolute top-0 left-0 right-0 z-20 p-4 flex justify-between items-center">
+       <header className="absolute top-0 left-0 right-0 z-20 p-4 flex justify-between items-center">
         <Link href="/instapost" passHref>
           <button className="text-white bg-black/30 rounded-full p-2 hover:bg-black/50 transition-colors">
             <ArrowLeft className="h-6 w-6" />
             <span className="sr-only">Back</span>
           </button>
         </Link>
-        <div className="flex items-center gap-2">
-          {backgroundColors.map((color) => (
-            <button
-              key={color}
-              onClick={() => setSelectedBg(color)}
-              className={cn(
-                'h-8 w-8 rounded-full cursor-pointer transition-transform hover:scale-110 border-2 border-transparent',
-                color,
-                selectedBg === color && 'ring-2 ring-white ring-offset-2 ring-offset-black'
-              )}
-              aria-label={`Select ${color} background`}
-            />
-          ))}
-        </div>
-        <div></div>
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-white bg-black/30 rounded-full p-2 hover:bg-black/50">
+              <Palette className="h-6 w-6" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2 bg-black/50 border-gray-700">
+            <div className="flex items-center gap-2">
+              {backgroundColors.map((color) => (
+                <button
+                  key={color}
+                  onClick={() => setSelectedBg(color)}
+                  className={cn(
+                    'h-8 w-8 rounded-full cursor-pointer transition-transform hover:scale-110 border-2 border-transparent',
+                    color,
+                    selectedBg === color && 'ring-2 ring-white ring-offset-2 ring-offset-black'
+                  )}
+                  aria-label={`Select ${color} background`}
+                />
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
       </header>
 
       <main
@@ -114,15 +119,15 @@ export default function PostStoryPage() {
           onChange={(e) => setContent(e.target.value)}
           placeholder="Start typing..."
           maxLength={280}
-          className="bg-transparent border-0 text-white placeholder:text-white/70 text-center text-3xl font-bold focus-visible:ring-0 resize-none h-full shadow-none w-full max-w-lg"
+          className="bg-transparent border-0 text-white placeholder:text-white/70 text-center text-4xl font-bold focus-visible:ring-0 resize-none h-auto shadow-none w-full max-w-lg"
         />
-        <span className="absolute bottom-24 right-4 text-xs text-white/60">
+        <span className="absolute bottom-24 right-4 text-sm text-white/60">
           {content.length}/280
         </span>
       </main>
 
-      <footer className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/50 to-transparent">
-        <div className="flex items-center justify-between">
+      <footer className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/60 to-transparent">
+        <div className="flex items-center justify-between max-w-lg mx-auto">
           <Button
             onClick={() => {
               toast({
@@ -132,7 +137,7 @@ export default function PostStoryPage() {
               handleSubmit();
             }}
             disabled={isSubmitting || content.trim().length === 0}
-            className="rounded-full text-white bg-black/40 hover:bg-black/60"
+            className="rounded-full text-white bg-black/40 hover:bg-black/60 px-4"
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}
             Close Friends
@@ -141,7 +146,7 @@ export default function PostStoryPage() {
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting || content.trim().length === 0}
-            className="rounded-full bg-white text-black hover:bg-gray-200"
+            className="rounded-full bg-white text-black hover:bg-gray-200 px-4"
           >
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
