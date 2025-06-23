@@ -1,54 +1,73 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    
+    // Users can read any profile, but only write to their own.
     match /users/{userId} {
       allow read;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null && request.auth.uid == userId;
     }
-
+    
+    // Stories can be read if public, but only written by author/collaborators.
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || (request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds));
-      allow create, update, delete: if request.auth != null && request.auth.uid == request.resource.data.author.id;
+      allow read: if resource.data.visibility == 'Public' || 
+                     (resource.data.visibility == 'Unlisted' && request.auth != null) ||
+                     (request.auth != null && request.auth.uid == resource.data.author.id) ||
+                     (request.auth != null && request.auth.uid in resource.data.collaboratorIds);
+                     
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
+      
+      allow update: if request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
+      
+      allow delete: if request.auth != null && request.auth.uid == resource.data.author.id;
     }
     
-    match /userStories/{userStoryId} {
-      allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
-      allow update, delete: if false;
-    }
-
-    match /feedPosts/{postId} {
-      allow read;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
-      allow update: if request.auth != null; // For liking
-      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
-    }
-
-    match /letters/{letterId} {
-      allow read, update: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.reader.id;
-    }
-
-    match /notifications/{notificationId} {
-      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create, delete: if false;
-    }
-    
+    // Comments can be read by anyone, but only created by logged-in users,
+    // and only modified/deleted by their author.
     match /comments/{commentId} {
       allow read;
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
     }
+    
+    // Letters are private between the author and the reader.
+    match /letters/{letterId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.reader.id;
+      allow update: if request.auth != null && request.auth.uid == resource.data.authorId; // For responses
+    }
 
+    // Notifications are private to the user they are addressed to.
+    match /notifications/{notificationId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Creation is handled by server actions, but we can lock it down.
+      allow create: if request.auth != null; 
+    }
+    
+    // Feed posts can be read by anyone, but only created/deleted by the author.
+    // Liking is allowed by any authenticated user.
+    match /feedPosts/{postId} {
+      allow read;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+      allow update: if request.auth != null; // Allows liking/unliking
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+    }
+
+    // User Stories (Instagram-style) can be read by anyone, but only created by the author.
+    match /userStories/{userStoryId} {
+      allow read;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+    }
+
+    // Conversations and their messages are private to participants.
     match /conversations/{conversationId} {
-      allow read, update, delete, create: if request.auth != null && request.auth.uid in resource.data.participantIds;
+      allow read, update, create, delete: if request.auth != null && request.auth.uid in resource.data.participantIds;
 
       match /messages/{messageId} {
-        allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        allow update, delete: if false;
+        allow read, create: if request.auth != null && get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds.hasAny([request.auth.uid]);
       }
     }
   }
