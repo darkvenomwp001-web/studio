@@ -160,7 +160,7 @@ export default function StoryReaderPage() {
   
   const toggleToc = () => {
     setTocVisible(prev => !prev);
-    if (!prev && !controlsVisible) { 
+    if (!tocVisible && !controlsVisible) { 
       setControlsVisible(true);
     }
   };
