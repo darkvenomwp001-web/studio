@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 // Define the type for the Storyly DOM element
 type StorylyWeb = HTMLElement & {
@@ -11,7 +11,7 @@ type StorylyWeb = HTMLElement & {
 export default function StorylyTray() {
   const storylyRef = useRef<StorylyWeb>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // Check if the ref is attached to the element
     if (storylyRef.current) {
       // Initialize Storyly with your token
