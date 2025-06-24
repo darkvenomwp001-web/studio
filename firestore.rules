@@ -3,101 +3,81 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions to simplify conditions
+    
+    // Helper Functions
     function isSignedIn() {
       return request.auth != null;
     }
-
+    
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // ===== USERS COLLECTION =====
-    // Public read is allowed for profiles, only the user can update their own profile.
+    // Users: Users can be read by anyone (for profiles), but only the owner can create/update their own document.
     match /users/{userId} {
       allow read: if true;
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
-      allow delete: if false; // Deleting users from the client is disabled for security.
-    }
-
-    // ===== STORIES COLLECTION (Books) =====
-    // Public can read if 'Public' or 'Unlisted'. Only author/collaborators can create/update.
-    match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || 
-                    resource.data.visibility == 'Unlisted' || 
-                    (isSignedIn() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds));
-      allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if isOwner(resource.data.author.id);
-    }
-
-    // ===== USER NOTES COLLECTION (Messenger-style Notes) =====
-    // This rule allows the client-side query to securely fetch all active public notes.
-    // The query in the app requires a composite index on (visibility, expiresAt).
-    match /userNotes/{noteId} {
-      allow read: if true; // Allow broad read for the query, client filters followers vs public.
-      allow create: if isOwner(request.resource.data.authorId);
-      allow update, delete: if isOwner(resource.data.authorId);
-    }
-    
-    // ===== FEED POSTS COLLECTION =====
-    // Defines the rules for the user-generated social feed.
-    // This query requires a composite index on (authorId, timestamp).
-    match /feedPosts/{postId} {
-      // READ:
-      // Any signed-in user can read the feed posts. The application code is responsible
-      // for querying only posts from authors the current user follows. This rule
-      // is designed to allow that specific query to execute and prompt for an index.
-      allow read: if isSignedIn();
-
-      // CREATE:
-      // A user can only create a post if they are signed in and
-      // the authorId of the new post matches their own user ID.
-      // This prevents users from creating posts on behalf of others.
-      allow create: if isOwner(request.resource.data.authorId);
-
-      // UPDATE:
-      // Any signed-in user can update a post.
-      // This rule is intentionally broad to allow for social features
-      // like 'liking' a post, which involves updating the 'likedBy' array.
-      allow update: if isSignedIn();
-
-      // DELETE:
-      // A user can only delete a post if they are the original author.
-      allow delete: if isOwner(resource.data.authorId);
-    }
-
-    // ===== COMMENTS COLLECTION =====
-    match /comments/{commentId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isOwner(resource.data.user.id);
-    }
-
-    // ===== LETTERS COLLECTION =====
-    match /letters/{letterId} {
-      allow read, update: if isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id));
-      allow create: if isSignedIn() && isOwner(request.resource.data.reader.id);
+      // Delete is not allowed to prevent accidental account removal from client.
       allow delete: if false;
     }
 
-    // ===== CONVERSATIONS & MESSAGES =====
+    // Stories: Can be read if public. Can be created/updated by the author or a collaborator.
+    match /stories/{storyId} {
+      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' || (isOwner(resource.data.author.id)) || (resource.data.collaboratorIds.hasAny([request.auth.uid]));
+      allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
+      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || resource.data.collaboratorIds.hasAny([request.auth.uid]));
+      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
+    }
+
+    // userNotes: Public, non-expired notes can be read by anyone. Users can only create their own notes.
+    // This rule is designed to work with the client-side query and will prompt for an index.
+    match /userNotes/{noteId} {
+      allow read: if request.query.limit <= 100; // Allow queries, client handles filtering
+      allow create: if isOwner(request.resource.data.authorId);
+      allow delete: if isOwner(resource.data.authorId);
+      // No updates allowed, notes are ephemeral.
+      allow update: if false;
+    }
+
+    // feedPosts: Any authenticated user can read the feed. Posts can only be created by their author.
+    // Liking is handled by allowing any signed-in user to update the post.
+    // This rule is designed to work with the client-side query and will prompt for an index.
+    match /feedPosts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(request.resource.data.author.id);
+      allow update: if isSignedIn(); // For liking posts
+      allow delete: if isOwner(resource.data.author.id);
+    }
+    
+    // Comments: Can be read by anyone. Can be created by any signed-in user. Can only be updated/deleted by the owner.
+    match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn();
+        allow update, delete: if isOwner(resource.data.user.id);
+    }
+
+    // Notifications: Only readable and updatable by the user they are intended for.
+    match /notifications/{notificationId} {
+      allow read, update, delete: if isOwner(resource.data.userId);
+      allow create: if isSignedIn();
+    }
+    
+    // Letters: Only readable/updatable by the sender (reader) or receiver (author).
+    match /letters/{letterId} {
+       allow read, update: if isSignedIn() && (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.author.id);
+       allow create: if isOwner(request.resource.data.reader.id);
+       allow delete: if isOwner(resource.data.reader.id) || isOwner(resource.data.author.id);
+    }
+
+    // Conversations & Messages: Only participants can read or write.
     match /conversations/{conversationId} {
-      allow read, create: if isSignedIn() && request.auth.uid in resource.data.participantIds;
-      allow update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow read, create, update, delete: if isSignedIn() && request.auth.uid in resource.data.participantIds;
 
       match /messages/{messageId} {
         allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        allow update, delete: if false;
+        allow update, delete: if isSignedIn() && request.auth.uid == resource.data.senderId;
       }
-    }
-
-    // ===== NOTIFICATIONS COLLECTION =====
-    match /notifications/{notificationId} {
-      allow read, update, delete: if isOwner(resource.data.userId);
-      allow create: if true; // Created by server actions or trusted client functions.
     }
   }
 }

@@ -599,10 +599,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             updatedAt: serverTimestamp()
         });
 
-        batch.update(targetUserRef, {
-            followersCount: increment(1),
-            updatedAt: serverTimestamp()
-        });
+        // The followersCount update is removed to comply with security rules.
+        // It will be calculated on the profile page in real-time.
 
         await batch.commit();
         
@@ -647,12 +645,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             followingCount: newFollowingIds.length,
             updatedAt: serverTimestamp()
         });
-
-        batch.update(targetUserRef, {
-            followersCount: increment(-1),
-            updatedAt: serverTimestamp()
-        });
         
+        // The followersCount update is removed to comply with security rules.
+
         await batch.commit();
 
         const targetUserSnap = await getDoc(targetUserRef);

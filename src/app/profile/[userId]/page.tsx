@@ -77,6 +77,7 @@ export default function UserProfilePage() {
 
   const [profileUser, setProfileUser] = useState<AppUser | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [liveFollowersCount, setLiveFollowersCount] = useState<number | null>(null);
 
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
   const [privateWorks, setPrivateWorks] = useState<Story[]>([]); 
@@ -98,6 +99,7 @@ export default function UserProfilePage() {
     setPrivateWorks([]);
     setFollowingDetails([]);
     setFollowersDetails([]);
+    setLiveFollowersCount(null);
     setIsLoadingData(true);
 
     const userDocRef = doc(db, 'users', userId);
@@ -115,7 +117,20 @@ export default function UserProfilePage() {
       setIsLoadingData(false);
     });
 
-    return () => unsubscribeUser();
+    // New listener for real-time follower count
+    const followersQuery = query(collection(db, 'users'), where('followingIds', 'array-contains', userId));
+    const unsubscribeFollowersCount = onSnapshot(followersQuery, (snapshot) => {
+      setLiveFollowersCount(snapshot.size);
+    }, (error) => {
+      console.error("Error fetching live follower count:", error);
+      // Don't toast here as it could be disruptive
+    });
+
+
+    return () => {
+      unsubscribeUser();
+      unsubscribeFollowersCount();
+    };
   }, [userId, router, toast]);
 
   useEffect(() => {
@@ -128,7 +143,7 @@ export default function UserProfilePage() {
     }
 
     let unsubStories: Unsubscribe | undefined;
-    let unsubFollowers: Unsubscribe | undefined;
+    let unsubFollowersDetails: Unsubscribe | undefined;
     
     let storiesQuery;
     if (isOwnProfile) {
@@ -183,12 +198,12 @@ export default function UserProfilePage() {
     };
     fetchFollowingDetails();
 
-    const followersQuery = query(
+    const followersDetailsQuery = query(
         collection(db, 'users'),
         where('followingIds', 'array-contains', profileUser.id),
         limit(20)
     );
-    unsubFollowers = onSnapshot(followersQuery, (snapshot) => {
+    unsubFollowersDetails = onSnapshot(followersDetailsQuery, (snapshot) => {
         const fetchedFollowers = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as AppUser));
         setFollowersDetails(fetchedFollowers);
     }, (error) => {
@@ -199,7 +214,7 @@ export default function UserProfilePage() {
 
     return () => {
         if (unsubStories) unsubStories();
-        if (unsubFollowers) unsubFollowers();
+        if (unsubFollowersDetails) unsubFollowersDetails();
     };
   }, [profileUser, isOwnProfile, toast]);
 
@@ -293,7 +308,7 @@ export default function UserProfilePage() {
         </div>
         <div className="mt-6 pt-6 border-t border-border/60 flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-muted-foreground">
           <span><strong className="text-foreground">{publishedWorks.length}</strong> Public Works</span>
-          <span><strong className="text-foreground">{profileUser.followersCount || 0}</strong> Followers</span>
+          <span><strong className="text-foreground">{liveFollowersCount ?? '...'}</strong> Followers</span>
           <span><strong className="text-foreground">{profileUser.followingCount || 0}</strong> Following</span>
         </div>
       </header>
@@ -340,7 +355,7 @@ export default function UserProfilePage() {
       {followersDetails.length > 0 && (
         <section>
           <h2 className="text-2xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
-            <Users className="h-6 w-6" /> Followers ({profileUser.followersCount || followersDetails.length})
+            <Users className="h-6 w-6" /> Followers ({liveFollowersCount ?? followersDetails.length})
           </h2>
           <ScrollArea className="w-full whitespace-nowrap rounded-md pb-4">
             <div className="flex space-x-4">
@@ -352,7 +367,7 @@ export default function UserProfilePage() {
           </ScrollArea>
         </section>
       )}
-      {followersDetails.length === 0 && profileUser.followersCount === 0 && (
+      {followersDetails.length === 0 && (liveFollowersCount === null || liveFollowersCount === 0) && (
          <div className="text-center py-6 text-muted-foreground">
             {isOwnProfile ? "You don't" : `${displayName} doesn't`} have any followers yet.
         </div>
