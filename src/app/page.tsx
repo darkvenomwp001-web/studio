@@ -20,7 +20,7 @@ import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import CreatePostForm from '@/components/feed/CreatePostForm';
 import HomeFeed from '@/components/feed/HomeFeed';
 import { Separator } from '@/components/ui/separator';
-import StoryBubbles from '@/components/stories/StoryBubbles';
+import Bookshelf from '@/components/shared/Bookshelf';
 
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
@@ -335,7 +335,7 @@ export default function HomePage() {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
         <section className="mb-4">
-          <StoryBubbles />
+          <Bookshelf />
         </section>
 
         <Tabs defaultValue="for-you" className="w-full">

@@ -159,15 +159,3 @@ export interface Message {
     content: string;
     timestamp: any;
 }
-
-export interface UserStory {
-  id: string;
-  userId: string;
-  username: string;
-  userAvatarUrl: string;
-  mediaUrl: string;
-  mediaType: 'image' | 'video';
-  createdAt: Timestamp;
-  expiresAt: Timestamp;
-  viewedBy: string[];
-}
