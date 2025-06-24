@@ -20,6 +20,7 @@ import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import CreatePostForm from '@/components/feed/CreatePostForm';
 import HomeFeed from '@/components/feed/HomeFeed';
 import { Separator } from '@/components/ui/separator';
+import StorylyTray from '@/components/stories/StoryTray';
 
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
@@ -334,6 +335,10 @@ export default function HomePage() {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
         <div className="space-y-6">
+          <section className="relative h-[120px] mb-8">
+            <StorylyTray />
+          </section>
+
           <Tabs defaultValue="for-you" className="w-full">
             <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
               <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
