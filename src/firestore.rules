@@ -1,0 +1,91 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if a user is authenticated.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ===== USERS COLLECTION =====
+    // Public read is allowed for profiles. Only the user can create/update their own profile.
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false; // Deletion from client is disabled for safety.
+    }
+
+    // ===== STORIES COLLECTION (Books) =====
+    // Public can read 'Public' or 'Unlisted' stories. Only author/collaborators can create/update.
+    match /stories/{storyId} {
+      allow read: if resource.data.visibility in ['Public', 'Unlisted'] ||
+                    (isSignedIn() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds));
+      allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
+      allow delete: if isSignedIn() && resource.data.author.id == request.auth.uid;
+    }
+
+    // ===== USER NOTES COLLECTION (Messenger-style Notes) =====
+    // This rule is designed for security and performance.
+    match /userNotes/{noteId} {
+
+      // Helper function to check if the note has expired (is older than 24 hours).
+      function isNoteActive() {
+        // A note is active if its expiration time is in the future.
+        // request.time is the time the request is received by the server.
+        return resource.data.expiresAt > request.time;
+      }
+
+      // Rule for reading notes.
+      // This rule allows a query to fetch all public, non-expired notes.
+      // A user can also read their own notes, regardless of visibility.
+      // This setup requires a composite index on (visibility, expiresAt).
+      allow read: if (resource.data.visibility == 'public' && isNoteActive()) ||
+                  (isSignedIn() && request.auth.uid == resource.data.authorId);
+
+      // Rule for creating notes.
+      // A user must be signed in.
+      // The author ID of the new note must match the UID of the user creating it.
+      // This prevents users from creating notes on behalf of others.
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+
+      // For simplicity and security, we disallow updates and deletes from the client.
+      // Expired notes are filtered out by the query, not deleted.
+      allow update, delete: if false;
+    }
+
+    // ===== COMMENTS COLLECTION =====
+    // Public read is allowed. Only the creator can update/delete.
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && resource.data.user.id == request.auth.uid;
+    }
+
+    // ===== LETTERS COLLECTION =====
+    // Can only be read/updated by the sender or receiver. Only the reader can create.
+    match /letters/{letterId} {
+      allow read, update: if isSignedIn() && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.readerId);
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.readerId;
+      allow delete: if false;
+    }
+
+    // ===== FEED POSTS COLLECTION =====
+    // Public can read. Signed-in users can create posts and like/unlike any post.
+    match /feedPosts/{postId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
+      allow update: if isSignedIn(); // Allows for liking/unliking
+      allow delete: if isSignedIn() && resource.data.author.id == request.auth.uid;
+    }
+
+    // ===== NOTIFICATIONS COLLECTION =====
+    // Notifications are private to the recipient.
+    match /notifications/{notificationId} {
+      allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow create: if true; // Typically created by server-side logic or trusted client actions
+    }
+  }
+}

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -21,49 +22,40 @@ export default function NoteTray() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // This query fetches non-expired notes and orders them.
-    // It requires a composite index in Firestore. If it fails, Firebase will provide a link in the console to create it.
+    // This query now fetches only public, non-expired notes.
+    // It requires a composite index in Firestore on (visibility, expiresAt).
+    // Firebase will provide a link in the console to create it automatically.
     const q = query(
         collection(db, 'userNotes'),
+        where('visibility', '==', 'public'),
         where('expiresAt', '>', Timestamp.now()),
         orderBy('expiresAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetchedNotes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NoteWithAuthor));
-        
-        // Filter notes based on visibility rules on the client
-        const filteredNotes = fetchedNotes.filter(note => {
-            if (note.visibility === 'public') {
-                return true;
-            }
-            if (user && note.visibility === 'followers') {
-                // Show if it's the current user's own note OR they follow the author
-                return note.authorId === user.id || user.followingIds?.includes(note.authorId);
-            }
-            // If user is not logged in, they only see public notes (covered by the first check)
-            return false;
-        });
-
-        setNotes(filteredNotes);
+        setNotes(fetchedNotes);
     }, (error) => {
         console.error("Error fetching notes for tray:", error);
         if (error.code === 'failed-precondition') {
              toast({
                 title: "Database Index Required",
-                description: "The Notes feature needs a database index. Check the browser console for a link to create it in Firebase.",
+                description: "The Notes feature needs a database index. Check the browser console for a link to create it in Firebase. This is expected.",
+                variant: "destructive",
+                duration: 15000,
+            });
+        } else if (error.code === 'permission-denied') {
+             toast({
+                title: "Permission Error",
+                description: "Could not load notes due to database rules. Please ensure rules are deployed.",
                 variant: "destructive",
                 duration: 10000,
             });
-        } else if (error.code === 'permission-denied') {
-             // This might still happen for logged-out users if rules are strict.
-            // The rules should be public read for this to work for everyone.
-            console.log("Permission error likely due to Firestore rules. Notes might not appear for logged-out users.");
         }
     });
 
     return () => unsubscribe();
-  }, [toast, user]);
+  }, [toast]);
   
   const handleAddNoteClick = () => {
     if (user) {
