@@ -4,6 +4,15 @@
  */
 import axios from 'axios';
 
+// Helper to determine media type from a Data URI
+function getMediaType(dataUri: string): 'image' | 'video' {
+    const mimeType = dataUri.substring(dataUri.indexOf(':') + 1, dataUri.indexOf(';'));
+    if (mimeType.startsWith('video/')) {
+        return 'video';
+    }
+    return 'image';
+}
+
 // This function uploads a file (as a data URI) to Cloudinary and returns the secure URL.
 // It's a necessary step because Storyly needs a public URL for the media.
 async function uploadToCloudinary(dataUri: string): Promise<string> {
@@ -18,8 +27,11 @@ async function uploadToCloudinary(dataUri: string): Promise<string> {
     formData.append('file', dataUri);
     formData.append('upload_preset', uploadPreset);
 
+    // Use the correct resource type (image or video) for the upload endpoint.
+    const resourceType = getMediaType(dataUri);
+
     try {
-        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, {
             method: 'POST',
             body: formData,
         });
@@ -27,6 +39,7 @@ async function uploadToCloudinary(dataUri: string): Promise<string> {
         if (data.secure_url) {
             return data.secure_url;
         } else {
+            console.error("Cloudinary upload error response:", data);
             throw new Error(data.error?.message || 'Unknown Cloudinary error');
         }
     } catch (error) {
@@ -56,6 +69,7 @@ export async function createStorylyStory(mediaDataUri: string, userId: string): 
     try {
         // 1. Upload media to get a public URL
         const mediaUrl = await uploadToCloudinary(mediaDataUri);
+        const mediaType = getMediaType(mediaDataUri);
 
         // 2. Prepare the payload for the Storyly API
         const storylyApiUrl = `https://api.storyly.io/api/v2/accounts/${accountId}/story-groups/${userId}/stories`;
@@ -63,7 +77,7 @@ export async function createStorylyStory(mediaDataUri: string, userId: string): 
         const storyData = {
             stories: [{
                 media: {
-                    type: 'image', // Assuming image for now. Video detection can be added.
+                    type: mediaType, // Dynamically set media type
                     url: mediaUrl,
                 },
                 // You can add interactive elements here in the future
