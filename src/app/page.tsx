@@ -20,7 +20,7 @@ import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import CreatePostForm from '@/components/feed/CreatePostForm';
 import HomeFeed from '@/components/feed/HomeFeed';
 import { Separator } from '@/components/ui/separator';
-import StorylyTray from '@/components/stories/StoryTray';
+import StoryBubbles from '@/components/stories/StoryBubbles';
 
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
@@ -320,7 +320,7 @@ function WritingPromptsTabContent() {
 }
 
 export default function HomePage() {
-  const { loading: authLoading } = useAuth();
+  const { authLoading } = useAuth();
   
   if (authLoading) {
     return (
@@ -334,8 +334,8 @@ export default function HomePage() {
     <>
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
-        <section className="relative h-[120px] mb-4">
-          <StorylyTray />
+        <section className="mb-4">
+          <StoryBubbles />
         </section>
 
         <Tabs defaultValue="for-you" className="w-full">
