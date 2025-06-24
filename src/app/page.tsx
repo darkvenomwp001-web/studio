@@ -334,31 +334,28 @@ export default function HomePage() {
     <>
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
-        <div className="space-y-6">
-          <section className="relative h-[120px] mb-8">
-            <StorylyTray />
-          </section>
-
-          <Tabs defaultValue="for-you" className="w-full">
-            <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
-              <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
-                <TabsTrigger value="for-you">For You</TabsTrigger>
-                <TabsTrigger value="live-feed">Live Feed</TabsTrigger>
-                <TabsTrigger value="writing-prompts">Prompts</TabsTrigger>
-              </TabsList>
-            </div>
-            
-            <TabsContent value="for-you" className="mt-0">
-              <ForYouTabContent />
-            </TabsContent>
-            <TabsContent value="live-feed" className="mt-6">
-              <LiveFeedTabContent />
-            </TabsContent>
-            <TabsContent value="writing-prompts" className="mt-6">
-              <WritingPromptsTabContent />
-            </TabsContent>
-          </Tabs>
-        </div>
+        <Tabs defaultValue="for-you" className="w-full">
+          <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
+            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
+              <TabsTrigger value="for-you">For You</TabsTrigger>
+              <TabsTrigger value="live-feed">Live Feed</TabsTrigger>
+              <TabsTrigger value="writing-prompts">Prompts</TabsTrigger>
+            </TabsList>
+          </div>
+          
+          <TabsContent value="for-you" className="mt-6">
+            <section className="relative h-[120px] mb-8">
+              <StorylyTray />
+            </section>
+            <ForYouTabContent />
+          </TabsContent>
+          <TabsContent value="live-feed" className="mt-6">
+            <LiveFeedTabContent />
+          </TabsContent>
+          <TabsContent value="writing-prompts" className="mt-6">
+            <WritingPromptsTabContent />
+          </TabsContent>
+        </Tabs>
       </main>
       <BottomNavigationBar />
     </>
