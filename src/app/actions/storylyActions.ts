@@ -2,9 +2,6 @@
 /**
  * @fileOverview Server actions for interacting with the Storyly API.
  */
-import { config } from 'dotenv';
-config();
-
 import { auth } from '@/lib/firebase';
 import axios from 'axios';
 

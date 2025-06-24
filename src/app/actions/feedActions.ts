@@ -1,9 +1,6 @@
 
 'use server';
 
-import { config } from 'dotenv';
-config();
-
 import { db } from '@/lib/firebase';
 import { FeedPost, UserSummary } from '@/types';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
