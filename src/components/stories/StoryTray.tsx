@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useLayoutEffect, useRef } from 'react';
@@ -16,7 +15,7 @@ export default function StorylyTray() {
     if (storylyRef.current) {
       // Initialize Storyly with your token
       storylyRef.current.init({
-        token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NfaWQiOjE0NDcwLCJhcHBfaWQiOjIyMTE1LCJpbnNfaWQiOjI0OTc0fQ._SevrEiG7Vfe4311lScpVGM-49wgnzpEOhD4_bV_tn0",
+        token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NfaWQiOjE0NDcwLCJhcHBfaWQiOjIyMTE1LCJpbnNfaWQiOjI0OTc1fQ.Hn0jUM4FoEZ3DjFnYk7a82JNO7_M4G-yyVYFwmdOP1k",
       });
     }
   }, []);
