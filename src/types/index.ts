@@ -126,18 +126,16 @@ export interface Letter {
     authorResponse?: string;
 }
 
-export interface FeedPost {
-    id: string;
-    authorId: string;
-    author: UserSummary;
-    content: string;
-    timestamp: any;
-    likesCount: number;
-    likedBy: string[]; // Array of user IDs
-    commentsCount: number;
-    storyId?: string; // Optional attached story
-    storyTitle?: string;
-    storyCoverUrl?: string;
+export interface Question {
+  id: string;
+  asker: UserSummary;
+  authorId: string;
+  questionText: string;
+  answerText?: string;
+  status: 'pending' | 'answered' | 'declined';
+  createdAt: any; // Can be serverTimestamp or Timestamp
+  answeredAt?: any; // Can be serverTimestamp or Timestamp
+  isPublic: boolean;
 }
 
 export interface Conversation {

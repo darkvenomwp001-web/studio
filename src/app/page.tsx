@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, Flame, UserPlus, PenSquare, BookmarkPlus, BookUp2 } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, MessageSquare } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,9 +17,6 @@ import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
-import CreatePostForm from '@/components/feed/CreatePostForm';
-import HomeFeed from '@/components/feed/HomeFeed';
-import { Separator } from '@/components/ui/separator';
 import Bookshelf from '@/components/shared/Bookshelf';
 
 
@@ -161,9 +158,6 @@ function LoggedOutHomeContent() {
                       <BookHeart className="mr-2 h-5 w-5" /> Read Now
                     </Button>
                   </Link>
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto hover:border-primary hover:text-primary">
-                    <BookmarkPlus className="mr-2 h-5 w-5" /> Add to Library
-                  </Button>
                 </CardFooter>
               </div>
             </div>
@@ -249,36 +243,35 @@ function LoggedOutHomeContent() {
 }
 
 function ForYouTabContent() {
-  const { user } = useAuth();
   // Show discovery content for both logged-in and logged-out users, as requested.
   return <LoggedOutHomeContent />;
 }
 
-function LiveFeedTabContent() {
-  const { user } = useAuth();
-  
-  if (!user) {
+function CommunityQATabContent() {
     return (
-      <div className="py-8 max-w-2xl mx-auto text-center">
-        <h2 className="text-2xl font-headline font-bold text-center mb-6">Community Pulse</h2>
-        <Card>
-            <CardContent className="p-6">
-                <p className="text-muted-foreground">
-                    <Link href="/auth/signin" className="text-primary hover:underline">Sign in</Link> to see updates from authors you follow.
-                </p>
-            </CardContent>
-        </Card>
-      </div>
+        <div className="py-8 max-w-2xl mx-auto text-center">
+            <h2 className="text-2xl font-headline font-bold text-center mb-6">Community Q&A</h2>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center justify-center gap-2">
+                        <MessageSquare className="h-6 w-6 text-accent" />
+                        Ask an Author Anything
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <p className="text-muted-foreground">
+                        Have a burning question for your favorite author? Visit their profile to ask them anything!
+                    </p>
+                    <p className="text-muted-foreground">
+                        Authors can answer your questions, and the best ones will be featured here for the whole community to see.
+                    </p>
+                     <Link href="/stories" passHref>
+                        <Button variant="outline">Find Authors to Ask</Button>
+                    </Link>
+                </CardContent>
+            </Card>
+        </div>
     );
-  }
-
-  return (
-    <div className="py-8 max-w-2xl mx-auto space-y-8">
-      <CreatePostForm user={user} />
-      <Separator />
-      <HomeFeed user={user} />
-    </div>
-  );
 }
 
 function WritingPromptsTabContent() {
@@ -286,7 +279,6 @@ function WritingPromptsTabContent() {
         { title: 'The Silent Artifact', prompt: 'An ancient artifact is discovered that absorbs all sound around it. Describe the first team to study it and what happens when it "activates".', genre: 'Sci-Fi / Horror' },
         { title: 'A Favor for a Ghost', prompt: 'The ghost of a long-lost friend appears and asks you for one last favor. You must complete it before sunrise.', genre: 'Fantasy / Drama' },
         { title: 'The Last Bookstore', prompt: 'In a future where all books are digital, you run the last physical bookstore on Earth. Who is your final customer and what book do they want?', genre: 'Dystopian / Sentimental' },
-        { title: 'Five-Sentence Challenge', prompt: 'Write a complete, compelling story in exactly five sentences. The story must include the word "shadow".', genre: 'Flash Fiction' }
     ];
     return (
         <div className="py-8 max-w-3xl mx-auto">
@@ -296,7 +288,7 @@ function WritingPromptsTabContent() {
                     <Card key={index} className="shadow-sm hover:shadow-md transition-shadow">
                         <CardHeader>
                             <div className="flex items-center gap-3">
-                               <PenSquare className="h-6 w-6 text-accent"/>
+                               <Edit className="h-6 w-6 text-accent"/>
                                <CardTitle className="font-headline">{item.title}</CardTitle>
                             </div>
                             <CardDescription>Genre: {item.genre}</CardDescription>
@@ -342,7 +334,7 @@ export default function HomePage() {
           <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
             <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
               <TabsTrigger value="for-you">For You</TabsTrigger>
-              <TabsTrigger value="live-feed">Live Feed</TabsTrigger>
+              <TabsTrigger value="community-qa">Q&A</TabsTrigger>
               <TabsTrigger value="writing-prompts">Prompts</TabsTrigger>
             </TabsList>
           </div>
@@ -350,8 +342,8 @@ export default function HomePage() {
           <TabsContent value="for-you" className="mt-6">
             <ForYouTabContent />
           </TabsContent>
-          <TabsContent value="live-feed" className="mt-6">
-            <LiveFeedTabContent />
+          <TabsContent value="community-qa" className="mt-6">
+            <CommunityQATabContent />
           </TabsContent>
           <TabsContent value="writing-prompts" className="mt-6">
             <WritingPromptsTabContent />

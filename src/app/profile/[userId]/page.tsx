@@ -1,16 +1,16 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageSquare, UserPlus, UserX, Edit, Edit3, Users, FileText, ShieldAlert, Settings, Sparkles, LogOut } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Edit, Edit3, Users, FileText, ShieldAlert, Settings, Sparkles, LogOut, HelpCircle, Check, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Story, User as AppUser } from '@/types';
+import type { Story, User as AppUser, Question } from '@/types';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +28,12 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import FollowerUserCard from '@/components/shared/FollowerUserCard';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { askQuestion, answerQuestion, declineQuestion } from '@/app/actions/qaActions';
+import { formatDistanceToNow } from 'date-fns';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ProfileStoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>;
@@ -68,6 +74,162 @@ function ProfileStoryCard({ story, isPrivate = false }: ProfileStoryCardProps) {
   );
 }
 
+function AskQuestionForm({ author, asker }: { author: AppUser, asker: AppUser }) {
+    const [questionText, setQuestionText] = useState('');
+    const [isPublic, setIsPublic] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { toast } = useToast();
+
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        const result = await askQuestion(author.id, questionText, {
+            id: asker.id,
+            username: asker.username,
+            displayName: asker.displayName,
+            avatarUrl: asker.avatarUrl,
+        }, isPublic);
+
+        if (result.success) {
+            setQuestionText('');
+            toast({ title: 'Question Sent!', description: `Your question has been sent to ${author.displayName || author.username}.` });
+        } else {
+            toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        }
+        setIsSubmitting(false);
+    };
+
+    return (
+        <Card>
+            <form onSubmit={handleSubmit}>
+                <CardHeader>
+                    <CardTitle>Ask {author.displayName || author.username} a Question</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Textarea 
+                        value={questionText}
+                        onChange={(e) => setQuestionText(e.target.value)}
+                        placeholder="Type your question here..."
+                        maxLength={500}
+                        rows={4}
+                        disabled={isSubmitting}
+                    />
+                    <div className="flex items-center space-x-2">
+                        <Switch id="isPublic" checked={isPublic} onCheckedChange={setIsPublic} disabled={isSubmitting} />
+                        <Label htmlFor="isPublic" className="flex items-center text-sm text-muted-foreground">
+                            Allow question and answer to be public if answered
+                            <HelpCircle className="ml-1.5 h-4 w-4 cursor-help" title="If checked, your question and the author's response may be visible on their profile. If unchecked, only you will see the answer." />
+                        </Label>
+                    </div>
+                </CardContent>
+                <CardFooter>
+                    <Button type="submit" disabled={isSubmitting || questionText.trim().length < 10}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
+                        Submit Question
+                    </Button>
+                </CardFooter>
+            </form>
+        </Card>
+    );
+}
+
+function AnsweredQuestionCard({ question }: { question: Question }) {
+    return (
+        <div className="p-4 border rounded-lg bg-card shadow-sm">
+            <div className="flex items-start gap-3">
+                <Avatar className="h-8 w-8">
+                    <AvatarImage src={question.asker.avatarUrl} alt={question.asker.username} data-ai-hint="profile person" />
+                    <AvatarFallback>{question.asker.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                    <p className="text-sm font-semibold text-foreground">
+                        {question.asker.displayName || question.asker.username} asked:
+                    </p>
+                    <p className="text-sm text-muted-foreground italic">"{question.questionText}"</p>
+                </div>
+            </div>
+            <div className="mt-3 pl-11">
+                <div className="p-3 border-l-2 border-primary/50">
+                     <p className="text-sm font-semibold text-primary mb-1">Author's Answer:</p>
+                     <p className="text-sm text-foreground/90 whitespace-pre-line">{question.answerText}</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function PendingQuestionCard({ question }: { question: Question }) {
+    const { toast } = useToast();
+    const [answer, setAnswer] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    const handleAnswer = async () => {
+        setIsSubmitting(true);
+        const result = await answerQuestion(question.id, answer);
+        if (!result.success) {
+            toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        } else {
+             toast({ title: 'Success', description: 'Your answer has been posted.' });
+        }
+        setIsSubmitting(false);
+    };
+
+    const handleDecline = async () => {
+        setIsSubmitting(true);
+        const result = await declineQuestion(question.id);
+        if (!result.success) {
+            toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        }
+        setIsSubmitting(false);
+    };
+    
+    return (
+         <div className="p-4 border rounded-lg bg-card shadow-sm">
+            <div className="flex items-start gap-3">
+                 <Avatar className="h-8 w-8">
+                    <AvatarImage src={question.asker.avatarUrl} alt={question.asker.username} data-ai-hint="profile person" />
+                    <AvatarFallback>{question.asker.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                     <p className="text-sm text-muted-foreground">
+                        <span className="font-semibold text-foreground">{question.asker.displayName || question.asker.username}</span> asked {formatDistanceToNow(question.createdAt.toDate(), { addSuffix: true })}:
+                    </p>
+                    <p className="text-sm text-foreground/90 italic">"{question.questionText}"</p>
+                    
+                    {!isExpanded && (
+                        <Button variant="link" size="sm" className="p-0 h-auto mt-1" onClick={() => setIsExpanded(true)}>Reply</Button>
+                    )}
+
+                    {isExpanded && (
+                         <div className="mt-3 space-y-2">
+                             <Textarea 
+                                placeholder="Write your answer..."
+                                value={answer}
+                                onChange={(e) => setAnswer(e.target.value)}
+                                rows={4}
+                                disabled={isSubmitting}
+                             />
+                             <div className="flex items-center justify-between">
+                                <div className="flex gap-2">
+                                     <Button size="sm" onClick={handleAnswer} disabled={isSubmitting || answer.trim().length < 10}>
+                                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4"/>}
+                                        Answer
+                                    </Button>
+                                    <Button size="sm" variant="ghost" onClick={handleDecline} disabled={isSubmitting}>
+                                         <X className="mr-2 h-4 w-4"/> Decline
+                                    </Button>
+                                </div>
+                                <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => setIsExpanded(false)}>Collapse</Button>
+                             </div>
+                         </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function UserProfilePage() {
   const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading, signOutFirebase } = useAuth();
   const params = useParams();
@@ -83,8 +245,68 @@ export default function UserProfilePage() {
   const [privateWorks, setPrivateWorks] = useState<Story[]>([]); 
   const [followingDetails, setFollowingDetails] = useState<AppUser[]>([]);
   const [followersDetails, setFollowersDetails] = useState<AppUser[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
 
   const isOwnProfile = currentUser?.id === userId;
+  
+  useEffect(() => {
+    if (!profileUser) {
+        setQuestions([]);
+        return;
+    }
+    
+    // Base query for answered, public questions
+    const answeredQuery = query(
+        collection(db, 'questions'),
+        where('authorId', '==', profileUser.id),
+        where('status', '==', 'answered'),
+        where('isPublic', '==', true),
+        orderBy('answeredAt', 'desc')
+    );
+
+    let unsubAnswered: Unsubscribe;
+    let unsubPending: Unsubscribe | undefined;
+
+    if (isOwnProfile) {
+        // For owner, fetch both pending and answered
+        const pendingQuery = query(
+            collection(db, 'questions'),
+            where('authorId', '==', profileUser.id),
+            where('status', '==', 'pending'),
+            orderBy('createdAt', 'desc')
+        );
+        
+        let pendingCache: Question[] = [];
+        let answeredCache: Question[] = [];
+        
+        const updateState = () => {
+            setQuestions([...pendingCache, ...answeredCache]);
+        };
+
+        unsubPending = onSnapshot(pendingQuery, (snapshot) => {
+            pendingCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Question));
+            updateState();
+        });
+
+        unsubAnswered = onSnapshot(answeredQuery, (snapshot) => {
+            answeredCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Question));
+            updateState();
+        });
+
+    } else {
+        // For visitors, only fetch answered questions
+        unsubAnswered = onSnapshot(answeredQuery, (snapshot) => {
+            const answeredQuestions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Question));
+            setQuestions(answeredQuestions);
+        });
+    }
+    
+    return () => {
+        unsubAnswered();
+        if (unsubPending) unsubPending();
+    };
+  }, [profileUser, isOwnProfile]);
+
 
   useEffect(() => {
     if (!userId) {
@@ -93,7 +315,6 @@ export default function UserProfilePage() {
       return;
     }
 
-    // Reset state when navigating to a new profile to prevent showing stale data
     setProfileUser(null);
     setPublishedWorks([]);
     setPrivateWorks([]);
@@ -117,13 +338,11 @@ export default function UserProfilePage() {
       setIsLoadingData(false);
     });
 
-    // New listener for real-time follower count
     const followersQuery = query(collection(db, 'users'), where('followingIds', 'array-contains', userId));
     const unsubscribeFollowersCount = onSnapshot(followersQuery, (snapshot) => {
       setLiveFollowersCount(snapshot.size);
     }, (error) => {
       console.error("Error fetching live follower count:", error);
-      // Don't toast here as it could be disruptive
     });
 
 
@@ -255,6 +474,9 @@ export default function UserProfilePage() {
   const isFollowing = currentUser?.followingIds?.includes(profileUser.id) || false;
   const displayName = profileUser.displayName || profileUser.username;
 
+  const pendingQuestions = questions.filter(q => q.status === 'pending');
+  const answeredQuestions = questions.filter(q => q.status === 'answered');
+
   return (
     <div className="space-y-10 pb-10">
       <header className="bg-card p-6 md:p-8 rounded-lg shadow-lg relative">
@@ -312,6 +534,39 @@ export default function UserProfilePage() {
           <span><strong className="text-foreground">{profileUser.followingCount || 0}</strong> Following</span>
         </div>
       </header>
+
+      <section>
+        <h2 className="text-2xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
+            <HelpCircle className="h-6 w-6" /> Author Q&A
+        </h2>
+        <div className="space-y-6">
+            {!isOwnProfile && currentUser && <AskQuestionForm author={profileUser} asker={currentUser} />}
+            
+            {isOwnProfile && pendingQuestions.length > 0 && (
+                <div>
+                    <h3 className="text-lg font-semibold mb-2">Pending Questions</h3>
+                    <div className="space-y-4">
+                        {pendingQuestions.map(q => <PendingQuestionCard key={q.id} question={q} />)}
+                    </div>
+                </div>
+            )}
+            
+            {answeredQuestions.length > 0 && (
+                 <div>
+                    <h3 className="text-lg font-semibold mb-2 mt-6">Answered Questions</h3>
+                    <div className="space-y-4">
+                        {answeredQuestions.map(q => <AnsweredQuestionCard key={q.id} question={q} />)}
+                    </div>
+                </div>
+            )}
+            
+            {questions.length === 0 && (
+                <p className="text-center text-muted-foreground py-6 bg-card rounded-lg">
+                    {isOwnProfile ? "No questions yet. Share your profile to get some!" : `Be the first to ask ${displayName} a question!`}
+                </p>
+            )}
+        </div>
+      </section>
 
       {publishedWorks.length > 0 && (
         <section>
