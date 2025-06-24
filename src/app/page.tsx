@@ -335,7 +335,9 @@ export default function HomePage() {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
         <div className="space-y-6">
-          <StorylyTray />
+          <div className="w-full border-b pb-3">
+            <StorylyTray />
+          </div>
 
           <Tabs defaultValue="for-you" className="w-full">
             <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
@@ -362,5 +364,3 @@ export default function HomePage() {
     </>
   );
 }
-
-    

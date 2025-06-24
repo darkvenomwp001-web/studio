@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useLayoutEffect, useRef } from 'react';
@@ -21,12 +22,6 @@ export default function StorylyTray() {
   }, []);
 
   return (
-    <div className="w-full border-b pb-3">
-        {/* The storyly-web component will be rendered here.
-            It controls its own internal layout and appearance.
-            We just need to make sure it's in the DOM.
-        */}
-        <storyly-web ref={storylyRef}></storyly-web>
-    </div>
+    <storyly-web ref={storylyRef}></storyly-web>
   );
 }
