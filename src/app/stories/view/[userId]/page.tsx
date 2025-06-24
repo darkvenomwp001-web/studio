@@ -15,6 +15,7 @@ export default function StoryViewerPage() {
           <ArrowLeft className="mr-2 h-4 w-4"/>
           Back
       </Button>
+      {/* This container gives the Storyly component a defined space to render in. */}
       <div className="relative h-[120px]">
         <StorylyTray />
       </div>
