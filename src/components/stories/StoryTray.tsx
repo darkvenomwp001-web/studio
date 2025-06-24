@@ -1,7 +1,10 @@
-
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import Link from 'next/link';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PlusCircle } from 'lucide-react';
 
 // Define the type for the Storyly DOM element
 type StorylyWeb = HTMLElement & {
@@ -9,12 +12,10 @@ type StorylyWeb = HTMLElement & {
 };
 
 export default function StorylyTray() {
+  const { user } = useAuth();
   const storylyRef = useRef<StorylyWeb>(null);
 
   useEffect(() => {
-    // This timeout is a robust way to ensure that the Storyly script
-    // has fully executed and the <storyly-web> custom element is ready
-    // in the DOM before we try to initialize it.
     const timer = setTimeout(() => {
       if (storylyRef.current && typeof storylyRef.current.init === 'function') {
         try {
@@ -24,15 +25,33 @@ export default function StorylyTray() {
         } catch (error) {
           console.error("Storyly initialization failed inside timeout:", error);
         }
-      } else {
-        console.error("Storyly init function not found after delay. The script might not have loaded correctly.");
       }
-    }, 100); // A 100ms delay is usually sufficient.
+    }, 100);
 
     return () => clearTimeout(timer);
   }, []);
 
   return (
-    <storyly-web ref={storylyRef} />
+    <div className="flex items-center space-x-4 h-full">
+      {user && (
+        <Link href="/write/edit-details" className="flex-shrink-0">
+          <div className="flex flex-col items-center gap-1.5 cursor-pointer group">
+            <div className="relative">
+              <Avatar className="h-16 w-16 border-2 border-dashed border-muted-foreground group-hover:border-primary transition-colors">
+                <AvatarImage src={user.avatarUrl} alt="Your Story" data-ai-hint="profile person" />
+                <AvatarFallback>{user.username?.substring(0,1).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
+                 <PlusCircle className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+            <span className="text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors">Add Story</span>
+          </div>
+        </Link>
+      )}
+      <div className="flex-grow h-full overflow-hidden">
+        <storyly-web ref={storylyRef} style={{ width: '100%', height: '100%' }} />
+      </div>
+    </div>
   );
 }
