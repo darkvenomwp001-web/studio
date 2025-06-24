@@ -1,59 +1,70 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Rules for user profiles
+
+    // Users: Can read/write their own profile. Anyone can read public info.
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth.uid == userId;
     }
 
-    // Rules for ephemeral user stories (24-hour)
+    // Stories (Books): Read is conditional on visibility. Write is for author/collaborators.
+    match /stories/{storyId} {
+      function isAuthorOrCollaborator() {
+        return request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds;
+      }
+      
+      allow read: if resource.data.visibility == 'Public' 
+                    || resource.data.visibility == 'Unlisted' 
+                    || (request.auth != null && isAuthorOrCollaborator());
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
+      allow update: if request.auth != null && isAuthorOrCollaborator();
+      allow delete: if request.auth != null && request.auth.uid == resource.data.author.id;
+    }
+    
+    // User Stories (Ephemeral): Authenticated users can read. Creator can write.
     match /userStories/{storyId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
     
-    // --- Rules to keep existing app features working ---
-
-    // Rules for literary stories
-    match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || (request.auth != null && request.auth.uid == resource.data.author.id) || (request.auth != null && resource.data.collaboratorIds.hasAny([request.auth.uid]));
-      allow write: if request.auth != null && (request.auth.uid == request.resource.data.author.id || request.resource.data.collaboratorIds.hasAny([request.auth.uid]));
-    }
-    
-    // Rules for comments
-    match /comments/{commentId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
-    }
-
-    // Rules for letters
-    match /letters/{letterId} {
-      allow read: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
-      allow write: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
-    }
-
-    // Rules for feed posts
+    // Feed Posts: Authenticated users can read and create their own posts.
     match /feedPosts/{postId} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
     }
     
-    // Rules for notifications
+    // Comments: Authenticated users can read/write.
+    match /comments/{commentId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.user.id;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
+    }
+    
+    // Notifications: Only recipient can read/update.
     match /notifications/{notificationId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null; // Creation is handled via server actions or triggers.
+    }
+    
+    // Letters: Only participants can interact.
+    match /letters/{letterId} {
+       allow read: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
+       allow create: if request.auth != null && request.auth.uid == request.resource.data.reader.id;
+       allow update: if request.auth != null && request.auth.uid == resource.data.authorId; // Only author can respond/pin
     }
 
-    // Rules for messaging
+    // Conversations & Messages: Only participants can interact.
     match /conversations/{conversationId} {
-      allow read, write: if request.auth != null && request.auth.uid in resource.data.participantIds;
-    }
-    
-    match /conversations/{conversationId}/messages/{messageId} {
-      allow read, write: if request.auth != null && get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds.hasAny([request.auth.uid]);
+      allow read, create, update: if request.auth != null && request.auth.uid in resource.data.participantIds;
+
+      match /messages/{messageId} {
+        allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      }
     }
   }
 }
