@@ -64,6 +64,7 @@ export default function StorylyTray() {
         isOpen={isCreateStoryOpen}
         setIsOpen={setIsCreateStoryOpen}
         onStoryPosted={handleStoryPosted}
+        user={user}
       />
     </>
   );

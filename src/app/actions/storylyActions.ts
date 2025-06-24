@@ -2,7 +2,6 @@
 /**
  * @fileOverview Server actions for interacting with the Storyly API.
  */
-import { auth } from '@/lib/firebase';
 import axios from 'axios';
 
 // This function uploads a file (as a data URI) to Cloudinary and returns the secure URL.
@@ -39,11 +38,11 @@ async function uploadToCloudinary(dataUri: string): Promise<string> {
 /**
  * Creates a new story in the user's Storyly account.
  * @param mediaDataUri The image or video file to be posted, encoded as a Data URI.
+ * @param userId The ID of the user posting the story.
  * @returns An object indicating success or failure.
  */
-export async function createStorylyStory(mediaDataUri: string): Promise<{ success: boolean; error?: string }> {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
+export async function createStorylyStory(mediaDataUri: string, userId: string): Promise<{ success: boolean; error?: string }> {
+    if (!userId) {
         return { success: false, error: 'User is not authenticated.' };
     }
 
@@ -59,7 +58,7 @@ export async function createStorylyStory(mediaDataUri: string): Promise<{ succes
         const mediaUrl = await uploadToCloudinary(mediaDataUri);
 
         // 2. Prepare the payload for the Storyly API
-        const storylyApiUrl = `https://api.storyly.io/api/v2/accounts/${accountId}/story-groups/${currentUser.uid}/stories`;
+        const storylyApiUrl = `https://api.storyly.io/api/v2/accounts/${accountId}/story-groups/${userId}/stories`;
         
         const storyData = {
             stories: [{

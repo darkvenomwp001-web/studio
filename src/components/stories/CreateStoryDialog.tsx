@@ -8,14 +8,16 @@ import { useToast } from '@/hooks/use-toast';
 import { createStorylyStory } from '@/app/actions/storylyActions';
 import { Loader2, PlusCircle, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
+import type { User } from '@/types';
 
 interface CreateStoryDialogProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   onStoryPosted: () => void;
+  user: User | null;
 }
 
-export default function CreateStoryDialog({ isOpen, setIsOpen, onStoryPosted }: CreateStoryDialogProps) {
+export default function CreateStoryDialog({ isOpen, setIsOpen, onStoryPosted, user }: CreateStoryDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
@@ -42,13 +44,17 @@ export default function CreateStoryDialog({ isOpen, setIsOpen, onStoryPosted }: 
       toast({ title: 'No file selected', description: 'Please select an image or video to post.', variant: 'destructive' });
       return;
     }
+    if (!user) {
+      toast({ title: 'Authentication Error', description: 'You must be logged in to post a story.', variant: 'destructive' });
+      return;
+    }
     setIsPosting(true);
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = async () => {
       const base64 = reader.result as string;
-      const result = await createStorylyStory(base64);
+      const result = await createStorylyStory(base64, user.id);
 
       if (result.success) {
         toast({ title: 'Story Posted!', description: 'Your story will appear shortly.' });
@@ -99,7 +105,7 @@ export default function CreateStoryDialog({ isOpen, setIsOpen, onStoryPosted }: 
           <DialogClose asChild>
             <Button variant="outline" onClick={handleClose}>Cancel</Button>
           </DialogClose>
-          <Button onClick={handlePost} disabled={!file || isPosting}>
+          <Button onClick={handlePost} disabled={!file || isPosting || !user}>
             {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
             Post Story
           </Button>
