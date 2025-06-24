@@ -3,21 +3,31 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, MessageSquare } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, MessageSquare, HelpCircle, FileText, Check, X, MoreHorizontal, UserPlus, BookOpenText } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import type { Story, UserSummary } from '@/types';
-import { useEffect, useState } from 'react';
+import type { Story, UserSummary, Question, ReadingListItem, Chapter, User as AppUserType } from '@/types';
+import { useEffect, useState, FormEvent, useCallback } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit as firestoreLimit, onSnapshot } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Bookshelf from '@/components/shared/Bookshelf';
+import { Textarea } from '@/components/ui/textarea';
+import { askQuestion, answerQuestion, declineQuestion, editQuestion, deleteQuestion, deleteQuestionByAuthor } from '@/app/actions/qaActions';
+import { useToast } from '@/hooks/use-toast';
+import { formatDistanceToNow } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
@@ -243,33 +253,359 @@ function LoggedOutHomeContent() {
 }
 
 function ForYouTabContent() {
-  // Show discovery content for both logged-in and logged-out users, as requested.
   return <LoggedOutHomeContent />;
 }
 
-function CommunityQATabContent() {
+// Debounce function for user search
+function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<F>): Promise<ReturnType<F>> =>
+    new Promise(resolve => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      timeout = setTimeout(() => resolve(func(...args)), waitFor);
+    });
+}
+
+
+function CommunityQASubmissionForm({ user }: { user: AppUserType }) {
+  const { toast } = useToast();
+  const [questionText, setQuestionText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // For mentioning authors
+  const [authorSearch, setAuthorSearch] = useState('');
+  const [isSearchingAuthors, setIsSearchingAuthors] = useState(false);
+  const [searchedAuthors, setSearchedAuthors] = useState<UserSummary[]>([]);
+  const [targetAuthor, setTargetAuthor] = useState<UserSummary | null>(null);
+
+  // For attaching chapters
+  const [isChapterDialogOpen, setIsChapterDialogOpen] = useState(false);
+  const [attachedChapter, setAttachedChapter] = useState<{ storyId: string, storyTitle: string, chapterId: string, chapterTitle: string } | null>(null);
+
+  const readingList = user?.readingList || [];
+
+  const performAuthorSearch = async (searchTerm: string) => {
+    if (!searchTerm.trim()) {
+      setSearchedAuthors([]);
+      setIsSearchingAuthors(false);
+      return;
+    }
+    setIsSearchingAuthors(true);
+    setSearchedAuthors([]);
+    try {
+      const usersRef = collection(db, 'users');
+      const q = query(
+        usersRef,
+        where('username', '>=', searchTerm.trim()),
+        where('username', '<=', searchTerm.trim() + '\uf8ff'),
+        orderBy('username'),
+        limit(5)
+      );
+      const querySnapshot = await getDocs(q);
+      const usersFound = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUserType));
+      setSearchedAuthors(usersFound.map(u => ({ id: u.id, username: u.username, displayName: u.displayName, avatarUrl: u.avatarUrl })));
+    } catch (error) {
+      console.error("Error searching authors:", error);
+    } finally {
+      setIsSearchingAuthors(false);
+    }
+  };
+
+  const debouncedAuthorSearch = useCallback(debounce(performAuthorSearch, 300), []);
+
+  useEffect(() => {
+    debouncedAuthorSearch(authorSearch);
+  }, [authorSearch, debouncedAuthorSearch]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    const result = await askQuestion(
+      { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
+      questionText,
+      targetAuthor || undefined,
+      attachedChapter
+    );
+
+    if (result.success) {
+      setQuestionText('');
+      setTargetAuthor(null);
+      setAuthorSearch('');
+      setAttachedChapter(null);
+      toast({ title: 'Question Posted!', description: `Your question is now live in the community feed.` });
+    } else {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    }
+    setIsSubmitting(false);
+  };
+  
+  return (
+    <Card className="mb-8">
+      <form onSubmit={handleSubmit}>
+        <CardHeader>
+          <CardTitle>Ask the Community</CardTitle>
+          <CardDescription>Post a public question. You can mention an author or attach a chapter for context.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea
+            value={questionText}
+            onChange={(e) => setQuestionText(e.target.value)}
+            placeholder="What's your question?"
+            maxLength={1000}
+            rows={4}
+            disabled={isSubmitting}
+          />
+          <div className="flex flex-wrap gap-2">
+            {targetAuthor && (
+              <Badge variant="secondary" className="flex items-center gap-2 p-2">
+                <Avatar className="h-5 w-5"><AvatarImage src={targetAuthor.avatarUrl} /></Avatar>
+                <span>To: @{targetAuthor.username}</span>
+                <button onClick={() => setTargetAuthor(null)} className="ml-1 rounded-full hover:bg-background"><X className="h-3 w-3"/></button>
+              </Badge>
+            )}
+             {attachedChapter && (
+              <Badge variant="secondary" className="flex items-center gap-2 p-2">
+                <BookOpenText className="h-4 w-4"/>
+                <span className="truncate max-w-xs">Ref: {attachedChapter.storyTitle} - {attachedChapter.chapterTitle}</span>
+                <button onClick={() => setAttachedChapter(null)} className="ml-1 rounded-full hover:bg-background"><X className="h-3 w-3"/></button>
+              </Badge>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter className="flex-wrap justify-between gap-2">
+          <div className="flex gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                 <Button variant="outline" size="sm"><UserPlus className="mr-2 h-4 w-4"/>Mention Author</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Mention an Author</DialogTitle>
+                  <DialogDescription>Search for an author by username to tag them in your question.</DialogDescription>
+                </DialogHeader>
+                 <div className="relative">
+                  <Input placeholder="Search username..." value={authorSearch} onChange={(e) => setAuthorSearch(e.target.value)} />
+                  {isSearchingAuthors && <Loader2 className="absolute right-2 top-2 h-5 w-5 animate-spin text-muted-foreground" />}
+                 </div>
+                 <ScrollArea className="max-h-60">
+                   {searchedAuthors.map(author => (
+                     <DialogClose asChild key={author.id}>
+                        <div onClick={() => setTargetAuthor(author)} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted cursor-pointer">
+                          <Avatar className="h-8 w-8"><AvatarImage src={author.avatarUrl} /></Avatar>
+                          <span>{author.displayName || author.username} <span className="text-muted-foreground">@{author.username}</span></span>
+                        </div>
+                     </DialogClose>
+                   ))}
+                 </ScrollArea>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isChapterDialogOpen} onOpenChange={setIsChapterDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm"><FileText className="mr-2 h-4 w-4"/>Attach Chapter</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Attach a Chapter</DialogTitle>
+                  <DialogDescription>Select a story and chapter from your reading list to reference.</DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="max-h-60">
+                  <div className="space-y-4">
+                    {readingList.map(story => (
+                       <div key={story.id}>
+                         <h4 className="font-semibold">{story.title}</h4>
+                         <div className="pl-2 border-l">
+                         {story.chapters.filter(c => c.status === 'Published').map(chapter => (
+                           <div key={chapter.id} onClick={() => { setAttachedChapter({ storyId: story.id, storyTitle: story.title, chapterId: chapter.id, chapterTitle: chapter.title }); setIsChapterDialogOpen(false); }} className="p-1 rounded-md hover:bg-muted cursor-pointer text-sm">
+                             Part {chapter.order}: {chapter.title}
+                           </div>
+                         ))}
+                         </div>
+                       </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </DialogContent>
+            </Dialog>
+          </div>
+          <Button type="submit" disabled={isSubmitting || questionText.trim().length < 10}>
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
+            Ask Question
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
+  );
+}
+
+function QuestionCard({ question, currentUser }: { question: Question; currentUser: AppUserType | null }) {
+    const { toast } = useToast();
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedText, setEditedText] = useState(question.questionText);
+    const [answerText, setAnswerText] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const isAsker = currentUser?.id === question.asker.id;
+    const isTargetAuthor = currentUser?.id === question.targetAuthor?.id;
+
+    const handleEditSave = async () => {
+        if(editedText.trim() === question.questionText) {
+            setIsEditing(false);
+            return;
+        }
+        setIsSubmitting(true);
+        const result = await editQuestion(question.id, editedText, currentUser!.id);
+        if(result.success) {
+            toast({ title: 'Question updated!'});
+            setIsEditing(false);
+        } else {
+            toast({ title: 'Error', description: result.error, variant: 'destructive'});
+        }
+        setIsSubmitting(false);
+    }
+    
+    const handleDelete = async () => {
+        const result = await deleteQuestion(question.id, currentUser!.id);
+        if(result.success) {
+            toast({ title: 'Question deleted.'});
+        } else {
+            toast({ title: 'Error', description: result.error, variant: 'destructive'});
+        }
+    }
+    
+    const handleDeleteByAuthor = async () => {
+        const result = await deleteQuestionByAuthor(question.id, currentUser!.id);
+         if(result.success) {
+            toast({ title: 'Question removed.'});
+        } else {
+            toast({ title: 'Error', description: result.error, variant: 'destructive'});
+        }
+    }
+    
+    const handleAnswerSubmit = async () => {
+        setIsSubmitting(true);
+        const result = await answerQuestion(question.id, answerText);
+        if(result.success) {
+            toast({ title: 'Answer posted!'});
+            setAnswerText('');
+        } else {
+            toast({ title: 'Error', description: result.error, variant: 'destructive'});
+        }
+        setIsSubmitting(false);
+    }
+    
     return (
-        <div className="py-8 max-w-2xl mx-auto text-center">
-            <h2 className="text-2xl font-headline font-bold text-center mb-6">Community Q&A</h2>
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center justify-center gap-2">
-                        <MessageSquare className="h-6 w-6 text-accent" />
-                        Ask an Author Anything
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <p className="text-muted-foreground">
-                        Have a burning question for your favorite author? Visit their profile to ask them anything!
+        <Card className="w-full">
+            <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                        <Link href={`/profile/${question.asker.id}`}><Avatar className="h-10 w-10"><AvatarImage src={question.asker.avatarUrl} /></Avatar></Link>
+                        <div>
+                            <Link href={`/profile/${question.asker.id}`} className="font-semibold hover:underline">{question.asker.displayName}</Link>
+                            <p className="text-xs text-muted-foreground">
+                                asked {formatDistanceToNow(question.createdAt.toDate(), { addSuffix: true })}
+                                {question.isEdited && <span> &bull; edited</span>}
+                            </p>
+                        </div>
+                    </div>
+                    {(isAsker || isTargetAuthor) && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4"/></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                {isAsker && <DropdownMenuItem onClick={() => setIsEditing(true)}>Edit</DropdownMenuItem>}
+                                {isAsker && <DropdownMenuItem className="text-destructive" onClick={handleDelete}>Delete</DropdownMenuItem>}
+                                {isTargetAuthor && <DropdownMenuItem className="text-destructive" onClick={handleDeleteByAuthor}>Delete (Moderator)</DropdownMenuItem>}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent>
+                {question.targetAuthor && (
+                    <p className="text-sm text-muted-foreground mb-2">
+                        for <Link href={`/profile/${question.targetAuthor.id}`} className="text-primary font-semibold hover:underline">@{question.targetAuthor.username}</Link>
                     </p>
-                    <p className="text-muted-foreground">
-                        Authors can answer your questions, and the best ones will be featured here for the whole community to see.
-                    </p>
-                     <Link href="/stories" passHref>
-                        <Button variant="outline">Find Authors to Ask</Button>
-                    </Link>
-                </CardContent>
-            </Card>
+                )}
+                {isEditing ? (
+                    <div className="space-y-2">
+                        <Textarea value={editedText} onChange={(e) => setEditedText(e.target.value)} rows={4} disabled={isSubmitting}/>
+                        <div className="flex gap-2">
+                            <Button size="sm" onClick={handleEditSave} disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin"/> : 'Save'}</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
+                        </div>
+                    </div>
+                ) : (
+                    <p className="whitespace-pre-line">{question.questionText}</p>
+                )}
+                
+                {question.attachedChapter && (
+                     <Link href={`/stories/${question.attachedChapter.storyId}/read/${question.attachedChapter.chapterId}`} className="mt-3 block">
+                        <div className="p-2 border rounded-md hover:bg-muted/50 flex items-center gap-2">
+                           <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0"/>
+                           <div className="text-sm">
+                               <span className="font-semibold">{question.attachedChapter.storyTitle}</span>
+                               <p className="text-xs text-muted-foreground">{question.attachedChapter.chapterTitle}</p>
+                           </div>
+                        </div>
+                     </Link>
+                )}
+            </CardContent>
+
+            {question.status === 'answered' && question.answerText && (
+                <CardFooter className="flex-col items-start gap-3 border-t pt-4">
+                    <div className="flex items-start gap-3 w-full">
+                        <Link href={`/profile/${question.targetAuthor!.id}`}><Avatar className="h-10 w-10"><AvatarImage src={question.targetAuthor!.avatarUrl} /></Avatar></Link>
+                         <div>
+                            <Link href={`/profile/${question.targetAuthor!.id}`} className="font-semibold hover:underline">{question.targetAuthor!.displayName}</Link>
+                            <p className="text-xs text-muted-foreground">answered {formatDistanceToNow(question.answeredAt.toDate(), { addSuffix: true })}</p>
+                        </div>
+                    </div>
+                    <p className="pl-12 text-sm whitespace-pre-line text-foreground/90">{question.answerText}</p>
+                </CardFooter>
+            )}
+
+            {isTargetAuthor && question.status === 'unanswered' && (
+                <CardFooter className="flex-col items-start gap-2 border-t pt-4">
+                    <Textarea placeholder="Write your answer..." value={answerText} onChange={e => setAnswerText(e.target.value)} disabled={isSubmitting}/>
+                    <Button onClick={handleAnswerSubmit} disabled={isSubmitting || answerText.trim().length < 10}>
+                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Post Answer'}
+                    </Button>
+                </CardFooter>
+            )}
+        </Card>
+    );
+}
+
+function CommunityQATabContent() {
+    const { user, loading } = useAuth();
+    const [questions, setQuestions] = useState<Question[]>([]);
+    const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
+
+    useEffect(() => {
+        const q = query(collection(db, 'questions'), orderBy('createdAt', 'desc'), firestoreLimit(20));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedQuestions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Question));
+            setQuestions(fetchedQuestions);
+            setIsLoadingQuestions(false);
+        }, (error) => {
+            console.error("Error fetching questions:", error);
+            setIsLoadingQuestions(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    if (loading) {
+        return <div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin" /></div>
+    }
+    
+    return (
+        <div className="py-8 max-w-2xl mx-auto space-y-6">
+            {user && <CommunityQASubmissionForm user={user} />}
+            {isLoadingQuestions && <div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+            {!isLoadingQuestions && questions.map(q => <QuestionCard key={q.id} question={q} currentUser={user} />)}
+            {!isLoadingQuestions && questions.length === 0 && <p className="text-center text-muted-foreground py-10">No questions yet. Be the first to ask one!</p>}
         </div>
     );
 }

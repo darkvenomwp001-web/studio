@@ -129,13 +129,19 @@ export interface Letter {
 export interface Question {
   id: string;
   asker: UserSummary;
-  authorId: string;
+  targetAuthor?: UserSummary; // The mentioned author
   questionText: string;
   answerText?: string;
-  status: 'pending' | 'answered' | 'declined';
-  createdAt: any; // Can be serverTimestamp or Timestamp
-  answeredAt?: any; // Can be serverTimestamp or Timestamp
-  isPublic: boolean;
+  status: 'unanswered' | 'answered' | 'declined';
+  createdAt: any;
+  answeredAt?: any;
+  isEdited?: boolean;
+  attachedChapter?: {
+    storyId: string;
+    storyTitle: string;
+    chapterId: string;
+    chapterTitle: string;
+  } | null;
 }
 
 export interface Conversation {
