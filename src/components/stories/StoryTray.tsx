@@ -1,15 +1,15 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus } from 'lucide-react';
+import { Plus, AlertCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import CreateNoteDialog from './CreateStoryDialog';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp, where } from 'firebase/firestore';
 import type { UserNote } from '@/types';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface NoteWithAuthor extends UserNote {
   // The 'author' field is already part of UserNote, but this makes it explicit.
@@ -19,6 +19,7 @@ export default function NoteTray() {
   const { user } = useAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [notes, setNotes] = useState<NoteWithAuthor[]>([]);
+  const [notesError, setNotesError] = useState<Error | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -35,23 +36,10 @@ export default function NoteTray() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetchedNotes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NoteWithAuthor));
         setNotes(fetchedNotes);
+        setNotesError(null);
     }, (error) => {
         console.error("Error fetching notes for tray:", error);
-        if (error.code === 'failed-precondition') {
-             toast({
-                title: "Database Index Required",
-                description: "The Notes feature needs a database index. Check the browser console for a link to create it in Firebase. This is expected.",
-                variant: "destructive",
-                duration: 15000,
-            });
-        } else if (error.code === 'permission-denied') {
-             toast({
-                title: "Permission Error",
-                description: "Could not load notes due to database rules. Please ensure rules are deployed.",
-                variant: "destructive",
-                duration: 10000,
-            });
-        }
+        setNotesError(error);
     });
 
     return () => unsubscribe();
@@ -81,6 +69,21 @@ export default function NoteTray() {
   }, {} as Record<string, NoteWithAuthor>);
   
   const uniqueAuthorNotes = Object.values(authorsWithNotes);
+
+  if (notesError) {
+    return (
+      <div className="w-full border-b pb-3 px-4">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Notes Feature Error</AlertTitle>
+          <AlertDescription>
+            The Notes tray could not be loaded. This is often because a one-time database setup is required.
+            <p className="mt-2 font-semibold">Please open your browser's developer console (F12), look for an error message from Firebase, and click the link provided to create the necessary database index.</p>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <>

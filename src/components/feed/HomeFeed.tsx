@@ -1,18 +1,19 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
 import type { User, FeedPost } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { Loader2, Users } from 'lucide-react';
+import { Loader2, Users, AlertCircle } from 'lucide-react';
 import FeedPostCard from './FeedPostCard';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function HomeFeed({ user }: { user: User }) {
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [feedError, setFeedError] = useState<Error | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -36,17 +37,11 @@ export default function HomeFeed({ user }: { user: User }) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FeedPost));
       setFeedPosts(posts);
+      setFeedError(null);
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching feed:", error);
-       if (error.code === 'failed-precondition') {
-        toast({
-          title: "Database Index Required for Live Feed",
-          description: "Your Live Feed needs a special database index to work. Please check your browser's developer console (F12) for a link to create it in Firebase. This is an expected, one-time setup step.",
-          variant: "destructive",
-          duration: 20000,
-        });
-      }
+      setFeedError(error);
       setIsLoading(false);
     });
 
@@ -60,6 +55,19 @@ export default function HomeFeed({ user }: { user: User }) {
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         <span>Loading your feed...</span>
       </div>
+    );
+  }
+  
+  if (feedError) {
+    return (
+      <Alert variant="destructive" className="mt-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Live Feed Error</AlertTitle>
+        <AlertDescription>
+          Your feed could not be loaded. This is often because a one-time database setup is required.
+          <p className="mt-2 font-semibold">Please open your browser's developer console (F12), look for an error message from Firebase, and click the link provided to create the necessary database index.</p>
+        </AlertDescription>
+      </Alert>
     );
   }
 
