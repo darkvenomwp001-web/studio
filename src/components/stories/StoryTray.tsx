@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 // Define the type for the Storyly DOM element
 type StorylyWeb = HTMLElement & {
@@ -8,34 +9,26 @@ type StorylyWeb = HTMLElement & {
 };
 
 export default function StorylyTray() {
+  const storylyRef = useRef<StorylyWeb>(null);
+
   useEffect(() => {
-    // This is a robust way to ensure the component is initialized
-    // after the DOM is fully ready and painted.
-    const initializeStoryly = () => {
-      // Use querySelector for a direct reference to the DOM element
-      const storylyWeb = document.querySelector('storyly-web') as StorylyWeb | null;
-      if (storylyWeb) {
+    // We need to make sure the storylyRef.current is available
+    if (storylyRef.current) {
         try {
-          storylyWeb.init({
-            token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NfaWQiOjE0NDcwLCJhcHBfaWQiOjIyMTE1LCJpbnNfaWQiOjI0OTc1fQ.Hn0jUM4FoEZ3DjFnYk7a82JNO7_M4G-yyVYFwmdOP1k",
-          });
+          // A small timeout ensures the element is fully ready in the DOM
+          const timer = setTimeout(() => {
+             storylyRef.current?.init({
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NfaWQiOjE0NDcwLCJhcHBfaWQiOjIyMTE1LCJpbnNfaWQiOjI0OTc1fQ.Hn0jUM4FoEZ3DjFnYk7a82JNO7_M4G-yyVYFwmdOP1k",
+              });
+          }, 100);
+          return () => clearTimeout(timer);
         } catch (error) {
             console.error("Storyly initialization failed:", error);
         }
-      }
     }
-
-    // Use a small timeout to ensure the component has been painted to the DOM
-    // and layout is calculated, which can solve tricky race conditions.
-    const timer = setTimeout(initializeStoryly, 100);
-
-    return () => clearTimeout(timer);
   }, []);
 
   return (
-    // The container MUST have a defined height for the Storyly widget to be visible.
-    <div className="storyly-container h-[120px]">
-       <storyly-web />
-    </div>
+    <storyly-web ref={storylyRef} />
   );
 }

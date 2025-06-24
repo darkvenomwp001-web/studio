@@ -1,9 +1,23 @@
 
-// This file is no longer used by the application since the "Instagram Stories"
-// feature has been replaced by the "Messenger Notes" feature.
-//
-// You can safely delete this file from your project.
+'use client';
 
-export default function DeprecatedStoryViewerPage() {
-    return null;
+import StorylyTray from '@/components/stories/StoryTray';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+
+export default function StoryViewerPage() {
+  const router = useRouter();
+  
+  return (
+    <div className="container mx-auto py-8">
+       <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+          <ArrowLeft className="mr-2 h-4 w-4"/>
+          Back
+      </Button>
+      <div className="relative h-[120px]">
+        <StorylyTray />
+      </div>
+    </div>
+  );
 }

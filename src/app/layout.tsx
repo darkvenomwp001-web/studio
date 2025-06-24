@@ -51,7 +51,7 @@ export default function RootLayout({
         </SplashWrapper>
         <script
           custom-element="storyly-web"
-          src="https://web-story.storyly.io/sdk/4.6.0/storyly-web.js"
+          src="https://web-story.storyly.io/sdk/4.6.*/storyly-web.js"
           defer
         ></script>
       </body>
