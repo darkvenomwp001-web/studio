@@ -15,7 +15,7 @@ import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import NoteTray from '@/components/stories/StoryTray';
+import StorylyTray from '@/components/stories/StoryTray';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import CreatePostForm from '@/components/feed/CreatePostForm';
@@ -335,7 +335,7 @@ export default function HomePage() {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
         <div className="space-y-6">
-          <NoteTray />
+          <StorylyTray />
 
           <Tabs defaultValue="for-you" className="w-full">
             <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
@@ -362,3 +362,5 @@ export default function HomePage() {
     </>
   );
 }
+
+    
