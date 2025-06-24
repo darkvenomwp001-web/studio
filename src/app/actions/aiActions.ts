@@ -1,5 +1,8 @@
 'use server';
 
+import { config } from 'dotenv';
+config();
+
 import { improveWritingStyle as improveWritingStyleFlow, ImproveWritingStyleInput, ImproveWritingStyleOutput } from '@/ai/flows/improve-writing-style';
 import { detectPlagiarism as detectPlagiarismFlow, DetectPlagiarismInput, DetectPlagiarismOutput } from '@/ai/flows/detect-plagiarism-flow';
 import { matchStoryMood as matchStoryMoodFlow, MatchStoryMoodInput, MatchStoryMoodOutput } from '@/ai/flows/mood-matcher-flow';
