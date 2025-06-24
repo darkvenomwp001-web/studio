@@ -334,6 +334,10 @@ export default function HomePage() {
     <>
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
+        <section className="relative h-[120px] mb-4">
+          <StorylyTray />
+        </section>
+
         <Tabs defaultValue="for-you" className="w-full">
           <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
             <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
@@ -344,9 +348,6 @@ export default function HomePage() {
           </div>
           
           <TabsContent value="for-you" className="mt-6">
-            <section className="relative h-[120px] mb-8">
-              <StorylyTray />
-            </section>
             <ForYouTabContent />
           </TabsContent>
           <TabsContent value="live-feed" className="mt-6">
