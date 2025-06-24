@@ -8,10 +8,12 @@ import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/f
 import { Loader2, Users } from 'lucide-react';
 import FeedPostCard from './FeedPostCard';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
 
 export default function HomeFeed({ user }: { user: User }) {
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     // If the user isn't following anyone, there's nothing to query.
@@ -21,7 +23,6 @@ export default function HomeFeed({ user }: { user: User }) {
     }
     
     // Note: Firestore 'in' queries are limited to 30 items in the array.
-    // For larger follow lists, a more complex solution (like fanning out feeds) is needed.
     // For this app's scope, we'll slice to the most recent 30 follows if necessary.
     const followedAuthors = user.followingIds.slice(0, 30);
 
@@ -38,12 +39,20 @@ export default function HomeFeed({ user }: { user: User }) {
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching feed:", error);
+       if (error.code === 'failed-precondition') {
+        toast({
+          title: "Database Index Required for Live Feed",
+          description: "Your Live Feed needs a special database index to work. Please check your browser's developer console (F12) for a link to create it in Firebase. This is an expected, one-time setup step.",
+          variant: "destructive",
+          duration: 20000,
+        });
+      }
       setIsLoading(false);
     });
 
     return () => unsubscribe();
 
-  }, [user.followingIds]);
+  }, [user.followingIds, toast]);
 
   if (isLoading) {
     return (
