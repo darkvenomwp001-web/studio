@@ -10,7 +10,6 @@ import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import { SplashWrapper } from '@/components/layout/SplashWrapper';
 import PasswordSetupDialog from '@/components/auth/PasswordSetupDialog';
 import { ScrollToTop } from '@/components/layout/ScrollToTop';
-import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
@@ -50,11 +49,11 @@ export default function RootLayout({
             <PasswordSetupDialog />
           </AuthProvider>
         </SplashWrapper>
-        <Script
+        <script
           custom-element="storyly-web"
           src="https://web-story.storyly.io/sdk/4.6.0/storyly-web.js"
-          strategy="afterInteractive"
-        />
+          defer
+        ></script>
       </body>
     </html>
   );
