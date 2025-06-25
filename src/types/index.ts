@@ -151,3 +151,17 @@ export interface Message {
     content: string;
     timestamp: any;
 }
+
+export interface FeedPost {
+    id: string;
+    author: UserSummary;
+    authorId: string;
+    content: string;
+    storyId?: string;
+    storyTitle?: string;
+    storyCoverUrl?: string;
+    timestamp: any;
+    likesCount: number;
+    commentsCount: number;
+    likedBy: string[];
+}
