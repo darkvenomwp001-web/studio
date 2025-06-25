@@ -164,7 +164,7 @@ export default function UserProfilePage() {
     unsubStories = onSnapshot(storiesQuery, (snapshot) => {
         const userWrittenStories = snapshot.docs.map(storyDoc => ({ id: storyDoc.id, ...storyDoc.data() } as Story));
         
-        const published = userWrittenStories.filter(s => s.status === 'Draft' || s.visibility !== 'Public');
+        const published = userWrittenStories.filter(s => s.status !== 'Draft' && s.visibility === 'Public');
         setPublishedWorks(published);
         
         if (isOwnProfile) {

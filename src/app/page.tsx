@@ -269,29 +269,6 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
     });
 }
 
-function QuestionCard({ question }: { question: Question }) {
-    return (
-        <Card className="w-full">
-            <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                        <Link href={`/profile/${question.asker.id}`}><Avatar className="h-10 w-10"><AvatarImage src={question.asker.avatarUrl} /></Avatar></Link>
-                        <div>
-                            <Link href={`/profile/${question.asker.id}`} className="font-semibold hover:underline">{question.asker.displayName}</Link>
-                            <p className="text-xs text-muted-foreground">
-                                asked {question.createdAt?.toDate ? formatDistanceToNow(question.createdAt.toDate(), { addSuffix: true }) : 'just now'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <p className="whitespace-pre-line">{question.questionText}</p>
-            </CardContent>
-        </Card>
-    );
-}
-
 function CommunityQATabContent() {
     const { user, loading } = useAuth();
     const { toast } = useToast();
@@ -377,6 +354,29 @@ function CommunityQATabContent() {
     );
 }
 
+function QuestionCard({ question }: { question: Question }) {
+    return (
+        <Card className="w-full">
+            <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                        <Link href={`/profile/${question.asker.id}`}><Avatar className="h-10 w-10"><AvatarImage src={question.asker.avatarUrl} /></Avatar></Link>
+                        <div>
+                            <Link href={`/profile/${question.asker.id}`} className="font-semibold hover:underline">{question.asker.displayName}</Link>
+                            <p className="text-xs text-muted-foreground">
+                                asked {question.createdAt?.toDate ? formatDistanceToNow(question.createdAt.toDate(), { addSuffix: true }) : 'just now'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <p className="whitespace-pre-line">{question.questionText}</p>
+            </CardContent>
+        </Card>
+    );
+}
+
 function WritingPromptsTabContent() {
     const prompts = [
         { title: 'The Silent Artifact', prompt: 'An ancient artifact is discovered that absorbs all sound around it. Describe the first team to study it and what happens when it "activates".', genre: 'Sci-Fi / Horror' },
@@ -439,18 +439,14 @@ export default function HomePage() {
 
         <Tabs defaultValue="for-you" className="w-full">
           <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
-            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
+            <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
               <TabsTrigger value="for-you">For You</TabsTrigger>
-              <TabsTrigger value="community-qa">Q&amp;A</TabsTrigger>
               <TabsTrigger value="writing-prompts">Prompts</TabsTrigger>
             </TabsList>
           </div>
           
           <TabsContent value="for-you" className="mt-6">
             <ForYouTabContent />
-          </TabsContent>
-          <TabsContent value="community-qa" className="mt-6">
-            <CommunityQATabContent />
           </TabsContent>
           <TabsContent value="writing-prompts" className="mt-6">
             <WritingPromptsTabContent />

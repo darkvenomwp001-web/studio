@@ -125,7 +125,11 @@ export interface Question {
   id: string;
   asker: UserSummary;
   questionText: string;
+  status: 'unanswered' | 'answered';
   createdAt?: any;
+  answerText?: string;
+  answeredAt?: any;
+  answerer?: UserSummary;
 }
 
 export interface Conversation {
