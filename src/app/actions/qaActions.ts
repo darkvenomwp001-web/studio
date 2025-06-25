@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -22,16 +23,31 @@ export async function askQuestion(
     return { success: false, error: 'Question cannot exceed 1000 characters.' };
   }
 
+  // Sanitize UserSummary objects to ensure all keys are present for security rules
+  const sanitizedAsker: UserSummary = {
+    id: asker.id,
+    username: asker.username,
+    displayName: asker.displayName || asker.username,
+    avatarUrl: asker.avatarUrl || '',
+  };
+
   const newQuestion: Omit<Question, 'id'> = {
-    asker,
+    asker: sanitizedAsker, // Use sanitized object
     questionText: questionText.trim(),
     status: 'unanswered',
     createdAt: serverTimestamp(),
   };
 
   if (targetAuthor) {
-    newQuestion.targetAuthor = targetAuthor;
+    const sanitizedTargetAuthor: UserSummary = {
+      id: targetAuthor.id,
+      username: targetAuthor.username,
+      displayName: targetAuthor.displayName || targetAuthor.username,
+      avatarUrl: targetAuthor.avatarUrl || '',
+    };
+    newQuestion.targetAuthor = sanitizedTargetAuthor; // Use sanitized object
   }
+  
   if (attachedChapter) {
     newQuestion.attachedChapter = attachedChapter;
   }
