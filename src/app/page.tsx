@@ -3,31 +3,21 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, MessageSquare, HelpCircle, FileText, Check, X, MoreHorizontal, UserPlus, BookOpenText } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import type { Story, UserSummary, Question, ReadingListItem, User as AppUserType } from '@/types';
-import { useEffect, useState, FormEvent, useCallback } from 'react';
+import type { Story, UserSummary } from '@/types';
+import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit as firestoreLimit, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Bookshelf from '@/components/shared/Bookshelf';
-import { Textarea } from '@/components/ui/textarea';
-import { askQuestion } from '@/app/actions/qaActions';
-import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
 import NotesBubbles from '@/components/notes/NotesBubbles';
 
 
@@ -89,7 +79,7 @@ async function fetchFeaturedAuthorsFromFirestore(count: number): Promise<UserSum
   }
 }
 
-function LoggedOutHomeContent() {
+function LoggedInHomeContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
   const [storySpotlight, setStorySpotlight] = useState<Story | null>(null);
   const [featuredAuthors, setFeaturedAuthors] = useState<(UserSummary & { bio?: string, followersCount?: number })[]>([]);
@@ -253,130 +243,6 @@ function LoggedOutHomeContent() {
   );
 }
 
-function ForYouTabContent() {
-  return <LoggedOutHomeContent />;
-}
-
-// Debounce function for user search
-function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
-  let timeout: NodeJS.Timeout;
-  return (...args: Parameters<F>): Promise<ReturnType<F>> =>
-    new Promise(resolve => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      timeout = setTimeout(() => resolve(func(...args)), waitFor);
-    });
-}
-
-function CommunityQATabContent() {
-    const { user, loading } = useAuth();
-    const { toast } = useToast();
-    const [questions, setQuestions] = useState<Question[]>([]);
-    const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
-    const [questionText, setQuestionText] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    useEffect(() => {
-        const q = query(collection(db, 'questions'), orderBy('createdAt', 'desc'), firestoreLimit(20));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedQuestions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Question));
-            setQuestions(fetchedQuestions);
-            setIsLoadingQuestions(false);
-        }, (error) => {
-            console.error("Error fetching questions:", error);
-            setIsLoadingQuestions(false);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    const handleAskQuestion = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!user) {
-            toast({ title: 'Please sign in', description: 'You must be logged in to ask a question.', variant: 'destructive'});
-            return;
-        }
-        setIsSubmitting(true);
-        const result = await askQuestion(
-            { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
-            questionText
-        );
-        if (result.success) {
-            setQuestionText('');
-            toast({ title: 'Question Posted!' });
-        } else {
-            toast({ title: 'Error', description: result.error, variant: 'destructive' });
-        }
-        setIsSubmitting(false);
-    };
-
-
-    if (loading) {
-        return <div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin" /></div>
-    }
-    
-    return (
-        <div className="py-8 max-w-2xl mx-auto space-y-6">
-            {user && (
-                <Card>
-                    <form onSubmit={handleAskQuestion}>
-                        <CardHeader>
-                            <CardTitle>Ask the Community</CardTitle>
-                            <CardDescription>Post a public question for everyone to see.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Textarea
-                                value={questionText}
-                                onChange={(e) => setQuestionText(e.target.value)}
-                                placeholder="What's your question?"
-                                maxLength={1000}
-                                rows={4}
-                                disabled={isSubmitting}
-                            />
-                        </CardContent>
-                        <CardFooter>
-                            <Button type="submit" disabled={isSubmitting || questionText.trim().length < 10}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
-                                Post Question
-                            </Button>
-                        </CardFooter>
-                    </form>
-                </Card>
-            )}
-            {isLoadingQuestions && <div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin" /></div>}
-            
-            <div className="space-y-4">
-                {!isLoadingQuestions && questions.map(q => <QuestionCard key={q.id} question={q} />)}
-            </div>
-
-            {!isLoadingQuestions && questions.length === 0 && <p className="text-center text-muted-foreground py-10">No questions yet. Be the first to ask one!</p>}
-        </div>
-    );
-}
-
-function QuestionCard({ question }: { question: Question }) {
-    return (
-        <Card className="w-full">
-            <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                        <Link href={`/profile/${question.asker.id}`}><Avatar className="h-10 w-10"><AvatarImage src={question.asker.avatarUrl} /></Avatar></Link>
-                        <div>
-                            <Link href={`/profile/${question.asker.id}`} className="font-semibold hover:underline">{question.asker.displayName}</Link>
-                            <p className="text-xs text-muted-foreground">
-                                asked {question.createdAt?.toDate ? formatDistanceToNow(question.createdAt.toDate(), { addSuffix: true }) : 'just now'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <p className="whitespace-pre-line">{question.questionText}</p>
-            </CardContent>
-        </Card>
-    );
-}
-
 function WritingPromptsTabContent() {
     const prompts = [
         { title: 'The Silent Artifact', prompt: 'An ancient artifact is discovered that absorbs all sound around it. Describe the first team to study it and what happens when it "activates".', genre: 'Sci-Fi / Horror' },
@@ -446,7 +312,7 @@ export default function HomePage() {
           </div>
           
           <TabsContent value="for-you" className="mt-6">
-            <ForYouTabContent />
+            <LoggedInHomeContent />
           </TabsContent>
           <TabsContent value="writing-prompts" className="mt-6">
             <WritingPromptsTabContent />

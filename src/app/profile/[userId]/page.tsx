@@ -1,34 +1,32 @@
 
 'use client';
 
-import { useEffect, useState, useCallback, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageSquare, UserPlus, UserX, Edit, Edit3, Users, FileText, ShieldAlert, Settings, Sparkles, LogOut, HelpCircle, Check, X, PenSquare } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Story, User as AppUser, Question } from '@/types';
+import type { Story, User as AppUser } from '@/types';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import {
   doc,
-  getDoc,
-  getDocs,
+  onSnapshot,
   collection,
   query,
   where,
   orderBy,
   limit,
-  onSnapshot,
   type Unsubscribe,
+  getDoc,
 } from 'firebase/firestore';
 import FollowerUserCard from '@/components/shared/FollowerUserCard';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { deleteUserNote } from '@/app/actions/noteActions';
 
 interface ProfileStoryCardProps {
