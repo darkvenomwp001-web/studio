@@ -28,7 +28,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import StoryBubbles from '@/components/stories/StoryBubbles';
+import NotesBubbles from '@/components/notes/NotesBubbles';
 
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
@@ -430,7 +430,7 @@ export default function HomePage() {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
         <section className="mb-8">
-          <StoryBubbles />
+          <NotesBubbles />
         </section>
 
         <section className="mb-4">

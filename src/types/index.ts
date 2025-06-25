@@ -17,6 +17,10 @@ export interface User {
   createdAt?: any;
   updatedAt?: any;
   dataAiHint?: string; // Added for AI image hints
+  note?: {
+    content: string;
+    expiresAt: Timestamp;
+  } | null;
 }
 
 export interface UserSummary {
@@ -120,6 +124,7 @@ export interface Question {
   id: string;
   asker: UserSummary;
   questionText: string;
+  createdAt?: any;
 }
 
 export interface Conversation {
@@ -140,14 +145,4 @@ export interface Message {
     senderId: string;
     content: string;
     timestamp: any;
-}
-
-export interface StoryMedia {
-  id: string;
-  userId: string;
-  author: UserSummary;
-  mediaUrl: string;
-  mediaType: 'image' | 'video';
-  createdAt: Timestamp;
-  expiresAt: Timestamp;
 }

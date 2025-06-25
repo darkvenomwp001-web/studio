@@ -127,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followingIds: firestoreUserData.followingIds || [],
               writtenStories: writtenStories,
               readingList: firestoreUserData.readingList || [],
+              note: firestoreUserData.note || null,
               createdAt: firestoreUserData.createdAt,
               updatedAt: firestoreUserData.updatedAt,
             });
@@ -146,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followingIds: [],
               writtenStories: [],
               readingList: [],
+              note: null,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             };

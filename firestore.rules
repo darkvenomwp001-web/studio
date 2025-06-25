@@ -1,103 +1,105 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // --- Helper Functions ---
+
+    function isUserAuthenticated() {
+      return request.auth != null;
+    }
+
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    
-    function isCollaborator(storyId) {
-      let story = get(/databases/$(database)/documents/stories/$(storyId)).data;
-      // Check if collaboratorIds exists and is a list before checking for inclusion
-      return request.auth != null && 
-             'collaboratorIds' in story &&
-             story.collaboratorIds is list &&
-             request.auth.uid in story.collaboratorIds;
-    }
 
-    // --- Users Collection ---
     match /users/{userId} {
-      allow read: if true;
-      // Anyone can create their own user document upon sign up.
+      allow read;
       allow create: if isOwner(userId);
-      // Users can only update their own profile, and cannot touch protected fields.
-      allow update: if isOwner(userId) && 
-                       !('followersCount' in request.resource.data) &&
-                       !('followingCount' in request.resource.data) &&
-                       !('createdAt' in request.resource.data);
-      // Users cannot delete their own profiles.
-      allow delete: if false;
+
+      function canUpdateProfile() {
+        let allowedFields = ['displayName', 'bio', 'role', 'avatarUrl', 'updatedAt', 'followingIds', 'followingCount', 'readingList', 'note'];
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
+      }
+
+      function isValidNoteUpdate() {
+        // If note doesn't exist in the request, it's not being updated, which is fine.
+        if (!request.resource.data.keys().has('note')) {
+          return true;
+        }
+        // If the note is being deleted (set to null), that's allowed.
+        if (request.resource.data.note == null) {
+          return true;
+        }
+        // If the note exists, it must be valid.
+        let note = request.resource.data.note;
+        return note.keys().hasAll(['content', 'expiresAt']) &&
+               note.content is string &&
+               note.content.size() > 0 && note.content.size() <= 90 &&
+               note.expiresAt is timestamp &&
+               note.expiresAt > request.time;
+      }
+
+      allow update: if isOwner(userId) && canUpdateProfile() && isValidNoteUpdate();
     }
-    
-    // --- Stories Collection ---
+
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || 
-                     (resource.data.visibility == 'Unlisted' && request.auth != null) ||
-                     (request.auth != null && (isOwner(resource.data.author.id) || isCollaborator(storyId)));
-      allow create: if request.auth != null && request.resource.data.author.id == request.auth.uid;
-      allow update: if request.auth != null && (isOwner(resource.data.author.id) || isCollaborator(storyId));
-      allow delete: if request.auth != null && isOwner(resource.data.author.id);
+      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' || (isUserAuthenticated() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds));
+      allow create: if isUserAuthenticated() && request.resource.data.author.id == request.auth.uid;
+      allow update: if isUserAuthenticated() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
+      allow delete: if isUserAuthenticated() && resource.data.author.id == request.auth.uid;
     }
-    
-    // --- Comments Collection ---
+
     match /comments/{commentId} {
-      allow read: if true;
-      allow create: if request.auth != null && isOwner(request.resource.data.user.id);
-      allow update, delete: if request.auth != null && isOwner(resource.data.user.id);
+      allow read;
+      allow create: if isUserAuthenticated() && request.resource.data.user.id == request.auth.uid;
+      allow update: if isUserAuthenticated() && resource.data.user.id == request.auth.uid;
+      allow delete: if isUserAuthenticated() && resource.data.user.id == request.auth.uid;
     }
 
-    // --- Letters Collection ---
-    match /letters/{letterId} {
-      allow read: if request.auth != null && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
-      allow create: if request.auth != null && isOwner(request.resource.data.reader.id);
-      allow update: if request.auth != null && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
-      allow delete: if false; // Letters cannot be deleted
-    }
-
-    // --- Story Media Collection ---
-    match /storyMedia/{mediaId} {
-        // Anyone can read story media that hasn't expired.
-        allow read: if resource.data.expiresAt > request.time;
-
-        // Logged-in users can create stories for themselves
-        allow create: if request.auth != null && 
-                         request.resource.data.userId == request.auth.uid &&
-                         request.resource.data.author.id == request.auth.uid &&
-                         request.resource.data.mediaUrl is string &&
-                         request.resource.data.mediaType is string &&
-                         (request.resource.data.mediaType == 'image' || request.resource.data.mediaType == 'video') &&
-                         request.resource.data.createdAt == request.time;
-                         
-        // Only the author can delete their own story media.
-        allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
-        
-        // Stories are immutable
-        allow update: if false;
-    }
-    
-    // --- Simplified Questions Collection ---
-    match /questions/{questionId} {
-      allow read: if true;
-      allow create: if request.auth != null &&
-                       request.resource.data.asker.id == request.auth.uid &&
-                       request.resource.data.questionText is string &&
-                       request.resource.data.questionText.size() > 0;
-      // Users can delete their own questions
-      allow delete: if request.auth != null && resource.data.asker.id == request.auth.uid;
-      allow update: if false; // Simplifying, no updates for now
-    }
-    
-    // These collections are managed by server-side logic only
     match /notifications/{notificationId} {
-      allow read, write: if false;
+      allow read, delete: if isUserAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isUserAuthenticated();
+      allow update: if isUserAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.keys().hasOnly(['isRead']);
     }
+
     match /conversations/{conversationId} {
-      allow read, write: if false;
+        allow read, create: if isUserAuthenticated() && request.auth.uid in resource.data.participantIds;
+        allow update: if isUserAuthenticated() && request.auth.uid in resource.data.participantIds;
+        
+        match /messages/{messageId} {
+            allow read, create: if isUserAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        }
     }
-    match /conversations/{conversationId}/messages/{messageId} {
-      allow read, write: if false;
+
+    match /letters/{letterId} {
+        allow read: if isUserAuthenticated() && (resource.data.reader.id == request.auth.uid || resource.data.authorId == request.auth.uid || resource.data.visibility == 'public');
+        allow create: if isUserAuthenticated() && request.resource.data.reader.id == request.auth.uid;
+        allow update: if isUserAuthenticated() && resource.data.authorId == request.auth.uid;
+    }
+    
+    match /questions/{questionId} {
+      allow read;
+      
+      function isAsker() {
+      	return request.auth.uid == request.resource.data.asker.id;
+      }
+      
+      function isValidAskerData() {
+      	return request.resource.data.asker.id == request.auth.uid &&
+        			 request.resource.data.asker.keys().hasAll(['id', 'username', 'displayName', 'avatarUrl']);
+      }
+      
+      function isValidQuestionText() {
+      	return request.resource.data.questionText.size() >= 10 &&
+        			 request.resource.data.questionText.size() <= 1000;
+      }
+      
+      allow create: if isUserAuthenticated() &&
+      							isAsker() &&
+                    isValidAskerData() &&
+                    isValidQuestionText();
+                    
+      allow update, delete: if isUserAuthenticated() && isOwner(resource.data.asker.id);
     }
   }
 }
