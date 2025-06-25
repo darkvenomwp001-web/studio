@@ -1,99 +1,80 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-    
-    // USERS
     match /users/{userId} {
-      // Anyone can read public profile data
-      allow read: if true;
-
-      // A user can only create their own document
+      allow read;
+      
+      // Anyone can create their own user document
       allow create: if isOwner(userId);
-
-      // A user can only update their own document, and only specific fields
-      allow update: if isOwner(userId) &&
-                      // Ensure required fields for note update are valid
-                      (request.resource.data.note == null || (
-                         request.resource.data.note.content is string &&
-                         request.resource.data.note.content.size() <= 90 &&
-                         request.resource.data.note.expiresAt is timestamp
-                       )) &&
-                      // Prevent users from updating fields they shouldn't
-                      request.resource.data.keys().hasOnly([
-                        'id', 'username', 'email', 'bio', 'avatarUrl', 'displayName',
-                        'role', 'followersCount', 'followingCount', 'followingIds',
-                        'writtenStories', 'readingList', 'createdAt', 'updatedAt',
-                        'dataAiHint', 'note'
-                      ]) &&
-                      // Make sure critical fields are not changed
-                      request.resource.data.id == resource.data.id &&
-                      request.resource.data.username == resource.data.username &&
-                      request.resource.data.email == resource.data.email &&
-                      request.resource.data.followersCount == resource.data.followersCount &&
-                      request.resource.data.createdAt == resource.data.createdAt;
-    }
-
-    // STORIES
-    match /stories/{storyId} {
-      // Public & Unlisted stories are readable by anyone. Private/Draft stories are only readable by the author or collaborators.
-      allow read: if resource.data.visibility == 'Public' || 
-                     resource.data.visibility == 'Unlisted' || 
-                     (isAuthenticated() && (resource.data.author.id == request.auth.uid || resource.data.collaboratorIds.hasAny([request.auth.uid])));
       
-      // Only an authenticated user can create a story where they are the author
-      allow create: if isAuthenticated() && request.resource.data.author.id == request.auth.uid;
-      
-      // Only the author or collaborators can update a story
-      allow update: if isAuthenticated() && (resource.data.author.id == request.auth.uid || resource.data.collaboratorIds.hasAny([request.auth.uid]));
-
-      // Only the author can delete a story
-      allow delete: if isOwner(resource.data.author.id);
-    }
-    
-    // COMMENTS
-    match /comments/{commentId} {
-      allow read: if true;
-      allow create: if isAuthenticated();
-      allow update, delete: if isOwner(resource.data.user.id);
-    }
-    
-    // NOTIFICATIONS
-    match /notifications/{notificationId} {
-      allow read, update, delete: if isOwner(resource.data.userId);
-      // Create is handled by backend actions, but we can lock it down.
-      allow create: if isAuthenticated(); 
-    }
-    
-    // LETTERS
-    match /letters/{letterId} {
-      allow read, update: if isOwner(resource.data.authorId) || isOwner(resource.data.reader.id);
-      allow create: if isOwner(request.resource.data.reader.id);
-    }
-
-    // QUESTIONS
-    match /questions/{questionId} {
-        allow read: if true;
+      // A user can update their own document, with several conditions
+      allow update: if isOwner(userId)
+        // Fields that CANNOT be changed by a normal update
+        && request.resource.data.username == resource.data.username
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.followersCount == resource.data.followersCount
         
-        // Ensure the person creating the question is the one logged in.
-        allow create: if isOwner(request.resource.data.asker.id) &&
-                        request.resource.data.questionText is string &&
-                        request.resource.data.questionText.size() > 0 &&
-                        request.resource.data.questionText.size() <= 1000 &&
-                        request.resource.data.createdAt is timestamp &&
-                        request.resource.data.status == 'unanswered';
-                        
-        allow update, delete: if isOwner(resource.data.asker.id);
+        // Fields that CAN be changed, with validation
+        && (!('displayName' in request.resource.data) || request.resource.data.displayName == null || (request.resource.data.displayName is string && request.resource.data.displayName.size() < 50))
+        && (!('bio' in request.resource.data) || request.resource.data.bio == null || (request.resource.data.bio is string && request.resource.data.bio.size() < 500))
+        && (!('avatarUrl' in request.resource.data) || request.resource.data.avatarUrl == null || (request.resource.data.avatarUrl is string && request.resource.data.avatarUrl.size() < 500))
+        && (!('role' in request.resource.data) || request.resource.data.role == null || (request.resource.data.role is string && request.resource.data.role in ['reader', 'writer']))
+        && (request.resource.data.followingCount == request.resource.data.followingIds.size()) // followingCount must always match the list size
+        && (
+            !('note' in request.resource.data) ||
+            request.resource.data.note == null ||
+            (
+                request.resource.data.note is map &&
+                'content' in request.resource.data.note && request.resource.data.note.content is string && request.resource.data.note.content.size() > 0 && request.resource.data.note.content.size() <= 90 &&
+                'expiresAt' in request.resource.data.note && request.resource.data.note.expiresAt is timestamp
+            )
+        );
     }
+    
+    match /stories/{storyId} {
+      // Unauthenticated users can read public stories
+      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted';
+      // Authenticated users can read their own private stories or stories they collaborate on
+      allow read: if request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
+      
+      // Authenticated users can create stories
+      allow create: if request.auth != null && request.resource.data.author.id == request.auth.uid;
+      
+      // Author or collaborators can update
+      allow update: if request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
+      
+      // Only the author can delete
+      allow delete: if request.auth != null && request.auth.uid == resource.data.author.id;
+    }
+
+    match /comments/{commentId} {
+      allow read;
+      allow create: if request.auth != null && request.resource.data.user.id == request.auth.uid;
+      allow update: if request.auth != null && request.resource.data.user.id == request.auth.uid;
+      allow delete: if request.auth != null && (request.auth.uid == resource.data.user.id || request.auth.uid == get(/databases/$(database)/documents/stories/$(resource.data.storyId)).data.author.id);
+    }
+
+    match /letters/{letterId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
+      allow create: if request.auth != null && request.resource.data.reader.id == request.auth.uid;
+      allow update: if request.auth != null && request.auth.uid == resource.data.authorId; // Only author can pin or respond
+    }
+    
+    match /questions/{questionId} {
+      allow read;
+      allow create: if request.auth != null &&
+                      request.resource.data.asker.id == request.auth.uid &&
+                      request.resource.data.questionText is string &&
+                      request.resource.data.questionText.size() > 10 &&
+                      request.resource.data.questionText.size() <= 1000;
+      allow update, delete: if false; // simplified version
+    }
+    
   }
 }
