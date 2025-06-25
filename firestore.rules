@@ -4,89 +4,95 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isUserAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isUserAuthenticated() && request.auth.uid == userId;
-    }
-    
-    function isStoryAuthor(story) {
-      return isOwner(story.author.id);
+    // Helper function to check schema for a UserSummary
+    function isUserSummary(user) {
+      // Allow for optional avatarUrl
+      return user.keys().hasAll(['id', 'username', 'displayName'])
+             && user.id is string
+             && user.username is string
+             && user.displayName is string;
     }
     
-    function isStoryCollaborator(story) {
-      return isUserAuthenticated() && request.auth.uid in story.collaboratorIds;
+    // Helper function to check schema for an attached chapter
+    function isAttachedChapter(chapter) {
+      return chapter.keys().hasAll(['storyId', 'storyTitle', 'chapterId', 'chapterTitle'])
+             && chapter.storyId is string
+             && chapter.storyTitle is string
+             && chapter.chapterId is string
+             && chapter.chapterTitle is string;
     }
 
-    // Users: Read-all, write-self
     match /users/{userId} {
       allow read;
-      allow write: if isOwner(userId);
+      // Allow a user to update their own document
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Stories: Public-read, author/collaborator-write
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted';
-      allow create: if isUserAuthenticated() && request.auth.uid == request.resource.data.author.id;
-      allow update, delete: if isUserAuthenticated() && (isStoryAuthor(resource.data) || isStoryCollaborator(resource.data));
+      allow read;
+      // Allow create, update if the user is the author
+      allow create, update: if request.auth != null && request.auth.uid == request.resource.data.author.id;
+      // Allow delete if the user is the author
+      allow delete: if request.auth != null && request.auth.uid == resource.data.author.id;
     }
-
-    // Comments: Public-read, owner-write
+    
     match /comments/{commentId} {
       allow read;
-      allow create: if isOwner(request.resource.data.user.id);
-      allow update, delete: if isOwner(resource.data.user.id);
+      // Any authenticated user can create a comment
+      allow create: if request.auth != null;
+      // Only the author of the comment can update or delete it
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
+    }
+    
+    match /letters/{letterId} {
+      // Only the reader or the author of the letter can read/write it
+      allow read, write: if request.auth != null && (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.authorId);
+    }
+    
+    match /notifications/{notificationId} {
+      // A user can read/update their own notifications
+      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Any authenticated user can create a notification (e.g. by following someone)
+      allow create: if request.auth != null;
     }
 
-    // Questions: Public-read, various write permissions
     match /questions/{questionId} {
       allow read;
-
-      function isQuestionAsker() {
-        return isOwner(resource.data.asker.id);
-      }
-
-      function isTargetAuthor() {
-        return resource.data.targetAuthor != null && isOwner(resource.data.targetAuthor.id);
-      }
       
-      // Allow creation with proper data validation
-      allow create: if isUserAuthenticated() &&
-                       request.resource.data.asker.id == request.auth.uid &&
-                       request.resource.data.questionText is string &&
-                       request.resource.data.questionText.size() > 9 &&
-                       request.resource.data.questionText.size() < 1001 &&
-                       request.resource.data.status == 'unanswered' &&
-                       request.resource.data.createdAt == request.time &&
-                       (!('targetAuthor' in request.resource.data) || (
-                          request.resource.data.targetAuthor is map &&
-                          request.resource.data.targetAuthor.keys().hasAll(['id', 'username', 'displayName', 'avatarUrl'])
-                       )) &&
-                       (!('attachedChapter' in request.resource.data) || (
-                           request.resource.data.attachedChapter is map &&
-                           request.resource.data.attachedChapter.keys().hasAll(['storyId', 'storyTitle', 'chapterId', 'chapterTitle'])
-                       )) &&
-                       !('answerText' in request.resource.data) &&
-                       !('answeredAt' in request.resource.data);
+      // CREATE: A user can ask a question
+      allow create: if request.auth != null
+                    // Asker must be the person making the request
+                    && request.resource.data.asker.id == request.auth.uid
+                    // Basic schema validation
+                    && request.resource.data.questionText is string
+                    && request.resource.data.questionText.size() >= 10
+                    && request.resource.data.questionText.size() <= 1000
+                    && request.resource.data.status == 'unanswered'
+                    // Validate asker object schema
+                    && isUserSummary(request.resource.data.asker)
+                    // **THE FIX**: Validate optional targetAuthor ONLY if it exists
+                    && (!('targetAuthor' in request.resource.data) || (request.resource.data.targetAuthor == null || isUserSummary(request.resource.data.targetAuthor)))
+                    // **THE FIX**: Validate optional attachedChapter ONLY if it exists
+                    && (!('attachedChapter' in request.resource.data) || (request.resource.data.attachedChapter == null || isAttachedChapter(request.resource.data.attachedChapter)));
 
-      // Allow updates by asker (questionText) or target author (answerText, status)
-      allow update: if isUserAuthenticated() && 
-                      (isOwner(resource.data.asker.id) || isTargetAuthor());
+      // UPDATE: Asker can edit, Author can answer or decline
+      allow update: if request.auth != null && (
+                      // Case 1: Asker is editing their own question
+                      (request.auth.uid == resource.data.asker.id &&
+                       request.resource.data.questionText != resource.data.questionText &&
+                       request.resource.data.questionText.size() >= 10 &&
+                       request.resource.data.questionText.size() <= 1000) ||
+                      // Case 2: Target author is answering or declining
+                      (resource.data.targetAuthor != null && 
+                       request.auth.uid == resource.data.targetAuthor.id &&
+                       resource.data.status == 'unanswered' &&
+                       (request.resource.data.status == 'answered' || request.resource.data.status == 'declined'))
+                    );
       
-      // Allow deletion by asker or target author
-      allow delete: if isUserAuthenticated() && (isQuestionAsker() || isTargetAuthor());
-    }
-
-    // Letters: Only involved parties can read/write
-    match /letters/{letterId} {
-      allow read, write: if isUserAuthenticated() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id));
-    }
-
-    // Notifications: owner-read/write
-    match /notifications/{notificationId} {
-      allow read, write, delete: if isOwner(resource.data.userId);
+      // DELETE: Asker or target author can delete
+      allow delete: if request.auth != null &&
+                     (request.auth.uid == resource.data.asker.id ||
+                      (resource.data.targetAuthor != null && request.auth.uid == resource.data.targetAuthor.id));
     }
   }
 }
