@@ -1,122 +1,80 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to check if a user is an author or collaborator of a story
-    function isStoryContributor(storyId, userId) {
-      let story = get(/databases/$(database)/documents/stories/$(storyId)).data;
-      return story.author.id == userId || (story.collaboratorIds != null && userId in story.collaboratorIds);
-    }
     
-    // USERS
+    // User data is public, but only the user can write to their own document.
     match /users/{userId} {
       allow read: if true;
       allow create: if request.auth != null && request.auth.uid == userId;
-      // Allow updates only by the owner. Disallow direct updates to follower counts.
-      allow update: if request.auth != null && request.auth.uid == userId &&
-                       request.resource.data.followersCount == resource.data.followersCount;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false; // Users should not be able to delete their own accounts through the client.
     }
 
-    // STORIES
+    // Stories can be read if public, but only the author/collaborator can write.
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' ||
-                     (request.auth != null && isStoryContributor(storyId, request.auth.uid));
+      allow read: if resource.data.visibility == 'Public' ||
+                   resource.data.visibility == 'Unlisted' ||
+                   (request.auth != null && request.auth.uid == resource.data.author.id) ||
+                   (request.auth != null && resource.data.collaboratorIds.hasAny([request.auth.uid]));
+                   
       allow create: if request.auth != null && request.resource.data.author.id == request.auth.uid;
-      allow update: if request.auth != null && isStoryContributor(storyId, request.auth.uid);
-      allow delete: if request.auth != null && resource.data.author.id == request.auth.uid;
+      
+      allow update: if request.auth != null && 
+                     (request.auth.uid == resource.data.author.id || 
+                      resource.data.collaboratorIds.hasAny([request.auth.uid]));
+
+      allow delete: if request.auth != null && request.auth.uid == resource.data.author.id;
     }
-    
-    // COMMENTS
+
+    // Comments can be read by anyone, but only created/modified by the owner.
     match /comments/{commentId} {
       allow read: if true;
       allow create: if request.auth != null && request.resource.data.user.id == request.auth.uid;
       allow update, delete: if request.auth != null && resource.data.user.id == request.auth.uid;
     }
-
-    // LETTERS
-    match /letters/{letterId} {
-      allow read: if request.auth != null && (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.author.id);
-      allow create: if request.auth != null && request.resource.data.reader.id == request.auth.uid;
-      // Only author can respond or pin.
-      allow update: if request.auth != null && request.auth.uid == resource.data.author.id;
-    }
-
-    // NOTIFICATIONS
+    
+    // Notifications can only be accessed by the user they are intended for.
     match /notifications/{notificationId} {
-      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
-      // Created by server actions, so we trust authenticated requests for now.
-      allow create: if request.auth != null; 
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null; // Assumes notifications are created via trusted server actions/backend logic
     }
 
-    // CONVERSATIONS
-    match /conversations/{conversationId} {
-      allow read, update, create: if request.auth != null && request.auth.uid in resource.data.participantIds;
-      
-      // MESSAGES Subcollection
-      match /messages/{messageId} {
-         allow read, create: if request.auth != null && get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds.hasAny([request.auth.uid]);
-         allow update, delete: if false; // Messages are immutable
-      }
+    // Letters can only be accessed by the sender or receiver.
+    match /letters/{letterId} {
+        allow read, update: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.reader.id;
     }
 
-    // QUESTIONS
+    // Q&A Questions can be read by anyone.
     match /questions/{questionId} {
       allow read: if true;
-
-      function isUserSummary(data) {
-        return data is map &&
-               'id' in data && data.id is string &&
-               'username' in data && data.username is string &&
-               'displayName' in data && data.displayName is string &&
-               (!('avatarUrl' in data) || data.avatarUrl is string || data.avatarUrl == null);
-      }
       
-      function isChapterAttachment(data) {
-        return data is map &&
-                'storyId' in data && data.storyId is string &&
-                'storyTitle' in data && data.storyTitle is string &&
-                'chapterId' in data && data.chapterId is string &&
-                'chapterTitle' in data && data.chapterTitle is string;
-      }
-
-      // CREATE a new question
+      // Creation is allowed if the user is logged in and provides valid data.
       allow create: if request.auth != null
-        // User must be the asker
-        && request.resource.data.asker.id == request.auth.uid
-        && isUserSummary(request.resource.data.asker)
-        // Must be a valid question
-        && request.resource.data.status == 'unanswered'
-        && request.resource.data.questionText is string
-        && request.resource.data.questionText.size() >= 10
-        && request.resource.data.questionText.size() <= 1000
-        // Don't allow setting answer fields on create
-        && !('answerText' in request.resource.data)
-        && !('answeredAt' in request.resource.data)
-        && !('isEdited' in request.resource.data)
-        // Validate optional fields if they exist
-        && (!('targetAuthor' in request.resource.data) || request.resource.data.targetAuthor == null || isUserSummary(request.resource.data.targetAuthor))
-        && (!('attachedChapter' in request.resource.data) || request.resource.data.attachedChapter == null || isChapterAttachment(request.resource.data.attachedChapter));
-        
-      // UPDATE a question (for editing, answering, declining)
-      allow update: if request.auth != null && (
-        // Asker edits their own unanswered question
-        ( resource.data.asker.id == request.auth.uid &&
-          resource.data.status == 'unanswered' &&
-          request.resource.data.questionText != resource.data.questionText
-        ) ||
-        // Target author answers/declines
-        ( 'targetAuthor' in resource.data && resource.data.targetAuthor != null && resource.data.targetAuthor.id == request.auth.uid &&
-          resource.data.status == 'unanswered' &&
-          (request.resource.data.status == 'answered' || request.resource.data.status == 'declined')
-        )
-      );
+                    && request.resource.data.asker.id == request.auth.uid
+                    && request.resource.data.questionText is string
+                    && request.resource.data.questionText.size() > 0 && request.resource.data.questionText.size() <= 1000
+                    && request.resource.data.status == 'unanswered';
 
-      // DELETE a question
-      allow delete: if request.auth != null && (
-        resource.data.asker.id == request.auth.uid ||
-        ( 'targetAuthor' in resource.data && resource.data.targetAuthor != null && resource.data.targetAuthor.id == request.auth.uid )
-      );
+      // Updates are only allowed by the original asker.
+      allow update: if request.auth != null && request.auth.uid == resource.data.asker.id;
+
+      // Deletion is allowed by the asker or the mentioned author (if any).
+      allow delete: if request.auth != null && 
+                     (request.auth.uid == resource.data.asker.id || 
+                       (resource.data.targetAuthor != null && request.auth.uid == resource.data.targetAuthor.id)
+                     );
+    }
+
+    // Conversations can only be accessed by participants.
+    match /conversations/{conversationId} {
+        allow read, write: if request.auth != null && request.auth.uid in resource.data.participantIds;
+        
+        match /messages/{messageId} {
+            allow read, write: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        }
     }
   }
 }
