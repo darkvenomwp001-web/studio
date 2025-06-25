@@ -1,7 +1,8 @@
+
 'use server';
 
 import { auth, db } from '@/lib/firebase';
-import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
 const NOTE_MAX_LENGTH = 90;
@@ -29,7 +30,6 @@ export async function updateUserNote(
   };
 
   try {
-    // Using updateDoc is correct here as we are only modifying the 'note' field.
     await updateDoc(userRef, { 
         note: noteData,
         updatedAt: serverTimestamp(),
