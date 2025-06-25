@@ -66,16 +66,6 @@ export interface AllowedUser {
   expiresAt: any; // Can be Timestamp
 }
 
-export interface UserNote {
-  id: string;
-  authorId: string;
-  author: UserSummary;
-  content: string;
-  visibility: 'public' | 'followers';
-  createdAt: Timestamp;
-  expiresAt: Timestamp;
-}
-
 export interface Comment {
   id: string;
   user: UserSummary;

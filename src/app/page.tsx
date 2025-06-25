@@ -301,7 +301,7 @@ function CommunityQASubmissionForm({ user }: { user: AppUserType }) {
         where('username', '>=', searchTerm.trim()),
         where('username', '<=', searchTerm.trim() + '\uf8ff'),
         orderBy('username'),
-        limit(5)
+        firestoreLimit(5)
       );
       const querySnapshot = await getDocs(q);
       const usersFound = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUserType));

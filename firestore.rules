@@ -4,107 +4,53 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // --- User Profiles ---
+    // Users: Can read anyone's public profile, but can only write to their own document.
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isOwner(userId);
+      allow read: if true;
+      allow write: if request.auth.uid == userId;
     }
 
-    // --- Stories (Books) ---
+    // Stories: Public stories are readable by anyone. Only authors/collaborators can write.
     match /stories/{storyId} {
-      function isAuthorOrCollaborator(checkResource) {
-        let authorId = checkResource.data.author.id;
-        let collaborators = checkResource.data.collaboratorIds;
-        return isOwner(authorId) || (collaborators != null && collaborators.hasAny([request.auth.uid]));
-      }
-
-      allow read: if isSignedIn() && (
-        resource.data.visibility == 'Public' ||
-        resource.data.visibility == 'Unlisted' ||
-        isAuthorOrCollaborator(resource)
-      );
-      
-      // Anyone can create a story for themselves
-      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
-
-      // Only author/collaborators can update
-      allow update: if isSignedIn() && isAuthorOrCollaborator(resource);
-
-      // Only the original author can delete
-      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
+      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' || (request.auth.uid != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds));
+      allow write: if request.auth.uid != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
     }
-
-    // --- Comments ---
+    
+    // Comments (Top-level collection for chapter comments)
     match /comments/{commentId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isOwner(request.resource.data.user.id);
-      allow update: if isSignedIn() && isOwner(resource.data.user.id);
-      
-      function isStoryAuthor() {
-        let storyDoc = get(/databases/$(database)/documents/stories/$(resource.data.storyId));
-        return storyDoc.data.author.id == request.auth.uid;
-      }
-      
-      allow delete: if isSignedIn() && (isOwner(resource.data.user.id) || isStoryAuthor());
+       allow read: if true;
+       allow create: if request.auth.uid != null && request.resource.data.user.id == request.auth.uid;
+       allow update, delete: if request.auth.uid != null && (request.auth.uid == resource.data.user.id);
     }
-
-    // --- Notifications ---
+    
+    // Notifications: Users can only read their own notifications. Creating is done via server-side logic (actions).
     match /notifications/{notificationId} {
-      allow read, update: if isSignedIn() && isOwner(resource.data.userId);
-      // Notifications are created server-side, no client writes.
-      allow create, delete: if false; 
+      allow read, write: if request.auth.uid != null && request.auth.uid == resource.data.userId;
     }
 
-    // --- Letters ---
+    // Letters: Can be read by sender or recipient (author). Only sender can create. Only author can update (respond/pin).
     match /letters/{letterId} {
-      allow read, update: if isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id));
-      allow create: if isSignedIn() && isOwner(request.resource.data.reader.id);
+      allow read: if request.auth.uid != null && (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.author.id);
+      allow create: if request.auth.uid != null && request.resource.data.reader.id == request.auth.uid;
+      allow update: if request.auth.uid != null && request.auth.uid == resource.data.author.id;
+    }
+    
+    // Questions: Publicly readable. Creations/updates/deletes are permissioned.
+    match /questions/{questionId} {
+      allow read: if true;
+      allow create: if request.auth.uid != null && request.resource.data.asker.id == request.auth.uid;
+      allow update: if request.auth.uid != null && (request.auth.uid == resource.data.asker.id || (resource.data.targetAuthor != null && request.auth.uid == resource.data.targetAuthor.id));
+      allow delete: if request.auth.uid != null && (request.auth.uid == resource.data.asker.id || (resource.data.targetAuthor != null && request.auth.uid == resource.data.targetAuthor.id));
     }
 
-    // --- Ephemeral User Stories ---
-    match /userStories/{storyId} {
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-      allow read: if isSignedIn(); // App logic filters to show only followed users' stories
-      allow delete, update: if isSignedIn() && isOwner(resource.data.userId);
-    }
-    
-    // --- Live Feed Posts ---
-    match /feedPosts/{postId} {
-      // Any signed-in user can read the feed. The query has its own constraints.
-      // This rule must be broad enough to allow the query to be attempted.
-      allow read: if isSignedIn();
-      
-      // A user can create a post if their UID matches the post's authorId.
-      allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
-      
-      // Any signed-in user can like/unlike a post.
-      allow update: if isSignedIn();
-      
-      // Only the author can delete their own post.
-      allow delete: if isSignedIn() && isOwner(resource.data.authorId);
-    }
-    
-    // --- Conversations & Messages ---
+    // Conversations & Messages
     match /conversations/{conversationId} {
-      function isInConversation() {
-        return resource.data.participantIds.hasAny([request.auth.uid]);
-      }
-      
-      allow read, update: if isSignedIn() && isInConversation();
-      allow create: if isSignedIn() && request.resource.data.participantIds.hasAny([request.auth.uid]);
-
+      allow read, write: if request.auth.uid in resource.data.participantIds;
       match /messages/{messageId} {
-        allow read, create: if isSignedIn() && get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds.hasAny([request.auth.uid]);
+        allow read, create: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow update, delete: if false; // Disallow editing/deleting messages for now
       }
     }
+
   }
 }
