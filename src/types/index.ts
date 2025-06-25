@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export interface User {
@@ -119,19 +118,12 @@ export interface Letter {
 export interface Question {
   id: string;
   asker: UserSummary;
-  targetAuthor?: UserSummary; // The mentioned author
   questionText: string;
   answerText?: string;
   status: 'unanswered' | 'answered' | 'declined';
   createdAt: any;
   answeredAt?: any;
-  isEdited?: boolean;
-  attachedChapter?: {
-    storyId: string;
-    storyTitle: string;
-    chapterId: string;
-    chapterTitle: string;
-  } | null;
+  answerer?: UserSummary;
 }
 
 export interface Conversation {

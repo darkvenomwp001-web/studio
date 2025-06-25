@@ -1,113 +1,78 @@
-
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
-    function isAuthOwner(userId) {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
       return request.auth.uid == userId;
     }
-
-    function isAuthUser() {
-      return request.auth.uid != null;
+    function isStoryAuthor(storyId) {
+      return get(/databases/$(database)/documents/stories/$(storyId)).data.author.id == request.auth.uid;
+    }
+    function isStoryCollaborator(storyId) {
+      return request.auth.uid in get(/databases/$(database)/documents/stories/$(storyId)).data.collaboratorIds;
     }
     
-    function isOwner(docData) {
-      return isAuthOwner(docData.author.id);
-    }
-    
-    function isCollaborator(docData) {
-      return request.auth.uid in docData.collaboratorIds;
-    }
-
-    function canEditStory(docData) {
-      return isOwner(docData) || isCollaborator(docData);
-    }
-    
-    function isPubliclyVisible(docData) {
-        return docData.visibility == 'Public';
-    }
-    
-    function canViewStory(docData) {
-        return isPubliclyVisible(docData) || docData.visibility == 'Unlisted' || canEditStory(docData);
-    }
-    
-    function isAsker(questionData) {
-      return isAuthOwner(questionData.asker.id);
-    }
-    
-    function isTargetAuthor(questionData) {
-      return questionData.targetAuthor != null && isAuthOwner(questionData.targetAuthor.id);
-    }
-
-    // --- Collections Rules ---
-
+    // User Profiles
     match /users/{userId} {
       allow read: if true;
-      allow create: if isAuthOwner(userId);
-      allow update: if isAuthOwner(userId);
-      allow delete: if false; // Protect user data
-    }
-
-    match /stories/{storyId} {
-      allow read: if canViewStory(resource.data);
-      allow create: if isAuthUser() && isOwner(request.resource.data);
-      allow update: if isAuthUser() && canEditStory(resource.data);
-      allow delete: if isAuthUser() && isOwner(resource.data);
+      allow create: if isOwner(userId) && request.resource.data.username is string;
+      allow update: if isOwner(userId);
     }
     
+    // Stories
+    match /stories/{storyId} {
+      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' || (isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
+      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
+      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || isStoryCollaborator(storyId));
+      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
+    }
+
+    // Comments
     match /comments/{commentId} {
       allow read: if true;
-      allow create: if isAuthUser() && isAuthOwner(request.resource.data.user.id);
-      allow update, delete: if isAuthUser() && isAuthOwner(resource.data.user.id);
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
     }
 
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read, update: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn(); // Can be created by server actions
+    }
+
+    // Letters
     match /letters/{letterId} {
-      allow read: if isAuthUser() && (isAuthOwner(resource.data.authorId) || isAuthOwner(resource.data.reader.id));
-      allow create: if isAuthUser() && isAuthOwner(request.resource.data.reader.id);
-      allow update: if isAuthUser() && isAuthOwner(resource.data.authorId); // Only author can update (pin, respond)
-      allow delete: if false; // Letters are permanent records
+      allow read: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
+      allow create: if isSignedIn() && isOwner(request.resource.data.reader.id);
+      allow update: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
     }
     
-    match /notifications/{notificationId} {
-      allow read, update, delete: if isAuthUser() && isAuthOwner(resource.data.userId);
-      allow create: if isAuthUser(); // Server-side logic handles correct creation
+    // Simplified Q&A Rules for Testing
+    match /questions/{questionId} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.questionText is string
+                    && request.resource.data.questionText.size() > 9
+                    && request.resource.data.questionText.size() < 1001
+                    && request.resource.data.asker.id == request.auth.uid
+                    && request.resource.data.status == 'unanswered'
+                    && !('answerText' in request.resource.data);
+
+      // Disable update/delete for this test to isolate the creation issue.
+      allow update, delete: if false;
     }
 
+    // Conversations & Messages
     match /conversations/{conversationId} {
-      allow read, create, update: if isAuthUser() && request.auth.uid in resource.data.participantIds;
+      allow read, update, create: if isSignedIn() && request.auth.uid in resource.data.participantIds;
       
       match /messages/{messageId} {
-        allow read, create: if isAuthUser() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
       }
-    }
-    
-    match /questions/{questionId} {
-      allow list, get: if true;
-
-      allow create: if isAuthUser() &&
-                      request.resource.data.asker.id == request.auth.uid &&
-                      request.resource.data.status == 'unanswered' &&
-                      !('answerText' in request.resource.data);
-
-      allow update: if isAuthUser() && (
-        // Asker editing their own UNANSWERED question
-        (isAsker(resource.data) && resource.data.status == 'unanswered' &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['questionText', 'isEdited', 'createdAt'])) ||
-        
-        // Target author answering an UNANSWERED question
-        (isTargetAuthor(resource.data) && resource.data.status == 'unanswered' &&
-         request.resource.data.status == 'answered' &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answerText', 'answeredAt'])) ||
-         
-        // Target author declining an UNANSWERED question
-        (isTargetAuthor(resource.data) && resource.data.status == 'unanswered' &&
-         request.resource.data.status == 'declined' &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answeredAt']))
-      );
-
-      allow delete: if isAuthUser() && (isAsker(resource.data) || isTargetAuthor(resource.data));
     }
   }
 }
