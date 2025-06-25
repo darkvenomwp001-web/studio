@@ -1,106 +1,70 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // --- Helper Functions ---
+
+    // HELPER FUNCTIONS
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Function to check if a user is an author or collaborator of a story
-    function isStoryContributor(storyId) {
-      let storyData = get(/databases/$(database)/documents/stories/$(storyId)).data;
-      return isOwner(storyData.author.id) || (storyData.collaboratorIds != null && request.auth.uid in storyData.collaboratorIds);
-    }
-    
-    // --- Users Collection ---
+    // USER PROFILES
     match /users/{userId} {
-      // Anyone can read a user's public profile.
       allow read;
-      
-      // A user can create their own profile document when they sign up.
       allow create: if isOwner(userId);
-      
-      // A user can update their own profile, but cannot tamper with protected fields.
-      // This rule explicitly fixes the "Notes" feature permission error.
-      allow update: if isOwner(userId) &&
-                     request.resource.data.followersCount == resource.data.followersCount; // Prevent users from manually changing their follower count.
 
-      // Users cannot delete their profile from the client.
-      allow delete: if false;
+      // Users can update a limited set of their own profile fields.
+      // Critical fields like email, username, counts, etc., are protected.
+      allow update: if isOwner(userId) &&
+                       request.resource.data.keys().hasOnly([
+                         'displayName', 'bio', 'avatarUrl', 'role', 'updatedAt', 'note', 'readingList'
+                       ]);
     }
 
-    // --- Stories Collection ---
+    // STORIES
     match /stories/{storyId} {
-      // Read access is public for public/unlisted stories, or if you are a contributor.
-      allow read: if resource.data.visibility == 'Public' || 
-                     resource.data.visibility == 'Unlisted' ||
-                     (isSignedIn() && isStoryContributor(storyId));
+      allow read: if resource.data.visibility == 'Public' 
+                    || resource.data.visibility == 'Unlisted' 
+                    || (isSignedIn() && isOwner(resource.data.author.id))
+                    || (isSignedIn() && resource.data.collaboratorIds.hasAny([request.auth.uid]));
 
       allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
       
-      allow update: if isSignedIn() && isStoryContributor(storyId);
-      
+      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || resource.data.collaboratorIds.hasAny([request.auth.uid]));
+
       allow delete: if isSignedIn() && isOwner(resource.data.author.id);
     }
-
-    // --- Comments Collection ---
+    
+    // COMMENTS
     match /comments/{commentId} {
       allow read;
-      
-      allow create: if isSignedIn() && request.resource.data.user.id == request.auth.uid;
-      
-      allow update: if isSignedIn() && isOwner(resource.data.user.id);
-      
-      allow delete: if isSignedIn() && (isOwner(resource.data.user.id) || isStoryContributor(resource.data.storyId));
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
     }
-    
-    // --- Letters Collection ---
-    match /letters/{letterId} {
-      allow read: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.author.id));
-      
-      allow create: if isSignedIn() && isOwner(request.resource.data.reader.id);
-      
-      allow update: if isSignedIn() && isOwner(resource.data.author.id);
-      
-      allow delete: if false;
-    }
-    
-    // --- Questions Collection ---
+
+    // QUESTIONS
     match /questions/{questionId} {
-      allow read;
-      
-      allow create: if isSignedIn() && request.resource.data.asker.id == request.auth.uid;
-      
-      allow update: if false;
-      allow delete: if isOwner(resource.data.asker.id);
-    }
-    
-    // --- Notifications Collection ---
-    match /notifications/{notificationId} {
-      allow read, delete: if isOwner(resource.data.userId);
-      allow create: if false; // Server-side or backend function only
-      allow update: if isOwner(resource.data.userId); // For marking as read
-    }
-    
-    // --- Feed Posts Collection ---
-    match /feedPosts/{postId} {
         allow read;
-        allow create: if isOwner(request.resource.data.authorId);
-        allow update: if isSignedIn(); // Allow liking/unliking
-        allow delete: if isOwner(resource.data.authorId);
+        allow create: if isSignedIn() && request.resource.data.asker.id == request.auth.uid;
+        allow update, delete: if isSignedIn() && isOwner(resource.data.asker.id);
+    }
+
+    // LETTERS
+    match /letters/{letterId} {
+        allow read: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
+        allow create: if isSignedIn() && isOwner(request.resource.data.reader.id);
+        allow update: if isSignedIn() && isOwner(resource.data.authorId); // Only author can respond/pin
     }
     
-    // --- Story Media Collection (for Story Bubbles feature) ---
-    match /storyMedia/{mediaId} {
-        allow read: if isSignedIn();
-        allow create: if isOwner(request.resource.data.userId);
-        allow delete: if isOwner(resource.data.userId);
+    // NOTIFICATIONS
+    match /notifications/{notificationId} {
+        allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+        allow create: if isSignedIn(); // Server-side logic should validate this
     }
   }
 }

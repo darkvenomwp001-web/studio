@@ -21,6 +21,7 @@ export interface User {
     content: string;
     expiresAt: Timestamp;
   } | null;
+  isAnonymous?: boolean;
 }
 
 export interface UserSummary {

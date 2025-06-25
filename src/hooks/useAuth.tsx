@@ -19,6 +19,7 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   getAdditionalUserInfo,
+  signInAnonymously,
   type User as FirebaseUser,
   type AuthError
 } from 'firebase/auth';
@@ -50,6 +51,7 @@ interface AppUser extends AppUserType {
   followingIds?: string[];
   createdAt?: any; 
   updatedAt?: any; 
+  isAnonymous?: boolean;
 }
 
 interface AuthContextType {
@@ -117,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser({
               id: firebaseUser.uid,
               email: firebaseUser.email || firestoreUserData.email,
-              username: firestoreUserData.username || firebaseUser.displayName?.split(' ')[0] || 'User',
+              username: firestoreUserData.username || 'User',
               displayName: firestoreUserData.displayName || firebaseUser.displayName || firestoreUserData.username,
               avatarUrl: firestoreUserData.avatarUrl || firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(firestoreUserData.username || 'U').charAt(0).toUpperCase()}`,
               bio: firestoreUserData.bio || 'No bio yet.',
@@ -128,19 +130,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               writtenStories: writtenStories,
               readingList: firestoreUserData.readingList || [],
               note: firestoreUserData.note || null,
+              isAnonymous: firebaseUser.isAnonymous,
               createdAt: firestoreUserData.createdAt,
               updatedAt: firestoreUserData.updatedAt,
             });
           } else {
-            // This logic runs once if the user document doesn't exist, e.g., on first Google Sign-In
-            const username = firebaseUser.displayName?.split(' ')[0] || firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.substring(0,5)}`;
+            // This logic runs once if the user document doesn't exist, e.g., on first sign-in
+            const isAnonymous = firebaseUser.isAnonymous;
+            const username = isAnonymous
+                ? `Guest${firebaseUser.uid.substring(0, 6)}`
+                : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.substring(0, 5)}`;
+            const displayName = isAnonymous ? 'A Mysterious Guest' : (firebaseUser.displayName || username);
+
             const newUserProfile: AppUser = {
               id: firebaseUser.uid,
               username: username,
-              displayName: firebaseUser.displayName || username,
+              displayName: displayName,
               email: firebaseUser.email || '',
-              avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${username.charAt(0).toUpperCase()}`,
-              bio: 'New to LitVerse! Ready to explore.',
+              avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`,
+              bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse! Ready to explore.',
               role: 'reader',
               followersCount: 0,
               followingCount: 0,
@@ -148,11 +156,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               writtenStories: [],
               readingList: [],
               note: null,
+              isAnonymous: isAnonymous,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             };
             await setDoc(userRef, newUserProfile, { merge: true });
-            setUser(newUserProfile); // The snapshot listener will also fire and set this, but we set it here for immediate feedback
+            setUser(newUserProfile); 
           }
           setLoading(false);
         }, (error) => {
@@ -162,9 +171,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         
       } else {
-        setUser(null);
-        setNotifications([]);
-        setLoading(false);
+        // No user is signed in, so sign them in anonymously
+        signInAnonymously(auth).catch((error) => {
+            console.error("Anonymous sign-in failed:", error);
+            // If even anonymous sign in fails, there's a deeper config issue.
+            setUser(null);
+            setLoading(false);
+        });
       }
     });
 
@@ -178,7 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && !user.isAnonymous) {
       const notificationsQuery = query(
         collection(db, 'notifications'),
         where('userId', '==', user.id),
@@ -198,13 +211,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       return () => unsubscribeNotifications();
     } else {
-      setNotifications([]); // Clear notifications if no user
+      setNotifications([]); // Clear notifications if no user or user is anonymous
     }
   }, [user, toast]);
 
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || user?.isAnonymous) return; // Don't route redirect for guests
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
     const isPublicRouteAccessible = PUBLIC_ROUTES.some(route => {
         if (route.endsWith('/')) {
@@ -396,14 +409,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updatedAt: serverTimestamp()
       };
       if (updates.displayName !== undefined) dataToUpdate.displayName = updates.displayName;
-      if (updates.username !== undefined) dataToUpdate.username = updates.username;
       if (updates.bio !== undefined) dataToUpdate.bio = updates.bio;
       if (updates.role !== undefined) dataToUpdate.role = updates.role;
       if (updates.avatarUrl !== undefined && updates.avatarUrl !== user?.avatarUrl) {
           dataToUpdate.avatarUrl = updates.avatarUrl;
       }
       
-      // Also update the core Firebase Auth profile for displayName and photoURL
       const firebaseProfileUpdates: { displayName?: string | null; photoURL?: string | null } = {};
       if (updates.displayName !== undefined && updates.displayName !== auth.currentUser.displayName) {
         firebaseProfileUpdates.displayName = updates.displayName;
@@ -585,7 +596,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const followUser = async (targetUserId: string) => {
-    if (!user) return;
+    if (!user || user.isAnonymous) {
+      toast({ title: "Sign Up to Follow", description: "Please create an account to follow authors.", variant: "destructive" });
+      return;
+    }
     setAuthLoading(true);
     
     const currentUserRef = doc(db, "users", user.id);
@@ -600,9 +614,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             followingCount: newFollowingIds.length,
             updatedAt: serverTimestamp()
         });
-
-        // The followersCount update is removed to comply with security rules.
-        // It will be calculated on the profile page in real-time.
+        batch.update(targetUserRef, { followersCount: increment(1) });
 
         await batch.commit();
         
@@ -633,7 +645,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const unfollowUser = async (targetUserId: string) => {
-    if (!user) return;
+    if (!user || user.isAnonymous) return;
     setAuthLoading(true);
     const currentUserRef = doc(db, "users", user.id);
     const targetUserRef = doc(db, "users", targetUserId);
@@ -647,8 +659,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             followingCount: newFollowingIds.length,
             updatedAt: serverTimestamp()
         });
-        
-        // The followersCount update is removed to comply with security rules.
+        batch.update(targetUserRef, { followersCount: increment(-1) });
 
         await batch.commit();
 
@@ -670,11 +681,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "Please Sign In", description: "You must be logged in to add stories to your library.", variant: "destructive" });
       return;
     }
+    if (user.isAnonymous) {
+      toast({ title: "Sign Up to Save", description: "Please create an account to build your library.", variant: "destructive" });
+      return;
+    }
     setAuthLoading(true);
     try {
       const userRef = doc(db, 'users', user.id);
       
-      // Build the itemToAdd object carefully, excluding any undefined fields to prevent Firestore errors.
       const itemToAdd: { [key: string]: any } = {
         id: story.id,
         title: story.title,
