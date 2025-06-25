@@ -1,3 +1,4 @@
+
 'use client'; 
 
 import Link from 'next/link';
@@ -27,6 +28,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import StoryBubbles from '@/components/stories/StoryBubbles';
 
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
@@ -267,8 +269,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
     });
 }
 
-function QuestionCard({ question, currentUser }: { question: Question; currentUser: AppUserType | null }) {
-    
+function QuestionCard({ question }: { question: Question }) {
     return (
         <Card className="w-full">
             <CardHeader className="pb-3">
@@ -287,19 +288,6 @@ function QuestionCard({ question, currentUser }: { question: Question; currentUs
             <CardContent>
                 <p className="whitespace-pre-line">{question.questionText}</p>
             </CardContent>
-
-            {question.status === 'answered' && question.answerText && question.answerer && (
-                <CardFooter className="flex-col items-start gap-3 border-t pt-4">
-                    <div className="flex items-start gap-3 w-full">
-                        <Link href={`/profile/${question.answerer.id}`}><Avatar className="h-10 w-10"><AvatarImage src={question.answerer.avatarUrl} /></Avatar></Link>
-                         <div>
-                            <Link href={`/profile/${question.answerer.id}`} className="font-semibold hover:underline">{question.answerer.displayName}</Link>
-                            <p className="text-xs text-muted-foreground">answered {question.answeredAt?.toDate ? formatDistanceToNow(question.answeredAt.toDate(), { addSuffix: true }) : ''}</p>
-                        </div>
-                    </div>
-                    <p className="pl-12 text-sm whitespace-pre-line text-foreground/90">{question.answerText}</p>
-                </CardFooter>
-            )}
         </Card>
     );
 }
@@ -379,7 +367,11 @@ function CommunityQATabContent() {
                 </Card>
             )}
             {isLoadingQuestions && <div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin" /></div>}
-            {!isLoadingQuestions && questions.map(q => <QuestionCard key={q.id} question={q} currentUser={user} />)}
+            
+            <div className="space-y-4">
+                {!isLoadingQuestions && questions.map(q => <QuestionCard key={q.id} question={q} />)}
+            </div>
+
             {!isLoadingQuestions && questions.length === 0 && <p className="text-center text-muted-foreground py-10">No questions yet. Be the first to ask one!</p>}
         </div>
     );
@@ -437,6 +429,10 @@ export default function HomePage() {
     <>
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
+        <section className="mb-8">
+          <StoryBubbles />
+        </section>
+
         <section className="mb-4">
           <Bookshelf />
         </section>

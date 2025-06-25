@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface User {
@@ -119,11 +120,6 @@ export interface Question {
   id: string;
   asker: UserSummary;
   questionText: string;
-  answerText?: string;
-  status: 'unanswered' | 'answered' | 'declined';
-  createdAt: any;
-  answeredAt?: any;
-  answerer?: UserSummary;
 }
 
 export interface Conversation {
@@ -140,8 +136,18 @@ export interface Conversation {
 }
 
 export interface Message {
-    id: string;
+    id:string;
     senderId: string;
     content: string;
     timestamp: any;
+}
+
+export interface StoryMedia {
+  id: string;
+  userId: string;
+  author: UserSummary;
+  mediaUrl: string;
+  mediaType: 'image' | 'video';
+  createdAt: Timestamp;
+  expiresAt: Timestamp;
 }

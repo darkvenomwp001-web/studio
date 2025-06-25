@@ -1,78 +1,89 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
+    // Helper Functions
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    function isStoryAuthor(storyId) {
-      return get(/databases/$(database)/documents/stories/$(storyId)).data.author.id == request.auth.uid;
+
+    function isAuthenticated() {
+      return request.auth != null;
     }
-    function isStoryCollaborator(storyId) {
-      return request.auth.uid in get(/databases/$(database)/documents/stories/$(storyId)).data.collaboratorIds;
+
+    function isNewUser() {
+      return !exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
     
-    // User Profiles
+    function isStoryCollaborator(storyId) {
+        return request.auth.uid in get(/databases/$(database)/documents/stories/$(storyId)).data.collaboratorIds;
+    }
+
+    // USER Collection
     match /users/{userId} {
       allow read: if true;
-      allow create: if isOwner(userId) && request.resource.data.username is string;
-      allow update: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && 
+        request.resource.data.keys().hasOnly(['displayName', 'username', 'bio', 'role', 'avatarUrl', 'updatedAt', 'readingList', 'followingCount', 'followingIds']);
     }
-    
-    // Stories
+
+    // STORY Collection
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' || (isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
-      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
-      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || isStoryCollaborator(storyId));
-      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
+      allow read: if resource.data.visibility == 'Public' || 
+                   resource.data.visibility == 'Unlisted' || 
+                   (isAuthenticated() && isOwner(resource.data.author.id)) ||
+                   (isAuthenticated() && isStoryCollaborator(storyId));
+                   
+      allow create: if isAuthenticated() && isOwner(request.resource.data.author.id);
+      
+      allow update: if isAuthenticated() && (isOwner(resource.data.author.id) || isStoryCollaborator(storyId));
+
+      allow delete: if isAuthenticated() && isOwner(resource.data.author.id);
     }
 
-    // Comments
+    // COMMENT Collection
     match /comments/{commentId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
-    }
-
-    // Notifications
-    match /notifications/{notificationId} {
-      allow read, update: if isSignedIn() && isOwner(resource.data.userId);
-      allow create: if isSignedIn(); // Can be created by server actions
-    }
-
-    // Letters
-    match /letters/{letterId} {
-      allow read: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
-      allow create: if isSignedIn() && isOwner(request.resource.data.reader.id);
-      allow update: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
+        allow read: if true;
+        allow create: if isAuthenticated() && request.resource.data.user.id == request.auth.uid;
+        allow update: if isAuthenticated() && isOwner(resource.data.user.id);
+        allow delete: if isAuthenticated() && isOwner(resource.data.user.id);
     }
     
-    // Simplified Q&A Rules for Testing
-    match /questions/{questionId} {
-      allow read: if true;
-      allow create: if request.auth != null
-                    && request.resource.data.questionText is string
-                    && request.resource.data.questionText.size() > 9
-                    && request.resource.data.questionText.size() < 1001
-                    && request.resource.data.asker.id == request.auth.uid
-                    && request.resource.data.status == 'unanswered'
-                    && !('answerText' in request.resource.data);
-
-      // Disable update/delete for this test to isolate the creation issue.
-      allow update, delete: if false;
+    // NOTIFICATION Collection
+    match /notifications/{notificationId} {
+        allow read, update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+        allow create: if isAuthenticated(); // Server/functions will create these
     }
 
-    // Conversations & Messages
+    // LETTERS Collection
+    match /letters/{letterId} {
+        allow read, update: if isAuthenticated() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
+        allow create: if isAuthenticated() && isOwner(request.resource.data.reader.id);
+    }
+
+    // CONVERSATIONS and MESSAGES Subcollection
     match /conversations/{conversationId} {
-      allow read, update, create: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow read, create, update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
       
       match /messages/{messageId} {
-        allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow read, create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
       }
+    }
+    
+    // STORY MEDIA (24-hour stories) Collection
+    match /storyMedia/{storyMediaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    // QUESTIONS Collection (Simplified for Homepage)
+    match /questions/{questionId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.asker.id == request.auth.uid;
+      allow update, delete: if isAuthenticated() && isOwner(resource.data.asker.id);
     }
   }
 }
