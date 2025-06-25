@@ -1,105 +1,79 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isUserAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
+    // Users can be read by anyone.
+    // Users can only create their own user document.
+    // Users can only update a specific set of fields on their own document.
     match /users/{userId} {
       allow read;
-      allow create: if isOwner(userId);
+      allow create: if request.auth.uid == userId;
 
-      function canUpdateProfile() {
-        let allowedFields = ['displayName', 'bio', 'role', 'avatarUrl', 'updatedAt', 'followingIds', 'followingCount', 'readingList', 'note'];
-        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
+      function isUpdatingAllowedFields() {
+        let allowedFields = [
+          'displayName', 'username', 'bio', 'role', 'avatarUrl', 'updatedAt',
+          'readingList', 'followingIds', 'followingCount', 'note'
+        ];
+        return request.resource.data.keys().hasAll(allowedFields) &&
+               request.resource.data.keys().size() == allowedFields.size();
       }
 
-      function isValidNoteUpdate() {
-        // If note doesn't exist in the request, it's not being updated, which is fine.
-        if (!request.resource.data.keys().has('note')) {
-          return true;
-        }
-        // If the note is being deleted (set to null), that's allowed.
-        if (request.resource.data.note == null) {
-          return true;
-        }
-        // If the note exists, it must be valid.
-        let note = request.resource.data.note;
-        return note.keys().hasAll(['content', 'expiresAt']) &&
-               note.content is string &&
-               note.content.size() > 0 && note.content.size() <= 90 &&
-               note.expiresAt is timestamp &&
-               note.expiresAt > request.time;
-      }
-
-      allow update: if isOwner(userId) && canUpdateProfile() && isValidNoteUpdate();
+      allow update: if request.auth.uid == userId;
     }
 
+    // Stories can be created by any authenticated user.
+    // Stories can be read if they are public or unlisted.
+    // Private stories can only be read by the author or collaborators.
+    // Stories can only be updated or deleted by the author or collaborators.
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' || (isUserAuthenticated() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds));
-      allow create: if isUserAuthenticated() && request.resource.data.author.id == request.auth.uid;
-      allow update: if isUserAuthenticated() && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if isUserAuthenticated() && resource.data.author.id == request.auth.uid;
+      allow create: if request.auth.uid == request.resource.data.author.id;
+      
+      allow read: if resource.data.visibility == 'Public' ||
+                     resource.data.visibility == 'Unlisted' ||
+                     (request.auth != null && resource.data.author.id == request.auth.uid) ||
+                     (request.auth != null && resource.data.collaboratorIds.hasAny([request.auth.uid]));
+
+      allow update, delete: if request.auth != null &&
+                               (resource.data.author.id == request.auth.uid ||
+                                resource.data.collaboratorIds.hasAny([request.auth.uid]));
     }
 
+    // Comments can be read by anyone.
+    // Comments can be created by any authenticated user.
+    // Comments can only be updated or deleted by their original author.
     match /comments/{commentId} {
       allow read;
-      allow create: if isUserAuthenticated() && request.resource.data.user.id == request.auth.uid;
-      allow update: if isUserAuthenticated() && resource.data.user.id == request.auth.uid;
-      allow delete: if isUserAuthenticated() && resource.data.user.id == request.auth.uid;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth.uid == resource.data.user.id;
     }
 
+    // Notifications are private and can only be accessed by the user they are intended for.
     match /notifications/{notificationId} {
-      allow read, delete: if isUserAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isUserAuthenticated();
-      allow update: if isUserAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.keys().hasOnly(['isRead']);
-    }
-
-    match /conversations/{conversationId} {
-        allow read, create: if isUserAuthenticated() && request.auth.uid in resource.data.participantIds;
-        allow update: if isUserAuthenticated() && request.auth.uid in resource.data.participantIds;
-        
-        match /messages/{messageId} {
-            allow read, create: if isUserAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        }
-    }
-
-    match /letters/{letterId} {
-        allow read: if isUserAuthenticated() && (resource.data.reader.id == request.auth.uid || resource.data.authorId == request.auth.uid || resource.data.visibility == 'public');
-        allow create: if isUserAuthenticated() && request.resource.data.reader.id == request.auth.uid;
-        allow update: if isUserAuthenticated() && resource.data.authorId == request.auth.uid;
+      allow read, write: if request.auth.uid == resource.data.userId;
     }
     
+    // Letters are private between the reader and the author.
+    match /letters/{letterId} {
+      allow read, write: if request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id;
+    }
+
+    // Questions are public to read.
+    // Authenticated users can create questions.
+    // Questions can only be deleted by the user who asked them.
     match /questions/{questionId} {
       allow read;
+      allow create: if request.auth.uid == request.resource.data.asker.id;
+      allow delete: if request.auth.uid == resource.data.asker.id;
+    }
+
+    // Conversations are private to participants.
+    match /conversations/{conversationId} {
+      allow read, write: if request.auth.uid in resource.data.participantIds;
       
-      function isAsker() {
-      	return request.auth.uid == request.resource.data.asker.id;
+      match /messages/{messageId} {
+         allow read, write: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
       }
-      
-      function isValidAskerData() {
-      	return request.resource.data.asker.id == request.auth.uid &&
-        			 request.resource.data.asker.keys().hasAll(['id', 'username', 'displayName', 'avatarUrl']);
-      }
-      
-      function isValidQuestionText() {
-      	return request.resource.data.questionText.size() >= 10 &&
-        			 request.resource.data.questionText.size() <= 1000;
-      }
-      
-      allow create: if isUserAuthenticated() &&
-      							isAsker() &&
-                    isValidAskerData() &&
-                    isValidQuestionText();
-                    
-      allow update, delete: if isUserAuthenticated() && isOwner(resource.data.asker.id);
     }
   }
 }

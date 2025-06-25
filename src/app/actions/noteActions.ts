@@ -29,13 +29,17 @@ export async function updateUserNote(
   };
 
   try {
-    await updateDoc(userRef, { note: noteData });
+    // Using updateDoc is correct here as we are only modifying the 'note' field.
+    await updateDoc(userRef, { 
+        note: noteData,
+        updatedAt: serverTimestamp(),
+    });
     revalidatePath('/');
     revalidatePath(`/profile/${user.uid}`);
     return { success: true };
   } catch (error) {
     console.error('Error updating user note:', error);
-    return { success: false, error: 'Could not update your note. Please try again.' };
+    return { success: false, error: 'Could not update your note. Please try again. This might be a permission issue in your Firestore Rules.' };
   }
 }
 
@@ -48,7 +52,10 @@ export async function deleteUserNote(): Promise<{ success: boolean; error?: stri
     const userRef = doc(db, 'users', user.uid);
 
     try {
-        await updateDoc(userRef, { note: null });
+        await updateDoc(userRef, { 
+            note: null,
+            updatedAt: serverTimestamp(),
+        });
         revalidatePath('/');
         revalidatePath(`/profile/${user.uid}`);
         return { success: true };

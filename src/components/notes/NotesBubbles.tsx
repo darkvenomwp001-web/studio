@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -62,8 +61,10 @@ export default function NotesBubbles() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!user?.followingIds || user.followingIds.length === 0) {
+    // Guard clause to prevent running if user is not loaded or has no followers
+    if (authLoading || !user || !user.followingIds || user.followingIds.length === 0) {
       setIsLoading(false);
+      setFollowedUsersWithNotes([]); // Clear any stale data
       return;
     }
     
@@ -89,7 +90,7 @@ export default function NotesBubbles() {
     });
 
     return () => unsubscribe();
-  }, [user?.followingIds]);
+  }, [user, authLoading]);
 
   const handleOpenNoteDialog = () => {
       if (!user) return;
@@ -155,7 +156,12 @@ export default function NotesBubbles() {
 
             {/* Followed Users' Bubbles */}
             {isLoading ? (
-                [...Array(4)].map((_, i) => <div key={i} className="h-24 w-16 bg-muted rounded-lg animate-pulse flex-shrink-0" />)
+                [...Array(4)].map((_, i) => (
+                    <div key={i} className="flex-shrink-0 w-20 text-center">
+                         <div className="w-16 h-16 rounded-full bg-muted animate-pulse mx-auto"></div>
+                         <div className="h-2 w-12 bg-muted rounded mt-2 mx-auto animate-pulse"></div>
+                    </div>
+                ))
             ) : (
                 followedUsersWithNotes.map((followedUser) => (
                     <NoteBubble key={followedUser.id} user={followedUser} />
