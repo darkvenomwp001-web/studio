@@ -4,95 +4,110 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check schema for a UserSummary
-    function isUserSummary(user) {
-      // Allow for optional avatarUrl
-      return user.keys().hasAll(['id', 'username', 'displayName'])
-             && user.id is string
-             && user.username is string
-             && user.displayName is string;
-    }
-    
-    // Helper function to check schema for an attached chapter
-    function isAttachedChapter(chapter) {
-      return chapter.keys().hasAll(['storyId', 'storyTitle', 'chapterId', 'chapterTitle'])
-             && chapter.storyId is string
-             && chapter.storyTitle is string
-             && chapter.chapterId is string
-             && chapter.chapterTitle is string;
+    // --- Helper Functions ---
+    function isAuthOwner(userId) {
+      return request.auth.uid == userId;
     }
 
+    function isAuthUser() {
+      return request.auth.uid != null;
+    }
+    
+    function isOwner(docData) {
+      return isAuthOwner(docData.author.id);
+    }
+    
+    function isCollaborator(docData) {
+      return request.auth.uid in docData.collaboratorIds;
+    }
+
+    function canEditStory(docData) {
+      return isOwner(docData) || isCollaborator(docData);
+    }
+    
+    function isPubliclyVisible(docData) {
+        return docData.visibility == 'Public';
+    }
+    
+    function canViewStory(docData) {
+        return isPubliclyVisible(docData) || docData.visibility == 'Unlisted' || canEditStory(docData);
+    }
+    
+    function isAsker(questionData) {
+      return isAuthOwner(questionData.asker.id);
+    }
+    
+    function isTargetAuthor(questionData) {
+      return questionData.targetAuthor != null && isAuthOwner(questionData.targetAuthor.id);
+    }
+
+    // --- Collections Rules ---
+
     match /users/{userId} {
-      allow read;
-      // Allow a user to update their own document
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if true;
+      allow create: if isAuthOwner(userId);
+      allow update: if isAuthOwner(userId);
+      allow delete: if false; // Protect user data
     }
 
     match /stories/{storyId} {
-      allow read;
-      // Allow create, update if the user is the author
-      allow create, update: if request.auth != null && request.auth.uid == request.resource.data.author.id;
-      // Allow delete if the user is the author
-      allow delete: if request.auth != null && request.auth.uid == resource.data.author.id;
+      allow read: if canViewStory(resource.data);
+      allow create: if isAuthUser() && isOwner(request.resource.data);
+      allow update: if isAuthUser() && canEditStory(resource.data);
+      allow delete: if isAuthUser() && isOwner(resource.data);
     }
     
     match /comments/{commentId} {
-      allow read;
-      // Any authenticated user can create a comment
-      allow create: if request.auth != null;
-      // Only the author of the comment can update or delete it
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
+      allow read: if true;
+      allow create: if isAuthUser() && isAuthOwner(request.resource.data.user.id);
+      allow update, delete: if isAuthUser() && isAuthOwner(resource.data.user.id);
     }
-    
+
     match /letters/{letterId} {
-      // Only the reader or the author of the letter can read/write it
-      allow read, write: if request.auth != null && (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.authorId);
+      allow read: if isAuthUser() && (isAuthOwner(resource.data.authorId) || isAuthOwner(resource.data.reader.id));
+      allow create: if isAuthUser() && isAuthOwner(request.resource.data.reader.id);
+      allow update: if isAuthUser() && isAuthOwner(resource.data.authorId); // Only author can update (pin, respond)
+      allow delete: if false; // Letters are permanent records
     }
     
     match /notifications/{notificationId} {
-      // A user can read/update their own notifications
-      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
-      // Any authenticated user can create a notification (e.g. by following someone)
-      allow create: if request.auth != null;
+      allow read, update, delete: if isAuthUser() && isAuthOwner(resource.data.userId);
+      allow create: if isAuthUser(); // Server-side logic handles correct creation
     }
 
+    match /conversations/{conversationId} {
+      allow read, create, update: if isAuthUser() && request.auth.uid in resource.data.participantIds;
+      
+      match /messages/{messageId} {
+        allow read, create: if isAuthUser() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      }
+    }
+    
     match /questions/{questionId} {
-      allow read;
-      
-      // CREATE: A user can ask a question
-      allow create: if request.auth != null
-                    // Asker must be the person making the request
-                    && request.resource.data.asker.id == request.auth.uid
-                    // Basic schema validation
-                    && request.resource.data.questionText is string
-                    && request.resource.data.questionText.size() >= 10
-                    && request.resource.data.questionText.size() <= 1000
-                    && request.resource.data.status == 'unanswered'
-                    // Validate asker object schema
-                    && isUserSummary(request.resource.data.asker)
-                    // **THE FIX**: Validate optional targetAuthor ONLY if it exists
-                    && (!('targetAuthor' in request.resource.data) || (request.resource.data.targetAuthor == null || isUserSummary(request.resource.data.targetAuthor)))
-                    // **THE FIX**: Validate optional attachedChapter ONLY if it exists
-                    && (!('attachedChapter' in request.resource.data) || (request.resource.data.attachedChapter == null || isAttachedChapter(request.resource.data.attachedChapter)));
+      allow list, get: if true;
 
-      // UPDATE: Asker can edit, Author can answer or decline
-      allow update: if request.auth != null && (
-                      // Case 1: Asker is editing their own question
-                      (request.auth.uid == resource.data.asker.id &&
-                       request.resource.data.questionText != resource.data.questionText &&
-                       request.resource.data.questionText.size() >= 10 &&
-                       request.resource.data.questionText.size() <= 1000) ||
-                      // Case 2: Target author is answering or declining
-                      (resource.data.targetAuthor != null && 
-                       request.auth.uid == resource.data.targetAuthor.id &&
-                       resource.data.status == 'unanswered' &&
-                       (request.resource.data.status == 'answered' || request.resource.data.status == 'declined'))
-                    );
-      
-      // DELETE: Asker or target author can delete
-      allow delete: if request.auth != null &&
-                     (request.auth.uid == resource.data.asker.id ||
-                      (resource.data.targetAuthor != null && request.auth.uid == resource.data.targetAuthor.id));
+      allow create: if isAuthUser() &&
+                      request.resource.data.asker.id == request.auth.uid &&
+                      request.resource.data.status == 'unanswered' &&
+                      !('answerText' in request.resource.data);
+
+      allow update: if isAuthUser() && (
+        // Asker editing their own UNANSWERED question
+        (isAsker(resource.data) && resource.data.status == 'unanswered' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['questionText', 'isEdited', 'createdAt'])) ||
+        
+        // Target author answering an UNANSWERED question
+        (isTargetAuthor(resource.data) && resource.data.status == 'unanswered' &&
+         request.resource.data.status == 'answered' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answerText', 'answeredAt'])) ||
+         
+        // Target author declining an UNANSWERED question
+        (isTargetAuthor(resource.data) && resource.data.status == 'unanswered' &&
+         request.resource.data.status == 'declined' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answeredAt']))
+      );
+
+      allow delete: if isAuthUser() && (isAsker(resource.data) || isTargetAuthor(resource.data));
     }
   }
 }
