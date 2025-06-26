@@ -13,14 +13,12 @@ import { Badge } from '@/components/ui/badge';
 import type { Story, UserSummary, Prompt, LiveFeedPost } from '@/types';
 import { useEffect, useState, FormEvent } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Bookshelf from '@/components/shared/Bookshelf';
 import StatusFeature from '@/components/status/StatusFeature';
-import { createLiveFeedPost } from '@/app/actions/liveFeedActions';
-import { createPrompt } from '@/app/actions/promptActions';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDate } from '@/lib/placeholder-data';
@@ -263,17 +261,28 @@ function LiveFeedTabContent() {
   const handlePostSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!isUserAuthenticated) {
-        toast({ title: "Please sign in", description: "You must be logged in to post.", variant: "destructive" });
-        return;
+      toast({ title: "Please sign in", description: "You must be logged in to post.", variant: "destructive" });
+      return;
     }
     if (!newPostContent.trim()) return;
+    if (newPostContent.trim().length > 500) {
+        toast({ title: 'Too Long', description: 'Post cannot exceed 500 characters.', variant: 'destructive' });
+        return;
+    }
     setIsSubmitting(true);
     const authorSummary: UserSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
-    const result = await createLiveFeedPost(authorSummary, newPostContent);
-    if (result.success) {
-      setNewPostContent('');
-    } else {
-      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    
+    try {
+        await addDoc(collection(db, 'liveFeed'), {
+            author: authorSummary,
+            authorId: user.id,
+            content: newPostContent.trim(),
+            timestamp: serverTimestamp(),
+        });
+        setNewPostContent('');
+    } catch (error) {
+        console.error('Error creating live feed post:', error);
+        toast({ title: 'Error', description: 'Could not create post. Please try again.', variant: 'destructive' });
     }
     setIsSubmitting(false);
   };
@@ -368,22 +377,29 @@ function PromptsTabContent() {
             toast({title: "Please sign in", description: "You must be logged in to create a prompt.", variant: "destructive"});
             return;
         }
+        if (!newPromptTitle.trim() || !newPromptText.trim() || !newPromptGenre.trim()) {
+            toast({ title: 'All Fields Required', description: 'Please fill out all fields to create a prompt.', variant: 'destructive' });
+            return;
+        }
         setIsSubmitting(true);
         const authorSummary: UserSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
-        const result = await createPrompt({
+        const promptData = {
             title: newPromptTitle,
             prompt: newPromptText,
             genre: newPromptGenre,
             author: authorSummary,
-        });
+            createdAt: serverTimestamp(),
+        };
 
-        if (result.success) {
+        try {
+            await addDoc(collection(db, 'prompts'), promptData);
             toast({title: "Prompt Created!", description: "Your new prompt is now available for everyone."});
             setNewPromptTitle('');
             setNewPromptText('');
             setNewPromptGenre('fantasy');
-        } else {
-            toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        } catch (error) {
+            console.error('Error creating prompt:', error);
+            toast({ title: 'Error', description: 'Could not create prompt.', variant: 'destructive' });
         }
         setIsSubmitting(false);
     };
