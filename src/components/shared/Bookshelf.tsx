@@ -96,7 +96,7 @@ export default function Bookshelf() {
             unsubscribeThemed();
             unsubscribeFriendsPick();
         };
-    }, []);
+    }, [isLoading]);
 
     if (isLoading) {
         return <BookshelfSkeleton />;
