@@ -21,11 +21,12 @@ export async function createPost(
   storyId?: string,
   storyTitle?: string,
   storyCoverUrl?: string,
+  imageUrl?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!author) {
     return { success: false, error: 'User is not authenticated.' };
   }
-  if (content.trim().length === 0) {
+  if (content.trim().length === 0 && !imageUrl) {
     return { success: false, error: 'Post content cannot be empty.' };
   }
 
@@ -44,6 +45,10 @@ export async function createPost(
       postData.storyId = storyId;
       postData.storyTitle = storyTitle;
       postData.storyCoverUrl = storyCoverUrl || '';
+    }
+
+    if (imageUrl) {
+        postData.imageUrl = imageUrl;
     }
 
     await addDoc(collection(db, 'feedPosts'), postData);
@@ -98,4 +103,3 @@ export async function toggleLikePost(
     };
   }
 }
-

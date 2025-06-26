@@ -3,14 +3,14 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2 } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import type { Story, UserSummary } from '@/types';
+import type { Story, UserSummary, Prompt } from '@/types';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
@@ -18,10 +18,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Bookshelf from '@/components/shared/Bookshelf';
-import NotesBubbles from '@/components/notes/NotesBubbles';
-import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
+import CreatePostForm from '@/components/feed/CreatePostForm';
+import HomeFeed from '@/components/feed/HomeFeed';
+import StatusFeature from '@/components/status/StatusFeature';
 
-function LoggedInHomeContent() {
+function ForYouTabContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
   const [storySpotlight, setStorySpotlight] = useState<Story | null>(null);
   const [featuredAuthors, setFeaturedAuthors] = useState<(UserSummary & { bio?: string, followersCount?: number })[]>([]);
@@ -229,18 +230,59 @@ function LoggedInHomeContent() {
   );
 }
 
-function WritingPromptsTabContent() {
-    const prompts = [
-        { title: 'The Silent Artifact', prompt: 'An ancient artifact is discovered that absorbs all sound around it. Describe the first team to study it and what happens when it "activates".', genre: 'Sci-Fi / Horror' },
-        { title: 'A Favor for a Ghost', prompt: 'The ghost of a long-lost friend appears and asks you for one last favor. You must complete it before sunrise.', genre: 'Fantasy / Drama' },
-        { title: 'The Last Bookstore', prompt: 'In a future where all books are digital, you run the last physical bookstore on Earth. Who is your final customer and what book do they want?', genre: 'Dystopian / Sentimental' },
-    ];
+function LiveFeedTabContent() {
+  const { user } = useAuth();
+  
+  if (!user) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-muted-foreground">
+          <Link href="/auth/signin" className="text-primary hover:underline">Sign in</Link> to view and create posts in the Live Feed.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-xl mx-auto space-y-6 py-8">
+      <CreatePostForm user={user} />
+      <HomeFeed user={user} />
+    </div>
+  );
+}
+
+function PromptsTabContent() {
+    const [prompts, setPrompts] = useState<Prompt[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const q = query(collection(db, 'prompts'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const promptsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt));
+            setPrompts(promptsData);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching prompts: ", error);
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center py-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+    
     return (
         <div className="py-8 max-w-3xl mx-auto">
              <h2 className="text-2xl font-headline font-bold text-center mb-6">Prompts &amp; Challenges</h2>
              <div className="space-y-6">
-                {prompts.map((item, index) => (
-                    <Card key={index} className="shadow-sm hover:shadow-md transition-shadow">
+                {prompts.length > 0 ? prompts.map((item) => (
+                    <Card key={item.id} className="shadow-sm hover:shadow-md transition-shadow">
                         <CardHeader>
                             <div className="flex items-center gap-3">
                                <Edit className="h-6 w-6 text-accent"/>
@@ -252,7 +294,7 @@ function WritingPromptsTabContent() {
                             <p className="text-foreground/90">{item.prompt}</p>
                         </CardContent>
                         <CardFooter>
-                            <Link href="/write" passHref>
+                            <Link href={`/write/edit-details?prompt=${encodeURIComponent(item.prompt)}`} passHref>
                                 <Button>
                                     <Edit className="mr-2 h-4 w-4"/>
                                     Start Writing
@@ -260,18 +302,20 @@ function WritingPromptsTabContent() {
                             </Link>
                         </CardFooter>
                     </Card>
-                ))}
+                )) : (
+                    <p className="text-muted-foreground text-center py-10">No prompts available right now. Check back soon!</p>
+                )}
              </div>
         </div>
     );
 }
 
 export default function HomePage() {
-  const { authLoading } = useAuth();
+  const { authLoading, user } = useAuth();
   
   if (authLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
+      <div className="flex justify-center items-center min-h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -282,30 +326,30 @@ export default function HomePage() {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
         <section className="mb-8">
-          <NotesBubbles />
-        </section>
-
-        <section className="mb-8">
-          <SpotifyPlayer />
-        </section>
-
-        <section className="mb-4">
-          <Bookshelf />
+          <StatusFeature />
         </section>
 
         <Tabs defaultValue="for-you" className="w-full">
           <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
-            <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+            <TabsList className="grid w-full grid-cols-4 max-w-2xl mx-auto">
               <TabsTrigger value="for-you">For You</TabsTrigger>
-              <TabsTrigger value="writing-prompts">Prompts</TabsTrigger>
+              <TabsTrigger value="live-feed">Live Feed</TabsTrigger>
+              <TabsTrigger value="bookshelf">Bookshelf</TabsTrigger>
+              <TabsTrigger value="prompts">Prompts</TabsTrigger>
             </TabsList>
           </div>
           
           <TabsContent value="for-you" className="mt-6">
-            <LoggedInHomeContent />
+            <ForYouTabContent />
           </TabsContent>
-          <TabsContent value="writing-prompts" className="mt-6">
-            <WritingPromptsTabContent />
+          <TabsContent value="live-feed" className="mt-6">
+            <LiveFeedTabContent />
+          </TabsContent>
+          <TabsContent value="bookshelf" className="mt-6">
+            <Bookshelf />
+          </TabsContent>
+          <TabsContent value="prompts" className="mt-6">
+            <PromptsTabContent />
           </TabsContent>
         </Tabs>
       </main>

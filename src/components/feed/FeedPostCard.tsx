@@ -58,9 +58,17 @@ export default function FeedPostCard({ post, currentUser }: FeedPostCardProps) {
           </div>
         </div>
 
-        <p className="text-foreground/90 whitespace-pre-line mb-3">
-          {post.content}
-        </p>
+        {post.content && (
+            <p className="text-foreground/90 whitespace-pre-line mb-3">
+            {post.content}
+            </p>
+        )}
+
+        {post.imageUrl && (
+            <div className="my-3 rounded-lg overflow-hidden border">
+                <Image src={post.imageUrl} alt="Post image" width={500} height={500} className="w-full h-auto object-contain" />
+            </div>
+        )}
 
         {post.storyId && post.storyTitle && (
           <Link href={`/stories/${post.storyId}`} className="block mt-2">

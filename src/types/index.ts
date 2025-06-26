@@ -172,8 +172,28 @@ export interface FeedPost {
     storyId?: string;
     storyTitle?: string;
     storyCoverUrl?: string;
+    imageUrl?: string;
+    dataAiHint?: string;
     timestamp: any;
     likesCount: number;
     commentsCount: number;
     likedBy: string[];
+}
+
+export interface Prompt {
+    id: string;
+    title: string;
+    prompt: string;
+    genre: string;
+    createdAt: any;
+}
+
+export interface StatusUpdate {
+    id: string;
+    authorId: string;
+    authorInfo: UserSummary;
+    mediaUrl: string;
+    mediaType: 'image' | 'video';
+    expiresAt: any;
+    createdAt: any;
 }
