@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -77,7 +77,7 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                             <AvatarFallback>{selectedUser.username.substring(0,1).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <span className="text-white text-sm font-semibold">{selectedUser.displayName}</span>
-                        <span className="text-gray-300 text-xs">{currentStatus.createdAt ? Timestamp.fromMillis(currentStatus.createdAt.seconds * 1000).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                        <span className="text-gray-300 text-xs">{currentStatus.createdAt ? Timestamp.fromMillis(currentStatus.createdAt.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
                      <DialogClose asChild>
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
