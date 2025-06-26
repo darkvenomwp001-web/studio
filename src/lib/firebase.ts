@@ -3,10 +3,6 @@ import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/a
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { config } from 'dotenv';
-
-// Load environment variables right before initializing Firebase
-config({ path: '.env' });
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,

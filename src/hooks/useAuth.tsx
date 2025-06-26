@@ -328,11 +328,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userCredential.user) {
         await updateFirebaseProfile(userCredential.user, { displayName: username });
         const userRef = doc(db, 'users', userCredential.user.uid);
+        
         const newUserProfile: AppUser = {
           id: userCredential.user.uid,
           username: username,
           displayName: username,
           email: email,
+          avatarUrl: `https://placehold.co/100x100.png?text=${username.charAt(0).toUpperCase()}`,
+          bio: 'New to LitVerse! Ready to explore.',
+          role: 'reader',
+          followersCount: 0,
+          followingCount: 0,
+          followingIds: [],
+          writtenStories: [],
+          readingList: [],
+          note: null,
+          isAnonymous: false,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
