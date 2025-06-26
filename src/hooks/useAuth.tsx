@@ -20,6 +20,7 @@ import {
   reauthenticateWithCredential,
   getAdditionalUserInfo,
   signInAnonymously,
+  fetchSignInMethodsForEmail,
   type User as FirebaseUser,
   type AuthError
 } from 'firebase/auth';
@@ -360,37 +361,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmailPassword = async ({ emailOrUsername, passwordOne }: { emailOrUsername: string; passwordOne: string; }) => {
     setAuthLoading(true);
-    let emailToUse = emailOrUsername;
+    let email = emailOrUsername;
 
+    // 1. If username is provided, securely look up the email.
     if (!emailOrUsername.includes('@')) {
-        try {
-            const usersRef = collection(db, "users");
-            const q = query(usersRef, where("username", "==", emailOrUsername));
-            const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-                emailToUse = querySnapshot.docs[0].data().email;
-            } else {
-                setAuthLoading(false);
-                toast({
-                    title: "Sign-In Failed",
-                    description: `Username "${emailOrUsername}" not found.`,
-                    variant: "destructive",
-                });
-                return;
-            }
-        } catch (e) {
-            setAuthLoading(false);
-            toast({ title: "Error", description: "Could not verify username.", variant: "destructive" });
-            return;
+      try {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("username", "==", emailOrUsername.trim()));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          email = querySnapshot.docs[0].data().email;
+        } else {
+          // To prevent user enumeration, we don't reveal that the username doesn't exist.
+          // Instead, we let the standard Firebase auth fail below, which will produce a generic "invalid-credential" error.
+          // We don't need to do anything special here; `firebaseSignInWithEmailAndPassword` will fail correctly if `emailOrUsername` is not a valid email.
         }
+      } catch (error) {
+        console.error("Error looking up username during sign-in:", error);
+        // If the lookup fails, we still proceed to let Firebase Auth handle it,
+        // which will result in a generic, secure error message for the user.
+      }
     }
-    
+
+    // 2. Attempt to sign in.
     try {
-      await firebaseSignInWithEmailAndPassword(auth, emailToUse, passwordOne);
+      await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
       toast({ title: "Sign In Successful", description: "You are now signed in. Redirecting..." });
     } catch (error) {
-      handleAuthError(error as AuthError, "Email/Password Sign-In");
+      const authError = error as AuthError;
+
+      // 3. If sign-in fails, provide more helpful error messages.
+      if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/user-not-found') {
+          try {
+              // Check if the user signed up with Google instead.
+              const methods = await fetchSignInMethodsForEmail(auth, email);
+              if (methods.includes(GoogleAuthProvider.PROVIDER_ID)) {
+                  toast({
+                      title: "Account Found via Google",
+                      description: "This email is linked to a Google account. Please use the 'Sign in with Google' button.",
+                      variant: "destructive"
+                  });
+                  setAuthLoading(false);
+                  return; // Exit early
+              }
+          } catch (fetchError) {
+              // This internal check might fail if the email truly doesn't exist.
+              // In that case, we fall through to the generic error handler, which is correct.
+          }
+      }
+      
+      // 4. Use the generic handler for all other errors.
+      handleAuthError(authError, "Email/Password Sign-In");
     } finally {
+      // setAuthLoading might be called twice if we exit early, but that's fine.
+      // The important part is that it's always called.
       setAuthLoading(false);
     }
   };
