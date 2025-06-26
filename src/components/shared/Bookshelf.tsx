@@ -48,7 +48,6 @@ export default function Bookshelf() {
     const [mockFriend, setMockFriend] = useState<UserSummary | null>(null);
 
     useEffect(() => {
-        setIsLoading(true);
         const storiesCol = collection(db, 'stories');
 
         // Listener for themed stories ("Shelf of the Day")
@@ -62,10 +61,10 @@ export default function Bookshelf() {
         const unsubscribeThemed = onSnapshot(themedQuery, (snapshot) => {
             const themedList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
             setThemedStories(themedList);
-            if (isLoading) setIsLoading(false); // Set loading to false on first data fetch
+            setIsLoading(false); // Set loading to false on first data fetch
         }, (error) => {
             console.error("Error fetching themed stories:", error);
-            if (isLoading) setIsLoading(false);
+            setIsLoading(false);
         });
 
         // Listener for "Friend's Pick" - pick the most viewed highly-rated story
@@ -96,7 +95,7 @@ export default function Bookshelf() {
             unsubscribeThemed();
             unsubscribeFriendsPick();
         };
-    }, [isLoading]);
+    }, []);
 
     if (isLoading) {
         return <BookshelfSkeleton />;
