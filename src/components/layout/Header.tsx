@@ -29,7 +29,7 @@ export default function Header() {
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
            <Link href="/" className="flex items-center gap-2">
              <BookOpenText className="h-8 w-8 text-primary" />
-             <span className="text-2xl font-headline font-bold text-foreground">D4RKV3NOM</span>
+             <span className="text-2xl font-headline font-bold text-foreground">LitVerse</span>
            </Link>
            <div className="flex items-center gap-2">
              <div className="h-10 w-10 p-2 animate-pulse"><div className="h-7 w-7 bg-muted rounded-full" /></div>
@@ -46,7 +46,7 @@ export default function Header() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2">
           <BookOpenText className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-headline font-bold text-foreground">D4RKV3NOM</span>
+          <span className="text-2xl font-headline font-bold text-foreground">LitVerse</span>
         </Link>
 
         <nav className="flex items-center gap-1 md:gap-2">

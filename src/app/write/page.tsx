@@ -64,7 +64,7 @@ export default function WriteDashboardPage() {
         const combined = Array.from(allStoriesMap.values());
         combined.sort((a,b) => {
             const timeA = a.lastUpdated?.toDate ? a.lastUpdated.toDate().getTime() : new Date(a.lastUpdated).getTime();
-            const timeB = b.lastUpdated?.toDate ? b.lastUpdated.toDate().getTime() : new Date(b.lastUpdated).getTime();
+            const timeB = b.lastUpdated?.toDate ? b.lastUpdated.toDate().getTime() : new Date(a.lastUpdated).getTime();
             return timeB - timeA;
         });
         setUserStories(combined);
@@ -156,7 +156,7 @@ export default function WriteDashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg"><BarChart2 className="text-accent h-5 w-5" /> Your Stats at a Glance</CardTitle>
-          <CardDescription>An overview of your writing journey on D4RKV3NOM.</CardDescription>
+          <CardDescription>An overview of your writing journey on LitVerse.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
             <div className="p-4 bg-muted/50 rounded-lg">

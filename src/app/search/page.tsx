@@ -170,7 +170,7 @@ export default function SearchResultsPage() {
     <div className="space-y-12">
       <header className="pb-6 border-b">
         <h1 className="text-3xl md:text-4xl font-headline font-bold mb-6 text-center">
-          Search D4RKV3NOM
+          Search LitVerse
         </h1>
         <form onSubmit={handleSearchSubmit} className="max-w-xl mx-auto flex gap-2">
           <Input 
@@ -247,5 +247,3 @@ export default function SearchResultsPage() {
     </div>
   );
 }
-
-    

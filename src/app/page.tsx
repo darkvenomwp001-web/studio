@@ -19,6 +19,7 @@ import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Bookshelf from '@/components/shared/Bookshelf';
 import NotesBubbles from '@/components/notes/NotesBubbles';
+import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 
 
 async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
@@ -297,6 +298,10 @@ export default function HomePage() {
       <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
         <section className="mb-8">
           <NotesBubbles />
+        </section>
+
+        <section className="mb-8">
+          <SpotifyPlayer />
         </section>
 
         <section className="mb-4">
