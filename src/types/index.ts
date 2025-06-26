@@ -28,6 +28,7 @@ export interface UserSummary {
   username: string;
   avatarUrl?: string;
   displayName?: string;
+  bio?: string;
 }
 
 export interface Story {
