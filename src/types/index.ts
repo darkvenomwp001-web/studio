@@ -180,12 +180,20 @@ export interface FeedPost {
     likedBy: string[];
 }
 
+export interface LiveFeedPost {
+  id: string;
+  author: UserSummary;
+  content: string;
+  timestamp: any;
+}
+
 export interface Prompt {
     id: string;
     title: string;
     prompt: string;
     genre: string;
     createdAt: any;
+    author: UserSummary;
 }
 
 export interface StatusUpdate {

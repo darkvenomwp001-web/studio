@@ -4,89 +4,86 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =================================
-    // Helper Functions
-    // =================================
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
     
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // =================================
-    // Users Collection
-    // =================================
+    // Users collection
     match /users/{userId} {
+      // Anyone can read a user's public profile
       allow read;
+
+      // A user can create their own profile document upon signing up
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId) &&
-                      request.resource.data.diff(resource.data).affectedKeys()
-                      .hasOnly(['displayName', 'bio', 'avatarUrl', 'role', 'note', 'updatedAt', 'readingList']);
+      
+      // A user can only update specific fields on their own profile
+      allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['displayName', 'bio', 'avatarUrl', 'role', 'updatedAt', 'note', 'readingList', 'followingIds', 'followingCount']);
     }
     
-    // =================================
-    // Stories Collection
-    // =================================
+    // Stories collection
     match /stories/{storyId} {
+      // Read access rules for stories based on visibility
       allow read: if resource.data.visibility == 'Public'
                    || resource.data.visibility == 'Unlisted'
                    || (isAuthenticated() && resource.data.author.id == request.auth.uid)
                    || (isAuthenticated() && request.auth.uid in resource.data.collaboratorIds);
 
+      // Authenticated user can create a story, but must be the author
       allow create: if isAuthenticated() && request.resource.data.author.id == request.auth.uid;
       
-      allow update: if isAuthenticated() && 
-                     (
-                       (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds)
-                       || 
-                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) && request.resource.data.views == resource.data.views + 1)
-                     );
+      // Author or collaborator can update. Any user can increment view count by 1.
+      allow update: if (isAuthenticated() && 
+                      (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds))
+                     || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) 
+                         && request.resource.data.views == resource.data.views + 1);
 
+      // Only the author can delete a story
       allow delete: if isAuthenticated() && resource.data.author.id == request.auth.uid;
     }
 
-    // =================================
-    // Comments Collection
-    // =================================
+    // Comments collection
     match /comments/{commentId} {
       allow read;
       allow create: if isAuthenticated() && request.resource.data.user.id == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.user.id == request.auth.uid;
     }
 
-    // =================================
-    // Feed Posts Collection
-    // =================================
+    // Feed Posts collection (Social Feed with stories/images)
     match /feedPosts/{postId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
-        allow update: if isAuthenticated() &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasAny(['likesCount', 'likedBy']);
+        allow update: if isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['likesCount', 'likedBy']);
     }
 
-    // =================================
-    // Letters Collection
-    // =================================
+    // Live Feed collection (simple text posts)
+    match /liveFeed/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.author.id == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.author.id == request.auth.uid;
+    }
+
+    // Letters collection
     match /letters/{letterId} {
-      allow read: if isAuthenticated() && 
-                   (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.authorId);
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.authorId);
       allow create: if isAuthenticated() && request.resource.data.reader.id == request.auth.uid;
       allow update: if isAuthenticated() && request.auth.uid == resource.data.authorId;
     }
     
-    // =================================
-    // Notifications Collection
-    // =================================
+    // Notifications collection
     match /notifications/{notificationId} {
       allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Server-side logic or trusted clients should create notifications.
+      // For now, allow user to create notifications for themselves (e.g. marking as read).
       allow create: if isAuthenticated() && request.resource.data.actor.id == request.auth.uid;
     }
 
-    // =================================
-    // Conversations Collection
-    // =================================
+    // Conversations and Messages
     match /conversations/{conversationId} {
       allow read, update, delete: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
       allow create: if isAuthenticated();
@@ -97,26 +94,19 @@ service cloud.firestore {
       }
     }
     
-    // =================================
-    // Status Updates Collection
-    // =================================
-    match /statusUpdates/{statusId} {
-      allow read: if isAuthenticated() && resource.data.expiresAt > request.time;
-      allow create: if isAuthenticated() && 
-                     request.auth.token.firebase.sign_in_provider != 'anonymous' &&
-                     request.resource.data.authorId == request.auth.uid &&
-                     request.resource.data.authorInfo.id == request.auth.uid &&
-                     request.resource.data.mediaUrl is string &&
-                     request.resource.data.mediaType == 'image' &&
-                     request.resource.data.expiresAt > request.time;
+    // Prompts collection
+    match /prompts/{promptId} {
+      allow read;
+      // Any authenticated user can create a prompt
+      allow create: if isAuthenticated() && request.resource.data.author.id == request.auth.uid;
     }
     
-    // =================================
-    // Prompts Collection
-    // =================================
-    match /prompts/{promptId} {
-      allow read: if true;
-      allow write: if false; // Clients cannot write to prompts
+    // Status Updates (stories-like feature)
+    match /statusUpdates/{statusId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+        // Statuses expire and are not meant to be updated or deleted by clients
+        allow update, delete: if false; 
     }
   }
 }

@@ -3,24 +3,30 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2 } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import type { Story, UserSummary, Prompt } from '@/types';
-import { useEffect, useState } from 'react';
+import type { Story, UserSummary, Prompt, LiveFeedPost } from '@/types';
+import { useEffect, useState, FormEvent } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Bookshelf from '@/components/shared/Bookshelf';
-import CreatePostForm from '@/components/feed/CreatePostForm';
-import HomeFeed from '@/components/feed/HomeFeed';
 import StatusFeature from '@/components/status/StatusFeature';
+import { createLiveFeedPost } from '@/app/actions/liveFeedActions';
+import { createPrompt } from '@/app/actions/promptActions';
+import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
+import { formatDate } from '@/lib/placeholder-data';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function ForYouTabContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
@@ -232,28 +238,124 @@ function ForYouTabContent() {
 
 function LiveFeedTabContent() {
   const { user } = useAuth();
+  const [posts, setPosts] = useState<LiveFeedPost[]>([]);
+  const [newPostContent, setNewPostContent] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+    const q = query(collection(db, 'liveFeed'), orderBy('timestamp', 'desc'), firestoreLimit(50));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const livePosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LiveFeedPost));
+      setPosts(livePosts);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching live feed: ", error);
+      toast({ title: "Error", description: "Could not load the live feed.", variant: "destructive" });
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, toast]);
   
+  const handlePostSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!user || !newPostContent.trim()) return;
+    setIsSubmitting(true);
+    const authorSummary: UserSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
+    const result = await createLiveFeedPost(authorSummary, newPostContent);
+    if (result.success) {
+      setNewPostContent('');
+    } else {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    }
+    setIsSubmitting(false);
+  };
+
   if (!user) {
     return (
       <div className="text-center py-10">
         <p className="text-muted-foreground">
-          <Link href="/auth/signin" className="text-primary hover:underline">Sign in</Link> to view and create posts in the Live Feed.
+          <Link href="/auth/signin" className="text-primary hover:underline">Sign in</Link> to view and participate in the Live Feed.
         </p>
       </div>
     );
   }
-
+  
   return (
     <div className="max-w-xl mx-auto space-y-6 py-8">
-      <CreatePostForm user={user} />
-      <HomeFeed user={user} />
+      <Card>
+        <CardHeader>
+          <CardTitle>Live Feed</CardTitle>
+          <CardDescription>Share a quick text update with the community.</CardDescription>
+        </CardHeader>
+        <form onSubmit={handlePostSubmit}>
+          <CardContent>
+            <Textarea 
+              value={newPostContent}
+              onChange={(e) => setNewPostContent(e.target.value)}
+              placeholder="What's happening?"
+              maxLength={500}
+              disabled={isSubmitting}
+            />
+          </CardContent>
+          <CardFooter className="flex justify-end">
+            <Button type="submit" disabled={isSubmitting || !newPostContent.trim()}>
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
+              Post
+            </Button>
+          </CardFooter>
+        </form>
+      </Card>
+      
+      {isLoading ? (
+        <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
+      ) : posts.length === 0 ? (
+        <p className="text-muted-foreground text-center py-10">The feed is quiet... be the first to post!</p>
+      ) : (
+        <div className="space-y-4">
+          {posts.map(post => (
+            <Card key={post.id}>
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Avatar>
+                    <AvatarImage src={post.author.avatarUrl} data-ai-hint="profile person"/>
+                    <AvatarFallback>{post.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="flex items-baseline gap-2">
+                       <p className="font-semibold">{post.author.displayName}</p>
+                       <p className="text-xs text-muted-foreground">{formatDate(post.timestamp)}</p>
+                    </div>
+                    <p className="text-foreground/90 whitespace-pre-line">{post.content}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 function PromptsTabContent() {
+    const { user } = useAuth();
     const [prompts, setPrompts] = useState<Prompt[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { toast } = useToast();
+
+    // States for the new prompt form
+    const [newPromptTitle, setNewPromptTitle] = useState('');
+    const [newPromptText, setNewPromptText] = useState('');
+    const [newPromptGenre, setNewPromptGenre] = useState('fantasy');
+
 
     useEffect(() => {
         const q = query(collection(db, 'prompts'), orderBy('createdAt', 'desc'));
@@ -268,6 +370,32 @@ function PromptsTabContent() {
 
         return () => unsubscribe();
     }, []);
+    
+    const handlePromptSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!user) {
+            toast({title: "Please sign in", description: "You must be logged in to create a prompt.", variant: "destructive"});
+            return;
+        }
+        setIsSubmitting(true);
+        const authorSummary: UserSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
+        const result = await createPrompt({
+            title: newPromptTitle,
+            prompt: newPromptText,
+            genre: newPromptGenre,
+            author: authorSummary,
+        });
+
+        if (result.success) {
+            toast({title: "Prompt Created!", description: "Your new prompt is now available for everyone."});
+            setNewPromptTitle('');
+            setNewPromptText('');
+            setNewPromptGenre('fantasy');
+        } else {
+            toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        }
+        setIsSubmitting(false);
+    };
 
     if (isLoading) {
         return (
@@ -278,8 +406,46 @@ function PromptsTabContent() {
     }
     
     return (
-        <div className="py-8 max-w-3xl mx-auto">
-             <h2 className="text-2xl font-headline font-bold text-center mb-6">Prompts &amp; Challenges</h2>
+        <div className="py-8 max-w-3xl mx-auto space-y-8">
+             <Card>
+                <CardHeader>
+                    <CardTitle>Create a New Prompt</CardTitle>
+                    <CardDescription>Inspire the community with a new writing challenge.</CardDescription>
+                </CardHeader>
+                <form onSubmit={handlePromptSubmit}>
+                    <CardContent className="space-y-4">
+                         <div>
+                            <Label htmlFor="prompt-title">Title</Label>
+                            <Input id="prompt-title" value={newPromptTitle} onChange={e => setNewPromptTitle(e.target.value)} placeholder="e.g., The Last Sunrise" disabled={isSubmitting || !user} />
+                         </div>
+                          <div>
+                            <Label htmlFor="prompt-genre">Genre</Label>
+                            <Select value={newPromptGenre} onValueChange={(val) => setNewPromptGenre(val as string)} disabled={isSubmitting || !user}>
+                                <SelectTrigger id="prompt-genre"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="fantasy">Fantasy</SelectItem>
+                                    <SelectItem value="sci-fi">Sci-Fi</SelectItem>
+                                    <SelectItem value="romance">Romance</SelectItem>
+                                    <SelectItem value="thriller">Thriller</SelectItem>
+                                    <SelectItem value="mystery">Mystery</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div>
+                            <Label htmlFor="prompt-text">Prompt</Label>
+                            <Textarea id="prompt-text" value={newPromptText} onChange={e => setNewPromptText(e.target.value)} placeholder="Describe the writing prompt..." disabled={isSubmitting || !user} rows={4}/>
+                         </div>
+                    </CardContent>
+                    <CardFooter>
+                        <Button type="submit" disabled={isSubmitting || !user || !newPromptTitle.trim() || !newPromptText.trim()}>
+                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlusCircle className="mr-2 h-4 w-4"/>}
+                            Create Prompt
+                        </Button>
+                    </CardFooter>
+                </form>
+             </Card>
+
              <div className="space-y-6">
                 {prompts.length > 0 ? prompts.map((item) => (
                     <Card key={item.id} className="shadow-sm hover:shadow-md transition-shadow">
@@ -288,7 +454,7 @@ function PromptsTabContent() {
                                <Edit className="h-6 w-6 text-accent"/>
                                <CardTitle className="font-headline">{item.title}</CardTitle>
                             </div>
-                            <CardDescription>Genre: {item.genre}</CardDescription>
+                            <CardDescription>Genre: {item.genre} | By: {item.author?.displayName || item.author?.username || 'Community'}</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <p className="text-foreground/90">{item.prompt}</p>
@@ -309,6 +475,7 @@ function PromptsTabContent() {
         </div>
     );
 }
+
 
 export default function HomePage() {
   const { authLoading, user } = useAuth();
