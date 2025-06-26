@@ -13,8 +13,8 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
 
 export const metadata: Metadata = {
-  title: 'LitVerse - Your Next Literary Adventure',
-  description: 'Discover, write, and connect with a global community of readers and writers on LitVerse.',
+  title: 'D4RKV3NOM - Your Next Literary Adventure',
+  description: 'Discover, write, and connect with a global community of readers and writers on D4RKV3NOM.',
   icons: {
     icon: '/favicon.ico', 
   }

@@ -134,7 +134,7 @@ export default function SignInPage() {
         </form>
         <CardFooter className="text-center text-sm">
           <p className="text-muted-foreground w-full">
-            New to LitVerse?{' '}
+            New to D4RKV3NOM?{' '}
             <Link href="/auth/signup" className={`font-semibold text-primary hover:underline ${isAnyLoading ? 'pointer-events-none text-muted-foreground' : ''}`}>
               Sign Up
             </Link>

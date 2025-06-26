@@ -227,7 +227,7 @@ export default function SettingsPage() {
                     <div>
                       <Label htmlFor="username">Username</Label>
                       <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Your unique username" disabled={anySubmitting} />
-                      <p className="text-xs text-muted-foreground mt-1">Your LitVerse URL: litverse.app/user/{username || 'yourusername'}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Your D4RKV3NOM URL: d4rkv3nom.app/user/{username || 'yourusername'}</p>
                     </div>
                   </div>
                 </div>
@@ -322,17 +322,17 @@ export default function SettingsPage() {
         <TabsContent value="about" className="mt-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>About LitVerse</CardTitle>
-                    <CardDescription>Information, policies, and help resources for the LitVerse platform.</CardDescription>
+                    <CardTitle>About D4RKV3NOM</CardTitle>
+                    <CardDescription>Information, policies, and help resources for the D4RKV3NOM platform.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Accordion type="single" collapsible className="w-full">
                         <AccordionItem value="item-1">
                             <AccordionTrigger>
-                                <div className="flex items-center gap-2"><Info className="h-4 w-4 text-accent" /> About LitVerse</div>
+                                <div className="flex items-center gap-2"><Info className="h-4 w-4 text-accent" /> About D4RKV3NOM</div>
                             </AccordionTrigger>
                             <AccordionContent className="prose prose-sm dark:prose-invert">
-                                LitVerse is a next-generation platform for readers and writers to connect, create, and share captivating stories. Our mission is to empower storytellers and build a vibrant community around the magic of words.
+                                D4RKV3NOM is a next-generation platform for readers and writers to connect, create, and share captivating stories. Our mission is to empower storytellers and build a vibrant community around the magic of words.
                             </AccordionContent>
                         </AccordionItem>
                         <AccordionItem value="item-2">
@@ -340,7 +340,7 @@ export default function SettingsPage() {
                                  <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-accent" /> Terms of Service</div>
                             </AccordionTrigger>
                             <AccordionContent>
-                                <p className="text-sm text-muted-foreground">Please review our <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> to understand the rules and guidelines for using LitVerse.</p>
+                                <p className="text-sm text-muted-foreground">Please review our <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> to understand the rules and guidelines for using D4RKV3NOM.</p>
                             </AccordionContent>
                         </AccordionItem>
                         <AccordionItem value="item-3">

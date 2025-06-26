@@ -156,7 +156,7 @@ export default function WriteDashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg"><BarChart2 className="text-accent h-5 w-5" /> Your Stats at a Glance</CardTitle>
-          <CardDescription>An overview of your writing journey on LitVerse.</CardDescription>
+          <CardDescription>An overview of your writing journey on D4RKV3NOM.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
             <div className="p-4 bg-muted/50 rounded-lg">
