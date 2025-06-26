@@ -1,42 +1,50 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // HELPER FUNCTIONS
+    
+    // Helper Functions
     function isSignedIn() {
       return request.auth != null;
     }
-
+    
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return request.auth.uid == userId;
+    }
+
+    function isParticipant(conversationId) {
+      return request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
     }
 
     // USER PROFILES
     match /users/{userId} {
       allow read;
-      allow create: if isOwner(userId);
-
-      // Users can update a limited set of their own profile fields.
-      // Critical fields like email, username, counts, etc., are protected.
-      allow update: if isOwner(userId) &&
-                       request.resource.data.keys().hasOnly([
-                         'displayName', 'bio', 'avatarUrl', 'role', 'updatedAt', 'note', 'readingList'
-                       ]);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId) &&
+                       request.resource.data.keys().hasAll(['displayName', 'bio', 'role', 'avatarUrl', 'updatedAt']) &&
+                       request.resource.data.username == resource.data.username && // Cannot change username
+                       request.resource.data.email == resource.data.email; // Cannot change email via this rule
+      
+      // Separate, more permissive rule for updating specific, less sensitive fields like the 'note'
+      allow update: if isSignedIn() && isOwner(userId) &&
+                       request.resource.data.keys().hasAny(['note', 'readingList', 'followingIds', 'followingCount', 'updatedAt']);
     }
 
-    // STORIES
+    // STORIES & CHAPTERS
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' 
-                    || resource.data.visibility == 'Unlisted' 
-                    || (isSignedIn() && isOwner(resource.data.author.id))
-                    || (isSignedIn() && resource.data.collaboratorIds.hasAny([request.auth.uid]));
-
-      allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
+      // Anyone can read a public story
+      allow read: if resource.data.visibility == 'Public' || 
+                     // Or unlisted with a direct link
+                     resource.data.visibility == 'Unlisted' || 
+                     // Or private if they are the author or a collaborator
+                     (resource.data.visibility == 'Private' && isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
+                     
+      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
       
-      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || resource.data.collaboratorIds.hasAny([request.auth.uid]));
-
+      // Only author or collaborators can update
+      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds);
+      
+      // Only author can delete
       allow delete: if isSignedIn() && isOwner(resource.data.author.id);
     }
     
@@ -46,25 +54,36 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
     }
-
-    // QUESTIONS
-    match /questions/{questionId} {
-        allow read;
-        allow create: if isSignedIn() && request.resource.data.asker.id == request.auth.uid;
-        allow update, delete: if isSignedIn() && isOwner(resource.data.asker.id);
-    }
-
-    // LETTERS
-    match /letters/{letterId} {
-        allow read: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
-        allow create: if isSignedIn() && isOwner(request.resource.data.reader.id);
-        allow update: if isSignedIn() && isOwner(resource.data.authorId); // Only author can respond/pin
-    }
     
     // NOTIFICATIONS
     match /notifications/{notificationId} {
-        allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
-        allow create: if isSignedIn(); // Server-side logic should validate this
+      allow read, update: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn(); // Server/functions will create notifications
+      allow delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+    
+    // LETTERS
+    match /letters/{letterId} {
+      allow read, update, delete: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.author.id));
+      allow create: if isSignedIn();
+    }
+    
+    // FEED POSTS
+    match /feedPosts/{postId} {
+      allow read;
+      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
+      allow update: if isSignedIn(); // For liking/unliking
+      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
+    }
+
+    // CONVERSATIONS & MESSAGES (NEW)
+    match /conversations/{conversationId} {
+      allow read, create, update, delete: if isSignedIn() && isParticipant(conversationId);
+
+      match /messages/{messageId} {
+        allow read, create: if isSignedIn() && isParticipant(conversationId);
+        allow update, delete: if isSignedIn() && isOwner(resource.data.senderId);
+      }
     }
   }
 }
