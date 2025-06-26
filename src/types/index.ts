@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface User {
@@ -16,10 +17,6 @@ export interface User {
   createdAt?: any;
   updatedAt?: any;
   dataAiHint?: string; // Added for AI image hints
-  note?: {
-    content: string;
-    expiresAt: Timestamp;
-  } | null;
   isAnonymous?: boolean;
 }
 
@@ -182,6 +179,7 @@ export interface FeedPost {
 export interface LiveFeedPost {
   id: string;
   author: UserSummary;
+  authorId: string;
   content: string;
   timestamp: any;
 }

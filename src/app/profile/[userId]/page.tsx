@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -26,7 +27,6 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import FollowerUserCard from '@/components/shared/FollowerUserCard';
-import { deleteUserNote } from '@/app/actions/noteActions';
 
 interface ProfileStoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>;
@@ -84,7 +84,6 @@ export default function UserProfilePage() {
   const [followersDetails, setFollowersDetails] = useState<AppUser[]>([]);
   
   const isOwnProfile = currentUser?.id === userId;
-  const hasActiveNote = profileUser?.note && profileUser.note.expiresAt.toDate() > new Date();
 
   useEffect(() => {
     if (!userId) {
@@ -230,12 +229,6 @@ export default function UserProfilePage() {
     }
   };
 
-  const handleNoteDelete = async () => {
-    await deleteUserNote();
-    toast({ title: 'Note Deleted' });
-  };
-
-
   if (authLoading || isLoadingData) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
@@ -265,23 +258,6 @@ export default function UserProfilePage() {
              <Image src="https://placehold.co/1200x300.png" alt="Profile banner" layout="fill" objectFit="cover" className="rounded-t-lg opacity-50" data-ai-hint="abstract landscape"/>
         </div>
         
-        {hasActiveNote && (
-            <div className="relative mb-4 -mt-2">
-                <div className="bg-background border-border border p-3 rounded-lg shadow-sm flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                        <AvatarImage src={profileUser.avatarUrl} data-ai-hint="profile person" />
-                        <AvatarFallback>{displayName.substring(0, 1).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <p className="text-sm text-foreground flex-1">"{profileUser.note?.content}"</p>
-                    {isOwnProfile && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleNoteDelete}>
-                            <X className="h-4 w-4 text-muted-foreground" />
-                        </Button>
-                    )}
-                </div>
-            </div>
-        )}
-
         <div className="flex flex-col md:flex-row items-center md:items-end gap-6 pt-16 md:pt-24">
           <Avatar className="h-32 w-32 md:h-40 md:w-40 border-4 border-background shadow-xl">
             <AvatarImage src={profileUser.avatarUrl || 'https://placehold.co/160x160.png'} alt={displayName} data-ai-hint="profile person" />

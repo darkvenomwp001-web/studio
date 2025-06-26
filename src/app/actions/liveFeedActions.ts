@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -22,6 +23,7 @@ export async function createLiveFeedPost(
   try {
     await addDoc(collection(db, 'liveFeed'), {
       author,
+      authorId: author.id,
       content,
       timestamp: serverTimestamp(),
     });
