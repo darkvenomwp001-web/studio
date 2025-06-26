@@ -243,6 +243,7 @@ function LiveFeedTabContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const isUserAuthenticated = user && !user.isAnonymous;
 
   useEffect(() => {
     const q = query(collection(db, 'liveFeed'), orderBy('timestamp', 'desc'), firestoreLimit(50));
@@ -261,7 +262,7 @@ function LiveFeedTabContent() {
   
   const handlePostSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user) {
+    if (!isUserAuthenticated) {
         toast({ title: "Please sign in", description: "You must be logged in to post.", variant: "destructive" });
         return;
     }
@@ -289,13 +290,13 @@ function LiveFeedTabContent() {
             <Textarea 
               value={newPostContent}
               onChange={(e) => setNewPostContent(e.target.value)}
-              placeholder={user ? "What's happening?" : "Sign in to post in the live feed"}
+              placeholder={isUserAuthenticated ? "What's happening?" : "Sign in to post in the live feed"}
               maxLength={500}
-              disabled={isSubmitting || !user}
+              disabled={isSubmitting || !isUserAuthenticated}
             />
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting || !user || !newPostContent.trim()}>
+            <Button type="submit" disabled={isSubmitting || !isUserAuthenticated || !newPostContent.trim()}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
               Post
             </Button>
@@ -340,6 +341,7 @@ function PromptsTabContent() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { toast } = useToast();
+    const isUserAuthenticated = user && !user.isAnonymous;
 
     const [newPromptTitle, setNewPromptTitle] = useState('');
     const [newPromptText, setNewPromptText] = useState('');
@@ -362,7 +364,7 @@ function PromptsTabContent() {
     
     const handlePromptSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        if (!user) {
+        if (!isUserAuthenticated) {
             toast({title: "Please sign in", description: "You must be logged in to create a prompt.", variant: "destructive"});
             return;
         }
@@ -405,11 +407,11 @@ function PromptsTabContent() {
                     <CardContent className="space-y-4">
                          <div>
                             <Label htmlFor="prompt-title">Title</Label>
-                            <Input id="prompt-title" value={newPromptTitle} onChange={e => setNewPromptTitle(e.target.value)} placeholder="e.g., The Last Sunrise" disabled={isSubmitting || !user} />
+                            <Input id="prompt-title" value={newPromptTitle} onChange={e => setNewPromptTitle(e.target.value)} placeholder="e.g., The Last Sunrise" disabled={isSubmitting || !isUserAuthenticated} />
                          </div>
                           <div>
                             <Label htmlFor="prompt-genre">Genre</Label>
-                            <Select value={newPromptGenre} onValueChange={(val) => setNewPromptGenre(val as string)} disabled={isSubmitting || !user}>
+                            <Select value={newPromptGenre} onValueChange={(val) => setNewPromptGenre(val as string)} disabled={isSubmitting || !isUserAuthenticated}>
                                 <SelectTrigger id="prompt-genre"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="fantasy">Fantasy</SelectItem>
@@ -423,11 +425,11 @@ function PromptsTabContent() {
                         </div>
                          <div>
                             <Label htmlFor="prompt-text">Prompt</Label>
-                            <Textarea id="prompt-text" value={newPromptText} onChange={e => setNewPromptText(e.target.value)} placeholder="Describe the writing prompt..." disabled={isSubmitting || !user} rows={4}/>
+                            <Textarea id="prompt-text" value={newPromptText} onChange={e => setNewPromptText(e.target.value)} placeholder="Describe the writing prompt..." disabled={isSubmitting || !isUserAuthenticated} rows={4}/>
                          </div>
                     </CardContent>
                     <CardFooter>
-                        <Button type="submit" disabled={isSubmitting || !user || !newPromptTitle.trim() || !newPromptText.trim()}>
+                        <Button type="submit" disabled={isSubmitting || !isUserAuthenticated || !newPromptTitle.trim() || !newPromptText.trim()}>
                              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlusCircle className="mr-2 h-4 w-4"/>}
                             Create Prompt
                         </Button>
