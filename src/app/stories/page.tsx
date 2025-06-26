@@ -18,38 +18,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 
-async function fetchAllPublicStories(): Promise<Story[]> {
-  try {
-    const storiesCol = collection(db, 'stories');
-    const q = query(
-      storiesCol, 
-      where('visibility', '==', 'Public'),
-      where('status', '!=', 'Draft'),
-      orderBy('lastUpdated', 'desc')
-    );
-    const storySnapshot = await getDocs(q);
-    return storySnapshot.docs.map(doc => {
-      const data = doc.data();
-      const authorSummary = data.author 
-        ? { id: data.author.id || 'unknown', username: data.author.username || 'Unknown Author', displayName: data.author.displayName, avatarUrl: data.author.avatarUrl }
-        : { id: 'unknown', username: 'Unknown Author', displayName: 'Unknown Author' };
-
-      return { 
-        id: doc.id, 
-        ...data,
-        author: authorSummary,
-        lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
-        chapters: data.chapters || [],
-        tags: data.tags || [],
-      } as Story;
-    });
-  } catch (error) {
-    console.error("Error fetching all public stories:", error);
-    return [];
-  }
-}
 
 export default function StoriesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -57,13 +27,39 @@ export default function StoriesPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function loadStories() {
-      setIsLoading(true);
-      const stories = await fetchAllPublicStories();
+    setIsLoading(true);
+    const storiesCol = collection(db, 'stories');
+    const q = query(
+      storiesCol, 
+      where('visibility', '==', 'Public'),
+      where('status', '!=', 'Draft'),
+      orderBy('lastUpdated', 'desc')
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const stories = snapshot.docs.map(doc => {
+        const data = doc.data();
+        const authorSummary = data.author 
+          ? { id: data.author.id || 'unknown', username: data.author.username || 'Unknown Author', displayName: data.author.displayName, avatarUrl: data.author.avatarUrl }
+          : { id: 'unknown', username: 'Unknown Author', displayName: 'Unknown Author' };
+
+        return { 
+          id: doc.id, 
+          ...data,
+          author: authorSummary,
+          lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
+          chapters: data.chapters || [],
+          tags: data.tags || [],
+        } as Story;
+      });
       setAllStories(stories);
       setIsLoading(false);
-    }
-    loadStories();
+    }, (error) => {
+      console.error("Error fetching all public stories:", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const featuredStoriesForCarousel = allStories.slice(0, 5);

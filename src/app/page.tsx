@@ -13,72 +13,13 @@ import { Badge } from '@/components/ui/badge';
 import type { Story, UserSummary } from '@/types';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Bookshelf from '@/components/shared/Bookshelf';
 import NotesBubbles from '@/components/notes/NotesBubbles';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
-
-
-async function fetchStoriesFromFirestore(count: number): Promise<Story[]> {
-  try {
-    const storiesCol = collection(db, 'stories');
-    const q = query(
-      storiesCol, 
-      where('visibility', '==', 'Public'),
-      orderBy('lastUpdated', 'desc'), 
-      firestoreLimit(count)
-    );
-    const storySnapshot = await getDocs(q);
-    const storyList = storySnapshot.docs.map(doc => {
-      const data = doc.data();
-      const authorSummary = data.author 
-        ? { id: data.author.id || 'unknown', username: data.author.username || 'Unknown Author', displayName: data.author.displayName, avatarUrl: data.author.avatarUrl }
-        : { id: 'unknown', username: 'Unknown Author', displayName: 'Unknown Author' };
-
-      return { 
-        id: doc.id, 
-        ...data,
-        author: authorSummary,
-        lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
-        chapters: data.chapters || [],
-        tags: data.tags || [],
-      } as Story;
-    });
-    return storyList;
-  } catch (error) {
-    console.error("Error fetching stories from Firestore:", error);
-    return [];
-  }
-}
-
-async function fetchFeaturedAuthorsFromFirestore(count: number): Promise<UserSummary[]> {
-  try {
-    const usersCol = collection(db, 'users');
-    const q = query(
-      usersCol,
-      orderBy('followersCount', 'desc'),
-      firestoreLimit(count)
-    );
-    const userSnapshot = await getDocs(q);
-    return userSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        username: data.username,
-        displayName: data.displayName || data.username,
-        avatarUrl: data.avatarUrl,
-        bio: data.bio, // Include bio for card display
-        followersCount: data.followersCount,
-      } as UserSummary & { bio?: string, followersCount?: number };
-    });
-  } catch (error) {
-    console.error("Error fetching featured authors:", error);
-    return [];
-  }
-}
 
 function LoggedInHomeContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
@@ -87,15 +28,28 @@ function LoggedInHomeContent() {
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   useEffect(() => {
-    async function loadData() {
-      setIsDataLoading(true);
-      const [fetchedStories, fetchedAuthors] = await Promise.all([
-        fetchStoriesFromFirestore(8),
-        fetchFeaturedAuthorsFromFirestore(6)
-      ]);
-      
+    setIsDataLoading(true);
+
+    const storiesCol = collection(db, 'stories');
+    const storiesQuery = query(
+      storiesCol,
+      where('visibility', '==', 'Public'),
+      orderBy('lastUpdated', 'desc'),
+      firestoreLimit(8)
+    );
+
+    const unsubscribeStories = onSnapshot(storiesQuery, (snapshot) => {
+      const fetchedStories = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return { 
+          id: doc.id, 
+          ...data,
+          author: data.author || { id: 'unknown', username: 'Unknown' },
+          lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
+        } as Story;
+      });
+
       setTrendingStories(fetchedStories.filter(s => s.status !== 'Draft'));
-      setFeaturedAuthors(fetchedAuthors);
 
       if (fetchedStories.length > 0) {
         const availableForSpotlight = fetchedStories.filter(s => s.visibility === 'Public' && (s.status === 'Ongoing' || s.status === 'Completed'));
@@ -105,9 +59,40 @@ function LoggedInHomeContent() {
           setStorySpotlight(fetchedStories.filter(s => s.status !== 'Draft')[0]);
         }
       }
+    }, (error) => {
+      console.error("Error fetching stories in real-time:", error);
+    });
+
+    const usersCol = collection(db, 'users');
+    const authorsQuery = query(
+      usersCol,
+      orderBy('followersCount', 'desc'),
+      firestoreLimit(6)
+    );
+
+    const unsubscribeAuthors = onSnapshot(authorsQuery, (snapshot) => {
+      const fetchedAuthors = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          username: data.username,
+          displayName: data.displayName || data.username,
+          avatarUrl: data.avatarUrl,
+          bio: data.bio,
+          followersCount: data.followersCount,
+        } as UserSummary & { bio?: string, followersCount?: number };
+      });
+      setFeaturedAuthors(fetchedAuthors);
+      setIsDataLoading(false); 
+    }, (error) => {
+      console.error("Error fetching authors in real-time:", error);
       setIsDataLoading(false);
-    }
-    loadData();
+    });
+
+    return () => {
+      unsubscribeStories();
+      unsubscribeAuthors();
+    };
   }, []);
   
   const popularGenres = [

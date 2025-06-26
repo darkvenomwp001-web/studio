@@ -11,7 +11,7 @@ import { BookMarked, Users, Wand2, Star } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import type { Story, UserSummary } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -48,54 +48,54 @@ export default function Bookshelf() {
     const [mockFriend, setMockFriend] = useState<UserSummary | null>(null);
 
     useEffect(() => {
-        const fetchBookshelfData = async () => {
-            setIsLoading(true);
-            try {
-                const storiesCol = collection(db, 'stories');
-                
-                // 1. Fetch stories for the "Shelf of the Day"
-                const themedQuery = query(
-                    storiesCol,
-                    where('visibility', '==', 'Public'),
-                    where('genre', '==', 'Fantasy'), // Theme: Fantasy
-                    orderBy('lastUpdated', 'desc'),
-                    limit(10)
-                );
-                const themedSnapshot = await getDocs(themedQuery);
-                const themedList = themedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
-                setThemedStories(themedList);
+        setIsLoading(true);
+        const storiesCol = collection(db, 'stories');
 
-                // 2. Fetch a "Friend's Pick"
-                // In a real app, you'd check user.followingIds, then their libraries.
-                // For now, we just pick a random, highly-rated public story.
-                const friendsPickQuery = query(
-                    storiesCol,
-                    where('visibility', '==', 'Public'),
-                    where('rating', '>=', 4), // Get a well-rated story
-                    limit(10) // Fetch a few to pick one from
-                );
-                const friendsPickSnapshot = await getDocs(friendsPickQuery);
-                if (!friendsPickSnapshot.empty) {
-                    const potentialPicks = friendsPickSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data()} as Story));
-                    const randomPick = potentialPicks[Math.floor(Math.random() * potentialPicks.length)];
-                    setFriendsPick(randomPick);
+        // Listener for themed stories ("Shelf of the Day")
+        const themedQuery = query(
+            storiesCol,
+            where('visibility', '==', 'Public'),
+            where('genre', '==', 'Fantasy'), // Theme: Fantasy
+            orderBy('lastUpdated', 'desc'),
+            limit(10)
+        );
+        const unsubscribeThemed = onSnapshot(themedQuery, (snapshot) => {
+            const themedList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
+            setThemedStories(themedList);
+            if (isLoading) setIsLoading(false); // Set loading to false on first data fetch
+        }, (error) => {
+            console.error("Error fetching themed stories:", error);
+            if (isLoading) setIsLoading(false);
+        });
 
-                    // Mock a friend's info
-                    setMockFriend({
-                        id: 'mock_friend_id',
-                        username: 'a_fellow_reader',
-                        displayName: 'A Fellow Reader',
-                        avatarUrl: `https://placehold.co/100x100.png`
-                    });
-                }
-            } catch (error) {
-                console.error("Error fetching bookshelf data:", error);
-            } finally {
-                setIsLoading(false);
+        // Listener for "Friend's Pick" - pick the most viewed highly-rated story
+        const friendsPickQuery = query(
+            storiesCol,
+            where('visibility', '==', 'Public'),
+            where('rating', '>=', 4),
+            orderBy('rating', 'desc'),
+            orderBy('views', 'desc'),
+            limit(1)
+        );
+        const unsubscribeFriendsPick = onSnapshot(friendsPickQuery, (snapshot) => {
+            if (!snapshot.empty) {
+                const pick = { id: snapshot.docs[0].id, ...snapshot.docs[0].data()} as Story;
+                setFriendsPick(pick);
+                setMockFriend({
+                    id: 'mock_friend_id',
+                    username: 'a_fellow_reader',
+                    displayName: 'A Fellow Reader',
+                    avatarUrl: `https://placehold.co/100x100.png`
+                });
             }
-        };
+        }, (error) => {
+            console.error("Error fetching friend's pick:", error);
+        });
 
-        fetchBookshelfData();
+        return () => {
+            unsubscribeThemed();
+            unsubscribeFriendsPick();
+        };
     }, []);
 
     if (isLoading) {
