@@ -4,109 +4,126 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // Helper function to check if a user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
+    // Helper function to check if a user owns the document
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return request.auth.uid == userId;
     }
 
-    // Users collection
+    // Rules for the 'users' collection
     match /users/{userId} {
       // Anyone can read a user's public profile
-      allow read;
+      allow read: if true;
 
-      // A user can create their own profile document upon signing up
+      // Only the authenticated owner can create their own profile document
       allow create: if isOwner(userId);
-      
-      // A user can only update specific fields on their own profile
-      allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(['displayName', 'bio', 'avatarUrl', 'role', 'updatedAt', 'note', 'readingList', 'followingIds', 'followingCount']);
+
+      // An authenticated user can only update their own profile,
+      // and only specific fields are allowed to be updated.
+      // This prevents users from changing their follower counts, for example.
+      allow update: if isOwner(userId) &&
+                      request.resource.data.keys().hasAll([
+                        'displayName', 'bio', 'avatarUrl', 'role', 'updatedAt'
+                      ]) && 
+                      (!request.resource.data.keys().hasAny(['followersCount', 'followingCount', 'email']));
     }
-    
-    // Stories collection
+
+    // Rules for the 'stories' collection
     match /stories/{storyId} {
-      // Read access rules for stories based on visibility
-      allow read: if resource.data.visibility == 'Public'
-                   || resource.data.visibility == 'Unlisted'
-                   || (isAuthenticated() && resource.data.author.id == request.auth.uid)
-                   || (isAuthenticated() && request.auth.uid in resource.data.collaboratorIds);
-
-      // Authenticated user can create a story, but must be the author
+      // Allow read access based on story visibility
+      allow read: if resource.data.visibility == 'Public' || 
+                   (resource.data.visibility == 'Unlisted' && isAuthenticated()) ||
+                   (isAuthenticated() && resource.data.author.id == request.auth.uid) ||
+                   (isAuthenticated() && request.auth.uid in resource.data.collaboratorIds);
+                   
+      // Allow creation if user is authenticated and is the author
       allow create: if isAuthenticated() && request.resource.data.author.id == request.auth.uid;
-      
-      // Author or collaborator can update. Any user can increment view count by 1.
-      allow update: if (isAuthenticated() && 
-                      (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds))
-                     || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) 
-                         && request.resource.data.views == resource.data.views + 1);
 
-      // Only the author can delete a story
+      // Allow updates if user is the author or a collaborator
+      allow update: if isAuthenticated() && 
+                     (resource.data.author.id == request.auth.uid ||
+                      request.auth.uid in resource.data.collaboratorIds);
+      
+      // Only the author can delete their story
       allow delete: if isAuthenticated() && resource.data.author.id == request.auth.uid;
     }
 
-    // Comments collection
+    // Rules for the 'comments' collection
     match /comments/{commentId} {
-      allow read;
+      // Anyone can read comments
+      allow read: if true;
+      // Authenticated users can create comments
       allow create: if isAuthenticated() && request.resource.data.user.id == request.auth.uid;
+      // Users can only update or delete their own comments
       allow update, delete: if isAuthenticated() && resource.data.user.id == request.auth.uid;
     }
 
-    // Feed Posts collection (Social Feed with stories/images)
-    match /feedPosts/{postId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
-        allow update: if isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['likesCount', 'likedBy']);
-    }
-
-    // Live Feed collection (simple text posts)
-    match /liveFeed/{postId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.author.id == request.auth.uid;
-      allow update, delete: if isAuthenticated() && resource.data.author.id == request.auth.uid;
-    }
-
-    // Letters collection
-    match /letters/{letterId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.authorId);
-      allow create: if isAuthenticated() && request.resource.data.reader.id == request.auth.uid;
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.authorId;
-    }
-    
-    // Notifications collection
+    // Rules for 'notifications'
     match /notifications/{notificationId} {
+      // Users can read, update (mark as read), and delete their own notifications
       allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      // Server-side logic or trusted clients should create notifications.
-      // For now, allow user to create notifications for themselves (e.g. marking as read).
-      allow create: if isAuthenticated() && request.resource.data.actor.id == request.auth.uid;
-    }
-
-    // Conversations and Messages
-    match /conversations/{conversationId} {
-      allow read, update, delete: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
+      // Anyone (server with auth) can create a notification for a user
       allow create: if isAuthenticated();
+    }
+    
+    // Rules for 'letters'
+    match /letters/{letterId} {
+        // Only the author or the reader of the letter can read it
+        allow read: if isAuthenticated() && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
+        // Only the reader can create a letter
+        allow create: if isAuthenticated() && request.auth.uid == request.resource.data.reader.id;
+        // The author can update (respond, pin), the reader can't.
+        allow update: if isAuthenticated() && request.auth.uid == resource.data.authorId;
+    }
 
-      match /messages/{messageId} {
-        allow read, create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        allow update, delete: if isAuthenticated() && resource.data.senderId == request.auth.uid;
-      }
-    }
-    
-    // Prompts collection
-    match /prompts/{promptId} {
-      allow read;
-      // Any authenticated user can create a prompt
-      allow create: if isAuthenticated() && request.resource.data.author.id == request.auth.uid;
-    }
-    
-    // Status Updates (stories-like feature)
-    match /statusUpdates/{statusId} {
-        allow read: if isAuthenticated();
+    // Rules for 'feedPosts'
+    match /feedPosts/{postId} {
+        // Anyone can read feed posts
+        allow read: if true;
+        
+        // Users can create their own posts, and like any post
         allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
-        // Statuses expire and are not meant to be updated or deleted by clients
-        allow update, delete: if false; 
+        
+        // Allow liking/unliking but not changing other content
+        allow update: if isAuthenticated() && 
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likesCount']);
+    }
+
+    // Rules for 'statusUpdates'
+    match /statusUpdates/{statusId} {
+      // Anyone can read statuses.
+      allow read: if true;
+
+      // Authenticated users can create their own statuses.
+      // We validate the data to ensure it's correct.
+      allow create: if isAuthenticated() && 
+                      request.resource.data.authorId == request.auth.uid &&
+                      request.resource.data.authorInfo.id == request.auth.uid &&
+                      request.resource.data.mediaType == 'image';
+    }
+
+    // Rules for the 'liveFeed' collection
+    match /liveFeed/{postId} {
+      // Anyone can read the live feed
+      allow read: if true;
+      
+      // An authenticated user can create a post for themselves
+      allow create: if isAuthenticated() && 
+                      request.resource.data.author.id == request.auth.uid;
+    }
+    
+    // Rules for the 'prompts' collection
+    match /prompts/{promptId} {
+       // Anyone can read prompts
+      allow read: if true;
+
+      // An authenticated user can create a prompt
+      allow create: if isAuthenticated() && 
+                      request.resource.data.author.id == request.auth.uid;
     }
   }
 }

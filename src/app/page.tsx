@@ -245,10 +245,6 @@ function LiveFeedTabContent() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
     const q = query(collection(db, 'liveFeed'), orderBy('timestamp', 'desc'), firestoreLimit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const livePosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LiveFeedPost));
@@ -261,11 +257,15 @@ function LiveFeedTabContent() {
     });
 
     return () => unsubscribe();
-  }, [user, toast]);
+  }, [toast]);
   
   const handlePostSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user || !newPostContent.trim()) return;
+    if (!user) {
+        toast({ title: "Please sign in", description: "You must be logged in to post.", variant: "destructive" });
+        return;
+    }
+    if (!newPostContent.trim()) return;
     setIsSubmitting(true);
     const authorSummary: UserSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
     const result = await createLiveFeedPost(authorSummary, newPostContent);
@@ -277,16 +277,6 @@ function LiveFeedTabContent() {
     setIsSubmitting(false);
   };
 
-  if (!user) {
-    return (
-      <div className="text-center py-10">
-        <p className="text-muted-foreground">
-          <Link href="/auth/signin" className="text-primary hover:underline">Sign in</Link> to view and participate in the Live Feed.
-        </p>
-      </div>
-    );
-  }
-  
   return (
     <div className="max-w-xl mx-auto space-y-6 py-8">
       <Card>
@@ -299,13 +289,13 @@ function LiveFeedTabContent() {
             <Textarea 
               value={newPostContent}
               onChange={(e) => setNewPostContent(e.target.value)}
-              placeholder="What's happening?"
+              placeholder={user ? "What's happening?" : "Sign in to post in the live feed"}
               maxLength={500}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !user}
             />
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting || !newPostContent.trim()}>
+            <Button type="submit" disabled={isSubmitting || !user || !newPostContent.trim()}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
               Post
             </Button>
@@ -329,7 +319,7 @@ function LiveFeedTabContent() {
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex items-baseline gap-2">
-                       <p className="font-semibold">{post.author.displayName}</p>
+                       <Link href={`/profile/${post.author.id}`} className="font-semibold hover:underline">{post.author.displayName}</Link>
                        <p className="text-xs text-muted-foreground">{formatDate(post.timestamp)}</p>
                     </div>
                     <p className="text-foreground/90 whitespace-pre-line">{post.content}</p>
@@ -351,7 +341,6 @@ function PromptsTabContent() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { toast } = useToast();
 
-    // States for the new prompt form
     const [newPromptTitle, setNewPromptTitle] = useState('');
     const [newPromptText, setNewPromptText] = useState('');
     const [newPromptGenre, setNewPromptGenre] = useState('fantasy');
@@ -454,13 +443,13 @@ function PromptsTabContent() {
                                <Edit className="h-6 w-6 text-accent"/>
                                <CardTitle className="font-headline">{item.title}</CardTitle>
                             </div>
-                            <CardDescription>Genre: {item.genre} | By: {item.author?.displayName || item.author?.username || 'Community'}</CardDescription>
+                            <CardDescription>Genre: {item.genre} | By: <Link href={`/profile/${item.author.id}`} className="hover:underline">{item.author?.displayName || item.author?.username || 'Community'}</Link></CardDescription>
                         </CardHeader>
                         <CardContent>
                             <p className="text-foreground/90">{item.prompt}</p>
                         </CardContent>
                         <CardFooter>
-                            <Link href={`/write/edit-details?prompt=${encodeURIComponent(item.prompt)}`} passHref>
+                            <Link href={`/write/edit-details?prompt=${encodeURIComponent(item.prompt)}&title=${encodeURIComponent(item.title)}&genre=${encodeURIComponent(item.genre)}`} passHref>
                                 <Button>
                                     <Edit className="mr-2 h-4 w-4"/>
                                     Start Writing
@@ -478,7 +467,7 @@ function PromptsTabContent() {
 
 
 export default function HomePage() {
-  const { authLoading, user } = useAuth();
+  const { authLoading } = useAuth();
   
   if (authLoading) {
     return (
