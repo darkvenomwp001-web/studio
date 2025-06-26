@@ -129,7 +129,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followingIds: firestoreUserData.followingIds || [],
               writtenStories: writtenStories,
               readingList: firestoreUserData.readingList || [],
-              note: firestoreUserData.note || null,
               isAnonymous: firebaseUser.isAnonymous,
               createdAt: firestoreUserData.createdAt,
               updatedAt: firestoreUserData.updatedAt,
@@ -155,7 +154,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followingIds: [],
               writtenStories: [],
               readingList: [],
-              note: null,
               isAnonymous: isAnonymous,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
@@ -288,6 +286,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       case 'auth/unauthorized-domain':
         friendlyMessage = "This domain is not authorized for Firebase Authentication. Check your Firebase project settings.";
         break;
+      case 'auth/admin-restricted-operation':
+        title = "Operation Failed";
+        friendlyMessage = "This operation is restricted. This can happen if you try to sign up with an email that already exists, or sign in with one that doesn't. Please double-check your email or try signing in with Google.";
+        break;
       case 'auth/invalid-api-key':
         friendlyMessage = "The API Key for Firebase is invalid. Check your .env file and Firebase project settings.";
         break;
@@ -342,7 +344,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           followingIds: [],
           writtenStories: [],
           readingList: [],
-          note: null,
           isAnonymous: false,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -420,6 +421,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updatedAt: serverTimestamp()
       };
       if (updates.displayName !== undefined) dataToUpdate.displayName = updates.displayName;
+      if (updates.username !== undefined) dataToUpdate.username = updates.username;
       if (updates.bio !== undefined) dataToUpdate.bio = updates.bio;
       if (updates.role !== undefined) dataToUpdate.role = updates.role;
       if (updates.avatarUrl !== undefined && updates.avatarUrl !== user?.avatarUrl) {
