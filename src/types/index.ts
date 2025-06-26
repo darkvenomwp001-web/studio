@@ -134,7 +134,7 @@ export interface Question {
 export interface Conversation {
     id: string;
     participantIds: string[];
-    participantInfo: { [key: string]: UserSummary };
+    participantInfo: { [key: string]: UserSummary & { bio?: string } };
     updatedAt: any;
     lastMessage: {
         id: string;
@@ -142,6 +142,9 @@ export interface Conversation {
         senderId: string;
         timestamp: any;
     };
+    isGroup: boolean;
+    groupName?: string;
+    groupAvatar?: string;
 }
 
 export interface Message {
@@ -149,6 +152,14 @@ export interface Message {
     senderId: string;
     content: string;
     timestamp: any;
+    type?: 'text' | 'poll' | 'question';
+    poll?: Poll;
+    question?: Question;
+}
+
+export interface Poll {
+    question: string;
+    options: { id: string; text: string; votes: string[] }[];
 }
 
 export interface FeedPost {

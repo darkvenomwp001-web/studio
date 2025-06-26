@@ -3,6 +3,7 @@
 import { improveWritingStyle as improveWritingStyleFlow, ImproveWritingStyleInput, ImproveWritingStyleOutput } from '@/ai/flows/improve-writing-style';
 import { detectPlagiarism as detectPlagiarismFlow, DetectPlagiarismInput, DetectPlagiarismOutput } from '@/ai/flows/detect-plagiarism-flow';
 import { matchStoryMood as matchStoryMoodFlow, MatchStoryMoodInput, MatchStoryMoodOutput } from '@/ai/flows/mood-matcher-flow';
+import { generateConversationStarters as generateConversationStartersFlow, GenerateConversationStartersInput, GenerateConversationStartersOutput } from '@/ai/flows/generate-conversation-starters';
 
 export async function getWritingSuggestions(input: ImproveWritingStyleInput): Promise<ImproveWritingStyleOutput | { error: string }> {
   try {
@@ -38,4 +39,14 @@ export async function getStoryMood(input: MatchStoryMoodInput): Promise<MatchSto
     console.error("Error in getStoryMood AI action:", error);
     return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
   }
+}
+
+export async function getConversationStarters(input: GenerateConversationStartersInput): Promise<GenerateConversationStartersOutput | { error: string }> {
+    try {
+        const result = await generateConversationStartersFlow(input);
+        return result;
+    } catch (error) {
+        console.error("Error in getConversationStarters AI action:", error);
+        return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
+    }
 }
