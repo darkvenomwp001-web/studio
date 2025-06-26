@@ -35,9 +35,11 @@ function StatusBubble({ user, statuses, onSelect }: { user: User, statuses: Stat
 
 function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void }) {
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
+    const [animationKey, setAnimationKey] = useState(0);
 
     useEffect(() => {
         setCurrentStatusIndex(0);
+        setAnimationKey(prev => prev + 1); // Reset animation
     }, [selectedUser]);
 
     useEffect(() => {
@@ -49,6 +51,7 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
     }, [isOpen, currentStatusIndex, selectedUser]);
 
     const handleNext = () => {
+        setAnimationKey(prev => prev + 1);
         if (currentStatusIndex < userStatuses.length - 1) {
             setCurrentStatusIndex(prev => prev + 1);
         } else {
@@ -56,6 +59,7 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
         }
     }
     const handlePrev = () => {
+        setAnimationKey(prev => prev + 1);
         if (currentStatusIndex > 0) {
             setCurrentStatusIndex(prev => prev - 1);
         } else {
@@ -70,14 +74,14 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="p-0 m-0 bg-black border-0 max-w-md h-screen sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
-                <div className="absolute top-0 left-0 right-0 z-10 p-2 flex items-center justify-between bg-gradient-to-b from-black/50">
+                <div className="absolute top-0 left-0 right-0 z-20 p-4 flex items-center justify-between bg-gradient-to-b from-black/50 to-transparent">
                     <div className="flex items-center gap-2">
                         <Avatar className="h-8 w-8">
                             <AvatarImage src={selectedUser.avatarUrl} />
                             <AvatarFallback>{selectedUser.username.substring(0,1).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <span className="text-white text-sm font-semibold">{selectedUser.displayName}</span>
-                        <span className="text-gray-300 text-xs">{currentStatus.createdAt ? Timestamp.fromMillis(currentStatus.createdAt.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                        <span className="text-gray-300 text-xs">{currentStatus.createdAt ? new Timestamp(currentStatus.createdAt.seconds, currentStatus.createdAt.nanoseconds).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
                      <DialogClose asChild>
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
@@ -88,19 +92,26 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                 {/* Progress bars */}
                 <div className="absolute top-2 left-2 right-2 flex gap-1 z-10">
                     {userStatuses.map((_, index) => (
-                        <div key={index} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
-                             <div className="h-full bg-white" style={{ width: index < currentStatusIndex ? '100%' : index === currentStatusIndex ? '100%' : '0%', transition: index === currentStatusIndex ? 'width 5s linear' : 'none' }}></div>
+                        <div key={index} className="h-0.5 flex-1 bg-white/30 rounded-full overflow-hidden">
+                             <div 
+                                key={animationKey}
+                                className="h-full bg-white" 
+                                style={{ 
+                                    width: index < currentStatusIndex ? '100%' : index === currentStatusIndex ? '100%' : '0%', 
+                                    animation: index === currentStatusIndex ? 'width-grow 5s linear' : 'none' 
+                                }}
+                            ></div>
                         </div>
                     ))}
                 </div>
 
-                <div className="relative flex-1 flex items-center justify-center">
+                <div className="relative flex-1 flex items-center justify-center overflow-hidden">
                     <Image src={currentStatus.mediaUrl} alt="Status Update" layout="fill" objectFit="contain" />
                 </div>
                 
                  {/* Navigation buttons */}
-                <button onClick={handlePrev} className="absolute left-0 top-1/2 -translate-y-1/2 h-20 w-10 text-white flex items-center justify-center"><ChevronLeft /></button>
-                <button onClick={handleNext} className="absolute right-0 top-1/2 -translate-y-1/2 h-20 w-10 text-white flex items-center justify-center"><ChevronRight /></button>
+                <button onClick={handlePrev} className="absolute left-0 top-1/3 bottom-1/3 w-1/2 text-white flex items-center justify-start"></button>
+                <button onClick={handleNext} className="absolute right-0 top-1/3 bottom-1/3 w-1/2 text-white flex items-center justify-end"></button>
             </DialogContent>
         </Dialog>
     )
@@ -250,7 +261,7 @@ export default function StatusFeature() {
     return <div className="h-[98px] w-full bg-card rounded-lg animate-pulse" />;
   }
 
-  if (!user) {
+  if (!user || user.isAnonymous) {
     return null;
   }
   
