@@ -74,6 +74,10 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="p-0 m-0 bg-black border-0 max-w-md h-screen sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
+                <DialogHeader className="sr-only">
+                    <DialogTitle>Status update from {selectedUser.displayName}</DialogTitle>
+                    <DialogDescription>A temporary status update that disappears after 24 hours. This is status {currentStatusIndex + 1} of {userStatuses.length}.</DialogDescription>
+                </DialogHeader>
                 <div className="absolute top-0 left-0 right-0 z-20 p-4 flex items-center justify-between bg-gradient-to-b from-black/50 to-transparent">
                     <div className="flex items-center gap-2">
                         <Avatar className="h-8 w-8">
@@ -81,7 +85,7 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                             <AvatarFallback>{selectedUser.username.substring(0,1).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <span className="text-white text-sm font-semibold">{selectedUser.displayName}</span>
-                        <span className="text-gray-300 text-xs">{currentStatus.createdAt ? new Timestamp(currentStatus.createdAt.seconds, currentStatus.createdAt.nanoseconds).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                        <span className="text-gray-300 text-xs">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
                      <DialogClose asChild>
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
