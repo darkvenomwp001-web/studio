@@ -642,18 +642,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const currentUserRef = doc(db, "users", user.id);
     const targetUserRef = doc(db, "users", targetUserId);
-    const batch = writeBatch(db);
 
     try {
         const newFollowingIds = Array.from(new Set([...(user.followingIds || []), targetUserId]));
         
-        batch.update(currentUserRef, {
+        await updateDoc(currentUserRef, {
             followingIds: newFollowingIds,
             followingCount: newFollowingIds.length,
             updatedAt: serverTimestamp()
         });
-
-        await batch.commit();
         
         const targetUserSnap = await getDoc(targetUserRef);
         if(targetUserSnap.exists()){
@@ -686,18 +683,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     const currentUserRef = doc(db, "users", user.id);
     const targetUserRef = doc(db, "users", targetUserId);
-    const batch = writeBatch(db);
 
     try {
         const newFollowingIds = (user.followingIds || []).filter(id => id !== targetUserId);
         
-        batch.update(currentUserRef, {
+        await updateDoc(currentUserRef, {
             followingIds: newFollowingIds,
             followingCount: newFollowingIds.length,
             updatedAt: serverTimestamp()
         });
-
-        await batch.commit();
 
         const targetUserSnap = await getDoc(targetUserRef);
         if(targetUserSnap.exists()){
@@ -814,5 +808,3 @@ export function useAuth() {
   }
   return context;
 }
-
-    
