@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -226,7 +227,12 @@ function MessagesClient() {
       setIsLoadingConversations(false);
     }, (error) => {
       console.error("Error fetching conversations: ", error);
-      toast({ title: "Error fetching conversations", description: error.message, variant: "destructive" });
+      toast({ 
+          title: "Could Not Load Messages", 
+          description: "There was an error fetching your conversations. This is often due to missing database indexes. Please check your browser's developer console for a link to create the required index in Firebase.", 
+          variant: "destructive",
+          duration: 10000
+      });
       setIsLoadingConversations(false);
     });
 

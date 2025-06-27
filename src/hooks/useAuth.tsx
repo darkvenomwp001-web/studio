@@ -206,7 +206,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setNotifications(fetchedNotifications);
       }, (error) => {
         console.error("Error fetching notifications: ", error);
-        toast({ title: "Error", description: "Could not load notifications.", variant: "destructive"});
+        toast({ 
+            title: "Could Not Load Notifications", 
+            description: "There was an error fetching your notifications. This might be due to missing database indexes. Please check your browser's developer console for a link to create the required index in Firebase.",
+            variant: "destructive",
+            duration: 10000 
+        });
       });
       return () => unsubscribeNotifications();
     } else {
