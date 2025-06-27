@@ -67,9 +67,11 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
         }
     }
 
-    if (!selectedUser || userStatuses.length === 0) return null;
-
     const currentStatus = userStatuses[currentStatusIndex];
+
+    if (!selectedUser || !currentStatus) {
+        return null;
+    }
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
