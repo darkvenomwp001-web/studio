@@ -639,70 +639,91 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setAuthLoading(true);
-    
+
     const currentUserRef = doc(db, "users", user.id);
+    const targetUserDoc = await getDoc(doc(db, "users", targetUserId));
+
+    if (!targetUserDoc.exists()) {
+      toast({ title: "User not found", description: "Cannot follow a user that does not exist.", variant: "destructive" });
+      setAuthLoading(false);
+      return;
+    }
+
+    const batch = writeBatch(db);
+
+    // 1. Update the current user's `followingIds` list
+    const newFollowingIds = Array.from(new Set([...(user.followingIds || []), targetUserId]));
+    batch.update(currentUserRef, {
+      followingIds: newFollowingIds,
+      followingCount: newFollowingIds.length,
+      updatedAt: serverTimestamp()
+    });
+
+    // 2. Create a notification for the target user
+    const notificationRef = doc(collection(db, "notifications"));
+    const actorSummary: UserSummary = {
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName || user.username,
+      avatarUrl: user.avatarUrl
+    };
+    batch.set(notificationRef, {
+      userId: targetUserId,
+      type: 'new_follower',
+      message: `${user.displayName || user.username} started following you.`,
+      link: `/profile/${user.id}`,
+      actor: actorSummary,
+      timestamp: serverTimestamp(),
+      isRead: false,
+    });
+    
+    // 3. Increment the target user's followersCount
     const targetUserRef = doc(db, "users", targetUserId);
+    batch.update(targetUserRef, { followersCount: increment(1) });
 
     try {
-        const newFollowingIds = Array.from(new Set([...(user.followingIds || []), targetUserId]));
-        
-        await updateDoc(currentUserRef, {
-            followingIds: newFollowingIds,
-            followingCount: newFollowingIds.length,
-            updatedAt: serverTimestamp()
-        });
-        
-        const targetUserSnap = await getDoc(targetUserRef);
-        if(targetUserSnap.exists()){
-            const targetUserData = targetUserSnap.data();
-            toast({title: "Followed", description: `You are now following ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
-            const actorSummary: UserSummary = {
-                id: user.id,
-                username: user.username,
-                displayName: user.displayName || user.username,
-                avatarUrl: user.avatarUrl
-            };
-            await addNotification({
-                userId: targetUserId,
-                type: 'new_follower',
-                message: `${user.displayName || user.username} started following you.`,
-                link: `/profile/${user.id}`,
-                actor: actorSummary
-            });
-        }
+      await batch.commit();
+      const targetUserData = targetUserDoc.data();
+      toast({title: "Followed", description: `You are now following ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
     } catch (error) {
-        console.error("Error following user:", error);
-        toast({title: "Error", description: "Could not follow user.", variant: "destructive"});
+      console.error("Error in follow batch write:", error);
+      toast({title: "Error", description: "Could not follow user. Please check your permissions.", variant: "destructive"});
     } finally {
-        setAuthLoading(false);
+      setAuthLoading(false);
     }
   };
 
   const unfollowUser = async (targetUserId: string) => {
     if (!user || user.isAnonymous) return;
     setAuthLoading(true);
+
     const currentUserRef = doc(db, "users", user.id);
     const targetUserRef = doc(db, "users", targetUserId);
+    const batch = writeBatch(db);
+
+    // 1. Update the current user's following list
+    const newFollowingIds = (user.followingIds || []).filter(id => id !== targetUserId);
+    batch.update(currentUserRef, {
+        followingIds: newFollowingIds,
+        followingCount: newFollowingIds.length,
+        updatedAt: serverTimestamp()
+    });
+
+    // 2. Decrement the target user's followersCount
+    batch.update(targetUserRef, { followersCount: increment(-1) });
 
     try {
-        const newFollowingIds = (user.followingIds || []).filter(id => id !== targetUserId);
-        
-        await updateDoc(currentUserRef, {
-            followingIds: newFollowingIds,
-            followingCount: newFollowingIds.length,
-            updatedAt: serverTimestamp()
-        });
-
-        const targetUserSnap = await getDoc(targetUserRef);
-        if(targetUserSnap.exists()){
-            const targetUserData = targetUserSnap.data();
-            toast({title: "Unfollowed", description: `You have unfollowed ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
-        }
+      await batch.commit();
+      const targetUserSnap = await getDoc(targetUserRef);
+      if(targetUserSnap.exists()){
+          const targetUserData = targetUserSnap.data();
+          toast({title: "Unfollowed", description: `You have unfollowed ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
+      }
     } catch (error) {
-        console.error("Error unfollowing user:", error);
-        toast({title: "Error", description: "Could not unfollow user.", variant: "destructive"});
+      console.error("Error unfollowing user:", error);
+      toast({title: "Error", description: "Could not unfollow user.", variant: "destructive"});
     } finally {
-        setAuthLoading(false);
+      setAuthLoading(false);
     }
   };
 
