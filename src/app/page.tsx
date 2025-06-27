@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Trash2 } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,6 +25,37 @@ import { formatDate } from '@/lib/placeholder-data';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  deleteLiveFeedPost,
+  updateLiveFeedPost,
+} from '@/app/actions/liveFeedActions';
+import { deletePrompt, updatePrompt } from '@/app/actions/promptActions';
 
 function ForYouTabContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
@@ -243,11 +274,14 @@ function LiveFeedTabContent() {
   const { toast } = useToast();
   const isUserAuthenticated = user && !user.isAnonymous;
 
-  // New states for image handling
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const MAX_IMAGE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
+
+  const [editingPost, setEditingPost] = useState<LiveFeedPost | null>(null);
+  const [editedContent, setEditedContent] = useState('');
+  const [deletingPost, setDeletingPost] = useState<LiveFeedPost | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'liveFeed'), orderBy('timestamp', 'desc'), firestoreLimit(50));
@@ -335,7 +369,7 @@ function LiveFeedTabContent() {
     
     try {
         const postData: any = {
-            author: authorSummary,
+            author,
             authorId: user.id,
             content: newPostContent.trim(),
             timestamp: serverTimestamp(),
@@ -353,80 +387,175 @@ function LiveFeedTabContent() {
     }
     setIsSubmitting(false);
   };
+  
+  const handleEditPost = async () => {
+    if (!editingPost) return;
+    setIsSubmitting(true);
+    const result = await updateLiveFeedPost(editingPost.id, editedContent);
+    if (result.success) {
+      toast({ title: 'Post Updated' });
+      setEditingPost(null);
+    } else {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    }
+    setIsSubmitting(false);
+  };
+  
+  const handleDeletePost = async () => {
+    if (!deletingPost) return;
+    setIsSubmitting(true);
+    const result = await deleteLiveFeedPost(deletingPost.id);
+    if (result.success) {
+      toast({ title: 'Post Deleted' });
+      setDeletingPost(null);
+    } else {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    }
+    setIsSubmitting(false);
+  };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6 py-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Live Feed</CardTitle>
-          <CardDescription>Share a quick text update with the community.</CardDescription>
-        </CardHeader>
-        <form onSubmit={handlePostSubmit}>
-          <CardContent>
-            <Textarea 
-              value={newPostContent}
-              onChange={(e) => setNewPostContent(e.target.value)}
-              placeholder={isUserAuthenticated ? "What's happening?" : "Sign in to post in the live feed"}
-              maxLength={500}
-              disabled={isSubmitting || !isUserAuthenticated}
-            />
-             {imagePreview && (
-                <div className="mt-4 relative w-full max-w-xs">
-                    <Image src={imagePreview} alt="Preview" width={400} height={400} className="rounded-lg object-contain border" />
-                    <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-7 w-7" onClick={() => { setImageFile(null); setImagePreview(null); }}>
-                        <X className="h-4 w-4" />
-                    </Button>
-                </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-between items-center">
-             <div>
-                <input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
-                <Button variant="ghost" size="icon" title="Attach an image" onClick={() => imageInputRef.current?.click()} disabled={isSubmitting || !isUserAuthenticated || !!imageFile}>
-                    <ImageIcon className="h-5 w-5" />
-                </Button>
-            </div>
-            <Button type="submit" disabled={isSubmitting || !isUserAuthenticated || (!newPostContent.trim() && !imageFile)}>
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
-              Post
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
-      
-      {isLoading ? (
-        <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
-      ) : posts.length === 0 ? (
-        <p className="text-muted-foreground text-center py-10">The feed is quiet... be the first to post!</p>
-      ) : (
-        <div className="space-y-4">
-          {posts.map(post => (
-            <Card key={post.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <Avatar>
-                    <AvatarImage src={post.author.avatarUrl} data-ai-hint="profile person"/>
-                    <AvatarFallback>{post.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-baseline gap-2">
-                       <Link href={`/profile/${post.author.id}`} className="font-semibold hover:underline">{post.author.displayName}</Link>
-                       <p className="text-xs text-muted-foreground">{formatDate(post.timestamp)}</p>
-                    </div>
-                    {post.content && <p className="text-foreground/90 whitespace-pre-line mt-1">{post.content}</p>}
-                    {post.imageUrl && (
-                        <div className="mt-3 rounded-lg overflow-hidden border">
-                            <Image src={post.imageUrl} alt="Live feed image" width={500} height={500} className="w-full h-auto object-contain bg-muted" />
-                        </div>
-                    )}
+    <>
+      <div className="max-w-xl mx-auto space-y-6 py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Live Feed</CardTitle>
+            <CardDescription>Share a quick text update with the community.</CardDescription>
+          </CardHeader>
+          <form onSubmit={handlePostSubmit}>
+            <CardContent>
+              <Textarea 
+                value={newPostContent}
+                onChange={(e) => setNewPostContent(e.target.value)}
+                placeholder={isUserAuthenticated ? "What's happening?" : "Sign in to post in the live feed"}
+                maxLength={500}
+                disabled={isSubmitting || !isUserAuthenticated}
+              />
+              {imagePreview && (
+                  <div className="mt-4 relative w-full max-w-xs">
+                      <Image src={imagePreview} alt="Preview" width={400} height={400} className="rounded-lg object-contain border" />
+                      <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-7 w-7" onClick={() => { setImageFile(null); setImagePreview(null); }}>
+                          <X className="h-4 w-4" />
+                      </Button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-between items-center">
+              <div>
+                  <input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
+                  <Button type="button" variant="ghost" size="icon" title="Attach an image" onClick={() => imageInputRef.current?.click()} disabled={isSubmitting || !isUserAuthenticated || !!imageFile}>
+                      <ImageIcon className="h-5 w-5" />
+                  </Button>
+              </div>
+              <Button type="submit" disabled={isSubmitting || !isUserAuthenticated || (!newPostContent.trim() && !imageFile)}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
+                Post
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+        
+        {isLoading ? (
+          <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
+        ) : posts.length === 0 ? (
+          <p className="text-muted-foreground text-center py-10">The feed is quiet... be the first to post!</p>
+        ) : (
+          <div className="space-y-4">
+            {posts.map(post => (
+              <Card key={post.id}>
+                <CardContent className="p-4 relative">
+                  {user?.id === post.authorId && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-7 w-7">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => {
+                          setEditingPost(post);
+                          setEditedContent(post.content);
+                        }}>
+                          <Edit className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                          onSelect={() => setDeletingPost(post)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  <div className="flex items-start gap-3">
+                    <Avatar>
+                      <AvatarImage src={post.author.avatarUrl} data-ai-hint="profile person"/>
+                      <AvatarFallback>{post.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex items-baseline gap-2">
+                        <Link href={`/profile/${post.author.id}`} className="font-semibold hover:underline">{post.author.displayName}</Link>
+                        <p className="text-xs text-muted-foreground">{formatDate(post.timestamp)}</p>
+                      </div>
+                      {post.content && <p className="text-foreground/90 whitespace-pre-line mt-1">{post.content}</p>}
+                      {post.imageUrl && (
+                          <div className="mt-3 rounded-lg overflow-hidden border">
+                              <Image src={post.imageUrl} alt="Live feed image" width={500} height={500} className="w-full h-auto object-contain bg-muted" />
+                          </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Edit Post Dialog */}
+      <Dialog open={!!editingPost} onOpenChange={(open) => !open && setEditingPost(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Post</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={editedContent}
+            onChange={(e) => setEditedContent(e.target.value)}
+            rows={5}
+            maxLength={500}
+          />
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="ghost">Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleEditPost} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Post Dialog */}
+      <AlertDialog open={!!deletingPost} onOpenChange={(open) => !open && setDeletingPost(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your post.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePost} className="bg-destructive hover:bg-destructive/90">
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -442,6 +571,9 @@ function PromptsTabContent() {
     const [newPromptText, setNewPromptText] = useState('');
     const [newPromptGenre, setNewPromptGenre] = useState('fantasy');
 
+    const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
+    const [editedPromptData, setEditedPromptData] = useState({ title: '', prompt: '', genre: '' });
+    const [deletingPrompt, setDeletingPrompt] = useState<Prompt | null>(null);
 
     useEffect(() => {
         const q = query(collection(db, 'prompts'), orderBy('createdAt', 'desc'));
@@ -490,6 +622,32 @@ function PromptsTabContent() {
         setIsSubmitting(false);
     };
 
+    const handleEditPrompt = async () => {
+      if (!editingPrompt) return;
+      setIsSubmitting(true);
+      const result = await updatePrompt(editingPrompt.id, editedPromptData);
+      if (result.success) {
+        toast({ title: 'Prompt Updated' });
+        setEditingPrompt(null);
+      } else {
+        toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      }
+      setIsSubmitting(false);
+    };
+  
+    const handleDeletePrompt = async () => {
+      if (!deletingPrompt) return;
+      setIsSubmitting(true);
+      const result = await deletePrompt(deletingPrompt.id);
+      if (result.success) {
+        toast({ title: 'Prompt Deleted' });
+        setDeletingPrompt(null);
+      } else {
+        toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      }
+      setIsSubmitting(false);
+    };
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center py-10">
@@ -499,6 +657,7 @@ function PromptsTabContent() {
     }
     
     return (
+        <>
         <div className="py-8 max-w-3xl mx-auto space-y-8">
              <Card>
                 <CardHeader>
@@ -541,7 +700,31 @@ function PromptsTabContent() {
 
              <div className="space-y-6">
                 {prompts.length > 0 ? prompts.map((item) => (
-                    <Card key={item.id} className="shadow-sm hover:shadow-md transition-shadow">
+                    <Card key={item.id} className="shadow-sm hover:shadow-md transition-shadow relative">
+                         {user?.id === item.author.id && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-7 w-7">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => {
+                                setEditingPrompt(item);
+                                setEditedPromptData({ title: item.title, prompt: item.prompt, genre: item.genre });
+                              }}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                onSelect={() => setDeletingPrompt(item)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                         <CardHeader>
                             <div className="flex items-center gap-3">
                                <Edit className="h-6 w-6 text-accent"/>
@@ -566,6 +749,66 @@ function PromptsTabContent() {
                 )}
              </div>
         </div>
+        
+        {/* Edit Prompt Dialog */}
+        <Dialog open={!!editingPrompt} onOpenChange={(open) => !open && setEditingPrompt(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Prompt</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-prompt-title">Title</Label>
+                <Input id="edit-prompt-title" value={editedPromptData.title} onChange={e => setEditedPromptData(d => ({...d, title: e.target.value}))} />
+              </div>
+              <div>
+                <Label htmlFor="edit-prompt-genre">Genre</Label>
+                <Select value={editedPromptData.genre} onValueChange={(val) => setEditedPromptData(d => ({...d, genre: val}))}>
+                  <SelectTrigger id="edit-prompt-genre"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="fantasy">Fantasy</SelectItem>
+                      <SelectItem value="sci-fi">Sci-Fi</SelectItem>
+                      <SelectItem value="romance">Romance</SelectItem>
+                      <SelectItem value="thriller">Thriller</SelectItem>
+                      <SelectItem value="mystery">Mystery</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-prompt-text">Prompt</Label>
+                <Textarea id="edit-prompt-text" value={editedPromptData.prompt} onChange={e => setEditedPromptData(d => ({...d, prompt: e.target.value}))} rows={5} />
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+              <Button onClick={handleEditPrompt} disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Prompt Dialog */}
+        <AlertDialog open={!!deletingPrompt} onOpenChange={(open) => !open && setDeletingPrompt(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete this prompt.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeletePrompt} className="bg-destructive hover:bg-destructive/90">
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
     );
 }
 

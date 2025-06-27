@@ -5,14 +5,17 @@ import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { deleteStatusUpdate } from '@/app/actions/statusActions';
+
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
@@ -34,6 +37,8 @@ function StatusBubble({ user, statuses, onSelect }: { user: User, statuses: Stat
 }
 
 function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void }) {
+    const { user: currentUser } = useAuth();
+    const { toast } = useToast();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
 
@@ -69,9 +74,22 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
 
     const currentStatus = userStatuses[currentStatusIndex];
 
+    const handleDelete = async () => {
+      if (!currentStatus) return;
+      const result = await deleteStatusUpdate(currentStatus.id);
+      if (result.success) {
+        toast({ title: 'Status Deleted' });
+        onOpenChange(false); // Close the viewer
+      } else {
+        toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      }
+    };
+
     if (!selectedUser || !currentStatus) {
         return null;
     }
+
+    const isOwnStatus = currentUser?.id === selectedUser.id;
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -89,11 +107,34 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                         <span className="text-white text-sm font-semibold">{selectedUser.displayName}</span>
                         <span className="text-gray-300 text-xs">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
-                     <DialogClose asChild>
-                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
-                            <X className="h-5 w-5"/>
-                        </Button>
-                    </DialogClose>
+                     <div className="flex items-center gap-1">
+                        {isOwnStatus && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                                <Trash2 className="h-5 w-5"/>
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this status?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone and will permanently delete this status update.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                        <DialogClose asChild>
+                          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                              <X className="h-5 w-5"/>
+                          </Button>
+                        </DialogClose>
+                     </div>
                 </div>
                 {/* Progress bars */}
                 <div className="absolute top-2 left-2 right-2 flex gap-1 z-10">

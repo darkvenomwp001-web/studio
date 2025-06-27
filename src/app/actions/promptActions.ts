@@ -2,7 +2,14 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  serverTimestamp,
+  doc,
+  updateDoc,
+  deleteDoc,
+} from 'firebase/firestore';
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
 
@@ -29,5 +36,37 @@ export async function createPrompt(data: {
   } catch (error) {
     console.error('Error creating prompt:', error);
     return { success: false, error: 'Could not create prompt.' };
+  }
+}
+
+export async function updatePrompt(
+  promptId: string,
+  data: { title: string; prompt: string; genre: string }
+): Promise<{ success: boolean; error?: string }> {
+  if (!data.title.trim() || !data.prompt.trim() || !data.genre.trim()) {
+    return { success: false, error: 'All prompt fields are required.' };
+  }
+
+  try {
+    const promptRef = doc(db, 'prompts', promptId);
+    await updateDoc(promptRef, data);
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating prompt:', error);
+    return { success: false, error: 'Could not update prompt.' };
+  }
+}
+
+export async function deletePrompt(
+  promptId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await deleteDoc(doc(db, 'prompts', promptId));
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting prompt:', error);
+    return { success: false, error: 'Could not delete prompt.' };
   }
 }
