@@ -182,6 +182,7 @@ export interface LiveFeedPost {
   authorId: string;
   content: string;
   timestamp: any;
+  imageUrl?: string;
 }
 
 export interface Prompt {

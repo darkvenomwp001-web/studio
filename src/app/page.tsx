@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import type { Story, UserSummary, Prompt, LiveFeedPost } from '@/types';
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent, useRef, ChangeEvent } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -243,6 +243,12 @@ function LiveFeedTabContent() {
   const { toast } = useToast();
   const isUserAuthenticated = user && !user.isAnonymous;
 
+  // New states for image handling
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const MAX_IMAGE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
+
   useEffect(() => {
     const q = query(collection(db, 'liveFeed'), orderBy('timestamp', 'desc'), firestoreLimit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -258,28 +264,89 @@ function LiveFeedTabContent() {
     return () => unsubscribe();
   }, [toast]);
   
+  const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        toast({ title: "Image Too Large", description: `Please select an image smaller than ${MAX_IMAGE_SIZE_BYTES / (1024*1024)}MB.`, variant: "destructive" });
+        return;
+      }
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const resetForm = () => {
+    setNewPostContent('');
+    setImageFile(null);
+    setImagePreview(null);
+    if (imageInputRef.current) {
+        imageInputRef.current.value = "";
+    }
+  };
+
   const handlePostSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!isUserAuthenticated) {
       toast({ title: "Please sign in", description: "You must be logged in to post.", variant: "destructive" });
       return;
     }
-    if (!newPostContent.trim()) return;
+    if (!newPostContent.trim() && !imageFile) {
+        toast({ title: "Cannot post empty content", variant: 'destructive' });
+        return;
+    }
     if (newPostContent.trim().length > 500) {
         toast({ title: 'Too Long', description: 'Post cannot exceed 500 characters.', variant: 'destructive' });
         return;
     }
     setIsSubmitting(true);
+    let imageUrl: string | undefined = undefined;
+
+    if (imageFile) {
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+        if (!cloudName || !uploadPreset) {
+            toast({ title: 'Configuration Error', description: 'Cloudinary environment variables are not set.', variant: 'destructive' });
+            setIsSubmitting(false);
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', imageFile);
+        formData.append('upload_preset', uploadPreset);
+        
+        try {
+            const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+            const data = await response.json();
+            if (data.secure_url) {
+                imageUrl = data.secure_url;
+            } else {
+                throw new Error(data.error?.message || 'Unknown Cloudinary error');
+            }
+        } catch (error) {
+            console.error('Error uploading image to Cloudinary:', error);
+            toast({ title: 'Image Upload Failed', description: 'Could not upload your image. Please try again.', variant: 'destructive' });
+            setIsSubmitting(false);
+            return;
+        }
+    }
+    
     const authorSummary: UserSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
     
     try {
-        await addDoc(collection(db, 'liveFeed'), {
+        const postData: any = {
             author: authorSummary,
             authorId: user.id,
             content: newPostContent.trim(),
             timestamp: serverTimestamp(),
-        });
-        setNewPostContent('');
+        };
+
+        if (imageUrl) {
+            postData.imageUrl = imageUrl;
+        }
+
+        await addDoc(collection(db, 'liveFeed'), postData);
+        resetForm();
     } catch (error) {
         console.error('Error creating live feed post:', error);
         toast({ title: 'Error', description: 'Could not create post. Please try again.', variant: 'destructive' });
@@ -303,9 +370,23 @@ function LiveFeedTabContent() {
               maxLength={500}
               disabled={isSubmitting || !isUserAuthenticated}
             />
+             {imagePreview && (
+                <div className="mt-4 relative w-full max-w-xs">
+                    <Image src={imagePreview} alt="Preview" width={400} height={400} className="rounded-lg object-contain border" />
+                    <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-7 w-7" onClick={() => { setImageFile(null); setImagePreview(null); }}>
+                        <X className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
           </CardContent>
-          <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting || !isUserAuthenticated || !newPostContent.trim()}>
+          <CardFooter className="flex justify-between items-center">
+             <div>
+                <input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
+                <Button variant="ghost" size="icon" title="Attach an image" onClick={() => imageInputRef.current?.click()} disabled={isSubmitting || !isUserAuthenticated || !!imageFile}>
+                    <ImageIcon className="h-5 w-5" />
+                </Button>
+            </div>
+            <Button type="submit" disabled={isSubmitting || !isUserAuthenticated || (!newPostContent.trim() && !imageFile)}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
               Post
             </Button>
@@ -332,7 +413,12 @@ function LiveFeedTabContent() {
                        <Link href={`/profile/${post.author.id}`} className="font-semibold hover:underline">{post.author.displayName}</Link>
                        <p className="text-xs text-muted-foreground">{formatDate(post.timestamp)}</p>
                     </div>
-                    <p className="text-foreground/90 whitespace-pre-line">{post.content}</p>
+                    {post.content && <p className="text-foreground/90 whitespace-pre-line mt-1">{post.content}</p>}
+                    {post.imageUrl && (
+                        <div className="mt-3 rounded-lg overflow-hidden border">
+                            <Image src={post.imageUrl} alt="Live feed image" width={500} height={500} className="w-full h-auto object-contain bg-muted" />
+                        </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
