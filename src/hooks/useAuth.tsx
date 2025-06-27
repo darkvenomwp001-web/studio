@@ -676,10 +676,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       timestamp: serverTimestamp(),
       isRead: false,
     });
-    
-    // 3. Increment the target user's followersCount
-    const targetUserRef = doc(db, "users", targetUserId);
-    batch.update(targetUserRef, { followersCount: increment(1) });
 
     try {
       await batch.commit();
@@ -698,10 +694,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
 
     const currentUserRef = doc(db, "users", user.id);
-    const targetUserRef = doc(db, "users", targetUserId);
     const batch = writeBatch(db);
 
-    // 1. Update the current user's following list
+    // Update the current user's following list
     const newFollowingIds = (user.followingIds || []).filter(id => id !== targetUserId);
     batch.update(currentUserRef, {
         followingIds: newFollowingIds,
@@ -709,12 +704,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updatedAt: serverTimestamp()
     });
 
-    // 2. Decrement the target user's followersCount
-    batch.update(targetUserRef, { followersCount: increment(-1) });
-
     try {
       await batch.commit();
-      const targetUserSnap = await getDoc(targetUserRef);
+      const targetUserSnap = await getDoc(doc(db, "users", targetUserId));
       if(targetUserSnap.exists()){
           const targetUserData = targetUserSnap.data();
           toast({title: "Unfollowed", description: `You have unfollowed ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});

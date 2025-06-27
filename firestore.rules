@@ -1,110 +1,88 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // HELPER FUNCTIONS
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
     
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // USERS COLLECTION
+    // Users can read any profile, but only write to their own.
     match /users/{userId} {
-      // Anyone can read a user profile.
-      allow read: if true;
-      
-      // A user can only update their own profile with specific fields.
-      // This covers following, adding to library, and updating profile settings.
-      allow update: if isOwner(userId) &&
-                       request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['displayName', 'username', 'bio', 'role', 'avatarUrl', 'followingIds', 'followingCount', 'readingList', 'updatedAt', 'followersCount']);
-
-      // Users cannot be created (except via backend auth function) or deleted from the client.
-      allow create, delete: if false;
+      allow read;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // STORIES COLLECTION
+    // Public stories are readable by anyone.
+    // Private/unlisted stories are only readable by author/collaborators.
+    // Authors/collaborators can write to their stories.
     match /stories/{storyId} {
-      // Allow read if the story is public, or if the user is the author or a collaborator.
-      allow read: if resource.data.visibility == 'Public' ||
-                     resource.data.visibility == 'Unlisted' ||
-                     (isAuthenticated() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
-      
-      // Allow create if user is authenticated and is the author of the new story.
-      allow create: if isAuthenticated() && isOwner(request.resource.data.author.id);
-      
-      // Allow update if user is the author or a collaborator.
-      allow update: if isAuthenticated() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds);
-
-      // Only the author can delete a story.
-      allow delete: if isAuthenticated() && isOwner(resource.data.author.id);
+      allow read: if resource.data.visibility == 'Public' 
+                    || (request.auth != null && request.auth.uid in resource.data.collaboratorIds)
+                    || (request.auth != null && request.auth.uid == resource.data.author.id);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
+      allow update, delete: if request.auth != null && 
+                              (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
     }
     
-    // NOTIFICATIONS COLLECTION
-    match /notifications/{notificationId} {
-      // A user can only read or delete their own notifications.
-      allow read, delete: if isAuthenticated() && isOwner(resource.data.userId);
-
-      // An authenticated user can create a notification, as long as they are the actor.
-      allow create: if isAuthenticated() && isOwner(request.resource.data.actor.id);
-    }
-
-    // FEED POSTS COLLECTION
+    // Authenticated users can create posts.
+    // Users can only delete their own posts. (No updates allowed for simplicity).
     match /feedPosts/{postId} {
-      // Anyone can read posts.
-      allow read: if true;
-      // Users can create posts for themselves.
-      // Users can update a post only to change the likedBy and likesCount fields.
-      allow create: if isAuthenticated() && isOwner(request.resource.data.authorId)
-                      && request.resource.data.content is string
-                      && request.resource.data.content.size() < 1000;
-      allow update: if isAuthenticated()
-                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likesCount']);
-      // No deletes from client.
-      allow delete: if false;
+        allow read;
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+        allow update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
     }
 
-    // LIVE FEED COLLECTION
+    // Authenticated users can create live feed posts.
     match /liveFeed/{postId} {
-      allow read: if true;
-      allow create: if isAuthenticated() && isOwner(request.resource.data.authorId);
-      allow update, delete: if false;
+        allow read;
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+        // No updates/deletes for live feed
     }
     
-    // PROMPTS COLLECTION
+    // Authenticated users can create prompts.
     match /prompts/{promptId} {
-      allow read: if true;
-      allow create: if isAuthenticated() && isOwner(request.resource.data.author.id);
-      allow update, delete: if false;
-    }
-
-    // LETTERS COLLECTION
-    match /letters/{letterId} {
-        allow read: if isAuthenticated() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id));
-        allow create: if isAuthenticated() && isOwner(request.resource.data.reader.id);
-        allow update: if isAuthenticated() && isOwner(resource.data.authorId);
-        allow delete: if false;
+        allow read;
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
     }
     
-    // COMMENTS COLLECTION
+    // Authenticated users can create comments.
+    // Users can edit/delete their own comments.
     match /comments/{commentId} {
-        allow read: if true;
-        allow create: if isAuthenticated() && isOwner(request.resource.data.user.id);
-        allow update, delete: if isAuthenticated() && isOwner(resource.data.user.id);
+        allow read;
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.user.id;
+        allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
+    }
+    
+    // Users can create letters.
+    // The author of the story can update the letter (to respond or pin).
+    match /letters/{letterId} {
+        allow read;
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.reader.id;
+        allow update: if request.auth != null && request.auth.uid == resource.data.authorId;
     }
 
-     // STATUS UPDATES COLLECTION
-    match /statusUpdates/{statusId} {
-      // Only authenticated users can read statuses that have not expired.
-      allow read: if isAuthenticated() && resource.data.expiresAt > request.time;
-      // An authenticated user can create a status update for themselves.
-      allow create: if isAuthenticated() && isOwner(request.resource.data.authorId);
-      // No updates or deletes from the client.
-      allow update, delete: if false;
+    // Users can read/write to conversations they are part of.
+    match /conversations/{conversationId} {
+      allow read, update: if request.auth.uid in resource.data.participantIds;
+      allow create: if request.auth.uid in request.resource.data.participantIds;
+      
+      // Users can read/write messages in conversations they are part of.
+      match /messages/{messageId} {
+        allow read, create: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      }
     }
+    
+    // Users can read their own notifications.
+    // Authenticated users can create notifications for others.
+    // Users can update their own notifications (e.g., mark as read).
+    match /notifications/{notificationId} {
+      allow read, update: if request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.actor.id;
+    }
+
+    // Status updates are public for 24 hours. Only owner can create.
+    match /statusUpdates/{statusId} {
+        allow read: if resource.data.expiresAt > request.time;
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+    }
+
   }
 }
