@@ -652,7 +652,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             followingCount: newFollowingIds.length,
             updatedAt: serverTimestamp()
         });
-        batch.update(targetUserRef, { followersCount: increment(1) });
 
         await batch.commit();
         
@@ -697,7 +696,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             followingCount: newFollowingIds.length,
             updatedAt: serverTimestamp()
         });
-        batch.update(targetUserRef, { followersCount: increment(-1) });
 
         await batch.commit();
 
@@ -816,3 +814,5 @@ export function useAuth() {
   }
   return context;
 }
+
+    
