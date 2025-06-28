@@ -369,7 +369,7 @@ function LiveFeedTabContent() {
     
     try {
         const postData: any = {
-            author,
+            author: authorSummary,
             authorId: user.id,
             content: newPostContent.trim(),
             timestamp: serverTimestamp(),
