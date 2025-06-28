@@ -36,7 +36,7 @@ function StatusBubble({ user, statuses, onSelect }: { user: User, statuses: Stat
   );
 }
 
-function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void }) {
+function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusDeleted }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusDeleted: (statusId: string, userId: string) => void }) {
     const { user: currentUser } = useAuth();
     const { toast } = useToast();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
@@ -75,13 +75,16 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
     const currentStatus = userStatuses[currentStatusIndex];
 
     const handleDelete = async () => {
-      if (!currentStatus) return;
-      const result = await deleteStatusUpdate(currentStatus.id);
+      if (!currentStatus || !currentUser) return;
+      onStatusDeleted(currentStatus.id, currentUser.id);
+      onOpenChange(false); // Close the viewer optimistically
+      const result = await deleteStatusUpdate(currentStatus.id, currentUser.id);
       if (result.success) {
         toast({ title: 'Status Deleted' });
-        onOpenChange(false); // Close the viewer
       } else {
         toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        // Note: Reverting UI is complex here as we've already closed the dialog.
+        // A simple toast is the pragmatic approach.
       }
     };
 
@@ -236,6 +239,24 @@ export default function StatusFeature() {
     }
   }
 
+   const handleStatusDeleted = (statusId: string, userId: string) => {
+    // Optimistically remove the status from the local state
+    setGroupedStatuses(prevGroups => {
+        const newGroups = new Map(prevGroups);
+        const userGroup = newGroups.get(userId);
+        if (userGroup) {
+            userGroup.statuses = userGroup.statuses.filter(s => s.id !== statusId);
+            if (userGroup.statuses.length === 0) {
+                newGroups.delete(userId);
+                setStatusOrder(prevOrder => prevOrder.filter(id => id !== userId));
+            } else {
+                newGroups.set(userId, userGroup);
+            }
+        }
+        return newGroups;
+    });
+  };
+
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -384,6 +405,7 @@ export default function StatusFeature() {
             userStatuses={selectedUserForViewing ? groupedStatuses.get(selectedUserForViewing.id)?.statuses || [] : []}
             onNext={handleNextUser}
             onPrev={handlePrevUser}
+            onStatusDeleted={handleStatusDeleted}
         />
     </>
   );

@@ -9,6 +9,7 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  getDoc,
 } from 'firebase/firestore';
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
@@ -44,7 +45,8 @@ export async function createLiveFeedPost(
 
 export async function updateLiveFeedPost(
   postId: string,
-  content: string
+  content: string,
+  userId: string
 ): Promise<{ success: boolean; error?: string }> {
   if (content.trim().length === 0) {
     return { success: false, error: 'Post content cannot be empty.' };
@@ -52,9 +54,23 @@ export async function updateLiveFeedPost(
   if (content.trim().length > 500) {
     return { success: false, error: 'Post cannot exceed 500 characters.' };
   }
+  if (!userId) {
+    return { success: false, error: 'User not authenticated.' };
+  }
 
   try {
     const postRef = doc(db, 'liveFeed', postId);
+    const postSnap = await getDoc(postRef);
+
+    if (!postSnap.exists()) {
+      return { success: false, error: 'Post not found.' };
+    }
+    
+    const postData = postSnap.data();
+    if (postData.authorId !== userId && postData.author?.id !== userId) {
+        return { success: false, error: 'You do not have permission to edit this post.' };
+    }
+
     await updateDoc(postRef, {
       content: content.trim(),
     });
@@ -67,10 +83,26 @@ export async function updateLiveFeedPost(
 }
 
 export async function deleteLiveFeedPost(
-  postId: string
+  postId: string,
+  userId: string
 ): Promise<{ success: boolean; error?: string }> {
+  if (!userId) {
+    return { success: false, error: 'User not authenticated.' };
+  }
   try {
-    await deleteDoc(doc(db, 'liveFeed', postId));
+    const postRef = doc(db, 'liveFeed', postId);
+    const postSnap = await getDoc(postRef);
+
+    if (!postSnap.exists()) {
+      return { success: false, error: 'Post not found.' };
+    }
+    
+    const postData = postSnap.data();
+    if (postData.authorId !== userId && postData.author?.id !== userId) {
+        return { success: false, error: 'You do not have permission to delete this post.' };
+    }
+
+    await deleteDoc(postRef);
     revalidatePath('/');
     return { success: true };
   } catch (error) {

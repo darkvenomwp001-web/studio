@@ -55,7 +55,7 @@ import {
   deleteLiveFeedPost,
   updateLiveFeedPost,
 } from '@/app/actions/liveFeedActions';
-import { deletePrompt, updatePrompt } from '@/app/actions/promptActions';
+import { createPrompt, deletePrompt, updatePrompt } from '@/app/actions/promptActions';
 
 function ForYouTabContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
@@ -281,8 +281,7 @@ function LiveFeedTabContent() {
 
   const [editingPost, setEditingPost] = useState<LiveFeedPost | null>(null);
   const [editedContent, setEditedContent] = useState('');
-  const [deletingPost, setDeletingPost] = useState<LiveFeedPost | null>(null);
-
+  
   useEffect(() => {
     const q = query(collection(db, 'liveFeed'), orderBy('timestamp', 'desc'), firestoreLimit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -389,9 +388,9 @@ function LiveFeedTabContent() {
   };
   
   const handleEditPost = async () => {
-    if (!editingPost) return;
+    if (!editingPost || !user) return;
     setIsSubmitting(true);
-    const result = await updateLiveFeedPost(editingPost.id, editedContent);
+    const result = await updateLiveFeedPost(editingPost.id, editedContent, user.id);
     if (result.success) {
       toast({ title: 'Post Updated' });
       setEditingPost(null);
@@ -401,17 +400,21 @@ function LiveFeedTabContent() {
     setIsSubmitting(false);
   };
   
-  const handleDeletePost = async () => {
-    if (!deletingPost) return;
-    setIsSubmitting(true);
-    const result = await deleteLiveFeedPost(deletingPost.id);
-    if (result.success) {
-      toast({ title: 'Post Deleted' });
-      setDeletingPost(null);
-    } else {
+  const handleDeletePost = async (postToDelete: LiveFeedPost) => {
+    if (!user) return;
+    
+    const originalPosts = posts;
+    // Optimistic UI update
+    setPosts(prevPosts => prevPosts.filter(p => p.id !== postToDelete.id));
+
+    const result = await deleteLiveFeedPost(postToDelete.id, user.id);
+    if (!result.success) {
       toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      // Revert UI on failure
+      setPosts(originalPosts);
+    } else {
+      toast({ title: 'Post Deleted' });
     }
-    setIsSubmitting(false);
   };
 
   return (
@@ -479,12 +482,26 @@ function LiveFeedTabContent() {
                           <Edit className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                          onSelect={() => setDeletingPost(post)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                  onSelect={(e) => e.preventDefault()}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>This action cannot be undone. This will permanently delete your post.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeletePost(post)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}
@@ -536,25 +553,6 @@ function LiveFeedTabContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Post Dialog */}
-      <AlertDialog open={!!deletingPost} onOpenChange={(open) => !open && setDeletingPost(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your post.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeletePost} className="bg-destructive hover:bg-destructive/90">
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }
@@ -573,7 +571,6 @@ function PromptsTabContent() {
 
     const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
     const [editedPromptData, setEditedPromptData] = useState({ title: '', prompt: '', genre: '' });
-    const [deletingPrompt, setDeletingPrompt] = useState<Prompt | null>(null);
 
     useEffect(() => {
         const q = query(collection(db, 'prompts'), orderBy('createdAt', 'desc'));
@@ -601,51 +598,59 @@ function PromptsTabContent() {
         }
         setIsSubmitting(true);
         const authorSummary: UserSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
-        const promptData = {
+        
+        const result = await createPrompt({
             title: newPromptTitle,
             prompt: newPromptText,
             genre: newPromptGenre,
             author: authorSummary,
-            createdAt: serverTimestamp(),
-        };
+        });
 
-        try {
-            await addDoc(collection(db, 'prompts'), promptData);
+        if (result.success) {
             toast({title: "Prompt Created!", description: "Your new prompt is now available for everyone."});
             setNewPromptTitle('');
             setNewPromptText('');
             setNewPromptGenre('fantasy');
-        } catch (error) {
-            console.error('Error creating prompt:', error);
-            toast({ title: 'Error', description: 'Could not create prompt.', variant: 'destructive' });
+        } else {
+            toast({ title: 'Error', description: result.error, variant: 'destructive' });
         }
         setIsSubmitting(false);
     };
 
     const handleEditPrompt = async () => {
-      if (!editingPrompt) return;
+      if (!editingPrompt || !user) return;
       setIsSubmitting(true);
-      const result = await updatePrompt(editingPrompt.id, editedPromptData);
+
+      const originalPrompts = prompts;
+      // Optimistic update
+      setPrompts(prompts.map(p => p.id === editingPrompt.id ? { ...p, ...editedPromptData } : p));
+      setEditingPrompt(null);
+      
+      const result = await updatePrompt(editingPrompt.id, editedPromptData, user.id);
+
       if (result.success) {
         toast({ title: 'Prompt Updated' });
-        setEditingPrompt(null);
       } else {
         toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        setPrompts(originalPrompts); // Revert on failure
       }
       setIsSubmitting(false);
     };
   
-    const handleDeletePrompt = async () => {
-      if (!deletingPrompt) return;
-      setIsSubmitting(true);
-      const result = await deletePrompt(deletingPrompt.id);
+    const handleDeletePrompt = async (promptToDelete: Prompt) => {
+      if (!user) return;
+      
+      const originalPrompts = prompts;
+      // Optimistic update
+      setPrompts(prompts.filter(p => p.id !== promptToDelete.id));
+
+      const result = await deletePrompt(promptToDelete.id, user.id);
       if (result.success) {
         toast({ title: 'Prompt Deleted' });
-        setDeletingPrompt(null);
       } else {
         toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        setPrompts(originalPrompts); // Revert on failure
       }
-      setIsSubmitting(false);
     };
 
     if (isLoading) {
@@ -716,12 +721,26 @@ function PromptsTabContent() {
                                 <Edit className="mr-2 h-4 w-4" /> Edit
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                onSelect={() => setDeletingPrompt(item)}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                              </DropdownMenuItem>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem
+                                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                    onSelect={(e) => e.preventDefault()}
+                                    >
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>This action will permanently delete this prompt.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDeletePrompt(item)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -789,25 +808,6 @@ function PromptsTabContent() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* Delete Prompt Dialog */}
-        <AlertDialog open={!!deletingPrompt} onOpenChange={(open) => !open && setDeletingPrompt(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete this prompt.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeletePrompt} className="bg-destructive hover:bg-destructive/90">
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </>
     );
 }
