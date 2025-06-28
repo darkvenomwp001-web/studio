@@ -29,6 +29,7 @@ export async function createPrompt(data: {
   try {
     await addDoc(collection(db, 'prompts'), {
       ...data,
+      authorId: data.author.id,
       createdAt: serverTimestamp(),
     });
     revalidatePath('/');
