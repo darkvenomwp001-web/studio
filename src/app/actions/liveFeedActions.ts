@@ -67,7 +67,11 @@ export async function updateLiveFeedPost(
     }
     
     const postData = postSnap.data();
-    if (postData.authorId !== userId && postData.author?.id !== userId) {
+    // Robust ownership check
+    const isOwner = (postData.authorId && postData.authorId === userId) ||
+                    (postData.author && postData.author.id === userId);
+
+    if (!isOwner) {
         return { success: false, error: 'You do not have permission to edit this post.' };
     }
 
@@ -98,7 +102,11 @@ export async function deleteLiveFeedPost(
     }
     
     const postData = postSnap.data();
-    if (postData.authorId !== userId && postData.author?.id !== userId) {
+    // Robust ownership check
+    const isOwner = (postData.authorId && postData.authorId === userId) ||
+                    (postData.author && postData.author.id === userId);
+                    
+    if (!isOwner) {
         return { success: false, error: 'You do not have permission to delete this post.' };
     }
 

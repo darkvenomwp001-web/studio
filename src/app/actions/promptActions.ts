@@ -61,7 +61,11 @@ export async function updatePrompt(
     }
 
     const promptData = promptSnap.data();
-    if (promptData.authorId !== userId && promptData.author?.id !== userId) {
+    // Robust ownership check
+    const isOwner = (promptData.authorId && promptData.authorId === userId) ||
+                    (promptData.author && promptData.author.id === userId);
+
+    if (!isOwner) {
         return { success: false, error: 'You do not have permission to edit this prompt.' };
     }
 
@@ -89,7 +93,11 @@ export async function deletePrompt(
     }
 
     const promptData = promptSnap.data();
-    if (promptData.authorId !== userId && promptData.author?.id !== userId) {
+    // Robust ownership check
+    const isOwner = (promptData.authorId && promptData.authorId === userId) ||
+                    (promptData.author && promptData.author.id === userId);
+
+    if (!isOwner) {
         return { success: false, error: 'You do not have permission to delete this prompt.' };
     }
 
