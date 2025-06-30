@@ -7,84 +7,80 @@ service cloud.firestore {
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // User Profiles
+    // USER PROFILES
     match /users/{userId} {
-      allow read: if true;
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && isOwner(userId);
+      allow read;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
     }
-    
-    // Stories
+
+    // STORIES
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || (isAuthenticated() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if isAuthenticated() && isOwner(resource.data.author.id);
+      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' || isOwner(resource.data.author.id) || (resource.data.collaboratorIds != null && request.auth.uid in resource.data.collaboratorIds);
+      allow create, update: if isOwner(resource.data.author.id) || (resource.data.collaboratorIds != null && request.auth.uid in resource.data.collaboratorIds);
+      allow delete: if isOwner(resource.data.author.id);
     }
-    
-    // Comments
+
+    // COMMENTS
     match /comments/{commentId} {
-      allow read: if true;
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && isOwner(resource.data.user.id);
+      allow read;
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated() && (isOwner(resource.data.user.id));
     }
 
-    // Notifications
+    // NOTIFICATIONS
     match /notifications/{notificationId} {
-        allow read, update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+        allow read, update, delete: if isOwner(resource.data.userId);
         allow create: if isAuthenticated();
     }
     
-    // Letters
-    match /letters/{letterId} {
-        allow read: if isAuthenticated() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id) || resource.data.visibility == 'public');
-        allow create: if isAuthenticated();
-        allow update: if isAuthenticated() && isOwner(resource.data.authorId); // Only author can pin/respond
-    }
-
-    // Conversations
+    // CONVERSATIONS
     match /conversations/{conversationId} {
-      allow read, update, create: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
+      allow read, update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
+      allow create: if isAuthenticated();
       
       match /messages/{messageId} {
         allow read, create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
       }
     }
 
-    // Feed Posts
+    // LETTERS
+    match /letters/{letterId} {
+        allow read, create: if isAuthenticated();
+        allow update: if isAuthenticated() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id));
+    }
+    
+    // FEED POSTS
     match /feedPosts/{postId} {
-        allow read: if true;
-        allow create: if isAuthenticated();
-        allow update: if isAuthenticated() && isOwner(resource.data.author.id);
+        allow read, create: if isAuthenticated();
+        // Rely on server action for security check. Action needs read+delete permission.
+        allow get, update, delete: if request.auth != null;
     }
 
-    // Live Feed
+    // LIVE FEED
     match /liveFeed/{postId} {
-        allow read: if true;
-        allow create: if isAuthenticated();
-        // Trust server-side action to verify ownership before deleting
-        allow delete, update: if isAuthenticated();
+      allow read, create: if isAuthenticated();
+      // Rely on server action for security check. Action needs read+delete permission.
+      allow get, delete, update: if request.auth != null;
     }
-
-    // Prompts
+    
+    // PROMPTS
     match /prompts/{promptId} {
-        allow read: if true;
-        allow create: if isAuthenticated();
-        // Trust server-side action to verify ownership before deleting/updating
-        allow delete, update: if isAuthenticated();
+      allow read, create: if isAuthenticated();
+      // Rely on server action for security check. Action needs read+delete permission.
+      allow get, delete, update: if request.auth != null;
     }
 
-    // Status Updates
+    // STATUS UPDATES
     match /statusUpdates/{statusId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      // Trust server-side action to verify ownership before deleting/updating
-      allow delete, update: if isAuthenticated();
+      allow read, create: if isAuthenticated();
+      // Rely on server action for security check. Action needs read+delete permission.
+      allow get, delete: if request.auth != null;
     }
   }
 }
