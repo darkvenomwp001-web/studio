@@ -33,7 +33,7 @@ export async function createPost(
   try {
     const postData: any = {
       author,
-      authorId: author.id,
+      authorId: author.id, // Ensure authorId is always set for consistency
       content,
       timestamp: serverTimestamp(),
       likesCount: 0,

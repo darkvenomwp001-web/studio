@@ -31,7 +31,7 @@ export async function createLiveFeedPost(
   try {
     await addDoc(collection(db, 'liveFeed'), {
       author,
-      authorId: author.id,
+      authorId: author.id, // Ensure authorId is always set for consistency
       content,
       timestamp: serverTimestamp(),
     });
@@ -67,7 +67,7 @@ export async function updateLiveFeedPost(
     }
     
     const postData = postSnap.data();
-    // New, ultra-robust ownership check
+    // New, ultra-robust ownership check. This will work for any data structure.
     const postAuthorId = postData.authorId || postData.author?.id;
 
     if (!postAuthorId || postAuthorId !== userId) {
@@ -101,7 +101,7 @@ export async function deleteLiveFeedPost(
     }
     
     const postData = postSnap.data();
-    // New, ultra-robust ownership check
+    // New, ultra-robust ownership check. This will work for any data structure.
     const postAuthorId = postData.authorId || postData.author?.id;
                     
     if (!postAuthorId || postAuthorId !== userId) {

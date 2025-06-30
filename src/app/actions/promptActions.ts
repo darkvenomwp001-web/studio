@@ -30,7 +30,7 @@ export async function createPrompt(data: {
   try {
     await addDoc(collection(db, 'prompts'), {
       ...data,
-      authorId: data.author.id, // Ensure authorId is saved
+      authorId: data.author.id, // Ensure authorId is always saved for consistency
       createdAt: serverTimestamp(),
     });
     revalidatePath('/');
@@ -61,7 +61,7 @@ export async function updatePrompt(
     }
 
     const promptData = promptSnap.data();
-    // New, ultra-robust ownership check
+    // New, ultra-robust ownership check. This will work for any data structure.
     const promptAuthorId = promptData.authorId || promptData.author?.id;
 
     if (!promptAuthorId || promptAuthorId !== userId) {
@@ -92,7 +92,7 @@ export async function deletePrompt(
     }
 
     const promptData = promptSnap.data();
-    // New, ultra-robust ownership check
+    // New, ultra-robust ownership check. This will work for any data structure.
     const promptAuthorId = promptData.authorId || promptData.author?.id;
 
     if (!promptAuthorId || promptAuthorId !== userId) {

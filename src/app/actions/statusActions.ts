@@ -42,7 +42,7 @@ export async function deleteStatusUpdate(
     // Delete from Cloudinary if mediaUrl exists
     if (statusData.mediaUrl) {
       try {
-        const publicIdMatch = statusData.mediaUrl.match(/\/v\d+\/(.+)\.\w+/);
+        const publicIdMatch = statusData.mediaUrl.match(/\/v\d+\/(.+?)(?:\.[\w]+)?$/);
         if (publicIdMatch && publicIdMatch[1]) {
             const publicId = publicIdMatch[1];
             await cloudinary.uploader.destroy(publicId);
