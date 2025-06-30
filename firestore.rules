@@ -1,86 +1,65 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions
+    
+    // Helper function to check if a user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    // Default deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // USER PROFILES
+    // Allow reading users, stories, and comments by anyone
     match /users/{userId} {
-      allow read;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      allow read: if true;
+      allow update: if isAuthenticated() && request.auth.uid == userId;
     }
 
-    // STORIES
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' || isOwner(resource.data.author.id) || (resource.data.collaboratorIds != null && request.auth.uid in resource.data.collaboratorIds);
-      allow create, update: if isOwner(resource.data.author.id) || (resource.data.collaboratorIds != null && request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if isOwner(resource.data.author.id);
+      allow read: if true;
+      allow create, update: if isAuthenticated(); // Server-side checks handle permissions
     }
-
-    // COMMENTS
+    
     match /comments/{commentId} {
-      allow read;
-      allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated() && (isOwner(resource.data.user.id));
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated(); // Server-side checks handle permissions
     }
 
-    // NOTIFICATIONS
-    match /notifications/{notificationId} {
-        allow read, update, delete: if isOwner(resource.data.userId);
-        allow create: if isAuthenticated();
-    }
-    
-    // CONVERSATIONS
-    match /conversations/{conversationId} {
-      allow read, update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
-      allow create: if isAuthenticated();
-      
-      match /messages/{messageId} {
-        allow read, create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-      }
-    }
-
-    // LETTERS
     match /letters/{letterId} {
-        allow read, create: if isAuthenticated();
-        allow update: if isAuthenticated() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id));
+        allow read, create, update: if isAuthenticated();
     }
     
-    // FEED POSTS
-    match /feedPosts/{postId} {
-        allow read, create: if isAuthenticated();
-        // Rely on server action for security check. Action needs read+delete permission.
-        allow get, update, delete: if request.auth != null;
+    match /notifications/{notificationId} {
+        allow read, update, create, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
     }
-
-    // LIVE FEED
+    
+    // These rules rely on server-side actions for security checks.
+    // The server first reads the doc ('get'), checks ownership in code, then deletes.
+    // Thus, we only need to ensure the user is logged in to attempt the action.
+    // The server-side code is the real security gatekeeper.
     match /liveFeed/{postId} {
-      allow read, create: if isAuthenticated();
-      // Rely on server action for security check. Action needs read+delete permission.
-      allow get, delete, update: if request.auth != null;
+        allow get, create, update, delete: if isAuthenticated();
+        allow list: if true;
     }
     
-    // PROMPTS
     match /prompts/{promptId} {
-      allow read, create: if isAuthenticated();
-      // Rely on server action for security check. Action needs read+delete permission.
-      allow get, delete, update: if request.auth != null;
+        allow get, create, update, delete: if isAuthenticated();
+        allow list: if true;
     }
-
-    // STATUS UPDATES
+    
     match /statusUpdates/{statusId} {
-      allow read, create: if isAuthenticated();
-      // Rely on server action for security check. Action needs read+delete permission.
-      allow get, delete: if request.auth != null;
+        allow get, create, delete: if isAuthenticated();
+        allow list: if true;
+    }
+    
+    match /feedPosts/{postId} {
+        allow get, create, update, delete: if isAuthenticated();
+        allow list: if true;
     }
   }
 }

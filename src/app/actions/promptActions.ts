@@ -61,7 +61,7 @@ export async function updatePrompt(
     }
 
     const promptData = promptSnap.data();
-    // Robust ownership check
+    // Robust ownership check for all data structures
     const isOwner = (promptData.authorId && promptData.authorId === userId) ||
                     (promptData.author && promptData.author.id === userId);
 
@@ -93,7 +93,7 @@ export async function deletePrompt(
     }
 
     const promptData = promptSnap.data();
-    // Robust ownership check
+    // Robust ownership check for all data structures
     const isOwner = (promptData.authorId && promptData.authorId === userId) ||
                     (promptData.author && promptData.author.id === userId);
 

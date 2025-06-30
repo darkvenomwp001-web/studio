@@ -67,7 +67,7 @@ export async function updateLiveFeedPost(
     }
     
     const postData = postSnap.data();
-    // Robust ownership check
+    // Robust ownership check for all data structures
     const isOwner = (postData.authorId && postData.authorId === userId) ||
                     (postData.author && postData.author.id === userId);
 
@@ -102,7 +102,7 @@ export async function deleteLiveFeedPost(
     }
     
     const postData = postSnap.data();
-    // Robust ownership check
+    // Robust ownership check for all data structures
     const isOwner = (postData.authorId && postData.authorId === userId) ||
                     (postData.author && postData.author.id === userId);
                     

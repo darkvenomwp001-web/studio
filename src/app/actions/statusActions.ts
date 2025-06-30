@@ -32,7 +32,7 @@ export async function deleteStatusUpdate(
 
     const statusData = statusSnap.data();
 
-    // Robust ownership check
+    // Robust ownership check for all data structures
     const isOwner = (statusData.authorId && statusData.authorId === userId) ||
                     (statusData.authorInfo && statusData.authorInfo.id === userId);
 
