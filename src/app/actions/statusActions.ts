@@ -32,11 +32,10 @@ export async function deleteStatusUpdate(
 
     const statusData = statusSnap.data();
 
-    // Robust ownership check for all data structures
-    const isOwner = (statusData.authorId && statusData.authorId === userId) ||
-                    (statusData.authorInfo && statusData.authorInfo.id === userId);
+    // New, ultra-robust ownership check. This will work for any data structure.
+    const postAuthorId = statusData.authorId || statusData.author?.id || statusData.authorInfo?.id;
 
-    if (!isOwner) {
+    if (!postAuthorId || postAuthorId !== userId) {
       return { success: false, error: 'You do not have permission to delete this status.' };
     }
     

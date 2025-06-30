@@ -61,11 +61,10 @@ export async function updatePrompt(
     }
 
     const promptData = promptSnap.data();
-    // Robust ownership check for all data structures
-    const isOwner = (promptData.authorId && promptData.authorId === userId) ||
-                    (promptData.author && promptData.author.id === userId);
+    // New, ultra-robust ownership check
+    const promptAuthorId = promptData.authorId || promptData.author?.id;
 
-    if (!isOwner) {
+    if (!promptAuthorId || promptAuthorId !== userId) {
         return { success: false, error: 'You do not have permission to edit this prompt.' };
     }
 
@@ -93,11 +92,10 @@ export async function deletePrompt(
     }
 
     const promptData = promptSnap.data();
-    // Robust ownership check for all data structures
-    const isOwner = (promptData.authorId && promptData.authorId === userId) ||
-                    (promptData.author && promptData.author.id === userId);
+    // New, ultra-robust ownership check
+    const promptAuthorId = promptData.authorId || promptData.author?.id;
 
-    if (!isOwner) {
+    if (!promptAuthorId || promptAuthorId !== userId) {
         return { success: false, error: 'You do not have permission to delete this prompt.' };
     }
 

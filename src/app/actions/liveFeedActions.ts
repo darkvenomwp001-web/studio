@@ -67,11 +67,10 @@ export async function updateLiveFeedPost(
     }
     
     const postData = postSnap.data();
-    // Robust ownership check for all data structures
-    const isOwner = (postData.authorId && postData.authorId === userId) ||
-                    (postData.author && postData.author.id === userId);
+    // New, ultra-robust ownership check
+    const postAuthorId = postData.authorId || postData.author?.id;
 
-    if (!isOwner) {
+    if (!postAuthorId || postAuthorId !== userId) {
         return { success: false, error: 'You do not have permission to edit this post.' };
     }
 
@@ -102,11 +101,10 @@ export async function deleteLiveFeedPost(
     }
     
     const postData = postSnap.data();
-    // Robust ownership check for all data structures
-    const isOwner = (postData.authorId && postData.authorId === userId) ||
-                    (postData.author && postData.author.id === userId);
+    // New, ultra-robust ownership check
+    const postAuthorId = postData.authorId || postData.author?.id;
                     
-    if (!isOwner) {
+    if (!postAuthorId || postAuthorId !== userId) {
         return { success: false, error: 'You do not have permission to delete this post.' };
     }
 
