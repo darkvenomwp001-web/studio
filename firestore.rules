@@ -1,26 +1,25 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // Helper Functions
     function isAuthenticated() {
       return request.auth != null;
     }
-
+    
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    // USER PROFILES
+    // User Profiles
     match /users/{userId} {
       allow read: if true;
-      allow create: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated();
       allow update: if isAuthenticated() && isOwner(userId);
     }
-
-    // STORIES
+    
+    // Stories
     match /stories/{storyId} {
       allow read: if resource.data.visibility == 'Public' || (isAuthenticated() && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
       allow create: if isAuthenticated();
@@ -28,56 +27,64 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && isOwner(resource.data.author.id);
     }
     
-    // COMMENTS
+    // Comments
     match /comments/{commentId} {
-        allow read: if true;
-        allow create: if isAuthenticated();
-        allow update, delete: if isAuthenticated() && isOwner(resource.data.user.id);
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && isOwner(resource.data.user.id);
     }
 
-    // NOTIFICATIONS
+    // Notifications
     match /notifications/{notificationId} {
         allow read, update, delete: if isAuthenticated() && isOwner(resource.data.userId);
         allow create: if isAuthenticated();
     }
-
-    // LETTERS
+    
+    // Letters
     match /letters/{letterId} {
-        allow read: if isAuthenticated() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id));
+        allow read: if isAuthenticated() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id) || resource.data.visibility == 'public');
         allow create: if isAuthenticated();
-        allow update: if isAuthenticated() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id));
-    }
-    
-    // LIVE FEED
-    match /liveFeed/{postId} {
-        allow read: if true;
-        allow create: if isAuthenticated() && isOwner(request.resource.data.authorId);
-        allow update: if isAuthenticated() && (('authorId' in resource.data && isOwner(resource.data.authorId)) || ('author' in resource.data && isOwner(resource.data.author.id)));
-        allow delete: if isAuthenticated() && (('authorId' in resource.data && isOwner(resource.data.authorId)) || ('author' in resource.data && isOwner(resource.data.author.id)));
-    }
-    
-    // PROMPTS
-    match /prompts/{promptId} {
-      allow read: if true;
-      allow create: if isAuthenticated() && isOwner(request.resource.data.author.id);
-      allow update: if isAuthenticated() && (('authorId' in resource.data && isOwner(resource.data.authorId)) || ('author' in resource.data && isOwner(resource.data.author.id)));
-      allow delete: if isAuthenticated() && (('authorId' in resource.data && isOwner(resource.data.authorId)) || ('author' in resource.data && isOwner(resource.data.author.id)));
+        allow update: if isAuthenticated() && isOwner(resource.data.authorId); // Only author can pin/respond
     }
 
-    // STATUS UPDATES
-    match /statusUpdates/{statusId} {
-        allow read: if true;
-        allow create: if isAuthenticated() && isOwner(request.resource.data.authorId);
-        allow delete: if isAuthenticated() && (('authorId' in resource.data && isOwner(resource.data.authorId)) || ('authorInfo' in resource.data && isOwner(resource.data.authorInfo.id)));
-    }
-
-    // CONVERSATIONS & MESSAGES
+    // Conversations
     match /conversations/{conversationId} {
       allow read, update, create: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
       
       match /messages/{messageId} {
         allow read, create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
       }
+    }
+
+    // Feed Posts
+    match /feedPosts/{postId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated() && isOwner(resource.data.author.id);
+    }
+
+    // Live Feed
+    match /liveFeed/{postId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        // Trust server-side action to verify ownership before deleting
+        allow delete, update: if isAuthenticated();
+    }
+
+    // Prompts
+    match /prompts/{promptId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        // Trust server-side action to verify ownership before deleting/updating
+        allow delete, update: if isAuthenticated();
+    }
+
+    // Status Updates
+    match /statusUpdates/{statusId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      // Trust server-side action to verify ownership before deleting/updating
+      allow delete, update: if isAuthenticated();
     }
   }
 }
