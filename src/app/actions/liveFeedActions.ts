@@ -67,8 +67,14 @@ export async function updateLiveFeedPost(
     }
     
     const postData = postSnap.data();
-    // New, ultra-robust ownership check. This will work for any data structure.
-    const postAuthorId = postData.authorId || postData.author?.id;
+    
+    // Ultra-robust ownership check
+    let postAuthorId: string | undefined = undefined;
+    if (postData.authorId) {
+        postAuthorId = postData.authorId;
+    } else if (postData.author && typeof postData.author === 'object' && 'id' in postData.author) {
+        postAuthorId = (postData.author as {id: string}).id;
+    }
 
     if (!postAuthorId || postAuthorId !== userId) {
         return { success: false, error: 'You do not have permission to edit this post.' };
@@ -101,8 +107,14 @@ export async function deleteLiveFeedPost(
     }
     
     const postData = postSnap.data();
-    // New, ultra-robust ownership check. This will work for any data structure.
-    const postAuthorId = postData.authorId || postData.author?.id;
+    
+    // Ultra-robust ownership check
+    let postAuthorId: string | undefined = undefined;
+    if (postData.authorId) {
+        postAuthorId = postData.authorId;
+    } else if (postData.author && typeof postData.author === 'object' && 'id' in postData.author) {
+        postAuthorId = (postData.author as {id: string}).id;
+    }
                     
     if (!postAuthorId || postAuthorId !== userId) {
         return { success: false, error: 'You do not have permission to delete this post.' };

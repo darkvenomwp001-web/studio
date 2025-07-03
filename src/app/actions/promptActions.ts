@@ -61,8 +61,14 @@ export async function updatePrompt(
     }
 
     const promptData = promptSnap.data();
-    // New, ultra-robust ownership check. This will work for any data structure.
-    const promptAuthorId = promptData.authorId || promptData.author?.id;
+    
+    // Ultra-robust ownership check
+    let promptAuthorId: string | undefined = undefined;
+    if (promptData.authorId) {
+        promptAuthorId = promptData.authorId;
+    } else if (promptData.author && typeof promptData.author === 'object' && 'id' in promptData.author) {
+        promptAuthorId = (promptData.author as {id: string}).id;
+    }
 
     if (!promptAuthorId || promptAuthorId !== userId) {
         return { success: false, error: 'You do not have permission to edit this prompt.' };
@@ -92,8 +98,14 @@ export async function deletePrompt(
     }
 
     const promptData = promptSnap.data();
-    // New, ultra-robust ownership check. This will work for any data structure.
-    const promptAuthorId = promptData.authorId || promptData.author?.id;
+
+    // Ultra-robust ownership check
+    let promptAuthorId: string | undefined = undefined;
+    if (promptData.authorId) {
+        promptAuthorId = promptData.authorId;
+    } else if (promptData.author && typeof promptData.author === 'object' && 'id' in promptData.author) {
+        promptAuthorId = (promptData.author as {id: string}).id;
+    }
 
     if (!promptAuthorId || promptAuthorId !== userId) {
         return { success: false, error: 'You do not have permission to delete this prompt.' };

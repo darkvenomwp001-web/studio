@@ -32,10 +32,19 @@ export async function deleteStatusUpdate(
 
     const statusData = statusSnap.data();
 
-    // New, ultra-robust ownership check. This will work for any data structure.
-    const postAuthorId = statusData.authorId || statusData.author?.id || statusData.authorInfo?.id;
+    // Forensic ownership check to handle all possible data structures
+    let postAuthorId: string | undefined = undefined;
+    if (statusData.authorId) { // Check for top-level `authorId`
+        postAuthorId = statusData.authorId;
+    } else if (statusData.authorInfo && typeof statusData.authorInfo === 'object' && 'id' in statusData.authorInfo) { // Check for `authorInfo.id`
+        postAuthorId = (statusData.authorInfo as {id: string}).id;
+    } else if (statusData.author && typeof statusData.author === 'object' && 'id' in statusData.author) { // Check for `author.id` (legacy)
+        postAuthorId = (statusData.author as {id: string}).id;
+    }
+
 
     if (!postAuthorId || postAuthorId !== userId) {
+      console.error(`Permission denied: User ${userId} tried to delete status ${statusId} owned by ${postAuthorId}. Data:`, statusData);
       return { success: false, error: 'You do not have permission to delete this status.' };
     }
     
