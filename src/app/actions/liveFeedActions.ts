@@ -8,7 +8,6 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
-  deleteDoc,
   getDoc,
 } from 'firebase/firestore';
 import type { UserSummary } from '@/types';
@@ -91,7 +90,7 @@ export async function updateLiveFeedPost(
   }
 }
 
-export async function deleteLiveFeedPost(
+export async function removeLiveFeedPost(
   postId: string,
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -117,14 +116,17 @@ export async function deleteLiveFeedPost(
     }
                     
     if (!postAuthorId || postAuthorId !== userId) {
-        return { success: false, error: 'You do not have permission to delete this post.' };
+        return { success: false, error: 'You do not have permission to remove this post.' };
     }
 
-    await deleteDoc(postRef);
+    await updateDoc(postRef, {
+        isRemoved: true,
+        removedAt: serverTimestamp()
+    });
     revalidatePath('/');
     return { success: true };
   } catch (error) {
-    console.error('Error deleting live feed post:', error);
-    return { success: false, error: 'Could not delete post.' };
+    console.error('Error removing live feed post:', error);
+    return { success: false, error: 'Could not remove post.' };
   }
 }

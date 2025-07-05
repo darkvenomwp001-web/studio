@@ -53,10 +53,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  deleteLiveFeedPost,
+  removeLiveFeedPost,
   updateLiveFeedPost,
 } from '@/app/actions/liveFeedActions';
-import { createPrompt, deletePrompt, updatePrompt } from '@/app/actions/promptActions';
+import { createPrompt, removePrompt, updatePrompt } from '@/app/actions/promptActions';
 
 function ForYouTabContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
@@ -286,7 +286,9 @@ function LiveFeedTabContent() {
   useEffect(() => {
     const q = query(collection(db, 'liveFeed'), orderBy('timestamp', 'desc'), firestoreLimit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const livePosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LiveFeedPost));
+      const livePosts = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as LiveFeedPost))
+        .filter(post => !post.isRemoved); // Filter client-side
       setPosts(livePosts);
       setIsLoading(false);
     }, (error) => {
@@ -401,20 +403,20 @@ function LiveFeedTabContent() {
     setIsSubmitting(false);
   };
   
-  const handleDeletePost = async (postToDelete: LiveFeedPost) => {
+  const handleRemovePost = async (postToRemove: LiveFeedPost) => {
     if (!user) return;
     
     const originalPosts = posts;
     // Optimistic UI update
-    setPosts(prevPosts => prevPosts.filter(p => p.id !== postToDelete.id));
+    setPosts(prevPosts => prevPosts.filter(p => p.id !== postToRemove.id));
 
-    const result = await deleteLiveFeedPost(postToDelete.id, user.id);
+    const result = await removeLiveFeedPost(postToRemove.id, user.id);
     if (!result.success) {
       toast({ title: 'Error', description: result.error, variant: 'destructive' });
       // Revert UI on failure
       setPosts(originalPosts);
     } else {
-      toast({ title: 'Post Deleted' });
+      toast({ title: 'Post Removed' });
     }
   };
 
@@ -489,17 +491,17 @@ function LiveFeedTabContent() {
                                   className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                                   onSelect={(e) => e.preventDefault()}
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                  <Trash2 className="mr-2 h-4 w-4" /> Remove
                                 </DropdownMenuItem>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>This action cannot be undone. This will permanently delete your post.</AlertDialogDescription>
+                                    <AlertDialogDescription>This action will hide the post from the feed, but it will not be permanently deleted. You can contact support to recover it.</AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeletePost(post)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => handleRemovePost(post)} className="bg-destructive hover:bg-destructive/90">Remove</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
@@ -576,7 +578,9 @@ function PromptsTabContent() {
     useEffect(() => {
         const q = query(collection(db, 'prompts'), orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const promptsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt));
+            const promptsData = snapshot.docs
+              .map(doc => ({ id: doc.id, ...doc.data() } as Prompt))
+              .filter(prompt => !prompt.isRemoved); // Filter client-side
             setPrompts(promptsData);
             setIsLoading(false);
         }, (error) => {
@@ -638,16 +642,16 @@ function PromptsTabContent() {
       setIsSubmitting(false);
     };
   
-    const handleDeletePrompt = async (promptToDelete: Prompt) => {
+    const handleRemovePrompt = async (promptToRemove: Prompt) => {
       if (!user) return;
       
       const originalPrompts = prompts;
       // Optimistic update
-      setPrompts(prompts.filter(p => p.id !== promptToDelete.id));
+      setPrompts(prompts.filter(p => p.id !== promptToRemove.id));
 
-      const result = await deletePrompt(promptToDelete.id, user.id);
+      const result = await removePrompt(promptToRemove.id, user.id);
       if (result.success) {
-        toast({ title: 'Prompt Deleted' });
+        toast({ title: 'Prompt Removed' });
       } else {
         toast({ title: 'Error', description: result.error, variant: 'destructive' });
         setPrompts(originalPrompts); // Revert on failure
@@ -728,17 +732,17 @@ function PromptsTabContent() {
                                     className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                                     onSelect={(e) => e.preventDefault()}
                                     >
-                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    <Trash2 className="mr-2 h-4 w-4" /> Remove
                                     </DropdownMenuItem>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>This action will permanently delete this prompt.</AlertDialogDescription>
+                                        <AlertDialogDescription>This will hide the prompt, but it won't be permanently deleted.</AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDeletePrompt(item)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                        <AlertDialogAction onClick={() => handleRemovePrompt(item)} className="bg-destructive hover:bg-destructive/90">Remove</AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>

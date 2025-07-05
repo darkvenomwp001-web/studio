@@ -8,7 +8,6 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
-  deleteDoc,
   getDoc,
 } from 'firebase/firestore';
 import type { UserSummary } from '@/types';
@@ -83,7 +82,7 @@ export async function updatePrompt(
   }
 }
 
-export async function deletePrompt(
+export async function removePrompt(
   promptId: string,
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -108,14 +107,17 @@ export async function deletePrompt(
     }
 
     if (!promptAuthorId || promptAuthorId !== userId) {
-        return { success: false, error: 'You do not have permission to delete this prompt.' };
+        return { success: false, error: 'You do not have permission to remove this prompt.' };
     }
 
-    await deleteDoc(promptRef);
+    await updateDoc(promptRef, {
+      isRemoved: true,
+      removedAt: serverTimestamp(),
+    });
     revalidatePath('/');
     return { success: true };
   } catch (error) {
-    console.error('Error deleting prompt:', error);
-    return { success: false, error: 'Could not delete prompt.' };
+    console.error('Error removing prompt:', error);
+    return { success: false, error: 'Could not remove prompt.' };
   }
 }

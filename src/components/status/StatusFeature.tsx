@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { deleteStatusUpdate } from '@/app/actions/statusActions';
+import { removeStatusUpdate } from '@/app/actions/statusActions';
 
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -36,7 +36,7 @@ function StatusBubble({ user, statuses, onSelect }: { user: User, statuses: Stat
   );
 }
 
-function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusDeleted }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusDeleted: (statusId: string, userId: string) => void }) {
+function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusRemoved }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusRemoved: (statusId: string, userId: string) => void }) {
     const { user: currentUser } = useAuth();
     const { toast } = useToast();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
@@ -74,13 +74,13 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
 
     const currentStatus = userStatuses[currentStatusIndex];
 
-    const handleDelete = async () => {
+    const handleRemove = async () => {
       if (!currentStatus || !currentUser) return;
-      onStatusDeleted(currentStatus.id, currentUser.id);
+      onStatusRemoved(currentStatus.id, currentUser.id);
       onOpenChange(false); // Close the viewer optimistically
-      const result = await deleteStatusUpdate(currentStatus.id, currentUser.id);
+      const result = await removeStatusUpdate(currentStatus.id, currentUser.id);
       if (result.success) {
-        toast({ title: 'Status Deleted' });
+        toast({ title: 'Status Removed' });
       } else {
         toast({ title: 'Error', description: result.error, variant: 'destructive' });
         // Note: Reverting UI is complex here as we've already closed the dialog.
@@ -120,14 +120,14 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Delete this status?</AlertDialogTitle>
+                                <AlertDialogTitle>Remove this status?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This action cannot be undone and will permanently delete this status update.
+                                  This action will hide this status from view. It will not be permanently deleted.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                <AlertDialogAction onClick={handleRemove} className="bg-destructive hover:bg-destructive/90">Remove</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
@@ -194,7 +194,9 @@ export default function StatusFeature() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const statusesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
+      const statusesData = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate))
+        .filter(status => !status.isRemoved); // Filter client-side
       setAllStatuses(statusesData);
 
       const groups = new Map<string, {user: User, statuses: StatusUpdate[]}>();
@@ -239,7 +241,7 @@ export default function StatusFeature() {
     }
   }
 
-   const handleStatusDeleted = (statusId: string, userId: string) => {
+   const handleStatusRemoved = (statusId: string, userId: string) => {
     // Optimistically remove the status from the local state
     setGroupedStatuses(prevGroups => {
         const newGroups = new Map(prevGroups);
@@ -405,7 +407,7 @@ export default function StatusFeature() {
             userStatuses={selectedUserForViewing ? groupedStatuses.get(selectedUserForViewing.id)?.statuses || [] : []}
             onNext={handleNextUser}
             onPrev={handlePrevUser}
-            onStatusDeleted={handleStatusDeleted}
+            onStatusRemoved={handleStatusRemoved}
         />
     </>
   );
