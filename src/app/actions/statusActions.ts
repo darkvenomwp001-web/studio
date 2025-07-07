@@ -23,7 +23,7 @@ export async function removeStatusUpdate(
 
     const statusData = statusSnap.data();
 
-    // Forensic ownership check to handle all possible data structures
+    // Ultra-robust ownership check to handle all possible data structures
     let postAuthorId: string | undefined = undefined;
     if (statusData.authorId) { // Check for top-level `authorId`
         postAuthorId = statusData.authorId;
@@ -32,7 +32,6 @@ export async function removeStatusUpdate(
     } else if (statusData.author && typeof statusData.author === 'object' && 'id' in statusData.author) { // Check for `author.id` (legacy)
         postAuthorId = (statusData.author as {id: string}).id;
     }
-
 
     if (!postAuthorId || postAuthorId !== userId) {
       console.error(`Permission denied: User ${userId} tried to remove status ${statusId} owned by ${postAuthorId}. Data:`, statusData);
