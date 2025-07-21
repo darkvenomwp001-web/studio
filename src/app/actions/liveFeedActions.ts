@@ -9,6 +9,7 @@ import {
   doc,
   updateDoc,
   getDoc,
+  deleteDoc, // Make sure deleteDoc is imported
 } from 'firebase/firestore';
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
@@ -68,6 +69,7 @@ export async function updateLiveFeedPost(
     
     const postData = postSnap.data();
     
+    // Robust ownership check
     let postAuthorId: string | undefined = undefined;
     if (postData.authorId) {
         postAuthorId = postData.authorId;
@@ -107,6 +109,7 @@ export async function archiveLiveFeedPost(
     
     const postData = postSnap.data();
     
+    // Robust ownership check
     let postAuthorId: string | undefined = undefined;
     if (postData.authorId) {
         postAuthorId = postData.authorId;
@@ -145,6 +148,8 @@ export async function permanentlyDeleteLiveFeedPost(
             return { success: true, error: 'Post already deleted.' };
         }
         const postData = postSnap.data();
+        
+        // Robust ownership check
         let postAuthorId: string | undefined = undefined;
         if (postData.authorId) {
             postAuthorId = postData.authorId;
