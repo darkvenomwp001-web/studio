@@ -9,6 +9,7 @@ import {
   doc,
   updateDoc,
   getDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
@@ -29,8 +30,9 @@ export async function createPrompt(data: {
   try {
     await addDoc(collection(db, 'prompts'), {
       ...data,
-      authorId: data.author.id, // Ensure authorId is always saved for consistency
+      authorId: data.author.id,
       createdAt: serverTimestamp(),
+      isArchived: false,
     });
     revalidatePath('/');
     return { success: true };
@@ -61,7 +63,6 @@ export async function updatePrompt(
 
     const promptData = promptSnap.data();
     
-    // Ultra-robust ownership check
     let promptAuthorId: string | undefined = undefined;
     if (promptData.authorId) {
         promptAuthorId = promptData.authorId;
@@ -82,7 +83,7 @@ export async function updatePrompt(
   }
 }
 
-export async function removePrompt(
+export async function archivePrompt(
   promptId: string,
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -98,7 +99,6 @@ export async function removePrompt(
 
     const promptData = promptSnap.data();
 
-    // Ultra-robust ownership check
     let promptAuthorId: string | undefined = undefined;
     if (promptData.authorId) {
         promptAuthorId = promptData.authorId;
@@ -107,17 +107,51 @@ export async function removePrompt(
     }
 
     if (!promptAuthorId || promptAuthorId !== userId) {
-        return { success: false, error: 'You do not have permission to remove this prompt.' };
+        return { success: false, error: 'You do not have permission to archive this prompt.' };
     }
 
     await updateDoc(promptRef, {
-      isRemoved: true,
-      removedAt: serverTimestamp(),
+      isArchived: true,
+      archivedAt: serverTimestamp(),
     });
     revalidatePath('/');
     return { success: true };
   } catch (error) {
-    console.error('Error removing prompt:', error);
-    return { success: false, error: 'Could not remove prompt.' };
+    console.error('Error archiving prompt:', error);
+    return { success: false, error: 'Could not archive prompt.' };
   }
+}
+
+export async function permanentlyDeletePrompt(
+  promptId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+    if (!userId) {
+        return { success: false, error: 'User not authenticated.' };
+    }
+    try {
+        const promptRef = doc(db, 'prompts', promptId);
+        const promptSnap = await getDoc(promptRef);
+        if (!promptSnap.exists()) {
+            return { success: true, error: 'Prompt already deleted.' };
+        }
+        const promptData = promptSnap.data();
+        let promptAuthorId: string | undefined = undefined;
+        if (promptData.authorId) {
+            promptAuthorId = promptData.authorId;
+        } else if (promptData.author && typeof promptData.author === 'object' && 'id' in promptData.author) {
+            promptAuthorId = (promptData.author as {id: string}).id;
+        }
+
+        if (!promptAuthorId || promptAuthorId !== userId) {
+            return { success: false, error: 'You do not have permission to delete this prompt.' };
+        }
+
+        await deleteDoc(promptRef);
+        revalidatePath('/settings/archive');
+        return { success: true };
+    } catch (error) {
+        console.error('Error permanently deleting prompt:', error);
+        return { success: false, error: 'Could not permanently delete prompt.' };
+    }
 }

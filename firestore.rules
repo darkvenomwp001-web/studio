@@ -4,15 +4,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is the author,
-    // accounting for different data structures.
+    // Helper Functions
     function isAuthor(doc) {
-      return (
-        (doc.authorId == request.auth.uid) ||
-        (doc.author.id == request.auth.uid) ||
-        (doc.authorInfo.id == request.auth.uid) ||
-        (doc.user.id == request.auth.uid)
-      );
+      return request.auth.uid == doc.authorId ||
+             (doc.author != null && request.auth.uid == doc.author.id) ||
+             (doc.authorInfo != null && request.auth.uid == doc.authorInfo.id);
+    }
+    
+    function isCollaborator(storyDoc) {
+        return request.auth.uid in storyDoc.collaboratorIds;
     }
 
     // Users: Can read anyone's profile, but only write to their own.
@@ -21,12 +21,12 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Stories: Public can be read by anyone. Private/Drafts only by author/collaborators.
+    // Stories: Public/Unlisted can be read by anyone. Private only by author/collaborators.
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' ||
-                   (request.auth != null && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds));
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
+      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' ||
+                   (request.auth != null && (isAuthor(resource.data) || isCollaborator(resource.data)));
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
+      allow update, delete: if request.auth != null && (isAuthor(resource.data) || isCollaborator(resource.data));
     }
 
     // Comments: Can be read by anyone. Can be created by any logged-in user.
@@ -34,15 +34,15 @@ service cloud.firestore {
     match /comments/{commentId} {
       allow read: if true;
       allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && resource.data.user.id == request.auth.uid;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
     }
-
+    
     // Notifications: Can only be read/updated by the user the notification is for.
     match /notifications/{notificationId} {
-      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null;
     }
-
+    
     // Conversations & Messages
     match /conversations/{conversationId} {
         allow read, write: if request.auth != null && request.auth.uid in resource.data.participantIds;
@@ -51,43 +51,40 @@ service cloud.firestore {
             allow update, delete: if request.auth != null && request.auth.uid == resource.data.senderId;
         }
     }
-
-    // Feed posts from the main feed tab
+    
+    // Main feed posts
     match /feedPosts/{postId} {
         allow read: if true;
         allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
-        // Liking is an update, anyone logged in can do it. Deleting should be owner only.
-        allow update: if request.auth != null;
-        allow delete: if request.auth != null && isAuthor(resource.data);
+        allow update, delete: if request.auth != null && isAuthor(resource.data);
     }
-
-    // LIVE FEED POSTS
+    
+    // Live feed posts
     match /liveFeed/{postId} {
       allow read: if true;
-      allow create: if request.auth != null;
-      // Use the flexible helper for updates (which includes soft deletes)
-      allow update: if request.auth != null && isAuthor(resource.data);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+      allow update: if request.auth != null && isAuthor(resource.data); // Update to archive
+      allow delete: if request.auth != null && isAuthor(resource.data); // For permanent deletion
     }
-
-    // Prompts from the Prompts tab
+    
+    // Prompts
     match /prompts/{promptId} {
         allow read: if true;
-        allow create: if request.auth != null;
-        // Use the flexible helper for updates (which includes soft deletes)
-        allow update: if request.auth != null && isAuthor(resource.data);
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
+        allow update: if request.auth != null && isAuthor(resource.data); // Update to archive
+        allow delete: if request.auth != null && isAuthor(resource.data); // For permanent deletion
     }
-
+    
     // Letters between users
     match /letters/{letterId} {
         allow read, update: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
         allow create: if request.auth != null;
     }
-
+    
     // 24-hour status updates
     match /statusUpdates/{statusId} {
         allow read, create: if request.auth != null;
-        // Use the flexible helper for updates (which includes soft deletes)
-        allow update: if request.auth != null && isAuthor(resource.data);
+        allow update: if request.auth != null && isAuthor(resource.data); // Rule for archiving/hiding
     }
   }
 }

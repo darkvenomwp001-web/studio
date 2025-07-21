@@ -183,8 +183,8 @@ export interface LiveFeedPost {
   content: string;
   timestamp: any;
   imageUrl?: string;
-  isRemoved?: boolean;
-  removedAt?: any;
+  isArchived: boolean;
+  archivedAt?: any;
 }
 
 export interface Prompt {
@@ -194,8 +194,8 @@ export interface Prompt {
     genre: string;
     createdAt: any;
     author: UserSummary;
-    isRemoved?: boolean;
-    removedAt?: any;
+    isArchived: boolean;
+    archivedAt?: any;
 }
 
 export interface StatusUpdate {

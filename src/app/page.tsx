@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Trash2 } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2 } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -53,10 +53,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  removeLiveFeedPost,
+  archiveLiveFeedPost,
   updateLiveFeedPost,
 } from '@/app/actions/liveFeedActions';
-import { createPrompt, removePrompt, updatePrompt } from '@/app/actions/promptActions';
+import { createPrompt, archivePrompt, updatePrompt } from '@/app/actions/promptActions';
 
 function ForYouTabContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
@@ -284,11 +284,10 @@ function LiveFeedTabContent() {
   const [editedContent, setEditedContent] = useState('');
   
   useEffect(() => {
-    const q = query(collection(db, 'liveFeed'), orderBy('timestamp', 'desc'), firestoreLimit(50));
+    const q = query(collection(db, 'liveFeed'), where('isArchived', '==', false), orderBy('timestamp', 'desc'), firestoreLimit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const livePosts = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as LiveFeedPost))
-        .filter(post => !post.isRemoved); // Filter client-side
+        .map(doc => ({ id: doc.id, ...doc.data() } as LiveFeedPost));
       setPosts(livePosts);
       setIsLoading(false);
     }, (error) => {
@@ -375,6 +374,7 @@ function LiveFeedTabContent() {
             authorId: user.id,
             content: newPostContent.trim(),
             timestamp: serverTimestamp(),
+            isArchived: false,
         };
 
         if (imageUrl) {
@@ -403,20 +403,18 @@ function LiveFeedTabContent() {
     setIsSubmitting(false);
   };
   
-  const handleRemovePost = async (postToRemove: LiveFeedPost) => {
+  const handleArchivePost = async (postToArchive: LiveFeedPost) => {
     if (!user) return;
     
     const originalPosts = posts;
-    // Optimistic UI update
-    setPosts(prevPosts => prevPosts.filter(p => p.id !== postToRemove.id));
+    setPosts(prevPosts => prevPosts.filter(p => p.id !== postToArchive.id));
 
-    const result = await removeLiveFeedPost(postToRemove.id, user.id);
+    const result = await archiveLiveFeedPost(postToArchive.id, user.id);
     if (!result.success) {
       toast({ title: 'Error', description: result.error, variant: 'destructive' });
-      // Revert UI on failure
       setPosts(originalPosts);
     } else {
-      toast({ title: 'Post Removed' });
+      toast({ title: 'Post Archived', description: 'You can find it in your settings.' });
     }
   };
 
@@ -488,20 +486,20 @@ function LiveFeedTabContent() {
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <DropdownMenuItem
-                                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                  className="text-yellow-600 focus:bg-yellow-100/10 focus:text-yellow-700"
                                   onSelect={(e) => e.preventDefault()}
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Remove
+                                  <Archive className="mr-2 h-4 w-4" /> Archive
                                 </DropdownMenuItem>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>This action will hide the post from the feed, but it will not be permanently deleted. You can contact support to recover it.</AlertDialogDescription>
+                                    <AlertDialogTitle>Archive this post?</AlertDialogTitle>
+                                    <AlertDialogDescription>This will hide the post from the main feed. You can view and permanently delete it from your settings.</AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleRemovePost(post)} className="bg-destructive hover:bg-destructive/90">Remove</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => handleArchivePost(post)} className="bg-yellow-500 hover:bg-yellow-500/90 text-background">Archive Post</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
@@ -576,11 +574,10 @@ function PromptsTabContent() {
     const [editedPromptData, setEditedPromptData] = useState({ title: '', prompt: '', genre: '' });
 
     useEffect(() => {
-        const q = query(collection(db, 'prompts'), orderBy('createdAt', 'desc'));
+        const q = query(collection(db, 'prompts'), where('isArchived', '==', false), orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const promptsData = snapshot.docs
-              .map(doc => ({ id: doc.id, ...doc.data() } as Prompt))
-              .filter(prompt => !prompt.isRemoved); // Filter client-side
+              .map(doc => ({ id: doc.id, ...doc.data() } as Prompt));
             setPrompts(promptsData);
             setIsLoading(false);
         }, (error) => {
@@ -627,7 +624,6 @@ function PromptsTabContent() {
       setIsSubmitting(true);
 
       const originalPrompts = prompts;
-      // Optimistic update
       setPrompts(prompts.map(p => p.id === editingPrompt.id ? { ...p, ...editedPromptData } : p));
       setEditingPrompt(null);
       
@@ -637,24 +633,23 @@ function PromptsTabContent() {
         toast({ title: 'Prompt Updated' });
       } else {
         toast({ title: 'Error', description: result.error, variant: 'destructive' });
-        setPrompts(originalPrompts); // Revert on failure
+        setPrompts(originalPrompts);
       }
       setIsSubmitting(false);
     };
   
-    const handleRemovePrompt = async (promptToRemove: Prompt) => {
+    const handleArchivePrompt = async (promptToArchive: Prompt) => {
       if (!user) return;
       
       const originalPrompts = prompts;
-      // Optimistic update
-      setPrompts(prompts.filter(p => p.id !== promptToRemove.id));
+      setPrompts(prompts.filter(p => p.id !== promptToArchive.id));
 
-      const result = await removePrompt(promptToRemove.id, user.id);
+      const result = await archivePrompt(promptToArchive.id, user.id);
       if (result.success) {
-        toast({ title: 'Prompt Removed' });
+        toast({ title: 'Prompt Archived' });
       } else {
         toast({ title: 'Error', description: result.error, variant: 'destructive' });
-        setPrompts(originalPrompts); // Revert on failure
+        setPrompts(originalPrompts);
       }
     };
 
@@ -729,20 +724,20 @@ function PromptsTabContent() {
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <DropdownMenuItem
-                                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                    className="text-yellow-600 focus:bg-yellow-100/10 focus:text-yellow-700"
                                     onSelect={(e) => e.preventDefault()}
                                     >
-                                    <Trash2 className="mr-2 h-4 w-4" /> Remove
+                                    <Archive className="mr-2 h-4 w-4" /> Archive
                                     </DropdownMenuItem>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>This will hide the prompt, but it won't be permanently deleted.</AlertDialogDescription>
+                                        <AlertDialogTitle>Archive this prompt?</AlertDialogTitle>
+                                        <AlertDialogDescription>This will hide the prompt from the main feed. You can view and permanently delete it from your settings.</AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleRemovePrompt(item)} className="bg-destructive hover:bg-destructive/90">Remove</AlertDialogAction>
+                                        <AlertDialogAction onClick={() => handleArchivePrompt(item)} className="bg-yellow-500 hover:bg-yellow-500/90 text-background">Archive Prompt</AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>

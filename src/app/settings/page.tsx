@@ -11,14 +11,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, UserCog, Save, KeyRound, Mail, UploadCloud, Info, FileText, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Loader2, UserCog, Save, KeyRound, Mail, UploadCloud, Info, FileText, ShieldCheck, HelpCircle, Archive } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
   const { user, loading: authLoadingGlobal, authLoading: specificAuthLoading, updateUserProfile, updateUserEmailFirebase, updateUserPasswordFirebase } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
@@ -174,10 +176,13 @@ export default function SettingsPage() {
     );
   }
 
-  if (!user) {
-    return <div className="text-center py-10">Please log in to access settings. Redirecting...</div>;
+  if (!user && !authLoadingGlobal) {
+    router.push('/auth/signin');
+    return null;
   }
   
+  if (!user) return null;
+
   const anySubmitting = isProfileUpdating || isEmailUpdating || isPasswordUpdating || specificAuthLoading || isUploading;
 
   return (
@@ -190,9 +195,10 @@ export default function SettingsPage() {
       </header>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 rounded-lg shadow-sm">
+        <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 rounded-lg shadow-sm">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
+          <TabsTrigger value="archive">Archive</TabsTrigger>
           <TabsTrigger value="about">About & Help</TabsTrigger>
         </TabsList>
 
@@ -319,6 +325,25 @@ export default function SettingsPage() {
             </Card>
           </div>
         </TabsContent>
+
+        <TabsContent value="archive" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Archive className="h-5 w-5 text-accent" /> Archived Content
+              </CardTitle>
+              <CardDescription>
+                View your archived content here. You can choose to restore it or delete it permanently.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/settings/archive">
+                <Button variant="outline">View Your Archive</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="about" className="mt-6">
             <Card>
                 <CardHeader>

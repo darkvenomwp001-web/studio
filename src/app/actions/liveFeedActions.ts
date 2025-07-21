@@ -30,11 +30,12 @@ export async function createLiveFeedPost(
   try {
     await addDoc(collection(db, 'liveFeed'), {
       author,
-      authorId: author.id, // Ensure authorId is always set for consistency
+      authorId: author.id,
       content,
       timestamp: serverTimestamp(),
+      isArchived: false,
     });
-    revalidatePath('/'); // Revalidate the homepage feed
+    revalidatePath('/');
     return { success: true };
   } catch (error) {
     console.error('Error creating live feed post:', error);
@@ -67,7 +68,6 @@ export async function updateLiveFeedPost(
     
     const postData = postSnap.data();
     
-    // Ultra-robust ownership check
     let postAuthorId: string | undefined = undefined;
     if (postData.authorId) {
         postAuthorId = postData.authorId;
@@ -90,7 +90,7 @@ export async function updateLiveFeedPost(
   }
 }
 
-export async function removeLiveFeedPost(
+export async function archiveLiveFeedPost(
   postId: string,
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -107,7 +107,6 @@ export async function removeLiveFeedPost(
     
     const postData = postSnap.data();
     
-    // Ultra-robust ownership check
     let postAuthorId: string | undefined = undefined;
     if (postData.authorId) {
         postAuthorId = postData.authorId;
@@ -116,17 +115,52 @@ export async function removeLiveFeedPost(
     }
                     
     if (!postAuthorId || postAuthorId !== userId) {
-        return { success: false, error: 'You do not have permission to remove this post.' };
+        return { success: false, error: 'You do not have permission to archive this post.' };
     }
 
     await updateDoc(postRef, {
-        isRemoved: true,
-        removedAt: serverTimestamp()
+        isArchived: true,
+        archivedAt: serverTimestamp()
     });
     revalidatePath('/');
     return { success: true };
   } catch (error) {
-    console.error('Error removing live feed post:', error);
-    return { success: false, error: 'Could not remove post.' };
+    console.error('Error archiving live feed post:', error);
+    return { success: false, error: 'Could not archive post.' };
   }
+}
+
+export async function permanentlyDeleteLiveFeedPost(
+  postId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+    if (!userId) {
+        return { success: false, error: 'User not authenticated.' };
+    }
+    try {
+        const postRef = doc(db, 'liveFeed', postId);
+        // Additional check to ensure it's their post before deleting
+        const postSnap = await getDoc(postRef);
+        if (!postSnap.exists()) {
+            return { success: true, error: 'Post already deleted.' };
+        }
+        const postData = postSnap.data();
+        let postAuthorId: string | undefined = undefined;
+        if (postData.authorId) {
+            postAuthorId = postData.authorId;
+        } else if (postData.author && typeof postData.author === 'object' && 'id' in postData.author) {
+            postAuthorId = (postData.author as {id: string}).id;
+        }
+
+        if (!postAuthorId || postAuthorId !== userId) {
+            return { success: false, error: 'You do not have permission to delete this post.' };
+        }
+
+        await deleteDoc(postRef);
+        revalidatePath('/settings/archive');
+        return { success: true };
+    } catch (error) {
+        console.error('Error permanently deleting live feed post:', error);
+        return { success: false, error: 'Could not permanently delete post.' };
+    }
 }
