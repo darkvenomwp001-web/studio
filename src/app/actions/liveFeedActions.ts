@@ -14,6 +14,18 @@ import {
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
 
+// Helper function for robust ownership check
+function isPostOwner(userId: string, postData: { [key: string]: any }): boolean {
+  if (!userId || !postData) return false;
+  // Check for authorId at the top level
+  if (postData.authorId === userId) return true;
+  // Check for author object with an id property
+  if (postData.author && typeof postData.author === 'object' && postData.author.id === userId) return true;
+  // Check for authorInfo object with an id property (for status updates, good to have here for consistency)
+  if (postData.authorInfo && typeof postData.authorInfo === 'object' && postData.authorInfo.id === userId) return true;
+  return false;
+}
+
 export async function createLiveFeedPost(
   author: UserSummary,
   content: string
@@ -67,17 +79,7 @@ export async function updateLiveFeedPost(
       return { success: false, error: 'Post not found.' };
     }
     
-    const postData = postSnap.data();
-    
-    // Robust ownership check
-    let postAuthorId: string | undefined = undefined;
-    if (postData.authorId) {
-        postAuthorId = postData.authorId;
-    } else if (postData.author && typeof postData.author === 'object' && 'id' in postData.author) {
-        postAuthorId = (postData.author as {id: string}).id;
-    }
-
-    if (!postAuthorId || postAuthorId !== userId) {
+    if (!isPostOwner(userId, postSnap.data())) {
         return { success: false, error: 'You do not have permission to edit this post.' };
     }
 
@@ -107,17 +109,7 @@ export async function archiveLiveFeedPost(
       return { success: false, error: 'Post not found.' };
     }
     
-    const postData = postSnap.data();
-    
-    // Robust ownership check
-    let postAuthorId: string | undefined = undefined;
-    if (postData.authorId) {
-        postAuthorId = postData.authorId;
-    } else if (postData.author && typeof postData.author === 'object' && 'id' in postData.author) {
-        postAuthorId = (postData.author as {id: string}).id;
-    }
-                    
-    if (!postAuthorId || postAuthorId !== userId) {
+    if (!isPostOwner(userId, postSnap.data())) {
         return { success: false, error: 'You do not have permission to archive this post.' };
     }
 
@@ -142,22 +134,12 @@ export async function permanentlyDeleteLiveFeedPost(
     }
     try {
         const postRef = doc(db, 'liveFeed', postId);
-        // Additional check to ensure it's their post before deleting
         const postSnap = await getDoc(postRef);
         if (!postSnap.exists()) {
             return { success: true, error: 'Post already deleted.' };
         }
-        const postData = postSnap.data();
         
-        // Robust ownership check
-        let postAuthorId: string | undefined = undefined;
-        if (postData.authorId) {
-            postAuthorId = postData.authorId;
-        } else if (postData.author && typeof postData.author === 'object' && 'id' in postData.author) {
-            postAuthorId = (postData.author as {id: string}).id;
-        }
-
-        if (!postAuthorId || postAuthorId !== userId) {
+        if (!isPostOwner(userId, postSnap.data())) {
             return { success: false, error: 'You do not have permission to delete this post.' };
         }
 

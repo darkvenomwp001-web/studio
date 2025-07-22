@@ -5,50 +5,16 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
-// This function is being replaced by the archive flow.
-// It's kept here for reference but can be removed later.
-export async function removeStatusUpdate(
-  statusId: string,
-  userId: string
-): Promise<{ success: boolean; error?: string }> {
-  if (!userId) {
-    return { success: false, error: 'User not authenticated.' };
-  }
-  try {
-    const statusRef = doc(db, 'statusUpdates', statusId);
-    const statusSnap = await getDoc(statusRef);
-
-    if (!statusSnap.exists()) {
-      return { success: true };
-    }
-
-    const statusData = statusSnap.data();
-    
-    let postAuthorId: string | undefined = undefined;
-    if (statusData.authorId) {
-        postAuthorId = statusData.authorId;
-    } else if (statusData.authorInfo && typeof statusData.authorInfo === 'object' && 'id' in statusData.authorInfo) {
-        postAuthorId = (statusData.authorInfo as {id: string}).id;
-    } else if (statusData.author && typeof statusData.author === 'object' && 'id' in statusData.author) {
-        postAuthorId = (statusData.author as {id: string}).id;
-    }
-
-    if (!postAuthorId || postAuthorId !== userId) {
-      console.error(`Permission denied: User ${userId} tried to remove status ${statusId} owned by ${postAuthorId}. Data:`, statusData);
-      return { success: false, error: 'You do not have permission to remove this status.' };
-    }
-    
-    await updateDoc(statusRef, {
-        isRemoved: true,
-        removedAt: serverTimestamp(),
-    });
-
-    revalidatePath('/');
-    return { success: true };
-  } catch (error) {
-    console.error('Error removing status update:', error);
-    return { success: false, error: 'Could not remove status.' };
-  }
+// Helper function for robust ownership check
+function isStatusOwner(userId: string, postData: { [key: string]: any }): boolean {
+  if (!userId || !postData) return false;
+  // Check for authorId at the top level
+  if (postData.authorId === userId) return true;
+  // Check for author object with an id property
+  if (postData.author && typeof postData.author === 'object' && postData.author.id === userId) return true;
+  // Check for authorInfo object with an id property
+  if (postData.authorInfo && typeof postData.authorInfo === 'object' && postData.authorInfo.id === userId) return true;
+  return false;
 }
 
 export async function archiveStatusUpdate(
@@ -66,17 +32,7 @@ export async function archiveStatusUpdate(
       return { success: false, error: 'Status not found.' };
     }
 
-    const statusData = statusSnap.data();
-    
-    // Robust ownership check
-    let postAuthorId: string | undefined = undefined;
-    if (statusData.authorId) {
-        postAuthorId = statusData.authorId;
-    } else if (statusData.authorInfo && typeof statusData.authorInfo === 'object' && 'id' in statusData.authorInfo) {
-        postAuthorId = (statusData.authorInfo as {id: string}).id;
-    }
-
-    if (!postAuthorId || postAuthorId !== userId) {
+    if (!isStatusOwner(userId, statusSnap.data())) {
         return { success: false, error: 'You do not have permission to archive this status.' };
     }
 
@@ -106,16 +62,8 @@ export async function permanentlyDeleteStatusUpdate(
         if (!statusSnap.exists()) {
             return { success: true, error: 'Status already deleted.' };
         }
-        const statusData = statusSnap.data();
         
-        let postAuthorId: string | undefined = undefined;
-        if (statusData.authorId) {
-            postAuthorId = statusData.authorId;
-        } else if (statusData.authorInfo && typeof statusData.authorInfo === 'object' && 'id' in statusData.authorInfo) {
-            postAuthorId = (statusData.authorInfo as {id: string}).id;
-        }
-
-        if (!postAuthorId || postAuthorId !== userId) {
+        if (!isStatusOwner(userId, statusSnap.data())) {
             return { success: false, error: 'You do not have permission to delete this status.' };
         }
 
