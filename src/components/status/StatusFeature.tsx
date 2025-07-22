@@ -11,10 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Archive } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { removeStatusUpdate } from '@/app/actions/statusActions';
+import { archiveStatusUpdate } from '@/app/actions/statusActions';
 
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -36,7 +36,7 @@ function StatusBubble({ user, statuses, onSelect }: { user: User, statuses: Stat
   );
 }
 
-function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusRemoved }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusRemoved: (statusId: string, userId: string) => void }) {
+function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (statusId: string, userId: string) => void }) {
     const { user: currentUser } = useAuth();
     const { toast } = useToast();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
@@ -74,17 +74,15 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
 
     const currentStatus = userStatuses[currentStatusIndex];
 
-    const handleRemove = async () => {
+    const handleArchive = async () => {
       if (!currentStatus || !currentUser) return;
-      onStatusRemoved(currentStatus.id, currentUser.id);
       onOpenChange(false); // Close the viewer optimistically
-      const result = await removeStatusUpdate(currentStatus.id, currentUser.id);
+      const result = await archiveStatusUpdate(currentStatus.id, currentUser.id);
       if (result.success) {
-        toast({ title: 'Status Removed' });
+        onStatusArchived(currentStatus.id, currentUser.id);
+        toast({ title: 'Status Archived' });
       } else {
         toast({ title: 'Error', description: result.error, variant: 'destructive' });
-        // Note: Reverting UI is complex here as we've already closed the dialog.
-        // A simple toast is the pragmatic approach.
       }
     };
 
@@ -115,19 +113,19 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
-                                <Trash2 className="h-5 w-5"/>
+                                <Archive className="h-5 w-5"/>
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Remove this status?</AlertDialogTitle>
+                                <AlertDialogTitle>Archive this status?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This action will hide this status from view. It will not be permanently deleted.
+                                  This will hide the status from view. You can view and permanently delete it later from your settings.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleRemove} className="bg-destructive hover:bg-destructive/90">Remove</AlertDialogAction>
+                                <AlertDialogAction onClick={handleArchive} className="bg-destructive hover:bg-destructive/90">Archive</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
@@ -190,24 +188,27 @@ export default function StatusFeature() {
     const q = query(
       collection(db, 'statusUpdates'),
       where('createdAt', '>', twentyFourHoursAgo),
+      where('isArchived', '!=', true),
       orderBy('createdAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const statusesData = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate))
-        .filter(status => !status.isRemoved); // Filter client-side
+        .map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
       setAllStatuses(statusesData);
 
       const groups = new Map<string, {user: User, statuses: StatusUpdate[]}>();
+      const newStatusOrder: string[] = [];
+      
       statusesData.forEach(status => {
           if (!groups.has(status.authorId)) {
               groups.set(status.authorId, { user: status.authorInfo as User, statuses: [] });
+              newStatusOrder.push(status.authorId);
           }
           groups.get(status.authorId)!.statuses.push(status);
       });
       setGroupedStatuses(groups);
-      setStatusOrder(Array.from(groups.keys()));
+      setStatusOrder(newStatusOrder);
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching statuses:", error);
@@ -241,8 +242,7 @@ export default function StatusFeature() {
     }
   }
 
-   const handleStatusRemoved = (statusId: string, userId: string) => {
-    // Optimistically remove the status from the local state
+   const handleStatusArchived = (statusId: string, userId: string) => {
     setGroupedStatuses(prevGroups => {
         const newGroups = new Map(prevGroups);
         const userGroup = newGroups.get(userId);
@@ -314,6 +314,7 @@ export default function StatusFeature() {
             mediaType: 'image',
             createdAt: serverTimestamp(),
             expiresAt: expiresAt,
+            isArchived: false,
         });
         toast({ title: "Status Published!" });
         setIsUploaderOpen(false);
@@ -407,7 +408,7 @@ export default function StatusFeature() {
             userStatuses={selectedUserForViewing ? groupedStatuses.get(selectedUserForViewing.id)?.statuses || [] : []}
             onNext={handleNextUser}
             onPrev={handlePrevUser}
-            onStatusRemoved={handleStatusRemoved}
+            onStatusArchived={handleStatusArchived}
         />
     </>
   );

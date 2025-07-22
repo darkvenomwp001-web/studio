@@ -5,18 +5,18 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, getDocs, writeBatch, doc } from 'firebase/firestore';
-import { Loader2, ArrowLeft, Archive as ArchiveIcon, Trash2, Edit, FileText } from 'lucide-react';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { Loader2, ArrowLeft, Archive as ArchiveIcon, Trash2, Edit, FileText, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import type { LiveFeedPost, Prompt } from '@/types';
+import type { LiveFeedPost, Prompt, StatusUpdate } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
-import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { permanentlyDeleteLiveFeedPost } from '@/app/actions/liveFeedActions';
 import { permanentlyDeletePrompt } from '@/app/actions/promptActions';
+import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 
 export default function ArchivePage() {
   const { user, loading: authLoading } = useAuth();
@@ -25,6 +25,7 @@ export default function ArchivePage() {
 
   const [archivedPrompts, setArchivedPrompts] = useState<Prompt[]>([]);
   const [archivedLiveFeedPosts, setArchivedLiveFeedPosts] = useState<LiveFeedPost[]>([]);
+  const [archivedStatuses, setArchivedStatuses] = useState<StatusUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -37,10 +38,11 @@ export default function ArchivePage() {
     setIsLoading(true);
     const promptsQuery = query(collection(db, 'prompts'), where('author.id', '==', user.id), where('isArchived', '==', true), orderBy('archivedAt', 'desc'));
     const liveFeedQuery = query(collection(db, 'liveFeed'), where('authorId', '==', user.id), where('isArchived', '==', true), orderBy('archivedAt', 'desc'));
+    const statusesQuery = query(collection(db, 'statusUpdates'), where('authorId', '==', user.id), where('isArchived', '==', true), orderBy('archivedAt', 'desc'));
 
     const unsubPrompts = onSnapshot(promptsQuery, snapshot => {
       setArchivedPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
-      setIsLoading(false); // Can set loading false after first query returns
+      setIsLoading(false); 
     }, error => {
       console.error("Error fetching archived prompts:", error);
       toast({ title: "Error", description: "Could not load archived prompts.", variant: "destructive" });
@@ -52,20 +54,34 @@ export default function ArchivePage() {
       console.error("Error fetching archived live feed posts:", error);
        toast({ title: "Error", description: "Could not load archived posts.", variant: "destructive" });
     });
+    
+    const unsubStatuses = onSnapshot(statusesQuery, snapshot => {
+        setArchivedStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
+    }, error => {
+        console.error("Error fetching archived statuses:", error);
+        toast({ title: "Error", description: "Could not load archived statuses.", variant: "destructive" });
+    });
 
     return () => {
       unsubPrompts();
       unsubLiveFeed();
+      unsubStatuses();
     };
   }, [user, authLoading, router, toast]);
 
-  const handleUnarchive = async (item: Prompt | LiveFeedPost, type: 'prompt' | 'liveFeed') => {
-    const collectionName = type === 'prompt' ? 'prompts' : 'liveFeed';
+  const handleUnarchive = async (item: Prompt | LiveFeedPost | StatusUpdate, type: 'prompt' | 'liveFeed' | 'status') => {
+    let collectionName: string;
+    switch(type) {
+        case 'prompt': collectionName = 'prompts'; break;
+        case 'liveFeed': collectionName = 'liveFeed'; break;
+        case 'status': collectionName = 'statusUpdates'; break;
+    }
+
     const itemRef = doc(db, collectionName, item.id);
     try {
         await updateDoc(itemRef, {
             isArchived: false,
-            archivedAt: null // or delete(it) if you prefer
+            archivedAt: null 
         });
         toast({ title: "Content Restored", description: "The item has been returned to the main feed." });
     } catch (error) {
@@ -73,13 +89,19 @@ export default function ArchivePage() {
     }
   };
 
-  const handleDelete = async (item: Prompt | LiveFeedPost, type: 'prompt' | 'liveFeed') => {
+  const handleDelete = async (item: Prompt | LiveFeedPost | StatusUpdate, type: 'prompt' | 'liveFeed' | 'status') => {
     if (!user) return;
     let result: { success: boolean, error?: string };
-    if (type === 'prompt') {
-        result = await permanentlyDeletePrompt(item.id, user.id);
-    } else {
-        result = await permanentlyDeleteLiveFeedPost(item.id, user.id);
+    switch(type) {
+        case 'prompt':
+            result = await permanentlyDeletePrompt(item.id, user.id);
+            break;
+        case 'liveFeed':
+            result = await permanentlyDeleteLiveFeedPost(item.id, user.id);
+            break;
+        case 'status':
+            result = await permanentlyDeleteStatusUpdate(item.id, user.id);
+            break;
     }
 
     if (result.success) {
@@ -111,9 +133,10 @@ export default function ArchivePage() {
       </header>
 
       <Tabs defaultValue="posts" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="posts">Posts ({archivedLiveFeedPosts.length})</TabsTrigger>
             <TabsTrigger value="prompts">Prompts ({archivedPrompts.length})</TabsTrigger>
+            <TabsTrigger value="statuses">Statuses ({archivedStatuses.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="posts" className="mt-4">
             <div className="space-y-4">
@@ -169,8 +192,35 @@ export default function ArchivePage() {
                 )) : <p className="text-center text-muted-foreground py-10">No archived prompts.</p>}
             </div>
         </TabsContent>
+         <TabsContent value="statuses" className="mt-4">
+            <div className="space-y-4">
+                {archivedStatuses.length > 0 ? archivedStatuses.map(status => (
+                    <Card key={status.id}>
+                        <CardContent className="p-4 flex items-center gap-4">
+                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                            <div className="flex-1">
+                                <p className="text-sm text-muted-foreground">Image status from {formatDate(status.createdAt)}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Archived on {formatDate(status.archivedAt)}</p>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleUnarchive(status, 'status')}>Restore</Button>
+                             <AlertDialog>
+                                <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete Forever</Button></AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action is permanent and cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(status, 'status')} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </CardFooter>
+                    </Card>
+                )) : <p className="text-center text-muted-foreground py-10">No archived statuses.</p>}
+            </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
-

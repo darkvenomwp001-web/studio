@@ -206,6 +206,6 @@ export interface StatusUpdate {
     mediaType: 'image' | 'video';
     expiresAt: any;
     createdAt: any;
-    isRemoved?: boolean;
-    removedAt?: any;
+    isArchived?: boolean;
+    archivedAt?: any;
 }
