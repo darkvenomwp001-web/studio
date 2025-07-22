@@ -1,18 +1,8 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check for ownership across different data structures
-    function isAuthor(doc) {
-      return request.auth.uid != null && (
-        (doc.authorId != null && doc.authorId == request.auth.uid) ||
-        (doc.author.id != null && doc.author.id == request.auth.uid) ||
-        (doc.authorInfo.id != null && doc.authorInfo.id == request.auth.uid)
-      );
-    }
-    
     // Users can read any profile, but can only create/update their own document.
     match /users/{userId} {
       allow read: if true;
@@ -49,22 +39,48 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && resource.data.user.id == request.auth.uid;
     }
 
-    // LiveFeed posts can be read by anyone.
-    // Only authenticated users can create posts, and they must be the author.
-    match /liveFeed/{postId} {
-      allow read: if true;
-      allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
-      allow update: if request.auth != null && isAuthor(resource.data);
-      allow delete: if request.auth != null && isAuthor(resource.data);
+    // Conversations & Messages
+    match /conversations/{conversationId} {
+        // Can read/write if the user is a participant.
+        allow read, write: if request.auth != null && request.auth.uid in resource.data.participantIds;
+
+        // Messages subcollection
+        match /messages/{messageId} {
+            allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+            // Only the sender can edit/delete their own messages
+            allow update, delete: if request.auth != null && request.auth.uid == resource.data.senderId;
+        }
     }
 
-    // Prompts can be read by anyone.
-    // Only authenticated users can create prompts, and they must be the author.
-    match /prompts/{promptId} {
+    // Feed posts from the main feed tab
+    match /feedPosts/{postId} {
+        allow read: if true;
+        allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if request.auth != null && (
+            (resource.data.authorId == request.auth.uid) ||
+            (resource.data.author.id == request.auth.uid)
+        );
+    }
+
+    // LIVE FEED POSTS
+    match /liveFeed/{postId} {
       allow read: if true;
-      allow create: if request.auth != null && request.resource.data.author.id == request.auth.uid;
-      allow update: if request.auth != null && isAuthor(resource.data);
-      allow delete: if request.auth != null && isAuthor(resource.data);
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && (
+          (resource.data.authorId == request.auth.uid) ||
+          (resource.data.author.id == request.auth.uid) ||
+          (resource.data.authorInfo.id == request.auth.uid)
+      );
+    }
+    
+    // Prompts from the Prompts tab
+    match /prompts/{promptId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow update, delete: if request.auth != null && (
+          (resource.data.authorId == request.auth.uid) ||
+          (resource.data.author.id == request.auth.uid)
+        );
     }
     
     // Letters can only be read by the sender or receiver.
@@ -75,33 +91,15 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.reader.id == request.auth.uid;
       allow update: if request.auth != null && resource.data.authorId == request.auth.uid;
     }
-
-    // Status updates are public, but can only be created by the author.
+    
+    // 24-hour status updates
     match /statusUpdates/{statusId} {
-      allow read: if true;
-      allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
-      allow update: if request.auth != null && isAuthor(resource.data);
-      allow delete: if request.auth != null && isAuthor(resource.data);
-    }
-    
-     // Conversations & Messages
-    match /conversations/{conversationId} {
-        // Can read/write if the user is a participant.
-        allow read, write: if request.auth != null && request.auth.uid in resource.data.participantIds;
-
-        // Messages subcollection
-        match /messages/{messageId} {
-            allow read, create: if request.auth != null && get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-            // Only the sender can edit/delete their own messages (functionality not implemented yet)
-            allow update, delete: if request.auth != null && request.auth.uid == resource.data.senderId;
-        }
-    }
-    
-    // Feed posts from the main feed tab
-    match /feedPosts/{postId} {
         allow read: if true;
         allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
-        allow update, delete: if request.auth != null && isAuthor(resource.data);
+        allow update, delete: if request.auth != null && (
+            (resource.data.authorId == request.auth.uid) ||
+            (resource.data.authorInfo.id == request.auth.uid)
+        );
     }
   }
 }
