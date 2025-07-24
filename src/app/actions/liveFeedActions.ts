@@ -144,7 +144,7 @@ export async function permanentlyDeleteLiveFeedPost(
         }
 
         await deleteDoc(postRef);
-        revalidatePath('/settings/archive');
+        revalidatePath('/');
         return { success: true };
     } catch (error) {
         console.error('Error permanently deleting live feed post:', error);

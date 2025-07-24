@@ -55,6 +55,7 @@ import {
 import {
   archiveLiveFeedPost,
   updateLiveFeedPost,
+  permanentlyDeleteLiveFeedPost,
 } from '@/app/actions/liveFeedActions';
 import { createPrompt, archivePrompt, updatePrompt } from '@/app/actions/promptActions';
 
@@ -418,6 +419,21 @@ function LiveFeedTabContent() {
     }
   };
 
+  const handleDeletePost = async (postToDelete: LiveFeedPost) => {
+    if (!user) return;
+    
+    const originalPosts = posts;
+    setPosts(prevPosts => prevPosts.filter(p => p.id !== postToDelete.id));
+
+    const result = await permanentlyDeleteLiveFeedPost(postToDelete.id, user.id);
+    if (result.success) {
+      toast({ title: 'Post Deleted', description: 'The post has been permanently removed.' });
+    } else {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      setPosts(originalPosts);
+    }
+  };
+
   return (
     <>
       <div className="max-w-xl mx-auto space-y-6 py-8">
@@ -482,7 +498,7 @@ function LiveFeedTabContent() {
                         }}>
                           <Edit className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
+                        
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <DropdownMenuItem
@@ -503,6 +519,30 @@ function LiveFeedTabContent() {
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
+
+                        <DropdownMenuSeparator />
+
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                  onSelect={(e) => e.preventDefault()}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete this post forever?</AlertDialogTitle>
+                                    <AlertDialogDescription>This action cannot be undone. The post will be permanently removed.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeletePost(post)} className="bg-destructive hover:bg-destructive/90">Delete Forever</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}
