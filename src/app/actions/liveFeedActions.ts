@@ -9,7 +9,7 @@ import {
   doc,
   updateDoc,
   getDoc,
-  deleteDoc, // Make sure deleteDoc is imported
+  deleteDoc,
 } from 'firebase/firestore';
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
@@ -19,12 +19,10 @@ function isPostOwner(userId: string, postData: { [key: string]: any }): boolean 
   if (!userId || !postData) return false;
   // Check for authorId at the top level
   if (postData.authorId === userId) return true;
-  // Check for author object with an id property
+  // Check for an 'author' object with an 'id' property
   if (postData.author && typeof postData.author === 'object' && postData.author.id === userId) return true;
-  // Check for user object with an id property (like in comments)
+  // Check for a 'user' object with an 'id' property (like in some comments)
   if (postData.user && typeof postData.user === 'object' && postData.user.id === userId) return true;
-  // Check for authorInfo object with an id property (for status updates)
-  if (postData.authorInfo && typeof postData.authorInfo === 'object' && postData.authorInfo.id === userId) return true;
   return false;
 }
 

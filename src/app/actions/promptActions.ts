@@ -19,7 +19,7 @@ function isPromptOwner(userId: string, postData: { [key: string]: any }): boolea
   if (!userId || !postData) return false;
   // Check for authorId at the top level
   if (postData.authorId === userId) return true;
-  // Check for author object with an id property
+  // Check for an 'author' object with an 'id' property
   if (postData.author && typeof postData.author === 'object' && postData.author.id === userId) return true;
   return false;
 }
