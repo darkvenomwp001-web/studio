@@ -1,14 +1,15 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check ownership across different data structures
+    // Helper Functions
     function isAuthor(data) {
-      return request.auth.uid == data.get(['author', 'id'], '') ||
-             request.auth.uid == data.get(['authorId'], '') ||
-             request.auth.uid == data.get(['authorInfo', 'id'], '') ||
-             request.auth.uid == data.get(['user', 'id'], '');
+      return request.auth.uid == data.authorId || 
+             request.auth.uid == data.author.id || 
+             request.auth.uid == data.user.id ||
+             request.auth.uid == data.authorInfo.id;
     }
 
     // Users: Can read anyone's profile, but only write to their own.
@@ -20,7 +21,6 @@ service cloud.firestore {
     // Stories: Public can be read by anyone. Private/Drafts only by author/collaborators.
     match /stories/{storyId} {
       allow read: if resource.data.visibility == 'Public' ||
-                   resource.data.visibility == 'Unlisted' ||
                    (request.auth != null && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds));
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null && (resource.data.author.id == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
@@ -36,38 +36,42 @@ service cloud.firestore {
     
     // Notifications: Can only be read/updated by the user the notification is for.
     match /notifications/{notificationId} {
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null;
+      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null; // Created via server-side logic
     }
     
     // Conversations & Messages
     match /conversations/{conversationId} {
+        // Can read/write if the user is a participant.
         allow read, write: if request.auth != null && request.auth.uid in resource.data.participantIds;
+
+        // Messages subcollection
         match /messages/{messageId} {
             allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+            // Only the sender can edit/delete their own messages
             allow update, delete: if request.auth != null && request.auth.uid == resource.data.senderId;
         }
     }
     
-    // Feed posts from the main feed tab
+    // Feed posts from the main feed tab (not live feed)
     match /feedPosts/{postId} {
         allow read: if true;
         allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
-        allow update, delete: if request.auth != null && isAuthor(resource.data);
+        allow update: if request.auth != null && resource.data.authorId == request.auth.uid;
     }
     
     // LIVE FEED POSTS
     match /liveFeed/{postId} {
       allow read: if true;
       allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && isAuthor(resource.data);
+      allow update, delete: if request.auth != null && (resource.data.author.id == request.auth.uid || resource.data.authorId == request.auth.uid);
     }
     
     // Prompts from the Prompts tab
     match /prompts/{promptId} {
         allow read: if true;
         allow create: if request.auth != null;
-        allow update, delete: if request.auth != null && isAuthor(resource.data);
+        allow update, delete: if request.auth != null && (resource.data.author.id == request.auth.uid || resource.data.authorId == request.auth.uid);
     }
     
     // Letters between users
@@ -79,7 +83,7 @@ service cloud.firestore {
     // 24-hour status updates
     match /statusUpdates/{statusId} {
         allow read, create: if request.auth != null;
-        allow update, delete: if request.auth != null && isAuthor(resource.data);
+        allow update, delete: if request.auth != null && (resource.data.authorId == request.auth.uid || resource.data.authorInfo.id == request.auth.uid);
     }
   }
 }
