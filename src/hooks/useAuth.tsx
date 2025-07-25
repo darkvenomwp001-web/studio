@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
@@ -332,6 +333,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUpWithEmailPassword = async ({ email, passwordOne, username }: { username: string; email: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
+      // Check if email already exists before trying to create a user
+      const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+      if (signInMethods.length > 0) {
+        toast({
+          title: "Email Already in Use",
+          description: "This email is already associated with an account. Please sign in instead.",
+          variant: "destructive"
+        });
+        setAuthLoading(false);
+        return;
+      }
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       if (userCredential.user) {
         await updateFirebaseProfile(userCredential.user, { displayName: username });
