@@ -6,14 +6,14 @@ import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/fir
 import { revalidatePath } from 'next/cache';
 
 // Helper function for robust ownership check
-function isStatusOwner(userId: string, postData: { [key: string]: any }): boolean {
-  if (!userId || !postData) return false;
+function isStatusOwner(userId: string, statusData: { [key: string]: any }): boolean {
+  if (!userId || !statusData) return false;
   // Check for authorId at the top level
-  if (postData.authorId === userId) return true;
+  if (statusData.authorId === userId) return true;
   // Check for an 'author' object with an 'id' property
-  if (postData.author && typeof postData.author === 'object' && postData.author.id === userId) return true;
+  if (statusData.author && typeof statusData.author === 'object' && statusData.author.id === userId) return true;
   // Check for an 'authorInfo' object with an 'id' property
-  if (postData.authorInfo && typeof postData.authorInfo === 'object' && postData.authorInfo.id === userId) return true;
+  if (statusData.authorInfo && typeof statusData.authorInfo === 'object' && statusData.authorInfo.id === userId) return true;
   return false;
 }
 

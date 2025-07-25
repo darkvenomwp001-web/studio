@@ -1,20 +1,18 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to robustly check ownership
-    function isOwner(data) {
-      let uid = request.auth.uid;
-      return uid != null && (
-        (data.authorId != null && data.authorId == uid) ||
-        (data.author.id != null && data.author.id == uid) ||
-        (data.authorInfo.id != null && data.authorInfo.id == uid) ||
-        (data.user.id != null && data.user.id == uid)
+    
+    // Helper function for robust ownership check across different data structures
+    function isAuthor(data) {
+      return request.auth != null && (
+        (request.auth.uid == data.authorId) ||
+        (request.auth.uid == data.author.id) ||
+        (request.auth.uid == data.authorInfo.id) ||
+        (request.auth.uid == data.user.id)
       );
     }
-    
+
     // Users can read any profile, but can only create/update their own document.
     match /users/{userId} {
       allow read: if true;
@@ -48,23 +46,23 @@ service cloud.firestore {
     match /comments/{commentId} {
       allow read: if true;
       allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && isOwner(resource.data);
+      allow update, delete: if request.auth != null && resource.data.user.id == request.auth.uid;
     }
 
     // LiveFeed posts can be read by anyone.
-    // Users can create/update/delete their own posts.
+    // Create, update, and delete are restricted to the author.
     match /liveFeed/{postId} {
       allow read: if true;
-      allow create: if request.auth != null && isOwner(request.resource.data);
-      allow update, delete: if request.auth != null && isOwner(resource.data);
+      allow create: if request.auth != null && isAuthor(request.resource.data);
+      allow update, delete: if request.auth != null && isAuthor(resource.data);
     }
 
     // Prompts can be read by anyone.
-    // Users can create/update/delete their own prompts.
+    // Create, update, and delete are restricted to the author.
     match /prompts/{promptId} {
       allow read: if true;
-      allow create: if request.auth != null && isOwner(request.resource.data);
-      allow update, delete: if request.auth != null && isOwner(resource.data);
+      allow create: if request.auth != null && isAuthor(request.resource.data);
+      allow update, delete: if request.auth != null && isAuthor(resource.data);
     }
     
     // Letters can only be read by the sender or receiver.
@@ -76,32 +74,12 @@ service cloud.firestore {
       allow update: if request.auth != null && resource.data.authorId == request.auth.uid;
     }
 
-    // Status updates are public, but can only be created by the author.
-    // Author can update (archive) or delete their own status.
+    // Status updates are public.
+    // Create, update, and delete are restricted to the author.
     match /statusUpdates/{statusId} {
       allow read: if true;
-      allow create: if request.auth != null && isOwner(request.resource.data);
-      allow update, delete: if request.auth != null && isOwner(resource.data);
-    }
-
-    // Conversations can only be accessed by participants.
-    match /conversations/{conversationId} {
-        allow read, write: if request.auth != null && request.auth.uid in resource.data.participantIds;
-        
-        match /messages/{messageId} {
-            allow read, write: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        }
-    }
-
-    // FeedPosts can be read by anyone.
-    // Users can create their own posts.
-    // Users can update their own posts (e.g. for likes, which is handled server-side now but good to have).
-    match /feedPosts/{postId} {
-        allow read: if true;
-        allow create: if request.auth != null && isOwner(request.resource.data);
-        allow update: if request.auth != null && isOwner(resource.data); // Allows liking own post, but toggle is main driver
-        allow delete: if request.auth != null && isOwner(resource.data);
+      allow create: if request.auth != null && isAuthor(request.resource.data);
+      allow update, delete: if request.auth != null && isAuthor(resource.data);
     }
   }
 }
-    

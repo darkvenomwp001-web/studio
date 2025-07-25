@@ -15,12 +15,12 @@ import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
 
 // Helper function for robust ownership check
-function isPromptOwner(userId: string, postData: { [key: string]: any }): boolean {
-  if (!userId || !postData) return false;
+function isPromptOwner(userId: string, promptData: { [key: string]: any }): boolean {
+  if (!userId || !promptData) return false;
   // Check for authorId at the top level
-  if (postData.authorId === userId) return true;
+  if (promptData.authorId === userId) return true;
   // Check for an 'author' object with an 'id' property
-  if (postData.author && typeof postData.author === 'object' && postData.author.id === userId) return true;
+  if (promptData.author && typeof promptData.author === 'object' && promptData.author.id === userId) return true;
   return false;
 }
 
