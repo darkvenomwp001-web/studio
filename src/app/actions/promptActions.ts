@@ -14,13 +14,13 @@ import {
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
 
-// Helper function for robust ownership check
+// Universal ownership check for Prompts
 function isPromptOwner(userId: string, promptData: { [key: string]: any }): boolean {
   if (!userId || !promptData) return false;
-  // Check for authorId at the top level
-  if (promptData.authorId === userId) return true;
-  // Check for an 'author' object with an 'id' property
+  // Covers author summary object
   if (promptData.author && typeof promptData.author === 'object' && promptData.author.id === userId) return true;
+  // Covers top-level authorId
+  if (promptData.authorId === userId) return true;
   return false;
 }
 
@@ -40,7 +40,7 @@ export async function createPrompt(data: {
   try {
     await addDoc(collection(db, 'prompts'), {
       ...data,
-      authorId: data.author.id,
+      authorId: data.author.id, // Ensure consistent authorId
       createdAt: serverTimestamp(),
       isArchived: false,
     });

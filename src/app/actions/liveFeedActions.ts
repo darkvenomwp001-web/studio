@@ -15,6 +15,16 @@ import {
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
 
+// Universal ownership check for LiveFeed posts
+function isPostOwner(userId: string, postData: { [key: string]: any }): boolean {
+  if (!userId || !postData) return false;
+  // Covers author summary object
+  if (postData.author && typeof postData.author === 'object' && postData.author.id === userId) return true;
+  // Covers top-level authorId
+  if (postData.authorId === userId) return true;
+  return false;
+}
+
 export async function createLiveFeedPost(
   author: UserSummary,
   content: string
@@ -31,12 +41,12 @@ export async function createLiveFeedPost(
 
   try {
     await addDoc(collection(db, 'liveFeed'), {
-      author,
-      authorId: author.id,
+      author: author, // Store the full author summary object
+      authorId: author.id, // Also store the top-level ID for consistency
       content,
       timestamp: serverTimestamp(),
       isArchived: false,
-      isTrashed: false, // Initialize as not trashed
+      isTrashed: false,
     });
     revalidatePath('/');
     return { success: true };
@@ -69,7 +79,7 @@ export async function updateLiveFeedPost(
       return { success: false, error: 'Post not found.' };
     }
     
-    if (postSnap.data().authorId !== userId) {
+    if (!isPostOwner(userId, postSnap.data())) {
         return { success: false, error: 'You do not have permission to edit this post.' };
     }
 
@@ -99,12 +109,13 @@ export async function archiveLiveFeedPost(
       return { success: false, error: 'Post not found.' };
     }
     
-    if (postSnap.data().authorId !== userId) {
+    if (!isPostOwner(userId, postSnap.data())) {
         return { success: false, error: 'You do not have permission to archive this post.' };
     }
 
     await updateDoc(postRef, {
         isArchived: true,
+        isTrashed: false, // Ensure it's not also in trash
         archivedAt: serverTimestamp()
     });
     revalidatePath('/');
@@ -130,12 +141,13 @@ export async function trashLiveFeedPost(
       return { success: false, error: 'Post not found.' };
     }
     
-    if (postSnap.data().authorId !== userId) {
+    if (!isPostOwner(userId, postSnap.data())) {
         return { success: false, error: 'You do not have permission to trash this post.' };
     }
 
     await updateDoc(postRef, {
         isTrashed: true,
+        isArchived: false, // Ensure it's not also archived
         trashedAt: serverTimestamp()
     });
     revalidatePath('/');
@@ -159,7 +171,7 @@ export async function restoreLiveFeedPost(
         if (!postSnap.exists()) {
             return { success: false, error: 'Post not found.' };
         }
-        if (postSnap.data().authorId !== userId) {
+        if (!isPostOwner(userId, postSnap.data())) {
             return { success: false, error: 'You do not have permission to restore this post.' };
         }
 
@@ -194,7 +206,7 @@ export async function permanentlyDeleteLiveFeedPost(
             return { success: true, error: 'Post already deleted.' };
         }
         
-        if (postSnap.data().authorId !== userId) {
+        if (!isPostOwner(userId, postSnap.data())) {
             return { success: false, error: 'You do not have permission to delete this post.' };
         }
 
@@ -219,10 +231,10 @@ export async function requestPostDeletion(
     const postSnap = await getDoc(postRef);
 
     if (!postSnap.exists()) {
-      return { success: true };
+      return { success: true }; // Already gone, success from user's perspective
     }
     
-    if (postSnap.data().authorId !== userId) {
+    if (!isPostOwner(userId, postSnap.data())) {
       return { success: false, error: 'You do not have permission to delete this post.' };
     }
     
@@ -249,6 +261,3 @@ export async function requestPostDeletion(
   }
 }
     
-
-
-
