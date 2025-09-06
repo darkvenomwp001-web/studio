@@ -14,17 +14,17 @@ import {
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
 
-// Helper function for robust ownership check
-function isPostOwner(userId: string, postData: { [key: string]: any }): boolean {
-  if (!userId || !postData) return false;
-  // Check for authorId at the top level
-  if (postData.authorId === userId) return true;
-  // Check for an 'author' object with an 'id' property
-  if (postData.author && typeof postData.author === 'object' && postData.author.id === userId) return true;
-  // Check for a 'user' object with an 'id' property (like in some comments)
-  if (postData.user && typeof postData.user === 'object' && postData.user.id === userId) return true;
-  return false;
-}
+// This is no longer needed as we simplify the logic
+// function isPostOwner(userId: string, postData: { [key: string]: any }): boolean {
+//   if (!userId || !postData) return false;
+//   // Check for authorId at the top level
+//   if (postData.authorId === userId) return true;
+//   // Check for an 'author' object with an 'id' property
+//   if (postData.author && typeof postData.author === 'object' && postData.author.id === userId) return true;
+//   // Check for a 'user' object with an 'id' property (like in some comments)
+//   if (postData.user && typeof postData.user === 'object' && postData.user.id === userId) return true;
+//   return false;
+// }
 
 export async function createLiveFeedPost(
   author: UserSummary,
@@ -43,6 +43,7 @@ export async function createLiveFeedPost(
   try {
     await addDoc(collection(db, 'liveFeed'), {
       author,
+      // IMPORTANT: Always set a top-level authorId for simple, reliable ownership checks
       authorId: author.id,
       content,
       timestamp: serverTimestamp(),
@@ -79,7 +80,8 @@ export async function updateLiveFeedPost(
       return { success: false, error: 'Post not found.' };
     }
     
-    if (!isPostOwner(userId, postSnap.data())) {
+    // Simplified, robust ownership check
+    if (postSnap.data().authorId !== userId) {
         return { success: false, error: 'You do not have permission to edit this post.' };
     }
 
@@ -109,7 +111,8 @@ export async function archiveLiveFeedPost(
       return { success: false, error: 'Post not found.' };
     }
     
-    if (!isPostOwner(userId, postSnap.data())) {
+    // Simplified, robust ownership check
+    if (postSnap.data().authorId !== userId) {
         return { success: false, error: 'You do not have permission to archive this post.' };
     }
 
@@ -139,7 +142,8 @@ export async function permanentlyDeleteLiveFeedPost(
             return { success: true, error: 'Post already deleted.' };
         }
         
-        if (!isPostOwner(userId, postSnap.data())) {
+        // Simplified, robust ownership check
+        if (postSnap.data().authorId !== userId) {
             return { success: false, error: 'You do not have permission to delete this post.' };
         }
 

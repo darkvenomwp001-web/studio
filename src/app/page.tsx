@@ -281,9 +281,6 @@ function LiveFeedTabContent() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const MAX_IMAGE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
 
-  const [editingPost, setEditingPost] = useState<LiveFeedPost | null>(null);
-  const [editedContent, setEditedContent] = useState('');
-  
   useEffect(() => {
     const q = query(collection(db, 'liveFeed'), where('isArchived', '==', false), orderBy('timestamp', 'desc'), firestoreLimit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -390,49 +387,6 @@ function LiveFeedTabContent() {
     }
     setIsSubmitting(false);
   };
-  
-  const handleEditPost = async () => {
-    if (!editingPost || !user) return;
-    setIsSubmitting(true);
-    const result = await updateLiveFeedPost(editingPost.id, editedContent, user.id);
-    if (result.success) {
-      toast({ title: 'Post Updated' });
-      setEditingPost(null);
-    } else {
-      toast({ title: 'Error', description: result.error, variant: 'destructive' });
-    }
-    setIsSubmitting(false);
-  };
-  
-  const handleArchivePost = async (postToArchive: LiveFeedPost) => {
-    if (!user) return;
-    
-    const originalPosts = posts;
-    setPosts(prevPosts => prevPosts.filter(p => p.id !== postToArchive.id));
-
-    const result = await archiveLiveFeedPost(postToArchive.id, user.id);
-    if (!result.success) {
-      toast({ title: 'Error', description: result.error, variant: 'destructive' });
-      setPosts(originalPosts);
-    } else {
-      toast({ title: 'Post Archived', description: 'You can find it in your settings.' });
-    }
-  };
-
-  const handleDeletePost = async (postToDelete: LiveFeedPost) => {
-    if (!user) return;
-    
-    const originalPosts = posts;
-    setPosts(prevPosts => prevPosts.filter(p => p.id !== postToDelete.id));
-
-    const result = await permanentlyDeleteLiveFeedPost(postToDelete.id, user.id);
-    if (result.success) {
-      toast({ title: 'Post Deleted', description: 'The post has been permanently removed.' });
-    } else {
-      toast({ title: 'Error', description: result.error, variant: 'destructive' });
-      setPosts(originalPosts);
-    }
-  };
 
   return (
     <>
@@ -484,68 +438,6 @@ function LiveFeedTabContent() {
             {posts.map(post => (
               <Card key={post.id}>
                 <CardContent className="p-4 relative">
-                  {user?.id === post.authorId && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-7 w-7">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => {
-                          setEditingPost(post);
-                          setEditedContent(post.content);
-                        }}>
-                          <Edit className="mr-2 h-4 w-4" /> Edit
-                        </DropdownMenuItem>
-                        
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <DropdownMenuItem
-                                  className="text-yellow-600 focus:bg-yellow-100/10 focus:text-yellow-700"
-                                  onSelect={(e) => e.preventDefault()}
-                                >
-                                  <Archive className="mr-2 h-4 w-4" /> Archive
-                                </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Archive this post?</AlertDialogTitle>
-                                    <AlertDialogDescription>This will hide the post from the main feed. You can view and permanently delete it from your settings.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleArchivePost(post)} className="bg-yellow-500 hover:bg-yellow-500/90 text-background">Archive Post</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-
-                        <DropdownMenuSeparator />
-
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <DropdownMenuItem
-                                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                  onSelect={(e) => e.preventDefault()}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete this post forever?</AlertDialogTitle>
-                                    <AlertDialogDescription>This action cannot be undone. The post will be permanently removed.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeletePost(post)} className="bg-destructive hover:bg-destructive/90">Delete Forever</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
                   <div className="flex items-start gap-3">
                     <Avatar>
                       <AvatarImage src={post.author.avatarUrl} data-ai-hint="profile person"/>
@@ -570,30 +462,6 @@ function LiveFeedTabContent() {
           </div>
         )}
       </div>
-
-      {/* Edit Post Dialog */}
-      <Dialog open={!!editingPost} onOpenChange={(open) => !open && setEditingPost(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Post</DialogTitle>
-          </DialogHeader>
-          <Textarea
-            value={editedContent}
-            onChange={(e) => setEditedContent(e.target.value)}
-            rows={5}
-            maxLength={500}
-          />
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="ghost">Cancel</Button>
-            </DialogClose>
-            <Button onClick={handleEditPost} disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
