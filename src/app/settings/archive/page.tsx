@@ -5,8 +5,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { Loader2, ArrowLeft, Archive as ArchiveIcon, Trash2, Edit, FileText, Image as ImageIcon } from 'lucide-react';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { Loader2, ArrowLeft, Archive as ArchiveIcon, Trash2, Edit, FileText, Image as ImageIcon, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,9 +14,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { LiveFeedPost, Prompt, StatusUpdate } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
 import { useToast } from '@/hooks/use-toast';
-import { permanentlyDeleteLiveFeedPost } from '@/app/actions/liveFeedActions';
-import { permanentlyDeletePrompt } from '@/app/actions/promptActions';
-import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
+import { restoreLiveFeedPost, permanentlyDeleteLiveFeedPost } from '@/app/actions/liveFeedActions';
+import { permanentlyDeletePrompt } from '@/app/actions/promptActions'; // Assuming you have this
+import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions'; // Assuming you have this
 
 export default function ArchivePage() {
   const { user, loading: authLoading } = useAuth();
@@ -69,38 +69,32 @@ export default function ArchivePage() {
     };
   }, [user, authLoading, router, toast]);
 
-  const handleUnarchive = async (item: Prompt | LiveFeedPost | StatusUpdate, type: 'prompt' | 'liveFeed' | 'status') => {
-    let collectionName: string;
-    switch(type) {
-        case 'prompt': collectionName = 'prompts'; break;
-        case 'liveFeed': collectionName = 'liveFeed'; break;
-        case 'status': collectionName = 'statusUpdates'; break;
-    }
+  const handleRestore = async (item: LiveFeedPost | Prompt | StatusUpdate, type: 'liveFeed' | 'prompt' | 'status') => {
+    if (!user) return;
 
-    const itemRef = doc(db, collectionName, item.id);
-    try {
-        await updateDoc(itemRef, {
-            isArchived: false,
-            archivedAt: null 
-        });
-        toast({ title: "Content Restored", description: "The item has been returned to the main feed." });
-    } catch (error) {
-        toast({ title: "Error", description: "Could not restore the item.", variant: "destructive" });
+    if (type === 'liveFeed') {
+        const result = await restoreLiveFeedPost(item.id, user.id);
+        if (result.success) {
+            toast({ title: "Post Restored", description: "The post has been moved back to the live feed." });
+        } else {
+            toast({ title: "Error", description: result.error, variant: "destructive" });
+        }
     }
+    // Implement restore logic for other types if needed
   };
 
-  const handleDelete = async (item: Prompt | LiveFeedPost | StatusUpdate, type: 'prompt' | 'liveFeed' | 'status') => {
+  const handleDelete = async (itemId: string, type: 'liveFeed' | 'prompt' | 'status') => {
     if (!user) return;
     let result: { success: boolean, error?: string };
     switch(type) {
-        case 'prompt':
-            result = await permanentlyDeletePrompt(item.id, user.id);
-            break;
         case 'liveFeed':
-            result = await permanentlyDeleteLiveFeedPost(item.id, user.id);
+            result = await permanentlyDeleteLiveFeedPost(itemId, user.id);
+            break;
+        case 'prompt':
+            result = await permanentlyDeletePrompt(itemId, user.id);
             break;
         case 'status':
-            result = await permanentlyDeleteStatusUpdate(item.id, user.id);
+            result = await permanentlyDeleteStatusUpdate(itemId, user.id);
             break;
     }
 
@@ -110,7 +104,6 @@ export default function ArchivePage() {
         toast({ title: "Error", description: result.error, variant: "destructive" });
     }
   };
-
 
   if (isLoading) {
     return (
@@ -129,7 +122,7 @@ export default function ArchivePage() {
         <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
           <ArchiveIcon className="h-10 w-10" /> Your Archive
         </h1>
-        <p className="text-muted-foreground">Content you've archived. Restore or permanently delete it here.</p>
+        <p className="text-muted-foreground">Content you've archived. Restore it or move it to the trash.</p>
       </header>
 
       <Tabs defaultValue="posts" className="w-full">
@@ -147,17 +140,9 @@ export default function ArchivePage() {
                             <p className="text-xs text-muted-foreground mt-2">Archived on {formatDate(post.archivedAt)}</p>
                         </CardContent>
                         <CardFooter className="gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleUnarchive(post, 'liveFeed')}>Restore</Button>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete Forever</Button></AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action is permanent and cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(post, 'liveFeed')} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                            <Button variant="outline" size="sm" onClick={() => handleRestore(post, 'liveFeed')}>
+                                <RotateCcw className="mr-2 h-4 w-4" /> Restore
+                            </Button>
                         </CardFooter>
                     </Card>
                 )) : <p className="text-center text-muted-foreground py-10">No archived posts.</p>}
@@ -176,17 +161,9 @@ export default function ArchivePage() {
                             <p className="text-xs text-muted-foreground mt-2">Archived on {formatDate(prompt.archivedAt)}</p>
                         </CardContent>
                         <CardFooter className="gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleUnarchive(prompt, 'prompt')}>Restore</Button>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete Forever</Button></AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action is permanent and cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(prompt, 'prompt')} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                            <Button variant="outline" size="sm" disabled> {/* onClick={() => handleRestore(prompt, 'prompt')} */}
+                                <RotateCcw className="mr-2 h-4 w-4" /> Restore
+                            </Button>
                         </CardFooter>
                     </Card>
                 )) : <p className="text-center text-muted-foreground py-10">No archived prompts.</p>}
@@ -204,17 +181,9 @@ export default function ArchivePage() {
                             </div>
                         </CardContent>
                         <CardFooter className="gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleUnarchive(status, 'status')}>Restore</Button>
-                             <AlertDialog>
-                                <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete Forever</Button></AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action is permanent and cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(status, 'status')} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                           <Button variant="outline" size="sm" disabled> {/* onClick={() => handleRestore(status, 'status')} */}
+                                <RotateCcw className="mr-2 h-4 w-4" /> Restore
+                           </Button>
                         </CardFooter>
                     </Card>
                 )) : <p className="text-center text-muted-foreground py-10">No archived statuses.</p>}

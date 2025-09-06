@@ -15,18 +15,6 @@ import {
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
 
-// This is no longer needed as we simplify the logic
-// function isPostOwner(userId: string, postData: { [key: string]: any }): boolean {
-//   if (!userId || !postData) return false;
-//   // Check for authorId at the top level
-//   if (postData.authorId === userId) return true;
-//   // Check for an 'author' object with an 'id' property
-//   if (postData.author && typeof postData.author === 'object' && postData.author.id === userId) return true;
-//   // Check for a 'user' object with an 'id' property (like in some comments)
-//   if (postData.user && typeof postData.user === 'object' && postData.user.id === userId) return true;
-//   return false;
-// }
-
 export async function createLiveFeedPost(
   author: UserSummary,
   content: string
@@ -44,11 +32,11 @@ export async function createLiveFeedPost(
   try {
     await addDoc(collection(db, 'liveFeed'), {
       author,
-      // IMPORTANT: Always set a top-level authorId for simple, reliable ownership checks
       authorId: author.id,
       content,
       timestamp: serverTimestamp(),
       isArchived: false,
+      isTrashed: false, // Initialize as not trashed
     });
     revalidatePath('/');
     return { success: true };
@@ -81,7 +69,6 @@ export async function updateLiveFeedPost(
       return { success: false, error: 'Post not found.' };
     }
     
-    // Simplified, robust ownership check
     if (postSnap.data().authorId !== userId) {
         return { success: false, error: 'You do not have permission to edit this post.' };
     }
@@ -112,7 +99,6 @@ export async function archiveLiveFeedPost(
       return { success: false, error: 'Post not found.' };
     }
     
-    // Simplified, robust ownership check
     if (postSnap.data().authorId !== userId) {
         return { success: false, error: 'You do not have permission to archive this post.' };
     }
@@ -129,6 +115,98 @@ export async function archiveLiveFeedPost(
   }
 }
 
+export async function trashLiveFeedPost(
+  postId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!userId) {
+    return { success: false, error: 'User not authenticated.' };
+  }
+  try {
+    const postRef = doc(db, 'liveFeed', postId);
+    const postSnap = await getDoc(postRef);
+
+    if (!postSnap.exists()) {
+      return { success: false, error: 'Post not found.' };
+    }
+    
+    if (postSnap.data().authorId !== userId) {
+        return { success: false, error: 'You do not have permission to trash this post.' };
+    }
+
+    await updateDoc(postRef, {
+        isTrashed: true,
+        trashedAt: serverTimestamp()
+    });
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Error trashing live feed post:', error);
+    return { success: false, error: 'Could not move post to trash.' };
+  }
+}
+
+export async function restoreLiveFeedPost(
+  postId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+    if (!userId) {
+        return { success: false, error: 'User not authenticated.' };
+    }
+    try {
+        const postRef = doc(db, 'liveFeed', postId);
+        const postSnap = await getDoc(postRef);
+        if (!postSnap.exists()) {
+            return { success: false, error: 'Post not found.' };
+        }
+        if (postSnap.data().authorId !== userId) {
+            return { success: false, error: 'You do not have permission to restore this post.' };
+        }
+
+        await updateDoc(postRef, {
+            isArchived: false,
+            archivedAt: null,
+            isTrashed: false,
+            trashedAt: null,
+        });
+
+        revalidatePath('/');
+        revalidatePath('/settings/archive');
+        revalidatePath('/settings/trash');
+        return { success: true };
+    } catch (error) {
+        console.error('Error restoring post:', error);
+        return { success: false, error: 'Could not restore post.' };
+    }
+}
+
+export async function permanentlyDeleteLiveFeedPost(
+  postId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+    if (!userId) {
+        return { success: false, error: 'User not authenticated.' };
+    }
+    try {
+        const postRef = doc(db, 'liveFeed', postId);
+        const postSnap = await getDoc(postRef);
+        if (!postSnap.exists()) {
+            return { success: true, error: 'Post already deleted.' };
+        }
+        
+        if (postSnap.data().authorId !== userId) {
+            return { success: false, error: 'You do not have permission to delete this post.' };
+        }
+
+        await deleteDoc(postRef);
+        revalidatePath('/settings/trash');
+        return { success: true };
+    } catch (error) {
+        console.error('Error permanently deleting post:', error);
+        return { success: false, error: 'Could not permanently delete post.' };
+    }
+}
+
 export async function requestPostDeletion(
   postId: string,
   userId: string
@@ -141,17 +219,13 @@ export async function requestPostDeletion(
     const postSnap = await getDoc(postRef);
 
     if (!postSnap.exists()) {
-      // If post is already gone, it's a success from the user's perspective.
       return { success: true };
     }
     
-    // Robust ownership check before creating the deletion request
     if (postSnap.data().authorId !== userId) {
       return { success: false, error: 'You do not have permission to delete this post.' };
     }
     
-    // Use a batch write to create the deletion request and then immediately process it.
-    // This ensures the operation is atomic and secure.
     const batch = writeBatch(db);
 
     const deletionRequestRef = doc(collection(db, 'pendingDeletions'));
@@ -159,11 +233,10 @@ export async function requestPostDeletion(
         postId: postId,
         collection: 'liveFeed',
         requestedBy: userId,
-        status: 'processed', // Mark as processed immediately
+        status: 'processed',
         createdAt: serverTimestamp(),
     });
 
-    // In this implementation, we process it immediately.
     batch.delete(postRef);
     
     await batch.commit();
@@ -176,5 +249,6 @@ export async function requestPostDeletion(
   }
 }
     
+
 
 

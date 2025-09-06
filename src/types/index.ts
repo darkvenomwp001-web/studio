@@ -1,4 +1,5 @@
 
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface User {
@@ -185,6 +186,8 @@ export interface LiveFeedPost {
   imageUrl?: string;
   isArchived: boolean;
   archivedAt?: any;
+  isTrashed: boolean;
+  trashedAt?: any;
 }
 
 export interface Prompt {

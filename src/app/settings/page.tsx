@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, UserCog, Save, KeyRound, Mail, UploadCloud, Info, FileText, ShieldCheck, HelpCircle, Archive } from 'lucide-react';
+import { Loader2, UserCog, Save, KeyRound, Mail, UploadCloud, Info, FileText, ShieldCheck, HelpCircle, Archive, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Link from 'next/link';
@@ -195,11 +195,12 @@ export default function SettingsPage() {
       </header>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 rounded-lg shadow-sm">
+        <TabsList className="grid w-full grid-cols-5 bg-muted/50 p-1 rounded-lg shadow-sm">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="archive">Archive</TabsTrigger>
-          <TabsTrigger value="about">About & Help</TabsTrigger>
+          <TabsTrigger value="trash">Trash</TabsTrigger>
+          <TabsTrigger value="about">About</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="mt-6">
@@ -339,6 +340,24 @@ export default function SettingsPage() {
             <CardContent>
               <Link href="/settings/archive">
                 <Button variant="outline">View Your Archive</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+         <TabsContent value="trash" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5 text-destructive" /> Trash
+              </CardTitle>
+              <CardDescription>
+                View items you have moved to the trash. Items will be permanently deleted after 30 days.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/settings/trash">
+                <Button variant="outline">View Your Trash</Button>
               </Link>
             </CardContent>
           </Card>

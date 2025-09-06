@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2 } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,13 +27,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -52,13 +45,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   archiveLiveFeedPost,
-  updateLiveFeedPost,
-  requestPostDeletion,
+  trashLiveFeedPost,
 } from '@/app/actions/liveFeedActions';
 import { createPrompt, archivePrompt, updatePrompt } from '@/app/actions/promptActions';
+import { useRouter } from 'next/navigation';
 
 function ForYouTabContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
@@ -275,6 +269,7 @@ function LiveFeedTabContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
   const isUserAuthenticated = user && !user.isAnonymous;
 
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -283,7 +278,13 @@ function LiveFeedTabContent() {
   const MAX_IMAGE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
 
   useEffect(() => {
-    const q = query(collection(db, 'liveFeed'), where('isArchived', '==', false), orderBy('timestamp', 'desc'), firestoreLimit(50));
+    const q = query(
+        collection(db, 'liveFeed'), 
+        where('isArchived', '==', false), 
+        where('isTrashed', '==', false),
+        orderBy('timestamp', 'desc'), 
+        firestoreLimit(50)
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const livePosts = snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as LiveFeedPost));
@@ -374,6 +375,7 @@ function LiveFeedTabContent() {
             content: newPostContent.trim(),
             timestamp: serverTimestamp(),
             isArchived: false,
+            isTrashed: false,
         };
 
         if (imageUrl) {
@@ -389,18 +391,25 @@ function LiveFeedTabContent() {
     setIsSubmitting(false);
   };
   
-  const handleDeletePost = async (postId: string) => {
-    if (!user) {
-        toast({title: "Not authenticated", description: "You must be logged in to delete a post.", variant: "destructive"});
-        return;
-    }
-    const result = await requestPostDeletion(postId, user.id);
-    if (result.success) {
-        toast({title: "Post Deleted", description: "Your post has been permanently removed."});
+  const handleArchivePost = async (postId: string) => {
+    if (!user) return;
+    const result = await archiveLiveFeedPost(postId, user.id);
+    if(result.success) {
+        toast({title: "Post Archived", description: "You can view it in your settings."});
     } else {
         toast({title: "Error", description: result.error, variant: "destructive"});
     }
-  };
+  }
+
+  const handleTrashPost = async (postId: string) => {
+    if (!user) return;
+    const result = await trashLiveFeedPost(postId, user.id);
+    if(result.success) {
+        toast({title: "Post Moved to Trash", description: "You can restore or permanently delete it from your settings."});
+    } else {
+        toast({title: "Error", description: result.error, variant: "destructive"});
+    }
+  }
 
   return (
     <>
@@ -453,32 +462,55 @@ function LiveFeedTabContent() {
               <Card key={post.id}>
                 <CardContent className="p-4 relative">
                   {user?.id === post.authorId && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(e) => e.preventDefault()}>
-                                    <Trash2 className="mr-2 h-4 w-4" /> Delete Forever
-                                </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>This action cannot be undone. This will permanently delete your post.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeletePost(post.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Post Options</DialogTitle>
+                                <DialogDescription>Manage your post. Changes will be reflected immediately.</DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-2 py-4">
+                                <Button variant="ghost" className="justify-start" disabled>
+                                    <Pin className="mr-2 h-4 w-4" /> Pin Post (Coming Soon)
+                                </Button>
+                                <Button variant="ghost" className="justify-start" onClick={() => router.push(`/livefeed/${post.id}/edit`)}>
+                                    <Pencil className="mr-2 h-4 w-4" /> Edit Post
+                                </Button>
+                                <DialogClose asChild>
+                                    <Button variant="ghost" className="justify-start" onClick={() => handleArchivePost(post.id)}>
+                                        <Archive className="mr-2 h-4 w-4" /> Archive Post
+                                    </Button>
+                                </DialogClose>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" className="justify-start text-destructive hover:text-destructive">
+                                            <Trash2 className="mr-2 h-4 w-4" /> Move to Trash
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Move post to Trash?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This will move the post to your trash folder. You can restore it or delete it permanently from there.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <DialogClose asChild>
+                                                <AlertDialogAction onClick={() => handleTrashPost(post.id)} className="bg-destructive hover:bg-destructive/90">
+                                                    Move to Trash
+                                                </AlertDialogAction>
+                                            </DialogClose>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
                   )}
                   <div className="flex items-start gap-3">
                     <Avatar>
@@ -657,42 +689,41 @@ function PromptsTabContent() {
                 {prompts.length > 0 ? prompts.map((item) => (
                     <Card key={item.id} className="shadow-sm hover:shadow-md transition-shadow relative">
                          {user?.id === item.author.id && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                          <Dialog>
+                            <DialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-7 w-7">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onSelect={() => {
-                                setEditingPrompt(item);
-                                setEditedPromptData({ title: item.title, prompt: item.prompt, genre: item.genre });
-                              }}>
-                                <Edit className="mr-2 h-4 w-4" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem
-                                    className="text-yellow-600 focus:bg-yellow-100/10 focus:text-yellow-700"
-                                    onSelect={(e) => e.preventDefault()}
-                                    >
-                                    <Archive className="mr-2 h-4 w-4" /> Archive
-                                    </DropdownMenuItem>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Archive this prompt?</AlertDialogTitle>
-                                        <AlertDialogDescription>This will hide the prompt from the main feed. You can view and permanently delete it from your settings.</AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleArchivePrompt(item)} className="bg-yellow-500 hover:bg-yellow-500/90 text-background">Archive Prompt</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader><DialogTitle>Prompt Options</DialogTitle></DialogHeader>
+                                <div className="grid gap-2">
+                                     <Button variant="ghost" className="justify-start" onClick={() => {
+                                        setEditingPrompt(item);
+                                        setEditedPromptData({ title: item.title, prompt: item.prompt, genre: item.genre });
+                                    }}>
+                                        <Edit className="mr-2 h-4 w-4" /> Edit
+                                    </Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" className="justify-start text-yellow-600 hover:text-yellow-700">
+                                            <Archive className="mr-2 h-4 w-4" /> Archive
+                                        </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Archive this prompt?</AlertDialogTitle>
+                                                <AlertDialogDescription>This will hide the prompt from the main feed. You can view and permanently delete it from your settings.</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleArchivePrompt(item)} className="bg-yellow-500 hover:bg-yellow-500/90 text-background">Archive Prompt</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                            </DialogContent>
+                          </Dialog>
                         )}
                         <CardHeader>
                             <div className="flex items-center gap-3">
