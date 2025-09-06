@@ -333,7 +333,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUpWithEmailPassword = async ({ email, passwordOne, username }: { username: string; email: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
-      // Check if email already exists before trying to create a user
       const signInMethods = await fetchSignInMethodsForEmail(auth, email);
       if (signInMethods.length > 0) {
         toast({
@@ -344,7 +343,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthLoading(false);
         return;
       }
-
+  
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       if (userCredential.user) {
         await updateFirebaseProfile(userCredential.user, { displayName: username });
@@ -368,8 +367,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           updatedAt: serverTimestamp(),
         };
         await setDoc(userRef, newUserProfile, { merge: true });
+        toast({ title: "Sign Up Successful", description: "Your account has been created. Welcome!" });
       }
-      toast({ title: "Sign Up Successful", description: "Your account has been created. Welcome!" });
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-Up");
     } finally {
@@ -410,7 +409,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const authError = error as AuthError;
 
       // 3. If sign-in fails, provide more helpful error messages.
-      if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/user-not-found') {
+      if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/user-not-found' || authError.code === 'auth/wrong-password') {
           try {
               // Check if the user signed up with Google instead.
               const methods = await fetchSignInMethodsForEmail(auth, email);
