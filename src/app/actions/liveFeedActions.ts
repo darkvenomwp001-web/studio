@@ -141,7 +141,8 @@ export async function requestPostDeletion(
     const postSnap = await getDoc(postRef);
 
     if (!postSnap.exists()) {
-      return { success: false, error: 'Post not found.' };
+      // If post is already gone, it's a success from the user's perspective.
+      return { success: true };
     }
     
     // Robust ownership check before creating the deletion request
@@ -150,7 +151,7 @@ export async function requestPostDeletion(
     }
     
     // Use a batch write to create the deletion request and then immediately process it.
-    // In a larger system, a Cloud Function would handle the processing.
+    // This ensures the operation is atomic and secure.
     const batch = writeBatch(db);
 
     const deletionRequestRef = doc(collection(db, 'pendingDeletions'));
@@ -158,7 +159,7 @@ export async function requestPostDeletion(
         postId: postId,
         collection: 'liveFeed',
         requestedBy: userId,
-        status: 'pending',
+        status: 'processed', // Mark as processed immediately
         createdAt: serverTimestamp(),
     });
 
@@ -171,8 +172,9 @@ export async function requestPostDeletion(
     return { success: true };
   } catch (error) {
     console.error('Error requesting post deletion:', error);
-    return { success: false, error: 'Could not delete post.' };
+    return { success: false, error: 'Could not delete the post.' };
   }
 }
     
+
 
