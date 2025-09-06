@@ -1,109 +1,90 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // USERS
-    // Users can read anyone's public profile.
-    // Users can only create a document for their own UID.
-    // Users can only update their own document.
+    // Helper function to check ownership in various data structures
+    function isOwner(userId, data) {
+      return userId == data.authorId || 
+             (data.author != null && userId == data.author.id) || 
+             (data.user != null && userId == data.user.id) ||
+             (data.authorInfo != null && userId == data.authorInfo.id);
+    }
+    
+    // Users can read any profile, but only edit their own.
     match /users/{userId} {
       allow read;
-      allow create: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
       allow update: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // STORIES
-    // Allow read for public/unlisted stories. Allow read for private stories only for author/collaborators.
-    // Allow create/update only for author/collaborators.
-    // Allow delete only for the original author.
+
+    // Stories can be read if public/unlisted. Only author/collaborators can write.
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted'
-                   || (request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds));
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
-      allow update: if request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if request.auth != null && request.auth.uid == resource.data.author.id;
+      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted';
+      allow create: if request.auth != null && request.resource.data.author.id == request.auth.uid;
+      allow update, delete: if request.auth != null && (isOwner(request.auth.uid, resource.data) || request.auth.uid in resource.data.collaboratorIds);
     }
 
-    // COMMENTS
-    // Allow read for everyone.
-    // Allow create for any authenticated user.
-    // Allow update/delete only for the comment's author.
+    // Comments can be read by anyone. Users can create, and only owners can edit/delete.
     match /comments/{commentId} {
-        allow read;
-        allow create: if request.auth != null;
-        allow update, delete: if request.auth != null && resource.data.user.id == request.auth.uid;
+      allow read;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && isOwner(request.auth.uid, resource.data);
     }
 
-    // NOTIFICATIONS
-    // Users can only read their own notifications.
-    // Server-side actions create notifications, so client-side create is disallowed.
-    // Users can only update their own notifications (to mark as read).
+    // Notifications are private to each user.
     match /notifications/{notificationId} {
-      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create, delete: if false; // Disallow client-side creation/deletion
+        allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+        allow create: if request.auth != null;
     }
     
-    // LETTERS
-    // Users can only read letters where they are the author or the recipient.
-    // Users can only create letters.
-    // Authors can update to add a response or pin.
+    // Letters are private between the reader and author.
     match /letters/{letterId} {
-      allow read: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && request.auth.uid == resource.data.authorId;
+        allow read, create, update: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
+        allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
     }
 
-    // FEED POSTS
-    // Allow read for everyone.
-    // Allow create for any authenticated user.
-    // Allow update/delete only for the post's author, using the simple and reliable authorId check.
-    match /feedPosts/{postId} {
-      allow read;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && resource.data.authorId == request.auth.uid;
-    }
-
-    // LIVE FEED
-    // Allow read for everyone.
-    // Allow create for any authenticated user.
-    // Allow update/delete ONLY for the author of the post.
-    // This rule is now simple, direct, and robust.
+    // Live Feed posts can be read by anyone. Owners can update/delete.
     match /liveFeed/{postId} {
-      allow read;
-      allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
+      allow read, create: if request.auth != null;
       allow update, delete: if request.auth != null && resource.data.authorId == request.auth.uid;
     }
 
-    // PROMPTS
-    // Allow read for everyone.
-    // Allow create for any authenticated user.
-    // Allow update/delete only for the prompt's author.
+    // Prompts can be read by anyone. Owners can update/delete.
     match /prompts/{promptId} {
-        allow read;
-        allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
-        allow update, delete: if request.auth != null && resource.data.author.id == request.auth.uid;
+      allow read, create: if request.auth != null;
+      allow update, delete: if request.auth != null && resource.data.author.id == request.auth.uid;
     }
-
-    // STATUS UPDATES
-    // Allow read for everyone.
-    // Allow create for any authenticated user.
-    // Allow update/delete only for the status's author.
+    
+    // Status updates are public, but only owners can manage them.
     match /statusUpdates/{statusId} {
-        allow read;
-        allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
-        allow update, delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+      allow read, create: if request.auth != null;
+      allow update, delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+    }
+    
+    // NEW: Secure rule for the pendingDeletions collection.
+    // A user can only create a deletion request for a post they own.
+    match /pendingDeletions/{deletionId} {
+        allow read, write: if false; // No one can read/write directly.
+        allow create: if request.auth != null && 
+            get(/databases/$(database)/documents/liveFeed/$(request.resource.data.postId)).data.authorId == request.auth.uid;
     }
 
-    // CONVERSATIONS
-    // Only participants can read/write to a conversation.
+    // Feed posts can be read by anyone.
+    match /feedPosts/{postId} {
+        allow read;
+        allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
+        allow update: if request.auth != null; // Simplified for likes
+        allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+    }
+
     match /conversations/{conversationId} {
-      allow read, create, update: if request.auth != null && request.auth.uid in resource.data.participantIds;
+      allow read, update, delete: if request.auth != null && request.auth.uid in resource.data.participantIds;
+      allow create: if request.auth != null;
       
-      // MESSAGES (sub-collection)
-      // Only participants of the parent conversation can read/write messages.
       match /messages/{messageId} {
-        allow read, create: if request.auth != null && get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds.hasAny([request.auth.uid]);
+         allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+         allow update, delete: if request.auth != null && request.auth.uid == resource.data.senderId;
       }
     }
   }

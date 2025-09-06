@@ -1,4 +1,5 @@
 
+
 'use client'; 
 
 import Link from 'next/link';
@@ -55,7 +56,7 @@ import {
 import {
   archiveLiveFeedPost,
   updateLiveFeedPost,
-  permanentlyDeleteLiveFeedPost,
+  requestPostDeletion,
 } from '@/app/actions/liveFeedActions';
 import { createPrompt, archivePrompt, updatePrompt } from '@/app/actions/promptActions';
 
@@ -387,6 +388,19 @@ function LiveFeedTabContent() {
     }
     setIsSubmitting(false);
   };
+  
+  const handleDeletePost = async (postId: string) => {
+    if (!user) {
+        toast({title: "Not authenticated", description: "You must be logged in to delete a post.", variant: "destructive"});
+        return;
+    }
+    const result = await requestPostDeletion(postId, user.id);
+    if (result.success) {
+        toast({title: "Post Deleted", description: "Your post has been permanently removed."});
+    } else {
+        toast({title: "Error", description: result.error, variant: "destructive"});
+    }
+  };
 
   return (
     <>
@@ -438,6 +452,34 @@ function LiveFeedTabContent() {
             {posts.map(post => (
               <Card key={post.id}>
                 <CardContent className="p-4 relative">
+                  {user?.id === post.authorId && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(e) => e.preventDefault()}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete Forever
+                                </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>This action cannot be undone. This will permanently delete your post.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeletePost(post.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                   <div className="flex items-start gap-3">
                     <Avatar>
                       <AvatarImage src={post.author.avatarUrl} data-ai-hint="profile person"/>
