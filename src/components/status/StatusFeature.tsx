@@ -48,12 +48,12 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
     }, [selectedUser]);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen || !userStatuses || userStatuses.length === 0) return;
         const timer = setTimeout(() => {
            handleNext();
         }, 5000); // Auto-advance after 5 seconds
         return () => clearTimeout(timer);
-    }, [isOpen, currentStatusIndex, selectedUser]);
+    }, [isOpen, currentStatusIndex, selectedUser, userStatuses]);
 
     const handleNext = () => {
         setAnimationKey(prev => prev + 1);
@@ -252,7 +252,7 @@ export default function StatusFeature() {
                 newGroups.delete(userId);
                 setStatusOrder(prevOrder => prevOrder.filter(id => id !== userId));
             } else {
-                newGroups.set(userId, userGroup);
+                newGroups.set(userId, { ...userGroup });
             }
         }
         return newGroups;

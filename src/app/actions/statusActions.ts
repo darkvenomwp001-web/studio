@@ -38,7 +38,8 @@ export async function archiveStatusUpdate(
         isArchived: true,
         archivedAt: serverTimestamp()
     });
-    revalidatePath('/');
+    revalidatePath('/'); // Revalidate the feed to remove the status bubble if needed
+    revalidatePath('/settings/archive'); // Revalidate the archive page
     return { success: true };
   } catch (error) {
     console.error('Error archiving status update:', error);
