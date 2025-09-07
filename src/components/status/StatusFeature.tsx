@@ -221,8 +221,8 @@ export default function StatusFeature() {
     const q = query(
       collection(db, 'statusUpdates'),
       where('createdAt', '>', twentyFourHoursAgo),
-      where('isArchived', '!=', true),
-      where('isTrashed', '!=', true),
+      where('isArchived', '==', false),
+      where('isTrashed', '==', false),
       orderBy('createdAt', 'desc')
     );
 
