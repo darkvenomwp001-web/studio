@@ -14,8 +14,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { Prompt, StatusUpdate } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
 import { useToast } from '@/hooks/use-toast';
-import { permanentlyDeletePrompt } from '@/app/actions/promptActions'; // Assuming you have this
-import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions'; // Assuming you have this
+import { permanentlyDeletePrompt } from '@/app/actions/promptActions';
+import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
+import Image from 'next/image';
 
 export default function ArchivePage() {
   const { user, loading: authLoading } = useAuth();
@@ -39,7 +40,7 @@ export default function ArchivePage() {
 
     const unsubPrompts = onSnapshot(promptsQuery, snapshot => {
       setArchivedPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
-      setIsLoading(false); 
+      if(isLoading) setIsLoading(false);
     }, error => {
       console.error("Error fetching archived prompts:", error);
       toast({ title: "Error", description: "Could not load archived prompts.", variant: "destructive" });
@@ -47,6 +48,7 @@ export default function ArchivePage() {
     
     const unsubStatuses = onSnapshot(statusesQuery, snapshot => {
         setArchivedStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
+        if(isLoading) setIsLoading(false);
     }, error => {
         console.error("Error fetching archived statuses:", error);
         toast({ title: "Error", description: "Could not load archived statuses.", variant: "destructive" });
@@ -56,11 +58,13 @@ export default function ArchivePage() {
       unsubPrompts();
       unsubStatuses();
     };
-  }, [user, authLoading, router, toast]);
+  }, [user, authLoading, router, toast, isLoading]);
 
   const handleDelete = async (itemId: string, type: 'prompt' | 'status') => {
     if (!user) return;
     let result: { success: boolean, error?: string };
+    let itemName = type === 'prompt' ? 'Prompt' : 'Status';
+    
     switch(type) {
         case 'prompt':
             result = await permanentlyDeletePrompt(itemId, user.id);
@@ -71,7 +75,7 @@ export default function ArchivePage() {
     }
 
     if (result.success) {
-        toast({ title: "Deleted Forever", description: "The item has been permanently removed."});
+        toast({ title: `${itemName} Deleted`, description: `The item has been permanently removed.`});
     } else {
         toast({ title: "Error", description: result.error, variant: "destructive" });
     }
@@ -94,10 +98,10 @@ export default function ArchivePage() {
         <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
           <ArchiveIcon className="h-10 w-10" /> Your Archive
         </h1>
-        <p className="text-muted-foreground">Content you've archived. Restore it or move it to the trash.</p>
+        <p className="text-muted-foreground">Content you've archived. You can restore it or delete it permanently.</p>
       </header>
 
-      <Tabs defaultValue="prompts" className="w-full">
+       <Tabs defaultValue={archivedPrompts.length > 0 ? "prompts" : "statuses"} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="prompts">Prompts ({archivedPrompts.length})</TabsTrigger>
             <TabsTrigger value="statuses">Statuses ({archivedStatuses.length})</TabsTrigger>
@@ -118,6 +122,21 @@ export default function ArchivePage() {
                             <Button variant="outline" size="sm" disabled> {/* onClick={() => handleRestore(prompt, 'prompt')} */}
                                 <RotateCcw className="mr-2 h-4 w-4" /> Restore
                             </Button>
+                            <AlertDialog>
+                               <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete</Button>
+                               </AlertDialogTrigger>
+                               <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Permanently delete this prompt?</AlertDialogTitle>
+                                        <AlertDialogDescription>This action cannot be undone and the prompt will be gone forever.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(prompt.id, 'prompt')} className="bg-destructive hover:bg-destructive/90">Delete Forever</AlertDialogAction>
+                                    </AlertDialogFooter>
+                               </AlertDialogContent>
+                            </AlertDialog>
                         </CardFooter>
                     </Card>
                 )) : <p className="text-center text-muted-foreground py-10">No archived prompts.</p>}
@@ -127,8 +146,10 @@ export default function ArchivePage() {
             <div className="space-y-4">
                 {archivedStatuses.length > 0 ? archivedStatuses.map(status => (
                     <Card key={status.id}>
-                        <CardContent className="p-4 flex items-center gap-4">
-                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                        <CardContent className="p-4 flex flex-col sm:flex-row items-start gap-4">
+                             <div className="w-full sm:w-32 h-auto sm:h-32 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
+                                <Image src={status.mediaUrl} alt="Archived status" layout="responsive" width={128} height={128} objectFit="cover" />
+                            </div>
                             <div className="flex-1">
                                 <p className="text-sm text-muted-foreground">Image status from {formatDate(status.createdAt)}</p>
                                 <p className="text-xs text-muted-foreground mt-1">Archived on {formatDate(status.archivedAt)}</p>
@@ -138,6 +159,21 @@ export default function ArchivePage() {
                            <Button variant="outline" size="sm" disabled> {/* onClick={() => handleRestore(status, 'status')} */}
                                 <RotateCcw className="mr-2 h-4 w-4" /> Restore
                            </Button>
+                           <AlertDialog>
+                               <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete</Button>
+                               </AlertDialogTrigger>
+                               <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Permanently delete this status?</AlertDialogTitle>
+                                        <AlertDialogDescription>This action cannot be undone and the status will be gone forever.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(status.id, 'status')} className="bg-destructive hover:bg-destructive/90">Delete Forever</AlertDialogAction>
+                                    </AlertDialogFooter>
+                               </AlertDialogContent>
+                            </AlertDialog>
                         </CardFooter>
                     </Card>
                 )) : <p className="text-center text-muted-foreground py-10">No archived statuses.</p>}
