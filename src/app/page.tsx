@@ -11,20 +11,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import type { Story, UserSummary, Prompt, LiveFeedPost } from '@/types';
-import { useEffect, useState, FormEvent, useRef, ChangeEvent } from 'react';
+import type { Story, UserSummary, Prompt } from '@/types';
+import { useEffect, useState, FormEvent, useRef } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Bookshelf from '@/components/shared/Bookshelf';
 import StatusFeature from '@/components/status/StatusFeature';
 import { useToast } from '@/hooks/use-toast';
-import { Textarea } from '@/components/ui/textarea';
-import { formatDate } from '@/lib/placeholder-data';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
@@ -47,10 +46,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  archiveLiveFeedPost,
-  trashLiveFeedPost,
-} from '@/app/actions/liveFeedActions';
 import { createPrompt, archivePrompt, updatePrompt } from '@/app/actions/promptActions';
 import { useRouter } from 'next/navigation';
 
@@ -259,284 +254,6 @@ function ForYouTabContent() {
       </section>
       )}
     </div>
-  );
-}
-
-function LiveFeedTabContent() {
-  const { user } = useAuth();
-  const [posts, setPosts] = useState<LiveFeedPost[]>([]);
-  const [newPostContent, setNewPostContent] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
-  const router = useRouter();
-  const isUserAuthenticated = user && !user.isAnonymous;
-
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const MAX_IMAGE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
-
-  useEffect(() => {
-    const q = query(
-        collection(db, 'liveFeed'), 
-        where('isArchived', '==', false), 
-        where('isTrashed', '==', false),
-        orderBy('timestamp', 'desc'), 
-        firestoreLimit(50)
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const livePosts = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as LiveFeedPost));
-      setPosts(livePosts);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching live feed: ", error);
-      toast({ title: "Error", description: "Could not load the live feed.", variant: "destructive" });
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [toast]);
-  
-  const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        toast({ title: "Image Too Large", description: `Please select an image smaller than ${MAX_IMAGE_SIZE_BYTES / (1024*1024)}MB.`, variant: "destructive" });
-        return;
-      }
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
-  };
-
-  const resetForm = () => {
-    setNewPostContent('');
-    setImageFile(null);
-    setImagePreview(null);
-    if (imageInputRef.current) {
-        imageInputRef.current.value = "";
-    }
-  };
-
-  const handlePostSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!isUserAuthenticated) {
-      toast({ title: "Please sign in", description: "You must be logged in to post.", variant: "destructive" });
-      return;
-    }
-    if (!newPostContent.trim() && !imageFile) {
-        toast({ title: "Cannot post empty content", variant: 'destructive' });
-        return;
-    }
-    if (newPostContent.trim().length > 500) {
-        toast({ title: 'Too Long', description: 'Post cannot exceed 500 characters.', variant: 'destructive' });
-        return;
-    }
-    setIsSubmitting(true);
-    let imageUrl: string | undefined = undefined;
-
-    if (imageFile) {
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-        if (!cloudName || !uploadPreset) {
-            toast({ title: 'Configuration Error', description: 'Cloudinary environment variables are not set.', variant: 'destructive' });
-            setIsSubmitting(false);
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('file', imageFile);
-        formData.append('upload_preset', uploadPreset);
-        
-        try {
-            const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
-            const data = await response.json();
-            if (data.secure_url) {
-                imageUrl = data.secure_url;
-            } else {
-                throw new Error(data.error?.message || 'Unknown Cloudinary error');
-            }
-        } catch (error) {
-            console.error('Error uploading image to Cloudinary:', error);
-            toast({ title: 'Image Upload Failed', description: 'Could not upload your image. Please try again.', variant: 'destructive' });
-            setIsSubmitting(false);
-            return;
-        }
-    }
-    
-    const authorSummary: UserSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
-    
-    try {
-        const postData: any = {
-            author: authorSummary,
-            authorId: user.id,
-            content: newPostContent.trim(),
-            timestamp: serverTimestamp(),
-            isArchived: false,
-            isTrashed: false,
-        };
-
-        if (imageUrl) {
-            postData.imageUrl = imageUrl;
-        }
-
-        await addDoc(collection(db, 'liveFeed'), postData);
-        resetForm();
-    } catch (error) {
-        console.error('Error creating live feed post:', error);
-        toast({ title: 'Error', description: 'Could not create post. Please try again.', variant: 'destructive' });
-    }
-    setIsSubmitting(false);
-  };
-  
-  const handleArchivePost = async (postId: string) => {
-    if (!user) return;
-    const result = await archiveLiveFeedPost(postId, user.id);
-    if(result.success) {
-        toast({title: "Post Archived", description: "You can view it in your settings."});
-    } else {
-        toast({title: "Error", description: result.error, variant: "destructive"});
-    }
-  }
-
-  const handleTrashPost = async (postId: string) => {
-    if (!user) return;
-    const result = await trashLiveFeedPost(postId, user.id);
-    if(result.success) {
-        toast({title: "Post Moved to Trash", description: "You can restore or permanently delete it from your settings."});
-    } else {
-        toast({title: "Error", description: result.error, variant: "destructive"});
-    }
-  }
-
-  return (
-    <>
-      <div className="max-w-xl mx-auto space-y-6 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Live Feed</CardTitle>
-            <CardDescription>Share a quick text update with the community.</CardDescription>
-          </CardHeader>
-          <form onSubmit={handlePostSubmit}>
-            <CardContent>
-              <Textarea 
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder={isUserAuthenticated ? "What's happening?" : "Sign in to post in the live feed"}
-                maxLength={500}
-                disabled={isSubmitting || !isUserAuthenticated}
-              />
-              {imagePreview && (
-                  <div className="mt-4 relative w-full max-w-xs">
-                      <Image src={imagePreview} alt="Preview" width={400} height={400} className="rounded-lg object-contain border" />
-                      <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-7 w-7" onClick={() => { setImageFile(null); setImagePreview(null); }}>
-                          <X className="h-4 w-4" />
-                      </Button>
-                  </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex justify-between items-center">
-              <div>
-                  <input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
-                  <Button type="button" variant="ghost" size="icon" title="Attach an image" onClick={() => imageInputRef.current?.click()} disabled={isSubmitting || !isUserAuthenticated || !!imageFile}>
-                      <ImageIcon className="h-5 w-5" />
-                  </Button>
-              </div>
-              <Button type="submit" disabled={isSubmitting || !isUserAuthenticated || (!newPostContent.trim() && !imageFile)}>
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
-                Post
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
-        
-        {isLoading ? (
-          <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
-        ) : posts.length === 0 ? (
-          <p className="text-muted-foreground text-center py-10">The feed is quiet... be the first to post!</p>
-        ) : (
-          <div className="space-y-4">
-            {posts.map(post => (
-              <Card key={post.id}>
-                <CardContent className="p-4 relative">
-                  {user?.id === post.authorId && (
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[425px]">
-                            <DialogHeader>
-                                <DialogTitle>Post Options</DialogTitle>
-                                <DialogDescription>Manage your post. Changes will be reflected immediately.</DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-2 py-4">
-                                <Button variant="ghost" className="justify-start" disabled>
-                                    <Pin className="mr-2 h-4 w-4" /> Pin Post (Coming Soon)
-                                </Button>
-                                <Button variant="ghost" className="justify-start" onClick={() => router.push(`/livefeed/${post.id}/edit`)}>
-                                    <Pencil className="mr-2 h-4 w-4" /> Edit Post
-                                </Button>
-                                <DialogClose asChild>
-                                    <Button variant="ghost" className="justify-start" onClick={() => handleArchivePost(post.id)}>
-                                        <Archive className="mr-2 h-4 w-4" /> Archive Post
-                                    </Button>
-                                </DialogClose>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" className="justify-start text-destructive hover:text-destructive">
-                                            <Trash2 className="mr-2 h-4 w-4" /> Move to Trash
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Move post to Trash?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                This will move the post to your trash folder. You can restore it or delete it permanently from there.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <DialogClose asChild>
-                                                <AlertDialogAction onClick={() => handleTrashPost(post.id)} className="bg-destructive hover:bg-destructive/90">
-                                                    Move to Trash
-                                                </AlertDialogAction>
-                                            </DialogClose>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-                  )}
-                  <div className="flex items-start gap-3">
-                    <Avatar>
-                      <AvatarImage src={post.author.avatarUrl} data-ai-hint="profile person"/>
-                      <AvatarFallback>{post.author.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-baseline gap-2">
-                        <Link href={`/profile/${post.author.id}`} className="font-semibold hover:underline">{post.author.displayName}</Link>
-                        <p className="text-xs text-muted-foreground">{formatDate(post.timestamp)}</p>
-                      </div>
-                      {post.content && <p className="text-foreground/90 whitespace-pre-line mt-1">{post.content}</p>}
-                      {post.imageUrl && (
-                          <div className="mt-3 rounded-lg overflow-hidden border">
-                              <Image src={post.imageUrl} alt="Live feed image" width={500} height={500} className="w-full h-auto object-contain bg-muted" />
-                          </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
   );
 }
 
@@ -815,9 +532,8 @@ export default function HomePage() {
 
         <Tabs defaultValue="for-you" className="w-full">
           <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
-            <TabsList className="grid w-full grid-cols-4 max-w-2xl mx-auto">
+            <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto">
               <TabsTrigger value="for-you">For You</TabsTrigger>
-              <TabsTrigger value="live-feed">Live Feed</TabsTrigger>
               <TabsTrigger value="bookshelf">Bookshelf</TabsTrigger>
               <TabsTrigger value="prompts">Prompts</TabsTrigger>
             </TabsList>
@@ -825,9 +541,6 @@ export default function HomePage() {
           
           <TabsContent value="for-you" className="mt-6">
             <ForYouTabContent />
-          </TabsContent>
-          <TabsContent value="live-feed" className="mt-6">
-            <LiveFeedTabContent />
           </TabsContent>
           <TabsContent value="bookshelf" className="mt-6">
             <Bookshelf />

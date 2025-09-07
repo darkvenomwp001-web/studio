@@ -1,0 +1,95 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if the user is the owner of a document.
+    // It checks multiple common patterns for storing author information.
+    function isAuthor(userId, data) {
+      return userId == data.author.id || 
+             userId == data.authorId || 
+             userId == data.user.id ||
+             userId == data.authorInfo.id;
+    }
+
+    // Helper function to check for collaborators
+    function isCollaborator(userId, data) {
+      return userId in data.collaboratorIds;
+    }
+
+    // Users can only read their own data, but can be read publicly for profile info.
+    // Users can only create their own user document and update their own profile.
+    match /users/{userId} {
+      allow read; 
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId;
+      allow delete: if false; // Users should not be able to delete their accounts directly
+    }
+
+    // Stories can be read publicly if they are not private.
+    // Only the author or a collaborator can create, update or delete stories.
+    match /stories/{storyId} {
+      allow read: if resource.data.visibility == 'Public' || 
+                     resource.data.visibility == 'Unlisted' ||
+                     (request.auth != null && (isAuthor(request.auth.uid, resource.data) || isCollaborator(request.auth.uid, resource.data)));
+      allow create: if request.auth != null && isAuthor(request.auth.uid, request.resource.data);
+      allow update: if request.auth != null && (isAuthor(request.auth.uid, resource.data) || isCollaborator(request.auth.uid, resource.data));
+      allow delete: if request.auth != null && isAuthor(request.auth.uid, resource.data);
+    }
+
+    // Comments can be read by anyone.
+    // Authenticated users can create comments.
+    // Only the author of a comment can update or delete it.
+    match /comments/{commentId} {
+      allow read;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && isAuthor(request.auth.uid, resource.data);
+    }
+    
+    // Notifications are private to each user.
+    match /notifications/{notificationId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null; // Server-side logic should validate who can create notifs for whom
+    }
+    
+    // Conversations are private to participants.
+    match /conversations/{conversationId} {
+      allow read, create, update, delete: if request.auth != null && request.auth.uid in resource.data.participantIds;
+      
+      // Messages within a conversation also need rules
+      match /messages/{messageId} {
+          allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+          allow update, delete: if request.auth != null && request.auth.uid == resource.data.senderId;
+      }
+    }
+
+    // Prompts can be read by anyone, but only created/updated/deleted by the author.
+    match /prompts/{promptId} {
+        allow read;
+        allow create: if request.auth != null;
+        allow update: if request.auth != null && isAuthor(request.auth.uid, resource.data) && (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'prompt', 'genre', 'isArchived', 'archivedAt'])
+        );
+        allow delete: if request.auth != null && isAuthor(request.auth.uid, resource.data);
+    }
+
+    // Status updates can be read by anyone, but only created/updated/deleted by the author.
+    match /statusUpdates/{statusId} {
+        allow read;
+        allow create: if request.auth != null;
+        allow update: if request.auth != null && isAuthor(request.auth.uid, resource.data) && (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isArchived', 'archivedAt'])
+        );
+        allow delete: if request.auth != null && isAuthor(request.auth.uid, resource.data);
+    }
+
+    // Letters can be read by sender or receiver.
+    match /letters/{letterId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.author.id);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.reader.id;
+      // Only the author of the story can respond or pin.
+      allow update: if request.auth != null && request.auth.uid == resource.data.author.id;
+    }
+  }
+}

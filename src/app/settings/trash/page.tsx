@@ -13,14 +13,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { LiveFeedPost } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
 import { useToast } from '@/hooks/use-toast';
-import { restoreLiveFeedPost, permanentlyDeleteLiveFeedPost } from '@/app/actions/liveFeedActions';
 
 export default function TrashPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [trashedPosts, setTrashedPosts] = useState<LiveFeedPost[]>([]);
+  const [trashedItems, setTrashedItems] = useState<any[]>([]); // Can be different types
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -31,43 +30,21 @@ export default function TrashPage() {
     }
 
     setIsLoading(true);
-    const liveFeedQuery = query(
-      collection(db, 'liveFeed'), 
-      where('authorId', '==', user.id), 
-      where('isTrashed', '==', true), 
-      orderBy('trashedAt', 'desc')
-    );
+    // In a real app, you would query all relevant collections for trashed items.
+    // For now, this is a placeholder.
+    setTrashedItems([]);
+    setIsLoading(false);
 
-    const unsubscribe = onSnapshot(liveFeedQuery, snapshot => {
-      setTrashedPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LiveFeedPost)));
-      setIsLoading(false);
-    }, error => {
-      console.error("Error fetching trashed posts:", error);
-      toast({ title: "Error", description: "Could not load trashed items.", variant: "destructive" });
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
   }, [user, authLoading, router, toast]);
 
   const handleRestore = async (postId: string) => {
-    if (!user) return;
-    const result = await restoreLiveFeedPost(postId, user.id);
-    if (result.success) {
-      toast({ title: "Post Restored", description: "The post has been moved back to the live feed." });
-    } else {
-      toast({ title: "Error", description: result.error, variant: "destructive" });
-    }
+    // Restore logic would go here
+    toast({ title: "Restore (Not Implemented)", description: "This functionality is not yet available." });
   };
 
   const handleDelete = async (postId: string) => {
-    if (!user) return;
-    const result = await permanentlyDeleteLiveFeedPost(postId, user.id);
-    if (result.success) {
-      toast({ title: "Deleted Forever", description: "The post has been permanently removed." });
-    } else {
-      toast({ title: "Error", description: result.error, variant: "destructive" });
-    }
+    // Delete logic would go here
+    toast({ title: "Delete (Not Implemented)", description: "This functionality is not yet available." });
   };
 
   if (isLoading) {
@@ -91,7 +68,7 @@ export default function TrashPage() {
       </header>
       
       <div className="space-y-4">
-        {trashedPosts.length > 0 ? trashedPosts.map(post => (
+        {trashedItems.length > 0 ? trashedItems.map(post => (
           <Card key={post.id}>
             <CardContent className="p-4">
               <p className="text-muted-foreground whitespace-pre-line">{post.content}</p>

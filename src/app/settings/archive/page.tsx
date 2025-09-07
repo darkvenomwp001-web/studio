@@ -11,10 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import type { LiveFeedPost, Prompt, StatusUpdate } from '@/types';
+import type { Prompt, StatusUpdate } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
 import { useToast } from '@/hooks/use-toast';
-import { restoreLiveFeedPost, permanentlyDeleteLiveFeedPost } from '@/app/actions/liveFeedActions';
 import { permanentlyDeletePrompt } from '@/app/actions/promptActions'; // Assuming you have this
 import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions'; // Assuming you have this
 
@@ -24,7 +23,6 @@ export default function ArchivePage() {
   const { toast } = useToast();
 
   const [archivedPrompts, setArchivedPrompts] = useState<Prompt[]>([]);
-  const [archivedLiveFeedPosts, setArchivedLiveFeedPosts] = useState<LiveFeedPost[]>([]);
   const [archivedStatuses, setArchivedStatuses] = useState<StatusUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -37,7 +35,6 @@ export default function ArchivePage() {
 
     setIsLoading(true);
     const promptsQuery = query(collection(db, 'prompts'), where('author.id', '==', user.id), where('isArchived', '==', true), orderBy('archivedAt', 'desc'));
-    const liveFeedQuery = query(collection(db, 'liveFeed'), where('authorId', '==', user.id), where('isArchived', '==', true), orderBy('archivedAt', 'desc'));
     const statusesQuery = query(collection(db, 'statusUpdates'), where('authorId', '==', user.id), where('isArchived', '==', true), orderBy('archivedAt', 'desc'));
 
     const unsubPrompts = onSnapshot(promptsQuery, snapshot => {
@@ -46,13 +43,6 @@ export default function ArchivePage() {
     }, error => {
       console.error("Error fetching archived prompts:", error);
       toast({ title: "Error", description: "Could not load archived prompts.", variant: "destructive" });
-    });
-
-    const unsubLiveFeed = onSnapshot(liveFeedQuery, snapshot => {
-      setArchivedLiveFeedPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LiveFeedPost)));
-    }, error => {
-      console.error("Error fetching archived live feed posts:", error);
-       toast({ title: "Error", description: "Could not load archived posts.", variant: "destructive" });
     });
     
     const unsubStatuses = onSnapshot(statusesQuery, snapshot => {
@@ -64,32 +54,14 @@ export default function ArchivePage() {
 
     return () => {
       unsubPrompts();
-      unsubLiveFeed();
       unsubStatuses();
     };
   }, [user, authLoading, router, toast]);
 
-  const handleRestore = async (item: LiveFeedPost | Prompt | StatusUpdate, type: 'liveFeed' | 'prompt' | 'status') => {
-    if (!user) return;
-
-    if (type === 'liveFeed') {
-        const result = await restoreLiveFeedPost(item.id, user.id);
-        if (result.success) {
-            toast({ title: "Post Restored", description: "The post has been moved back to the live feed." });
-        } else {
-            toast({ title: "Error", description: result.error, variant: "destructive" });
-        }
-    }
-    // Implement restore logic for other types if needed
-  };
-
-  const handleDelete = async (itemId: string, type: 'liveFeed' | 'prompt' | 'status') => {
+  const handleDelete = async (itemId: string, type: 'prompt' | 'status') => {
     if (!user) return;
     let result: { success: boolean, error?: string };
     switch(type) {
-        case 'liveFeed':
-            result = await permanentlyDeleteLiveFeedPost(itemId, user.id);
-            break;
         case 'prompt':
             result = await permanentlyDeletePrompt(itemId, user.id);
             break;
@@ -125,29 +97,11 @@ export default function ArchivePage() {
         <p className="text-muted-foreground">Content you've archived. Restore it or move it to the trash.</p>
       </header>
 
-      <Tabs defaultValue="posts" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="posts">Posts ({archivedLiveFeedPosts.length})</TabsTrigger>
+      <Tabs defaultValue="prompts" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="prompts">Prompts ({archivedPrompts.length})</TabsTrigger>
             <TabsTrigger value="statuses">Statuses ({archivedStatuses.length})</TabsTrigger>
         </TabsList>
-        <TabsContent value="posts" className="mt-4">
-            <div className="space-y-4">
-                {archivedLiveFeedPosts.length > 0 ? archivedLiveFeedPosts.map(post => (
-                    <Card key={post.id}>
-                        <CardContent className="p-4">
-                            <p className="text-muted-foreground whitespace-pre-line">{post.content}</p>
-                            <p className="text-xs text-muted-foreground mt-2">Archived on {formatDate(post.archivedAt)}</p>
-                        </CardContent>
-                        <CardFooter className="gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleRestore(post, 'liveFeed')}>
-                                <RotateCcw className="mr-2 h-4 w-4" /> Restore
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                )) : <p className="text-center text-muted-foreground py-10">No archived posts.</p>}
-            </div>
-        </TabsContent>
         <TabsContent value="prompts" className="mt-4">
              <div className="space-y-4">
                 {archivedPrompts.length > 0 ? archivedPrompts.map(prompt => (
