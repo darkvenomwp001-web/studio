@@ -5,16 +5,6 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
-// Universal ownership check for StatusUpdates
-function isOwner(userId: string, statusData: { [key: string]: any }): boolean {
-  if (!userId || !statusData) return false;
-  // Covers authorInfo summary object, which is the primary structure
-  if (statusData.authorInfo && typeof statusData.authorInfo === 'object' && statusData.authorInfo.id === userId) return true;
-  // Covers top-level authorId as a fallback
-  if (statusData.authorId === userId) return true;
-  return false;
-}
-
 export async function archiveStatusUpdate(
   statusId: string,
   userId: string
@@ -28,10 +18,6 @@ export async function archiveStatusUpdate(
 
     if (!statusSnap.exists()) {
       return { success: false, error: 'Status not found.' };
-    }
-
-    if (!isOwner(userId, statusSnap.data())) {
-        return { success: false, error: 'You do not have permission to archive this status.' };
     }
 
     await updateDoc(statusRef, {
@@ -61,9 +47,6 @@ export async function trashStatusUpdate(
         if (!statusSnap.exists()) {
             return { success: false, error: 'Status not found.' };
         }
-        if (!isOwner(userId, statusSnap.data())) {
-            return { success: false, error: 'You do not have permission to trash this status.' };
-        }
 
         await updateDoc(statusRef, {
             isTrashed: true,
@@ -91,13 +74,10 @@ export async function restoreStatusUpdate(
         if (!statusSnap.exists()) {
             return { success: false, error: 'Status not found.' };
         }
-        if (!isOwner(userId, statusSnap.data())) {
-            return { success: false, error: 'You do not have permission to restore this status.' };
-        }
 
         await updateDoc(statusRef, {
             isTrashed: false,
-            trashedAt: null // Or delete(field) if you prefer
+            trashedAt: null
         });
         revalidatePath('/settings/trash');
         return { success: true };
@@ -122,10 +102,6 @@ export async function permanentlyDeleteStatusUpdate(
             return { success: true, error: 'Status already deleted.' };
         }
         
-        if (!isOwner(userId, statusSnap.data())) {
-            return { success: false, error: 'You do not have permission to delete this status.' };
-        }
-
         await deleteDoc(statusRef);
         revalidatePath('/settings/archive');
         revalidatePath('/settings/trash');
