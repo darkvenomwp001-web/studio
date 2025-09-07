@@ -15,7 +15,7 @@ import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
 
 // Universal ownership check for Prompts
-function isPromptOwner(userId: string, promptData: { [key: string]: any }): boolean {
+function isOwner(userId: string, promptData: { [key: string]: any }): boolean {
   if (!userId || !promptData) return false;
   // Covers author summary object
   if (promptData.author && typeof promptData.author === 'object' && promptData.author.id === userId) return true;
@@ -71,7 +71,7 @@ export async function updatePrompt(
         return { success: false, error: 'Prompt not found.' };
     }
 
-    if (!isPromptOwner(userId, promptSnap.data())) {
+    if (!isOwner(userId, promptSnap.data())) {
         return { success: false, error: 'You do not have permission to edit this prompt.' };
     }
 
@@ -98,7 +98,7 @@ export async function archivePrompt(
         return { success: false, error: 'Prompt not found.' };
     }
 
-    if (!isPromptOwner(userId, promptSnap.data())) {
+    if (!isOwner(userId, promptSnap.data())) {
         return { success: false, error: 'You do not have permission to archive this prompt.' };
     }
 
@@ -107,6 +107,7 @@ export async function archivePrompt(
       archivedAt: serverTimestamp(),
     });
     revalidatePath('/');
+    revalidatePath('/settings/archive');
     return { success: true };
   } catch (error) {
     console.error('Error archiving prompt:', error);
@@ -128,7 +129,7 @@ export async function permanentlyDeletePrompt(
             return { success: true, error: 'Prompt already deleted.' };
         }
         
-        if (!isPromptOwner(userId, promptSnap.data())) {
+        if (!isOwner(userId, promptSnap.data())) {
             return { success: false, error: 'You do not have permission to delete this prompt.' };
         }
 

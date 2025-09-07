@@ -6,11 +6,11 @@ import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/fir
 import { revalidatePath } from 'next/cache';
 
 // Universal ownership check for StatusUpdates
-function isStatusOwner(userId: string, statusData: { [key: string]: any }): boolean {
+function isOwner(userId: string, statusData: { [key: string]: any }): boolean {
   if (!userId || !statusData) return false;
-  // Covers authorInfo summary object
+  // Covers authorInfo summary object, which is the primary structure
   if (statusData.authorInfo && typeof statusData.authorInfo === 'object' && statusData.authorInfo.id === userId) return true;
-  // Covers top-level authorId
+  // Covers top-level authorId as a fallback
   if (statusData.authorId === userId) return true;
   return false;
 }
@@ -30,7 +30,7 @@ export async function archiveStatusUpdate(
       return { success: false, error: 'Status not found.' };
     }
 
-    if (!isStatusOwner(userId, statusSnap.data())) {
+    if (!isOwner(userId, statusSnap.data())) {
         return { success: false, error: 'You do not have permission to archive this status.' };
     }
 
@@ -62,7 +62,7 @@ export async function permanentlyDeleteStatusUpdate(
             return { success: true, error: 'Status already deleted.' };
         }
         
-        if (!isStatusOwner(userId, statusSnap.data())) {
+        if (!isOwner(userId, statusSnap.data())) {
             return { success: false, error: 'You do not have permission to delete this status.' };
         }
 
