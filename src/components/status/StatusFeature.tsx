@@ -11,10 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Archive } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Archive, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { archiveStatusUpdate } from '@/app/actions/statusActions';
+import { archiveStatusUpdate, trashStatusUpdate } from '@/app/actions/statusActions';
 
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -85,6 +85,18 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
         toast({ title: 'Error', description: result.error, variant: 'destructive' });
       }
     };
+    
+    const handleTrash = async () => {
+      if (!currentStatus || !currentUser) return;
+      onOpenChange(false); // Close the viewer optimistically
+      const result = await trashStatusUpdate(currentStatus.id, currentUser.id);
+      if (result.success) {
+        onStatusArchived(currentStatus.id, currentUser.id); // Re-use the same callback to remove it from view
+        toast({ title: 'Status Moved to Trash' });
+      } else {
+        toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      }
+    };
 
     if (!selectedUser || !currentStatus) {
         return null;
@@ -110,25 +122,46 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                     </div>
                      <div className="flex items-center gap-1">
                         {isOwnStatus && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
-                                <Archive className="h-5 w-5"/>
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Archive this status?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will hide the status from view. You can view and permanently delete it later from your settings.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleArchive} className="bg-destructive hover:bg-destructive/90">Archive</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                            <>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                                            <Archive className="h-5 w-5"/>
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Archive this status?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                            This will hide the status from view. You can view and permanently delete it later from your settings.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleArchive} className="bg-destructive hover:bg-destructive/90">Archive</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                                 <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                                            <Trash2 className="h-5 w-5"/>
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Move to Trash?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                             This will move the status to your trash. You can restore it or permanently delete it from your settings.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleTrash} className="bg-destructive hover:bg-destructive/90">Move to Trash</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </>
                         )}
                         <DialogClose asChild>
                           <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
@@ -189,6 +222,7 @@ export default function StatusFeature() {
       collection(db, 'statusUpdates'),
       where('createdAt', '>', twentyFourHoursAgo),
       where('isArchived', '!=', true),
+      where('isTrashed', '!=', true),
       orderBy('createdAt', 'desc')
     );
 
@@ -315,6 +349,7 @@ export default function StatusFeature() {
             createdAt: serverTimestamp(),
             expiresAt: expiresAt,
             isArchived: false,
+            isTrashed: false,
         });
         toast({ title: "Status Published!" });
         setIsUploaderOpen(false);
