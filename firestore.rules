@@ -1,97 +1,112 @@
-
 rules_version = '2';
-
-// Helper function to check for ownership across different data structures
-function isAuthor(userId, data) {
-  // Check for top-level authorId string (e.g., in statusUpdates, feedPosts)
-  return data.authorId == userId || 
-  // Check for author object with an id property (e.g., in stories, prompts)
-  (data.author != null && data.author.id == userId) ||
-  // Check for authorInfo object with an id property (e.g., in statusUpdates)
-  (data.authorInfo != null && data.authorInfo.id == userId) ||
-  // Check for collaborator IDs array
-  (data.collaboratorIds != null && userId in data.collaboratorIds);
-}
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users: Can only edit their own profile. Can read public profiles.
+    // Reusable helper function to robustly check ownership of any document
+    // that has an author summary object or a direct authorId string.
+    function isAuthor(resource) {
+      let authorId = resource.data.authorId;
+      let authorInfoId = resource.data.get(['author', 'id'], null) || resource.data.get(['authorInfo', 'id'], null);
+      
+      return request.auth.uid == authorId || request.auth.uid == authorInfoId;
+    }
+    
+    // == STATUS UPDATES ==
+    // New, more robust rules for the entire StatusUpdate lifecycle.
+    
+    // New Rule #1: Definitive ownership check for status updates.
+    function isAuthorOfStatus(resource) {
+      let authorId = resource.data.get('authorId', null);
+      let authorInfoId = resource.data.get(['authorInfo', 'id'], null);
+      return request.auth.uid == authorId || request.auth.uid == authorInfoId;
+    }
+    
+    // New Rule #2: Fields that should NEVER change after creation.
+    function areImmutableFieldsUnchanged() {
+      return request.resource.data.authorId == resource.data.authorId &&
+             request.resource.data.authorInfo.id == resource.data.authorInfo.id &&
+             request.resource.data.createdAt == resource.data.createdAt &&
+             request.resource.data.mediaUrl == resource.data.mediaUrl;
+    }
+
+    match /statusUpdates/{statusId} {
+      // Anyone can read a status update. Access control is handled by client-side queries (e.g., checking expiration).
+      allow read: if true;
+
+      // New Rule #5: Strict rules for creating a new status.
+      allow create: if request.auth != null && 
+                       isAuthorOfStatus(request.resource) &&
+                       request.resource.data.isArchived == false &&
+                       request.resource.data.isTrashed == false &&
+                       request.resource.data.authorId == request.auth.uid &&
+                       request.resource.data.authorInfo.id == request.auth.uid &&
+                       request.resource.data.mediaUrl is string &&
+                       request.resource.data.expiresAt is timestamp;
+
+      // Update rule covers Archiving, Trashing, and Restoring.
+      allow update: if request.auth != null && isAuthor(resource) && areImmutableFieldsUnchanged() && (
+        // Scenario A: Archiving a status
+        (request.resource.data.isArchived == true && resource.data.isArchived == false) ||
+        // Scenario B: Moving an ARCHIVED status to trash
+        (request.resource.data.isTrashed == true && resource.data.isArchived == true && resource.data.isTrashed == false) ||
+        // Scenario C: Restoring a TRASHED status
+        (request.resource.data.isTrashed == false && resource.data.isTrashed == true)
+      );
+
+      // New Rule #4: Secure Deletion - only allow deleting if it's already in the trash.
+      allow delete: if request.auth != null && isAuthor(resource) && resource.data.isTrashed == true;
+    }
+    
+    // == PROMPTS ==
+    // Secure rules for Prompts.
+    match /prompts/{promptId} {
+      allow read: if true;
+      allow create: if request.auth != null && isAuthor(request.resource) && request.resource.data.isArchived == false;
+      allow update, delete: if request.auth != null && isAuthor(resource);
+    }
+    
+    // == STORIES, COMMENTS, LETTERS, etc. ==
+    // Standard secure rules for other collections.
+    match /stories/{storyId} {
+      allow read: if resource.data.visibility == 'Public' || (request.auth != null && (isAuthor(resource) || request.auth.uid in resource.data.collaboratorIds));
+      allow create: if request.auth != null && isAuthor(request.resource);
+      allow update, delete: if request.auth != null && (isAuthor(resource) || request.auth.uid in resource.data.collaboratorIds);
+    }
+    
     match /users/{userId} {
-      allow read;
+      allow read: if true;
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if false; // Users cannot delete their own profiles
-    }
-
-    // Stories: Only author/collaborators can create/edit. Public/Unlisted stories are readable.
-    match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' ||
-                   (request.auth != null && isAuthor(request.auth.uid, resource.data));
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && isAuthor(request.auth.uid, resource.data);
-      allow delete: if request.auth != null && isAuthor(request.auth.uid, resource.data);
     }
     
-    // Chapters are part of the stories document, so story rules apply.
-
-    // Comments: Logged-in users can create. Only owners can edit/delete.
-    match /comments/{commentId} {
-      allow read;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && isAuthor(request.auth.uid, resource.data);
-    }
-
-    // Notifications: Can only read/update their own. Cannot create directly.
     match /notifications/{notificationId} {
-      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create, delete: if false; // Created via server-side actions only
+        allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+        allow create: if request.auth != null; // Allow any authenticated user to trigger a notification creation
     }
-    
-    // Letters: Can be created by logged-in users. Can only be read by author or reader.
+
+    match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null && isAuthor(request.resource);
+        allow update, delete: if request.auth != null && isAuthor(resource);
+    }
+
     match /letters/{letterId} {
-        allow read: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
-        allow create: if request.auth != null;
-        allow update: if request.auth != null && request.auth.uid == resource.data.authorId; // Only author can pin/respond
-        allow delete: if false;
+        allow read, create, update, delete: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id);
     }
-    
-    // Conversations: Only participants can read/update.
+
     match /conversations/{conversationId} {
-      allow read, update: if request.auth != null && request.auth.uid in resource.data.participantIds;
-      allow create: if request.auth != null && request.auth.uid in request.resource.data.participantIds;
-
-      // Messages: Only participants can read/write.
-      match /messages/{messageId} {
-        allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        allow update, delete: if false; // Don't allow editing/deleting messages
-      }
+        allow read, create, update, delete: if request.auth != null && request.auth.uid in resource.data.participantIds;
+        match /messages/{messageId} {
+            allow read, create, update, delete: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        }
     }
     
-    // Feed Posts: Logged-in users can create. Owners can update (like) or delete.
     match /feedPosts/{postId} {
-      allow read;
-      allow create: if request.auth != null;
-      // Allow liking (updating likedBy) by any authenticated user.
-      allow update: if request.auth != null && (isAuthor(request.auth.uid, resource.data) || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'likedBy']));
-      allow delete: if request.auth != null && isAuthor(request.auth.uid, resource.data);
+        allow read: if true;
+        allow create: if request.auth != null && isAuthor(request.resource);
+        allow update, delete: if request.auth != null && isAuthor(resource);
     }
 
-    // Status Updates: Logged-in users can create. Owners can archive/trash/delete.
-    match /statusUpdates/{statusId} {
-        allow read;
-        allow create: if request.auth != null;
-        // Allow owner to update archive/trash status.
-        allow update: if request.auth != null && isAuthor(request.auth.uid, resource.data);
-        allow delete: if request.auth != null && isAuthor(request.auth.uid, resource.data);
-    }
-    
-    // Prompts: Logged-in users can create. Owners can edit/archive/delete.
-    match /prompts/{promptId} {
-        allow read;
-        allow create: if request.auth != null;
-        allow update: if request.auth != null && isAuthor(request.auth.uid, resource.data);
-        allow delete: if request.auth != null && isAuthor(request.auth.uid, resource.data);
-    }
   }
 }
