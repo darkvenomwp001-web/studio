@@ -5,17 +5,20 @@ import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate, Poll } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Archive, Vote } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Vote, Trash2, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { archiveStatusUpdate } from '@/app/actions/statusActions';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardHeader, CardFooter } from '@/components/ui/card';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { restoreStatusUpdate, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -37,9 +40,8 @@ function StatusBubble({ user, statuses, onSelect }: { user: User, statuses: Stat
   );
 }
 
-function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (statusId: string, userId: string) => void }) {
+function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void }) {
     const { user: currentUser } = useAuth();
-    const { toast } = useToast();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
 
@@ -141,6 +143,8 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
 export default function StatusFeature() {
   const { user, loading: authLoading } = useAuth();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
+  const [draftStatuses, setDraftStatuses] = useState<StatusUpdate[]>([]);
+  const [trashedStatuses, setTrashedStatuses] = useState<StatusUpdate[]>([]);
   const [groupedStatuses, setGroupedStatuses] = useState<Map<string, {user: User, statuses: StatusUpdate[]}>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   
@@ -164,40 +168,87 @@ export default function StatusFeature() {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!user) {
+        setIsLoading(false);
+        return;
+    }
+
     const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
-    const q = query(
+    const liveQuery = query(
       collection(db, 'statusUpdates'),
+      where('authorId', '!=', user.id), // a simple way to filter for others
       where('createdAt', '>', twentyFourHoursAgo),
-      where('isArchived', '==', false),
-      where('isTrashed', '==', false),
+      where('status', '==', 'published'),
       orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const statusesData = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
-      setAllStatuses(statusesData);
+    const ownLiveQuery = query(
+      collection(db, 'statusUpdates'),
+      where('authorId', '==', user.id),
+      where('createdAt', '>', twentyFourHoursAgo),
+      where('status', '==', 'published'),
+      orderBy('createdAt', 'desc')
+    )
 
-      const groups = new Map<string, {user: User, statuses: StatusUpdate[]}>(new Map());
-      const newStatusOrder: string[] = [];
-      
-      statusesData.forEach(status => {
-          if (!groups.has(status.authorId)) {
-              groups.set(status.authorId, { user: status.authorInfo as User, statuses: [] });
-              newStatusOrder.push(status.authorId);
-          }
-          groups.get(status.authorId)!.statuses.push(status);
-      });
-      setGroupedStatuses(groups);
-      setStatusOrder(newStatusOrder);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching statuses:", error);
-      setIsLoading(false);
+    const draftQuery = query(collection(db, 'statusUpdates'), where('authorId', '==', user.id), where('status', '==', 'draft'), orderBy('createdAt', 'desc'));
+    const trashQuery = query(collection(db, 'statusUpdates'), where('authorId', '==', user.id), where('isTrashed', '==', true), orderBy('trashedAt', 'desc'));
+
+
+    const unsubLive = onSnapshot(liveQuery, (snapshot) => {
+      const statusesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
+      setAllStatuses(prev => [...prev.filter(s => s.authorId !== user.id), ...statusesData]);
+    });
+    
+    const unsubOwnLive = onSnapshot(ownLiveQuery, (snapshot) => {
+       const ownStatuses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
+       setAllStatuses(prev => [...prev.filter(s => s.authorId === user.id), ...ownStatuses]);
     });
 
-    return () => unsubscribe();
-  }, []);
+    const unsubDrafts = onSnapshot(draftQuery, (snapshot) => {
+        setDraftStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
+    });
+
+    const unsubTrash = onSnapshot(trashQuery, (snapshot) => {
+        setTrashedStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
+    });
+
+    setIsLoading(false);
+
+    return () => {
+        unsubLive();
+        unsubOwnLive();
+        unsubDrafts();
+        unsubTrash();
+    };
+  }, [user]);
+
+  useEffect(() => {
+    const groups = new Map<string, {user: User, statuses: StatusUpdate[]}>(new Map());
+    const newStatusOrder: string[] = [];
+
+    const liveStatuses = allStatuses.filter(s => s.status === 'published');
+    
+    // Put current user's status first if it exists
+    const currentUserLive = liveStatuses.filter(s => s.authorId === user?.id);
+    if (currentUserLive.length > 0) {
+        groups.set(user!.id, { user: user as User, statuses: currentUserLive });
+        newStatusOrder.push(user!.id);
+    }
+    
+    // Then add others
+    liveStatuses.forEach(status => {
+        if (status.authorId === user?.id) return; // Already added
+        if (!groups.has(status.authorId)) {
+            groups.set(status.authorId, { user: status.authorInfo as User, statuses: [] });
+            newStatusOrder.push(status.authorId);
+        }
+        groups.get(status.authorId)!.statuses.push(status);
+    });
+
+    setGroupedStatuses(groups);
+    setStatusOrder(newStatusOrder);
+  }, [allStatuses, user]);
+
 
   const handleSelectUser = (user: User) => {
     setSelectedUserForViewing(user);
@@ -223,23 +274,6 @@ export default function StatusFeature() {
     }
   }
 
-   const handleStatusArchived = (statusId: string, userId: string) => {
-    setGroupedStatuses(prevGroups => {
-        const newGroups = new Map(prevGroups);
-        const userGroup = newGroups.get(userId);
-        if (userGroup) {
-            userGroup.statuses = userGroup.statuses.filter(s => s.id !== statusId);
-            if (userGroup.statuses.length === 0) {
-                newGroups.delete(userId);
-                setStatusOrder(prevOrder => prevOrder.filter(id => id !== userId));
-            } else {
-                newGroups.set(userId, { ...userGroup });
-            }
-        }
-        return newGroups;
-    });
-  };
-
   const resetUploader = () => {
     setImageFile(null);
     setImagePreview(null);
@@ -262,7 +296,7 @@ export default function StatusFeature() {
     }
   };
 
-  const handleSubmitStatus = async () => {
+  const handleStatusSubmit = async (status: 'published' | 'draft') => {
     if (!imageFile || !user) return;
     setIsSubmitting(true);
     
@@ -294,22 +328,20 @@ export default function StatusFeature() {
     }
 
     const authorInfo = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
-    const expiresAt = Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000);
-
+    
     const statusData: Omit<StatusUpdate, 'id'> = {
         authorId: user.id,
         authorInfo: authorInfo,
         mediaUrl: imageUrl,
         mediaType: 'image',
-        expiresAt: expiresAt,
         createdAt: serverTimestamp(),
         isArchived: false,
         isTrashed: false,
+        status,
+        expiresAt: status === 'published' ? Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000) : null,
     };
     
-    if (textOverlay.trim()) {
-        statusData.textOverlay = textOverlay.trim();
-    }
+    if (textOverlay.trim()) statusData.textOverlay = textOverlay.trim();
     
     if (showPollCreator && pollQuestion.trim() && pollOption1.trim() && pollOption2.trim()) {
         statusData.poll = {
@@ -323,16 +355,42 @@ export default function StatusFeature() {
 
     try {
         await addDoc(collection(db, 'statusUpdates'), statusData);
-        toast({ title: "Status Published!" });
+        toast({ title: `Status ${status === 'published' ? 'Published!' : 'Saved as Draft!'}` });
         setIsUploaderOpen(false);
         resetUploader();
     } catch (error) {
-        toast({ title: "Failed to publish status", variant: "destructive"});
+        toast({ title: "Failed to save status", variant: "destructive"});
     } finally {
         setIsSubmitting(false);
     }
   };
 
+  const handlePublishDraft = async (draftId: string) => {
+    const expiresAt = Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000);
+    await updateDoc(doc(db, "statusUpdates", draftId), {
+        status: 'published',
+        expiresAt: expiresAt,
+        createdAt: serverTimestamp(), // Update timestamp on publish
+    });
+    toast({title: "Draft Published!"});
+  }
+
+  const handleDeleteDraft = async (draftId: string) => {
+    await deleteDoc(doc(db, "statusUpdates", draftId));
+    toast({title: "Draft Deleted"});
+  }
+  
+  const handleRestoreFromTrash = async (statusId: string) => {
+    const result = await restoreStatusUpdate(statusId, user!.id);
+    if(result.success) toast({title: "Status Restored"});
+    else toast({title: "Error", description: result.error, variant: 'destructive'});
+  }
+
+  const handleDeleteFromTrash = async (statusId: string) => {
+     const result = await permanentlyDeleteStatusUpdate(statusId, user!.id);
+     if(result.success) toast({title: "Status Permanently Deleted"});
+     else toast({title: "Error", description: result.error, variant: 'destructive'});
+  }
 
   if (authLoading) {
     return <div className="h-[98px] w-full bg-card rounded-lg animate-pulse" />;
@@ -374,65 +432,113 @@ export default function StatusFeature() {
       </div>
       </div>
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle>Create a New Status</DialogTitle>
-                    <DialogDescription>Share a photo with your followers for the next 24 hours.</DialogDescription>
+                    <DialogTitle>Manage Status</DialogTitle>
+                    <DialogDescription>Upload a new status, or manage your drafts and trash.</DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="max-h-[70vh] pr-4">
-                  <div className="py-4 space-y-4">
-                      {imagePreview ? (
-                          <div className="relative">
-                              <Image src={imagePreview} alt="Preview" width={400} height={400} className="w-full h-auto object-contain rounded-lg" />
-                              <div className="absolute top-2 right-2 flex gap-2">
-                                <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setShowPollCreator(!showPollCreator)}>
-                                      <Vote className="h-4 w-4" />
-                                </Button>
-                                <Button variant="destructive" size="icon" className="h-7 w-7" onClick={() => { setImageFile(null); setImagePreview(null); }}>
-                                      <X className="h-4 w-4" />
-                                </Button>
+                 <Tabs defaultValue="upload" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="upload">Upload</TabsTrigger>
+                        <TabsTrigger value="drafts">Drafts</TabsTrigger>
+                        <TabsTrigger value="trash">Trash</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="upload">
+                        <ScrollArea className="max-h-[60vh] pr-4">
+                            <div className="py-4 space-y-4">
+                                {imagePreview ? (
+                                    <div className="relative">
+                                        <Image src={imagePreview} alt="Preview" width={400} height={400} className="w-full h-auto object-contain rounded-lg" />
+                                        <div className="absolute top-2 right-2 flex gap-2">
+                                            <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setShowPollCreator(!showPollCreator)}>
+                                                <Vote className="h-4 w-4" />
+                                            </Button>
+                                            <Button variant="destructive" size="icon" className="h-7 w-7" onClick={resetUploader}>
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div 
+                                        className="w-full h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted"
+                                        onClick={() => imageInputRef.current?.click()}
+                                    >
+                                        <Camera className="h-10 w-10 text-muted-foreground mb-2" />
+                                        <p className="text-muted-foreground">Click to upload an image</p>
+                                        <Input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
+                                    </div>
+                                )}
+                                
+                                {imagePreview && (
+                                    <div className="space-y-4">
+                                    <Input
+                                        type="text"
+                                        placeholder="Add a caption..."
+                                        value={textOverlay}
+                                        onChange={(e) => setTextOverlay(e.target.value)}
+                                        maxLength={100}
+                                    />
+                                    {showPollCreator && (
+                                        <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
+                                            <Label>Create a Poll</Label>
+                                            <Input placeholder="Poll Question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
+                                            <div className="flex gap-2">
+                                                <Input placeholder="Option 1" value={pollOption1} onChange={e => setPollOption1(e.target.value)} />
+                                                <Input placeholder="Option 2" value={pollOption2} onChange={e => setPollOption2(e.target.value)} />
+                                            </div>
+                                        </div>
+                                    )}
+                                    </div>
+                                )}
                             </div>
-                          </div>
-                      ) : (
-                          <div 
-                              className="w-full h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted"
-                              onClick={() => imageInputRef.current?.click()}
-                          >
-                              <Camera className="h-10 w-10 text-muted-foreground mb-2" />
-                              <p className="text-muted-foreground">Click to upload an image</p>
-                              <Input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
-                          </div>
-                      )}
-                      
-                      {imagePreview && (
-                        <div className="space-y-4">
-                          <Input
-                            type="text"
-                            placeholder="Add a caption..."
-                            value={textOverlay}
-                            onChange={(e) => setTextOverlay(e.target.value)}
-                            maxLength={100}
-                          />
-                          {showPollCreator && (
-                              <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
-                                  <Label>Create a Poll</Label>
-                                  <Input placeholder="Poll Question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
-                                  <div className="flex gap-2">
-                                    <Input placeholder="Option 1" value={pollOption1} onChange={e => setPollOption1(e.target.value)} />
-                                    <Input placeholder="Option 2" value={pollOption2} onChange={e => setPollOption2(e.target.value)} />
-                                  </div>
-                              </div>
-                          )}
-                        </div>
-                      )}
-                  </div>
-                </ScrollArea>
-                <DialogFooter>
-                    <Button onClick={handleSubmitStatus} disabled={!imageFile || isSubmitting}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                        Publish Status
-                    </Button>
-                </DialogFooter>
+                        </ScrollArea>
+                         <DialogFooter>
+                            <Button variant="outline" onClick={() => handleStatusSubmit('draft')} disabled={!imageFile || isSubmitting}>Save as Draft</Button>
+                            <Button onClick={() => handleStatusSubmit('published')} disabled={!imageFile || isSubmitting}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                Publish Status
+                            </Button>
+                        </DialogFooter>
+                    </TabsContent>
+                    <TabsContent value="drafts">
+                        <ScrollArea className="h-96">
+                            <div className="space-y-2 p-1">
+                                {draftStatuses.length > 0 ? draftStatuses.map(draft => (
+                                    <Card key={draft.id} className="flex items-center p-2">
+                                        <Image src={draft.mediaUrl} alt="Draft" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
+                                        <p className="text-sm flex-1 truncate">{draft.textOverlay || "No caption"}</p>
+                                        <div className="flex gap-1">
+                                            <Button size="sm" variant="outline" onClick={() => handlePublishDraft(draft.id)}>Publish</Button>
+                                            <Button size="sm" variant="destructive" onClick={() => handleDeleteDraft(draft.id)}><Trash2 className="h-4 w-4" /></Button>
+                                        </div>
+                                    </Card>
+                                )) : <p className="text-center text-muted-foreground py-10">No drafts saved.</p>}
+                            </div>
+                        </ScrollArea>
+                    </TabsContent>
+                    <TabsContent value="trash">
+                         <ScrollArea className="h-96">
+                            <div className="space-y-2 p-1">
+                                {trashedStatuses.length > 0 ? trashedStatuses.map(item => (
+                                    <Card key={item.id} className="flex items-center p-2">
+                                        <Image src={item.mediaUrl} alt="Trashed item" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
+                                        <p className="text-sm flex-1 truncate">{item.textOverlay || "No caption"}</p>
+                                        <div className="flex gap-1">
+                                            <Button size="sm" variant="outline" onClick={() => handleRestoreFromTrash(item.id)}><RotateCcw className="h-4 w-4"/></Button>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader><AlertDialogTitle>Delete Forever?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromTrash(item.id)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </div>
+                                    </Card>
+                                )) : <p className="text-center text-muted-foreground py-10">Trash is empty.</p>}
+                            </div>
+                        </ScrollArea>
+                    </TabsContent>
+                </Tabs>
             </DialogContent>
         </Dialog>
 
@@ -443,7 +549,6 @@ export default function StatusFeature() {
             userStatuses={selectedUserForViewing ? groupedStatuses.get(selectedUserForViewing.id)?.statuses || [] : []}
             onNext={handleNextUser}
             onPrev={handlePrevUser}
-            onStatusArchived={handleStatusArchived}
         />
     </>
   );

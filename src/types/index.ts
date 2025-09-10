@@ -196,10 +196,11 @@ export interface StatusUpdate {
     mediaType: 'image' | 'video';
     textOverlay?: string; // New field for text on status
     poll?: Poll; // New field for polls on status
-    expiresAt: any;
+    expiresAt: any | null;
     createdAt: any;
     isArchived: boolean;
     archivedAt?: any;
     isTrashed: boolean;
     trashedAt?: any;
+    status: 'published' | 'draft';
 }
