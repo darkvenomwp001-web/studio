@@ -5,8 +5,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
-import { Loader2, ArrowLeft, Archive as ArchiveIcon, Trash2, Edit, FileText, Image as ImageIcon, Camera } from 'lucide-react';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { Loader2, ArrowLeft, Archive as ArchiveIcon, Trash2, Edit, FileText, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,7 +25,7 @@ export default function ArchivePage() {
   const { toast } = useToast();
 
   const [archivedPrompts, setArchivedPrompts] = useState<Prompt[]>([]);
-  const [expiredStatuses, setExpiredStatuses] = useState<StatusUpdate[]>([]);
+  const [archivedStatuses, setArchivedStatuses] = useState<StatusUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -36,35 +36,46 @@ export default function ArchivePage() {
     }
 
     setIsLoading(true);
+    let promptsLoaded = false;
+    let statusesLoaded = false;
+    const checkLoadingDone = () => {
+        if (promptsLoaded && statusesLoaded) {
+            setIsLoading(false);
+        }
+    }
+
     // This query fetches prompts explicitly marked as archived
     const promptsQuery = query(collection(db, 'prompts'), where('author.id', '==', user.id), where('isArchived', '==', true), orderBy('archivedAt', 'desc'));
     
-    // This query fetches statuses that are older than 24 hours and NOT trashed
-    const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+    // This query fetches statuses that are explicitly marked as archived and NOT trashed
     const statusesQuery = query(
         collection(db, 'statusUpdates'), 
         where('authorId', '==', user.id), 
+        where('isArchived', '==', true),
         where('isTrashed', '==', false),
-        where('createdAt', '<=', twentyFourHoursAgo),
-        orderBy('createdAt', 'desc')
+        orderBy('archivedAt', 'desc')
     );
 
     const unsubPrompts = onSnapshot(promptsQuery, snapshot => {
       setArchivedPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
-      if (isLoading) setIsLoading(false);
+      promptsLoaded = true;
+      checkLoadingDone();
     }, error => {
       console.error("Error fetching archived prompts:", error);
       toast({ title: "Error", description: "Could not load archived prompts.", variant: "destructive" });
-      if (isLoading) setIsLoading(false);
+      promptsLoaded = true;
+      checkLoadingDone();
     });
     
     const unsubStatuses = onSnapshot(statusesQuery, snapshot => {
-        setExpiredStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
-        if (isLoading) setIsLoading(false);
+        setArchivedStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
+        statusesLoaded = true;
+        checkLoadingDone();
     }, error => {
-        console.error("Error fetching expired statuses:", error);
-        toast({ title: "Error", description: "Could not load expired statuses.", variant: "destructive" });
-        if (isLoading) setIsLoading(false);
+        console.error("Error fetching archived statuses:", error);
+        toast({ title: "Error", description: "Could not load archived statuses.", variant: "destructive" });
+        statusesLoaded = true;
+        checkLoadingDone();
     });
 
     return () => {
@@ -110,18 +121,18 @@ export default function ArchivePage() {
         <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
           <ArchiveIcon className="h-10 w-10" /> Your Archive
         </h1>
-        <p className="text-muted-foreground">Manage your archived prompts and expired status updates.</p>
+        <p className="text-muted-foreground">Manage your archived prompts and status updates.</p>
       </header>
 
        <Tabs defaultValue="statuses" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="statuses">Expired Statuses ({expiredStatuses.length})</TabsTrigger>
+            <TabsTrigger value="statuses">Archived Statuses ({archivedStatuses.length})</TabsTrigger>
             <TabsTrigger value="prompts">Archived Prompts ({archivedPrompts.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="statuses" className="mt-4">
             <div className="space-y-4">
-                {expiredStatuses.length > 0 ? expiredStatuses.map(status => (
+                {archivedStatuses.length > 0 ? archivedStatuses.map(status => (
                     <Card key={status.id}>
                         <CardContent className="p-4 flex flex-col sm:flex-row items-start gap-4">
                              <div className="w-full sm:w-32 h-auto sm:h-32 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
@@ -129,7 +140,7 @@ export default function ArchivePage() {
                             </div>
                             <div className="flex-1">
                                 <p className="text-sm text-muted-foreground">Status from {formatDate(status.createdAt)}</p>
-                                <p className="text-xs text-muted-foreground mt-1">This status is over 24 hours old and is no longer live.</p>
+                                <p className="text-xs text-muted-foreground mt-1">Archived on {formatDate(status.archivedAt)}</p>
                             </div>
                         </CardContent>
                         <CardFooter className="gap-2">
@@ -142,8 +153,8 @@ export default function ArchivePage() {
                   <Card className="text-center py-10">
                     <CardHeader>
                       <Camera className="mx-auto h-12 w-12 text-muted-foreground" />
-                      <CardTitle>No Expired Statuses</CardTitle>
-                      <CardDescription>Status updates you post will appear here after 24 hours.</CardDescription>
+                      <CardTitle>No Archived Statuses</CardTitle>
+                      <CardDescription>Statuses you archive will appear here.</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <Link href="/" passHref>

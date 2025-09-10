@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Archive, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { archiveStatusUpdate, trashStatusUpdate } from '@/app/actions/statusActions';
+import { archiveStatusUpdate } from '@/app/actions/statusActions';
 
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -71,6 +71,18 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
             onPrev(); // Move to prev user
         }
     }
+    
+    const handleArchive = async (statusId: string) => {
+        if (!currentUser) return;
+        const result = await archiveStatusUpdate(statusId, currentUser.id);
+        if (result.success) {
+            toast({ title: 'Status Archived', description: 'This status has been moved to your archive.'});
+            onStatusArchived(statusId, currentUser.id);
+            onOpenChange(false);
+        } else {
+            toast({ title: 'Error', description: result.error, variant: 'destructive'});
+        }
+    }
 
     const currentStatus = userStatuses[currentStatusIndex];
 
@@ -97,6 +109,27 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                         <span className="text-gray-300 text-xs">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
                      <div className="flex items-center gap-1">
+                        {isOwnStatus && (
+                             <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                                        <Archive className="h-5 w-5" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Archive this Status?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will move the status to your archive page. You can manage it from there.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleArchive(currentStatus.id)}>Archive</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
                         <DialogClose asChild>
                           <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
                               <X className="h-5 w-5"/>
