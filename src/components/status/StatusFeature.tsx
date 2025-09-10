@@ -15,7 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Archive, Trash2, Vote } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { archiveStatusUpdate } from '@/app/actions/statusActions';
+import { archiveStatusUpdate, trashStatusUpdate } from '@/app/actions/statusActions';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -213,7 +214,7 @@ export default function StatusFeature() {
         .map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
       setAllStatuses(statusesData);
 
-      const groups = new Map<string, {user: User, statuses: StatusUpdate[]}>();
+      const groups = new Map<string, {user: User, statuses: StatusUpdate[]}>(new Map());
       const newStatusOrder: string[] = [];
       
       statusesData.forEach(status => {
@@ -409,57 +410,59 @@ export default function StatusFeature() {
       </div>
       </div>
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>Create a New Status</DialogTitle>
                     <DialogDescription>Share a photo with your followers for the next 24 hours.</DialogDescription>
                 </DialogHeader>
-                <div className="py-4 space-y-4">
-                    {imagePreview ? (
-                        <div className="relative">
-                            <Image src={imagePreview} alt="Preview" width={400} height={400} className="w-full h-auto object-contain rounded-lg" />
-                            <div className="absolute top-2 right-2 flex gap-2">
-                               <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setShowPollCreator(!showPollCreator)}>
-                                    <Vote className="h-4 w-4" />
-                               </Button>
-                               <Button variant="destructive" size="icon" className="h-7 w-7" onClick={() => { setImageFile(null); setImagePreview(null); }}>
-                                    <X className="h-4 w-4" />
-                               </Button>
-                           </div>
-                        </div>
-                    ) : (
-                        <div 
-                            className="w-full h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted"
-                            onClick={() => imageInputRef.current?.click()}
-                        >
-                            <Camera className="h-10 w-10 text-muted-foreground mb-2" />
-                            <p className="text-muted-foreground">Click to upload an image</p>
-                            <Input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
-                        </div>
-                    )}
-                    
-                    {imagePreview && (
-                      <div className="space-y-4">
-                        <Input
-                          type="text"
-                          placeholder="Add a caption..."
-                          value={textOverlay}
-                          onChange={(e) => setTextOverlay(e.target.value)}
-                          maxLength={100}
-                        />
-                        {showPollCreator && (
-                            <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
-                                <Label>Create a Poll</Label>
-                                <Input placeholder="Poll Question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
-                                <div className="flex gap-2">
-                                   <Input placeholder="Option 1" value={pollOption1} onChange={e => setPollOption1(e.target.value)} />
-                                   <Input placeholder="Option 2" value={pollOption2} onChange={e => setPollOption2(e.target.value)} />
-                                </div>
+                <ScrollArea className="max-h-[70vh] pr-4">
+                  <div className="py-4 space-y-4">
+                      {imagePreview ? (
+                          <div className="relative">
+                              <Image src={imagePreview} alt="Preview" width={400} height={400} className="w-full h-auto object-contain rounded-lg" />
+                              <div className="absolute top-2 right-2 flex gap-2">
+                                <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setShowPollCreator(!showPollCreator)}>
+                                      <Vote className="h-4 w-4" />
+                                </Button>
+                                <Button variant="destructive" size="icon" className="h-7 w-7" onClick={() => { setImageFile(null); setImagePreview(null); }}>
+                                      <X className="h-4 w-4" />
+                                </Button>
                             </div>
-                        )}
-                      </div>
-                    )}
-                </div>
+                          </div>
+                      ) : (
+                          <div 
+                              className="w-full h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted"
+                              onClick={() => imageInputRef.current?.click()}
+                          >
+                              <Camera className="h-10 w-10 text-muted-foreground mb-2" />
+                              <p className="text-muted-foreground">Click to upload an image</p>
+                              <Input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
+                          </div>
+                      )}
+                      
+                      {imagePreview && (
+                        <div className="space-y-4">
+                          <Input
+                            type="text"
+                            placeholder="Add a caption..."
+                            value={textOverlay}
+                            onChange={(e) => setTextOverlay(e.target.value)}
+                            maxLength={100}
+                          />
+                          {showPollCreator && (
+                              <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
+                                  <Label>Create a Poll</Label>
+                                  <Input placeholder="Poll Question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
+                                  <div className="flex gap-2">
+                                    <Input placeholder="Option 1" value={pollOption1} onChange={e => setPollOption1(e.target.value)} />
+                                    <Input placeholder="Option 2" value={pollOption2} onChange={e => setPollOption2(e.target.value)} />
+                                  </div>
+                              </div>
+                          )}
+                        </div>
+                      )}
+                  </div>
+                </ScrollArea>
                 <DialogFooter>
                     <Button onClick={handleSubmitStatus} disabled={!imageFile || isSubmitting}>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
@@ -481,3 +484,5 @@ export default function StatusFeature() {
     </>
   );
 }
+
+    
