@@ -122,6 +122,26 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                     </div>
                      <div className="flex items-center gap-1">
                         {isOwnStatus && (
+                            <>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                                        <Archive className="h-5 w-5"/>
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Archive this Status?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will move the status to your archive. You can view or permanently delete it from your settings.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleArchive} className="bg-yellow-500 hover:bg-yellow-500/90">Archive</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
@@ -141,6 +161,7 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
+                            </>
                         )}
                         <DialogClose asChild>
                           <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
