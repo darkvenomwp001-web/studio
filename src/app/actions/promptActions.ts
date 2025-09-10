@@ -15,11 +15,12 @@ import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
 
 // Universal ownership check for Prompts
+// This is the single source of truth for ownership verification on the server.
 function isOwner(userId: string, promptData: { [key: string]: any }): boolean {
   if (!userId || !promptData) return false;
-  // Covers author summary object
+  // Covers author summary object: { id: '...', ... }
   if (promptData.author && typeof promptData.author === 'object' && promptData.author.id === userId) return true;
-  // Covers top-level authorId
+  // Covers top-level authorId string
   if (promptData.authorId === userId) return true;
   return false;
 }

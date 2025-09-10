@@ -177,19 +177,6 @@ export interface FeedPost {
     likedBy: string[];
 }
 
-export interface LiveFeedPost {
-  id: string;
-  author: UserSummary;
-  authorId: string;
-  content: string;
-  timestamp: any;
-  imageUrl?: string;
-  isArchived: boolean;
-  archivedAt?: any;
-  isTrashed: boolean;
-  trashedAt?: any;
-}
-
 export interface Prompt {
     id: string;
     title: string;
@@ -209,6 +196,8 @@ export interface StatusUpdate {
     mediaType: 'image' | 'video';
     expiresAt: any;
     createdAt: any;
-    isArchived?: boolean;
+    isArchived: boolean;
     archivedAt?: any;
+    isTrashed: boolean;
+    trashedAt?: any;
 }

@@ -5,16 +5,17 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
-// Helper function to check ownership
+// Universal ownership check for Status Updates
 // This is the single source of truth for ownership verification on the server.
 function isOwner(userId: string, statusData: { [key: string]: any }): boolean {
   if (!userId || !statusData) return false;
-  // Covers authorInfo object from status updates
+  // Covers authorInfo summary object: { id: '...', ... }
   if (statusData.authorInfo && typeof statusData.authorInfo === 'object' && statusData.authorInfo.id === userId) return true;
-  // Covers top-level authorId
+  // Covers top-level authorId string
   if (statusData.authorId === userId) return true;
   return false;
 }
+
 
 export async function archiveStatusUpdate(
   statusId: string,
