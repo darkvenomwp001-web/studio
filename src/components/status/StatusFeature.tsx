@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Archive, Trash2, Vote } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { archiveStatusUpdate, trashStatusUpdate } from '@/app/actions/statusActions';
+import { archiveStatusUpdate } from '@/app/actions/statusActions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 

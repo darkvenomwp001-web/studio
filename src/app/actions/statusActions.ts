@@ -39,6 +39,7 @@ export async function archiveStatusUpdate(
     
     await updateDoc(statusRef, {
         isArchived: true,
+        isTrashed: false, // Explicitly set isTrashed to false
         archivedAt: serverTimestamp()
     });
     revalidatePath('/'); 
