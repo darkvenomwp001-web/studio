@@ -103,9 +103,12 @@ export async function restoreStatusUpdate(
 
         await updateDoc(statusRef, {
             isTrashed: false,
-            trashedAt: null
+            trashedAt: null,
+            isArchived: false, // Also un-archive when restoring from trash
+            archivedAt: null
         });
         revalidatePath('/settings/trash');
+        revalidatePath('/settings/archive');
         return { success: true };
     } catch (error) {
         console.error('Error restoring status:', error);

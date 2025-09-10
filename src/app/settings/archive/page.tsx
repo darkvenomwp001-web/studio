@@ -15,7 +15,7 @@ import type { Prompt, StatusUpdate } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
 import { useToast } from '@/hooks/use-toast';
 import { permanentlyDeletePrompt } from '@/app/actions/promptActions';
-import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
+import { permanentlyDeleteStatusUpdate, restoreStatusUpdate } from '@/app/actions/statusActions';
 import Image from 'next/image';
 
 export default function ArchivePage() {
@@ -60,6 +60,26 @@ export default function ArchivePage() {
     };
   }, [user, authLoading, router, toast, isLoading]);
 
+  const handleRestore = async (itemId: string, type: 'prompt' | 'status') => {
+    if (!user) return;
+    let result: { success: boolean, error?: string };
+    let itemName = type === 'prompt' ? 'Prompt' : 'Status';
+    
+    if (type === 'status') {
+        result = await restoreStatusUpdate(itemId, user.id);
+    } else {
+        // Placeholder for prompt restoration logic
+        toast({ title: "Coming Soon", description: "Restoring prompts is not yet implemented." });
+        return;
+    }
+
+    if (result.success) {
+        toast({ title: `${itemName} Restored`, description: `The item has been restored from the archive.`});
+    } else {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+    }
+  };
+
   const handleDelete = async (itemId: string, type: 'prompt' | 'status') => {
     if (!user) return;
     let result: { success: boolean, error?: string };
@@ -81,7 +101,7 @@ export default function ArchivePage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && authLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -119,7 +139,7 @@ export default function ArchivePage() {
                             <p className="text-xs text-muted-foreground mt-2">Archived on {formatDate(prompt.archivedAt)}</p>
                         </CardContent>
                         <CardFooter className="gap-2">
-                            <Button variant="outline" size="sm" disabled> {/* onClick={() => handleRestore(prompt, 'prompt')} */}
+                            <Button variant="outline" size="sm" disabled>
                                 <RotateCcw className="mr-2 h-4 w-4" /> Restore
                             </Button>
                             <AlertDialog>
@@ -156,7 +176,7 @@ export default function ArchivePage() {
                             </div>
                         </CardContent>
                         <CardFooter className="gap-2">
-                           <Button variant="outline" size="sm" disabled> {/* onClick={() => handleRestore(status, 'status')} */}
+                           <Button variant="outline" size="sm" onClick={() => handleRestore(status.id, 'status')}>
                                 <RotateCcw className="mr-2 h-4 w-4" /> Restore
                            </Button>
                            <AlertDialog>
