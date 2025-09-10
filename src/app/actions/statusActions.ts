@@ -6,6 +6,7 @@ import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/fir
 import { revalidatePath } from 'next/cache';
 
 // Helper function to check ownership
+// This is the single source of truth for ownership verification on the server.
 function isOwner(userId: string, statusData: { [key: string]: any }): boolean {
   if (!userId || !statusData) return false;
   // Covers authorInfo object from status updates
