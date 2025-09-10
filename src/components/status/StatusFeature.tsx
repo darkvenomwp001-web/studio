@@ -112,25 +112,9 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                     </div>
                      <div className="flex items-center gap-1">
                         {isOwnStatus && (
-                             <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
-                                        <Archive className="h-5 w-5" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Archive this Status?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This will move the status to your archive page. You can manage it from there.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleArchive(currentStatus.id)}>Archive</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                           <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={() => handleArchive(currentStatus.id)}>
+                                <Archive className="h-5 w-5" />
+                           </Button>
                         )}
                         <DialogClose asChild>
                           <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
