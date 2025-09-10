@@ -40,25 +40,27 @@ export default function ArchivePage() {
 
     const unsubPrompts = onSnapshot(promptsQuery, snapshot => {
       setArchivedPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
-      if(isLoading) setIsLoading(false);
+      setIsLoading(false); // Set loading to false once data is fetched
     }, error => {
       console.error("Error fetching archived prompts:", error);
       toast({ title: "Error", description: "Could not load archived prompts.", variant: "destructive" });
+      setIsLoading(false);
     });
     
     const unsubStatuses = onSnapshot(statusesQuery, snapshot => {
         setArchivedStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
-        if(isLoading) setIsLoading(false);
+        setIsLoading(false); // Also set loading to false here
     }, error => {
         console.error("Error fetching archived statuses:", error);
         toast({ title: "Error", description: "Could not load archived statuses.", variant: "destructive" });
+        setIsLoading(false);
     });
 
     return () => {
       unsubPrompts();
       unsubStatuses();
     };
-  }, [user, authLoading, router, toast, isLoading]);
+  }, [user, authLoading, router, toast]);
 
   const handleRestore = async (itemId: string, type: 'prompt' | 'status') => {
     if (!user) return;
@@ -101,7 +103,7 @@ export default function ArchivePage() {
     }
   };
 
-  if (isLoading && authLoading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
