@@ -91,7 +91,7 @@ export default function TrashPage() {
         <h1 className="text-4xl font-headline font-bold text-destructive flex items-center gap-3">
           <Trash2 className="h-10 w-10" /> Trash
         </h1>
-        <p className="text-muted-foreground">Items you move to trash can be restored or permanently deleted.</p>
+        <p className="text-muted-foreground">Items in trash are permanently deleted after 30 days. This action cannot be undone.</p>
       </header>
       
       <div className="space-y-4">

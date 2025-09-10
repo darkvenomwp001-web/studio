@@ -26,7 +26,8 @@ export default function ArchivePage() {
 
   const [archivedPrompts, setArchivedPrompts] = useState<Prompt[]>([]);
   const [archivedStatuses, setArchivedStatuses] = useState<StatusUpdate[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPrompts, setIsLoadingPrompts] = useState(true);
+  const [isLoadingStatuses, setIsLoadingStatuses] = useState(true);
 
   useEffect(() => {
     if (authLoading) return;
@@ -35,19 +36,18 @@ export default function ArchivePage() {
       return;
     }
 
-    setIsLoading(true);
-    let promptsLoaded = false;
-    let statusesLoaded = false;
-    const checkLoadingDone = () => {
-        if (promptsLoaded && statusesLoaded) {
-            setIsLoading(false);
-        }
-    }
-
-    // This query fetches prompts explicitly marked as archived
+    setIsLoadingPrompts(true);
     const promptsQuery = query(collection(db, 'prompts'), where('author.id', '==', user.id), where('isArchived', '==', true), orderBy('archivedAt', 'desc'));
-    
-    // This query fetches statuses that are explicitly marked as archived and NOT trashed
+    const unsubPrompts = onSnapshot(promptsQuery, snapshot => {
+      setArchivedPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
+      setIsLoadingPrompts(false);
+    }, error => {
+      console.error("Error fetching archived prompts:", error);
+      toast({ title: "Error", description: "Could not load archived prompts.", variant: "destructive" });
+      setIsLoadingPrompts(false);
+    });
+
+    setIsLoadingStatuses(true);
     const statusesQuery = query(
         collection(db, 'statusUpdates'), 
         where('authorId', '==', user.id), 
@@ -55,27 +55,13 @@ export default function ArchivePage() {
         where('isTrashed', '==', false),
         orderBy('archivedAt', 'desc')
     );
-
-    const unsubPrompts = onSnapshot(promptsQuery, snapshot => {
-      setArchivedPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
-      promptsLoaded = true;
-      checkLoadingDone();
-    }, error => {
-      console.error("Error fetching archived prompts:", error);
-      toast({ title: "Error", description: "Could not load archived prompts.", variant: "destructive" });
-      promptsLoaded = true;
-      checkLoadingDone();
-    });
-    
     const unsubStatuses = onSnapshot(statusesQuery, snapshot => {
         setArchivedStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
-        statusesLoaded = true;
-        checkLoadingDone();
+        setIsLoadingStatuses(false);
     }, error => {
         console.error("Error fetching archived statuses:", error);
         toast({ title: "Error", description: "Could not load archived statuses.", variant: "destructive" });
-        statusesLoaded = true;
-        checkLoadingDone();
+        setIsLoadingStatuses(false);
     });
 
     return () => {
@@ -104,13 +90,7 @@ export default function ArchivePage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const isLoading = isLoadingPrompts || isLoadingStatuses;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 py-8">
@@ -121,7 +101,7 @@ export default function ArchivePage() {
         <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
           <ArchiveIcon className="h-10 w-10" /> Your Archive
         </h1>
-        <p className="text-muted-foreground">Manage your archived prompts and status updates.</p>
+        <p className="text-muted-foreground">Manage your archived prompts and expired status updates.</p>
       </header>
 
        <Tabs defaultValue="statuses" className="w-full">
@@ -132,7 +112,9 @@ export default function ArchivePage() {
 
         <TabsContent value="statuses" className="mt-4">
             <div className="space-y-4">
-                {archivedStatuses.length > 0 ? archivedStatuses.map(status => (
+                {isLoadingStatuses ? (
+                     <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                ) : archivedStatuses.length > 0 ? archivedStatuses.map(status => (
                     <Card key={status.id}>
                         <CardContent className="p-4 flex flex-col sm:flex-row items-start gap-4">
                              <div className="w-full sm:w-32 h-auto sm:h-32 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
@@ -154,7 +136,7 @@ export default function ArchivePage() {
                     <CardHeader>
                       <Camera className="mx-auto h-12 w-12 text-muted-foreground" />
                       <CardTitle>No Archived Statuses</CardTitle>
-                      <CardDescription>Statuses you archive will appear here.</CardDescription>
+                      <CardDescription>Statuses you archive or that expire will appear here.</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <Link href="/" passHref>
@@ -168,7 +150,9 @@ export default function ArchivePage() {
 
         <TabsContent value="prompts" className="mt-4">
              <div className="space-y-4">
-                {archivedPrompts.length > 0 ? archivedPrompts.map(prompt => (
+                {isLoadingPrompts ? (
+                     <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                ) : archivedPrompts.length > 0 ? archivedPrompts.map(prompt => (
                     <Card key={prompt.id}>
                        <CardHeader>
                             <CardTitle className="flex items-center gap-2"><Edit className="h-5 w-5"/>{prompt.title}</CardTitle>
@@ -212,7 +196,6 @@ export default function ArchivePage() {
                 )}
             </div>
         </TabsContent>
-
       </Tabs>
     </div>
   );
