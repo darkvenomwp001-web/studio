@@ -3,15 +3,16 @@
 
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StatusUpdate } from '@/types';
+import type { User, StatusUpdate, Poll } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Archive, Trash2 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Archive, Trash2, Vote } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { archiveStatusUpdate } from '@/app/actions/statusActions';
@@ -155,6 +156,13 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
 
                 <div className="relative flex-1 flex items-center justify-center overflow-hidden">
                     <Image src={currentStatus.mediaUrl} alt="Status Update" layout="fill" objectFit="contain" />
+                     {currentStatus.textOverlay && (
+                        <div className="absolute bottom-10 left-4 right-4 z-10">
+                            <p className="text-white text-center text-lg font-semibold bg-black/50 p-2 rounded-md shadow-lg">
+                                {currentStatus.textOverlay}
+                            </p>
+                        </div>
+                    )}
                 </div>
                 
                  {/* Navigation buttons */}
@@ -176,6 +184,13 @@ export default function StatusFeature() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [textOverlay, setTextOverlay] = useState('');
+  
+  const [showPollCreator, setShowPollCreator] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOption1, setPollOption1] = useState('');
+  const [pollOption2, setPollOption2] = useState('');
+
   
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [selectedUserForViewing, setSelectedUserForViewing] = useState<User | null>(null);
@@ -260,6 +275,15 @@ export default function StatusFeature() {
     });
   };
 
+  const resetUploader = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setTextOverlay('');
+    setShowPollCreator(false);
+    setPollQuestion('');
+    setPollOption1('');
+    setPollOption2('');
+  }
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -307,21 +331,36 @@ export default function StatusFeature() {
     const authorInfo = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
     const expiresAt = Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000);
 
+    const statusData: Omit<StatusUpdate, 'id'> = {
+        authorId: user.id,
+        authorInfo: authorInfo,
+        mediaUrl: imageUrl,
+        mediaType: 'image',
+        expiresAt: expiresAt,
+        createdAt: serverTimestamp(),
+        isArchived: false,
+        isTrashed: false,
+    };
+    
+    if (textOverlay.trim()) {
+        statusData.textOverlay = textOverlay.trim();
+    }
+    
+    if (showPollCreator && pollQuestion.trim() && pollOption1.trim() && pollOption2.trim()) {
+        statusData.poll = {
+            question: pollQuestion.trim(),
+            options: [
+                { id: 'opt1', text: pollOption1.trim(), votes: [] },
+                { id: 'opt2', text: pollOption2.trim(), votes: [] }
+            ]
+        };
+    }
+
     try {
-        await addDoc(collection(db, 'statusUpdates'), {
-            authorId: user.id,
-            authorInfo: authorInfo,
-            mediaUrl: imageUrl,
-            mediaType: 'image',
-            createdAt: serverTimestamp(),
-            expiresAt: expiresAt,
-            isArchived: false,
-            isTrashed: false,
-        });
+        await addDoc(collection(db, 'statusUpdates'), statusData);
         toast({ title: "Status Published!" });
         setIsUploaderOpen(false);
-        setImageFile(null);
-        setImagePreview(null);
+        resetUploader();
     } catch (error) {
         toast({ title: "Failed to publish status", variant: "destructive"});
     } finally {
@@ -369,19 +408,24 @@ export default function StatusFeature() {
           )}
       </div>
       </div>
-       <Dialog open={isUploaderOpen} onOpenChange={setIsUploaderOpen}>
+       <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Create a New Status</DialogTitle>
                     <DialogDescription>Share a photo with your followers for the next 24 hours.</DialogDescription>
                 </DialogHeader>
-                <div className="py-4">
+                <div className="py-4 space-y-4">
                     {imagePreview ? (
                         <div className="relative">
                             <Image src={imagePreview} alt="Preview" width={400} height={400} className="w-full h-auto object-contain rounded-lg" />
-                            <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => { setImageFile(null); setImagePreview(null); }}>
-                                <X className="h-4 w-4" />
-                            </Button>
+                            <div className="absolute top-2 right-2 flex gap-2">
+                               <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setShowPollCreator(!showPollCreator)}>
+                                    <Vote className="h-4 w-4" />
+                               </Button>
+                               <Button variant="destructive" size="icon" className="h-7 w-7" onClick={() => { setImageFile(null); setImagePreview(null); }}>
+                                    <X className="h-4 w-4" />
+                               </Button>
+                           </div>
                         </div>
                     ) : (
                         <div 
@@ -392,6 +436,28 @@ export default function StatusFeature() {
                             <p className="text-muted-foreground">Click to upload an image</p>
                             <Input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
                         </div>
+                    )}
+                    
+                    {imagePreview && (
+                      <div className="space-y-4">
+                        <Input
+                          type="text"
+                          placeholder="Add a caption..."
+                          value={textOverlay}
+                          onChange={(e) => setTextOverlay(e.target.value)}
+                          maxLength={100}
+                        />
+                        {showPollCreator && (
+                            <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
+                                <Label>Create a Poll</Label>
+                                <Input placeholder="Poll Question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
+                                <div className="flex gap-2">
+                                   <Input placeholder="Option 1" value={pollOption1} onChange={e => setPollOption1(e.target.value)} />
+                                   <Input placeholder="Option 2" value={pollOption2} onChange={e => setPollOption2(e.target.value)} />
+                                </div>
+                            </div>
+                        )}
+                      </div>
                     )}
                 </div>
                 <DialogFooter>

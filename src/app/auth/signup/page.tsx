@@ -47,7 +47,7 @@ export default function SignUpPage() {
   return (
     <Card className="w-full max-w-sm shadow-2xl">
       <CardHeader className="text-center">
-        <CardTitle className="text-3xl font-headline text-primary">Join LitVerse!</CardTitle>
+        <CardTitle className="text-3xl font-headline text-primary">Join D4RKV3NOM!</CardTitle>
         <CardDescription>Create an account to start your adventure.</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>

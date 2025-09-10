@@ -171,7 +171,7 @@ export default function EditProfilePage() {
                     <div>
                       <Label htmlFor="username">Username</Label>
                       <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Your unique username" disabled={anySubmitting} />
-                      <p className="text-xs text-muted-foreground mt-1">Your LitVerse URL: litverse.app/user/{username || 'yourusername'}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Your D4RKV3NOM URL: D4RKV3NOM.app/user/{username || 'yourusername'}</p>
                     </div>
                   </div>
                 </div>

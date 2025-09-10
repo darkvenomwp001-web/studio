@@ -68,7 +68,7 @@ export default function SignInPage() {
       <Card className="w-full max-w-sm shadow-2xl">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-headline text-primary">Welcome Back!</CardTitle>
-          <CardDescription>Sign in to continue your journey on LitVerse.</CardDescription>
+          <CardDescription>Sign in to continue your journey on D4RKV3NOM.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-6">
@@ -133,7 +133,7 @@ export default function SignInPage() {
         </form>
         <CardFooter className="text-center text-sm">
           <p className="text-muted-foreground w-full">
-            New to LitVerse?{' '}
+            New to D4RKV3NOM?{' '}
             <Link href="/auth/signup" className={`font-semibold text-primary hover:underline ${isAnyLoading ? 'pointer-events-none text-muted-foreground' : ''}`}>
               Sign Up
             </Link>

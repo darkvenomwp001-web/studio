@@ -11,7 +11,7 @@ export default function AuthLayout({
       <div className="absolute top-8 left-8">
         <Link href="/" className="flex items-center gap-2">
           <BookOpenText className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-headline font-bold text-foreground">LitVerse</span>
+          <span className="text-2xl font-headline font-bold text-foreground">D4RKV3NOM</span>
         </Link>
       </div>
       <div className="w-full max-w-md">
