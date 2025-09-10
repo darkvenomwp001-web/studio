@@ -74,30 +74,6 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
 
     const currentStatus = userStatuses[currentStatusIndex];
 
-    const handleArchive = async () => {
-      if (!currentStatus || !currentUser) return;
-      onOpenChange(false); // Close the viewer optimistically
-      const result = await archiveStatusUpdate(currentStatus.id, currentUser.id);
-      if (result.success) {
-        onStatusArchived(currentStatus.id, currentUser.id);
-        toast({ title: 'Status Archived' });
-      } else {
-        toast({ title: 'Error', description: result.error, variant: 'destructive' });
-      }
-    };
-    
-    const handleTrash = async () => {
-      if (!currentStatus || !currentUser) return;
-      onOpenChange(false); // Close the viewer optimistically
-      const result = await trashStatusUpdate(currentStatus.id, currentUser.id);
-      if (result.success) {
-        onStatusArchived(currentStatus.id, currentUser.id); // Re-use the same callback to remove it from view
-        toast({ title: 'Status Moved to Trash' });
-      } else {
-        toast({ title: 'Error', description: result.error, variant: 'destructive' });
-      }
-    };
-
     if (!selectedUser || !currentStatus) {
         return null;
     }
@@ -121,48 +97,6 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                         <span className="text-gray-300 text-xs">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
                      <div className="flex items-center gap-1">
-                        {isOwnStatus && (
-                            <>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
-                                        <Archive className="h-5 w-5"/>
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Archive this Status?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This will move the status to your archive. You can view or permanently delete it from your settings.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleArchive} className="bg-yellow-500 hover:bg-yellow-500/90">Archive</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                             <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
-                                        <Trash2 className="h-5 w-5"/>
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Move to Trash?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This will move the status to your trash. You can restore it or permanently delete it from your settings.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleTrash} className="bg-destructive hover:bg-destructive/90">Move to Trash</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                            </>
-                        )}
                         <DialogClose asChild>
                           <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
                               <X className="h-5 w-5"/>

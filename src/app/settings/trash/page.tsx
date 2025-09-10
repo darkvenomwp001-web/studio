@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { Loader2, ArrowLeft, Trash2, RotateCcw } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, RotateCcw, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -15,6 +15,7 @@ import { formatDate } from '@/lib/placeholder-data';
 import { useToast } from '@/hooks/use-toast';
 import { restoreStatusUpdate, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function TrashPage() {
   const { user, loading: authLoading } = useAuth();
@@ -57,7 +58,7 @@ export default function TrashPage() {
     if (!user) return;
     const result = await restoreStatusUpdate(statusId, user.id);
     if (result.success) {
-        toast({ title: "Status Restored", description: "The status has been restored." });
+        toast({ title: "Status Restored", description: "The status is live again for 24 hours." });
     } else {
         toast({ title: "Error", description: result.error, variant: "destructive" });
     }
@@ -90,7 +91,7 @@ export default function TrashPage() {
         <h1 className="text-4xl font-headline font-bold text-destructive flex items-center gap-3">
           <Trash2 className="h-10 w-10" /> Trash
         </h1>
-        <p className="text-muted-foreground">Items in trash will be permanently deleted after 30 days.</p>
+        <p className="text-muted-foreground">Items you move to trash can be restored or permanently deleted.</p>
       </header>
       
       <div className="space-y-4">
@@ -101,7 +102,7 @@ export default function TrashPage() {
                     <Image src={item.mediaUrl} alt="Trashed status" layout="fill" objectFit="cover" />
                 </div>
                 <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Image status from {formatDate(item.createdAt)}</p>
+                    <p className="text-sm text-muted-foreground">Status from {formatDate(item.createdAt)}</p>
                     <p className="text-xs text-muted-foreground mt-1">Moved to trash on {formatDate(item.trashedAt)}</p>
                 </div>
             </CardContent>
@@ -131,11 +132,18 @@ export default function TrashPage() {
             </CardFooter>
           </Card>
         )) : (
-          <div className="text-center py-16 bg-card rounded-lg shadow-sm">
-            <Trash2 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-xl font-headline font-semibold mb-2">Trash is Empty</h2>
-            <p className="text-muted-foreground">Items you move to trash will appear here.</p>
-          </div>
+          <Card className="text-center py-10">
+            <CardHeader>
+                <Trash2 className="mx-auto h-12 w-12 text-muted-foreground" />
+                <CardTitle>Trash is Empty</CardTitle>
+                <CardDescription>Items you move to trash from the archive will appear here.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/settings/archive" passHref>
+                  <Button variant="outline">View Archive</Button>
+              </Link>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

@@ -5,8 +5,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { Loader2, ArrowLeft, Archive as ArchiveIcon, Trash2, Edit, FileText, Image as ImageIcon, RotateCcw } from 'lucide-react';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { Loader2, ArrowLeft, Archive as ArchiveIcon, Trash2, Edit, FileText, Image as ImageIcon, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,8 +15,9 @@ import type { Prompt, StatusUpdate } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
 import { useToast } from '@/hooks/use-toast';
 import { permanentlyDeletePrompt } from '@/app/actions/promptActions';
-import { permanentlyDeleteStatusUpdate, restoreStatusUpdate } from '@/app/actions/statusActions';
+import { permanentlyDeleteStatusUpdate, trashStatusUpdate } from '@/app/actions/statusActions';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function ArchivePage() {
   const { user, loading: authLoading } = useAuth();
@@ -24,7 +25,7 @@ export default function ArchivePage() {
   const { toast } = useToast();
 
   const [archivedPrompts, setArchivedPrompts] = useState<Prompt[]>([]);
-  const [archivedStatuses, setArchivedStatuses] = useState<StatusUpdate[]>([]);
+  const [expiredStatuses, setExpiredStatuses] = useState<StatusUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -35,25 +36,35 @@ export default function ArchivePage() {
     }
 
     setIsLoading(true);
+    // This query fetches prompts explicitly marked as archived
     const promptsQuery = query(collection(db, 'prompts'), where('author.id', '==', user.id), where('isArchived', '==', true), orderBy('archivedAt', 'desc'));
-    const statusesQuery = query(collection(db, 'statusUpdates'), where('authorId', '==', user.id), where('isArchived', '==', true), orderBy('archivedAt', 'desc'));
+    
+    // This query fetches statuses that are older than 24 hours and NOT trashed
+    const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+    const statusesQuery = query(
+        collection(db, 'statusUpdates'), 
+        where('authorId', '==', user.id), 
+        where('isTrashed', '==', false),
+        where('createdAt', '<=', twentyFourHoursAgo),
+        orderBy('createdAt', 'desc')
+    );
 
     const unsubPrompts = onSnapshot(promptsQuery, snapshot => {
       setArchivedPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
-      setIsLoading(false); // Set loading to false once data is fetched
+      if (isLoading) setIsLoading(false);
     }, error => {
       console.error("Error fetching archived prompts:", error);
       toast({ title: "Error", description: "Could not load archived prompts.", variant: "destructive" });
-      setIsLoading(false);
+      if (isLoading) setIsLoading(false);
     });
     
     const unsubStatuses = onSnapshot(statusesQuery, snapshot => {
-        setArchivedStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
-        setIsLoading(false); // Also set loading to false here
+        setExpiredStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
+        if (isLoading) setIsLoading(false);
     }, error => {
-        console.error("Error fetching archived statuses:", error);
-        toast({ title: "Error", description: "Could not load archived statuses.", variant: "destructive" });
-        setIsLoading(false);
+        console.error("Error fetching expired statuses:", error);
+        toast({ title: "Error", description: "Could not load expired statuses.", variant: "destructive" });
+        if (isLoading) setIsLoading(false);
     });
 
     return () => {
@@ -62,42 +73,21 @@ export default function ArchivePage() {
     };
   }, [user, authLoading, router, toast]);
 
-  const handleRestore = async (itemId: string, type: 'prompt' | 'status') => {
+  const handleMoveToTrash = async (statusId: string) => {
     if (!user) return;
-    let result: { success: boolean, error?: string };
-    let itemName = type === 'prompt' ? 'Prompt' : 'Status';
-    
-    if (type === 'status') {
-        result = await restoreStatusUpdate(itemId, user.id);
-    } else {
-        // Placeholder for prompt restoration logic
-        toast({ title: "Coming Soon", description: "Restoring prompts is not yet implemented." });
-        return;
-    }
-
+    const result = await trashStatusUpdate(statusId, user.id);
     if (result.success) {
-        toast({ title: `${itemName} Restored`, description: `The item has been restored from the archive.`});
+        toast({ title: "Status Moved to Trash" });
     } else {
         toast({ title: "Error", description: result.error, variant: "destructive" });
     }
   };
 
-  const handleDelete = async (itemId: string, type: 'prompt' | 'status') => {
+  const handleDeletePrompt = async (promptId: string) => {
     if (!user) return;
-    let result: { success: boolean, error?: string };
-    let itemName = type === 'prompt' ? 'Prompt' : 'Status';
-    
-    switch(type) {
-        case 'prompt':
-            result = await permanentlyDeletePrompt(itemId, user.id);
-            break;
-        case 'status':
-            result = await permanentlyDeleteStatusUpdate(itemId, user.id);
-            break;
-    }
-
+    const result = await permanentlyDeletePrompt(promptId, user.id);
     if (result.success) {
-        toast({ title: `${itemName} Deleted`, description: `The item has been permanently removed.`});
+        toast({ title: `Prompt Deleted`, description: `The prompt has been permanently removed.`});
     } else {
         toast({ title: "Error", description: result.error, variant: "destructive" });
     }
@@ -120,14 +110,51 @@ export default function ArchivePage() {
         <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
           <ArchiveIcon className="h-10 w-10" /> Your Archive
         </h1>
-        <p className="text-muted-foreground">Content you've archived. You can restore it or delete it permanently.</p>
+        <p className="text-muted-foreground">Manage your archived prompts and expired status updates.</p>
       </header>
 
-       <Tabs defaultValue={archivedPrompts.length > 0 ? "prompts" : "statuses"} className="w-full">
+       <Tabs defaultValue="statuses" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="prompts">Prompts ({archivedPrompts.length})</TabsTrigger>
-            <TabsTrigger value="statuses">Statuses ({archivedStatuses.length})</TabsTrigger>
+            <TabsTrigger value="statuses">Expired Statuses ({expiredStatuses.length})</TabsTrigger>
+            <TabsTrigger value="prompts">Archived Prompts ({archivedPrompts.length})</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="statuses" className="mt-4">
+            <div className="space-y-4">
+                {expiredStatuses.length > 0 ? expiredStatuses.map(status => (
+                    <Card key={status.id}>
+                        <CardContent className="p-4 flex flex-col sm:flex-row items-start gap-4">
+                             <div className="w-full sm:w-32 h-auto sm:h-32 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
+                                <Image src={status.mediaUrl} alt="Archived status" layout="responsive" width={128} height={128} objectFit="cover" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm text-muted-foreground">Status from {formatDate(status.createdAt)}</p>
+                                <p className="text-xs text-muted-foreground mt-1">This status is over 24 hours old and is no longer live.</p>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="gap-2">
+                           <Button variant="outline" size="sm" onClick={() => handleMoveToTrash(status.id)}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Move to Trash
+                           </Button>
+                        </CardFooter>
+                    </Card>
+                )) : (
+                  <Card className="text-center py-10">
+                    <CardHeader>
+                      <Camera className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <CardTitle>No Expired Statuses</CardTitle>
+                      <CardDescription>Status updates you post will appear here after 24 hours.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Link href="/" passHref>
+                          <Button>Post a Status Update</Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                )}
+            </div>
+        </TabsContent>
+
         <TabsContent value="prompts" className="mt-4">
              <div className="space-y-4">
                 {archivedPrompts.length > 0 ? archivedPrompts.map(prompt => (
@@ -141,9 +168,6 @@ export default function ArchivePage() {
                             <p className="text-xs text-muted-foreground mt-2">Archived on {formatDate(prompt.archivedAt)}</p>
                         </CardContent>
                         <CardFooter className="gap-2">
-                            <Button variant="outline" size="sm" disabled>
-                                <RotateCcw className="mr-2 h-4 w-4" /> Restore
-                            </Button>
                             <AlertDialog>
                                <AlertDialogTrigger asChild>
                                     <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete</Button>
@@ -155,52 +179,29 @@ export default function ArchivePage() {
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(prompt.id, 'prompt')} className="bg-destructive hover:bg-destructive/90">Delete Forever</AlertDialogAction>
+                                        <AlertDialogAction onClick={() => handleDeletePrompt(prompt.id)} className="bg-destructive hover:bg-destructive/90">Delete Forever</AlertDialogAction>
                                     </AlertDialogFooter>
                                </AlertDialogContent>
                             </AlertDialog>
                         </CardFooter>
                     </Card>
-                )) : <p className="text-center text-muted-foreground py-10">No archived prompts.</p>}
+                )) : (
+                  <Card className="text-center py-10">
+                    <CardHeader>
+                      <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <CardTitle>No Archived Prompts</CardTitle>
+                      <CardDescription>Prompts you archive will appear here.</CardDescription>
+                    </CardHeader>
+                     <CardContent>
+                      <Link href="/#prompts" passHref>
+                          <Button>Create a Prompt</Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                )}
             </div>
         </TabsContent>
-         <TabsContent value="statuses" className="mt-4">
-            <div className="space-y-4">
-                {archivedStatuses.length > 0 ? archivedStatuses.map(status => (
-                    <Card key={status.id}>
-                        <CardContent className="p-4 flex flex-col sm:flex-row items-start gap-4">
-                             <div className="w-full sm:w-32 h-auto sm:h-32 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
-                                <Image src={status.mediaUrl} alt="Archived status" layout="responsive" width={128} height={128} objectFit="cover" />
-                            </div>
-                            <div className="flex-1">
-                                <p className="text-sm text-muted-foreground">Image status from {formatDate(status.createdAt)}</p>
-                                <p className="text-xs text-muted-foreground mt-1">Archived on {formatDate(status.archivedAt)}</p>
-                            </div>
-                        </CardContent>
-                        <CardFooter className="gap-2">
-                           <Button variant="outline" size="sm" onClick={() => handleRestore(status.id, 'status')}>
-                                <RotateCcw className="mr-2 h-4 w-4" /> Restore
-                           </Button>
-                           <AlertDialog>
-                               <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Delete</Button>
-                               </AlertDialogTrigger>
-                               <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Permanently delete this status?</AlertDialogTitle>
-                                        <AlertDialogDescription>This action cannot be undone and the status will be gone forever.</AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(status.id, 'status')} className="bg-destructive hover:bg-destructive/90">Delete Forever</AlertDialogAction>
-                                    </AlertDialogFooter>
-                               </AlertDialogContent>
-                            </AlertDialog>
-                        </CardFooter>
-                    </Card>
-                )) : <p className="text-center text-muted-foreground py-10">No archived statuses.</p>}
-            </div>
-        </TabsContent>
+
       </Tabs>
     </div>
   );

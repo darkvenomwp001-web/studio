@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc, Timestamp } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
 // Universal ownership check for Status Updates
@@ -75,6 +75,7 @@ export async function trashStatusUpdate(
             trashedAt: serverTimestamp()
         });
         revalidatePath('/');
+        revalidatePath('/settings/archive');
         revalidatePath('/settings/trash');
         return { success: true };
     } catch (error) {
@@ -104,11 +105,14 @@ export async function restoreStatusUpdate(
         await updateDoc(statusRef, {
             isTrashed: false,
             trashedAt: null,
-            isArchived: false, // Also un-archive when restoring from trash
+            // Also reset expiry and archived status on restore
+            expiresAt: Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000),
+            isArchived: false, 
             archivedAt: null
         });
         revalidatePath('/settings/trash');
         revalidatePath('/settings/archive');
+        revalidatePath('/');
         return { success: true };
     } catch (error) {
         console.error('Error restoring status:', error);
