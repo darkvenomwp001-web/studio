@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Button } from "@/components/ui/button"
@@ -69,7 +68,7 @@ export default function SignInPage() {
       <Card className="w-full max-w-sm shadow-2xl">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-headline text-primary">Welcome Back!</CardTitle>
-          <CardDescription>Sign in to continue.</CardDescription>
+          <CardDescription>Sign in to continue your journey on LitVerse.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-6">
@@ -134,7 +133,7 @@ export default function SignInPage() {
         </form>
         <CardFooter className="text-center text-sm">
           <p className="text-muted-foreground w-full">
-            New to D4RKV3NOM?{' '}
+            New to LitVerse?{' '}
             <Link href="/auth/signup" className={`font-semibold text-primary hover:underline ${isAnyLoading ? 'pointer-events-none text-muted-foreground' : ''}`}>
               Sign Up
             </Link>
@@ -146,7 +145,7 @@ export default function SignInPage() {
         <AlertDialogHeader>
           <AlertDialogTitle>Forgot Your Password?</AlertDialogTitle>
           <AlertDialogDescription>
-            No worries! Enter your email address below and we&apos;ll send you a link to reset your password.
+            No worries! Enter your email address below and we'll send you a link to reset your password.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-2 py-2">

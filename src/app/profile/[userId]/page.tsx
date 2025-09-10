@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -274,7 +273,7 @@ export default function UserProfilePage() {
           <div className="flex flex-col sm:flex-row gap-2 mt-4 md:mt-0 self-center md:self-end">
             {isOwnProfile ? (
               <div className="flex flex-col sm:flex-row gap-2">
-                <Link href="/settings" passHref>
+                <Link href="/settings/profile" passHref>
                   <Button variant="outline" className="w-full sm:w-auto"><Settings className="mr-2 h-4 w-4" /> Profile Settings</Button>
                 </Link>
                 <Button variant="destructive" onClick={signOutFirebase} className="w-full sm:w-auto"><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
