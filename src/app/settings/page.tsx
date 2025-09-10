@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -78,14 +79,14 @@ export default function SettingsHubPage() {
           </Card>
         </section>
         
-        {/* Notifications & Interactions Section */}
+        {/* Interactions & Appearance Section */}
         <section>
-            <h2 className="text-lg font-headline font-semibold mb-2 px-4">Interactions</h2>
+            <h2 className="text-lg font-headline font-semibold mb-2 px-4">Preferences</h2>
             <Card>
                  <CardContent className="p-2">
-                    <SettingsLink href="#" icon={Bell} title="Notifications" description="Choose how you're notified." />
-                    <SettingsLink href="#" icon={MessageCircle} title="Messaging" description="Control who can message you." />
-                     <SettingsLink href="#" icon={Palette} title="Appearance" description="Customize the look and feel." />
+                    <SettingsLink href="/settings/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." />
+                    <SettingsLink href="/settings/messaging" icon={MessageCircle} title="Messaging" description="Control who can message you." />
+                     <SettingsLink href="/settings/appearance" icon={Palette} title="Appearance" description="Customize the look and feel." />
                 </CardContent>
             </Card>
         </section>
@@ -95,9 +96,9 @@ export default function SettingsHubPage() {
           <h2 className="text-lg font-headline font-semibold mb-2 px-4">About</h2>
           <Card>
             <CardContent className="p-2">
-              <SettingsLink href="#" icon={FileText} title="Terms of Service" description="Read the rules and guidelines." />
-              <SettingsLink href="#" icon={ShieldCheck} title="Privacy Policy" description="Learn how we handle your data." />
-              <SettingsLink href="#" icon={Info} title="Help & Support" description="Get help or contact us." />
+              <SettingsLink href="/settings/terms" icon={FileText} title="Terms of Service" description="Read the rules and guidelines." />
+              <SettingsLink href="/settings/privacy" icon={ShieldCheck} title="Privacy Policy" description="Learn how we handle your data." />
+              <SettingsLink href="/settings/help" icon={Info} title="Help & Support" description="Get help or contact us." />
             </CardContent>
           </Card>
         </section>

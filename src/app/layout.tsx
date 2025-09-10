@@ -8,6 +8,7 @@ import { AuthProvider } from '@/hooks/useAuth';
 import { SplashWrapper } from '@/components/layout/SplashWrapper';
 import PasswordSetupDialog from '@/components/auth/PasswordSetupDialog';
 import { ScrollToTop } from '@/components/layout/ScrollToTop';
+import { ThemeProvider } from '@/components/theme-provider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
@@ -26,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <head>
         
       </head>
@@ -37,16 +38,23 @@ export default function RootLayout({
           spaceGrotesk.variable
         )}
       >
-        <SplashWrapper>
-          <AuthProvider>
-            <ScrollToTop />
-            <div className="relative flex min-h-screen flex-col">
-              {children}
-            </div>
-            <Toaster />
-            <PasswordSetupDialog />
-          </AuthProvider>
-        </SplashWrapper>
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+          >
+          <SplashWrapper>
+            <AuthProvider>
+              <ScrollToTop />
+              <div className="relative flex min-h-screen flex-col">
+                {children}
+              </div>
+              <Toaster />
+              <PasswordSetupDialog />
+            </AuthProvider>
+          </SplashWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );
