@@ -42,6 +42,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment } from 'firebase/firestore';
 import { toggleChapterVote } from '@/app/actions/storyActions';
+import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 
 export default function StoryReaderPage() {
   const params = useParams();
