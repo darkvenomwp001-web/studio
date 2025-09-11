@@ -130,9 +130,9 @@ export default function StatusFeature() {
         });
 
         const sortedStatuses = liveAndRelevant.sort((a, b) => {
-          const timeA = a.createdAt ? (a.createdAt as Timestamp).toMillis() : 0;
-          const timeB = b.createdAt ? (b.createdAt as Timestamp).toMillis() : 0;
-          return timeB - timeA;
+            const timeA = a.createdAt ? (a.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
+            const timeB = b.createdAt ? (b.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
+            return timeB - timeA;
         });
         setAllStatuses(sortedStatuses);
 
@@ -338,13 +338,16 @@ export default function StatusFeature() {
         return;
     }
 
-    const statusData: Omit<StatusUpdate, 'id'> = {
+    const statusData: Omit<StatusUpdate, 'id'> & { [key: string]: any } = {
         ...baseStatus,
         mediaUrl: mediaUrl,
         mediaType: mediaType,
-        textOverlay: textOverlay.trim() || undefined,
     };
     
+    if (textOverlay.trim()) {
+        statusData.textOverlay = textOverlay.trim();
+    }
+
     if (showPollCreator && pollQuestion.trim() && pollOption1.trim() && pollOption2.trim()) {
         statusData.poll = {
             question: pollQuestion.trim(),
@@ -677,15 +680,19 @@ export default function StatusFeature() {
             </DialogContent>
         </Dialog>
 
-        <StatusViewer
-            isOpen={isViewerOpen}
-            onOpenChange={setIsViewerOpen}
-            selectedUser={selectedUserForViewing}
-            userStatuses={selectedUserForViewing ? groupedStatuses.get(selectedUserForViewing.id)?.statuses || [] : []}
-            onNext={handleNextUser}
-            onPrev={handlePrevUser}
-            onStatusArchived={onStatusArchived}
-        />
+      <StatusViewer
+        isOpen={isViewerOpen}
+        onOpenChange={setIsViewerOpen}
+        selectedUser={selectedUserForViewing}
+        userStatuses={selectedUserForViewing ? groupedStatuses.get(selectedUserForViewing.id)?.statuses || [] : []}
+        onNext={handleNextUser}
+        onPrev={handlePrevUser}
+        onStatusArchived={onStatusArchived}
+      />
     </>
   );
 }
+
+    
+
+    
