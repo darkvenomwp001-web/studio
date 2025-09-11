@@ -84,15 +84,25 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
     }
 
     const togglePause = () => {
-        setIsPaused(!isPaused);
-        if (videoRef.current) {
-            if (isPaused) {
-                videoRef.current.play();
+        const video = videoRef.current;
+        if (video) {
+            if (video.paused) {
+                video.play();
+                setIsPaused(false);
             } else {
-                videoRef.current.pause();
+                video.pause();
+                setIsPaused(true);
             }
+        } else {
+            setIsPaused(prev => !prev);
         }
-    }
+    };
+    
+    const handleVideoCanPlay = () => {
+        if (isPaused && videoRef.current) {
+            videoRef.current.pause();
+        }
+    };
 
     const currentStatus = userStatuses[currentStatusIndex];
 
@@ -113,6 +123,9 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
     }
     
     const isOwnStatus = currentUser?.id === selectedUser.id;
+    
+    const isMediaStatus = !!currentStatus.mediaUrl;
+    const isNoteStatus = !!currentStatus.note || !!currentStatus.spotifyUrl;
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -161,26 +174,40 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                 </div>
 
                 <div className="relative flex-1 flex items-center justify-center overflow-hidden" onClick={togglePause}>
-                    {currentStatus.mediaType === 'video' ? (
-                        <video ref={videoRef} src={currentStatus.mediaUrl} autoPlay playsInline className="w-full h-full object-contain" />
-                    ) : currentStatus.mediaUrl ? (
-                        <Image src={currentStatus.mediaUrl} alt="Status Update" layout="fill" objectFit="contain" />
-                    ) : null}
-                     {currentStatus.note && (
-                        <div className="absolute inset-0 flex items-center justify-center p-8 bg-black">
-                            <p className="text-white text-center text-2xl font-semibold whitespace-pre-line">
-                                {currentStatus.note}
-                            </p>
-                        </div>
+                    {isMediaStatus && currentStatus.mediaType === 'video' && (
+                        <video 
+                            key={currentStatus.id}
+                            ref={videoRef} 
+                            src={currentStatus.mediaUrl} 
+                            autoPlay 
+                            playsInline 
+                            onCanPlay={handleVideoCanPlay}
+                            className="w-full h-full object-contain" 
+                        />
                     )}
-                    {currentStatus.textOverlay && (
+                    {isMediaStatus && currentStatus.mediaType === 'image' && (
+                        <Image src={currentStatus.mediaUrl!} alt="Status Update" layout="fill" objectFit="contain" />
+                    )}
+                    
+                    {isNoteStatus && (
+                         <div className="absolute inset-0 flex items-center justify-center p-8 bg-black">
+                             {currentStatus.note && (
+                                <p className="text-white text-center text-2xl font-semibold whitespace-pre-line">
+                                    {currentStatus.note}
+                                </p>
+                             )}
+                         </div>
+                    )}
+                    
+                    {isMediaStatus && currentStatus.textOverlay && (
                         <div className="absolute bottom-10 left-4 right-4 z-10">
                             <p className="text-white text-center text-lg font-semibold bg-black/50 p-2 rounded-md shadow-lg">
                                 {currentStatus.textOverlay}
                             </p>
                         </div>
                     )}
-                    {currentStatus.spotifyUrl && (
+
+                    {isNoteStatus && currentStatus.spotifyUrl && (
                         <div className="absolute bottom-10 left-4 right-4 z-10">
                            <SpotifyPlayer />
                         </div>
