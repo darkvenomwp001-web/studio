@@ -146,7 +146,7 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
 
                 <div className="relative flex-1 flex items-center justify-center overflow-hidden">
                     {currentStatus.mediaType === 'video' ? (
-                        <video src={currentStatus.mediaUrl} autoPlay muted loop className="w-full h-full object-contain" />
+                        <video src={currentStatus.mediaUrl} autoPlay muted loop playsInline className="w-full h-full object-contain" />
                     ) : (
                         <Image src={currentStatus.mediaUrl} alt="Status Update" layout="fill" objectFit="contain" />
                     )}
