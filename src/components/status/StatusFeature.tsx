@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { restoreStatusUpdate, permanentlyDeleteStatusUpdate, archiveStatusUpdate } from '@/app/actions/statusActions';
+import { restoreStatusUpdate, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 import { getStatusCaptions } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
@@ -361,6 +361,7 @@ export default function StatusFeature() {
         setIsUploaderOpen(false);
         resetUploader();
     } catch (error) {
+        console.error("Error saving status:", error);
         toast({ title: "Failed to save status", variant: "destructive"});
     } finally {
         setIsSubmitting(false);
@@ -460,8 +461,8 @@ export default function StatusFeature() {
                     const group = groupedStatuses.get(userId);
                     if (!group) return null;
                     const latestStatus = group.statuses.sort((a, b) => {
-                        const timeA = a.createdAt ? (a.createdAt as Timestamp).toMillis() : 0;
-                        const timeB = b.createdAt ? (b.createdAt as Timestamp).toMillis() : 0;
+                        const timeA = a.createdAt ? (a.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
+                        const timeB = b.createdAt ? (b.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
                         return timeB - timeA;
                     })[0];
                     return <StatusBubble key={userId} user={group.user} statuses={group.statuses} onSelect={handleSelectUser} latestStatus={latestStatus} />
