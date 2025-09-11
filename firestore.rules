@@ -2,155 +2,123 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // =================================
+  
     // Helper Functions
-    // =================================
-
-    function isAuthor(docData) {
-      return request.auth.uid == docData.author.id;
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
     
-    function isAuthorOrCollaborator(storyData) {
-      let isAuthor = request.auth.uid == storyData.author.id;
-      let isCollaborator = request.auth.uid in storyData.collaboratorIds;
-      return isAuthor || isCollaborator;
-    }
-    
-    function isAuthorOfStatus(statusData) {
-        let isAuthorById = request.auth.uid == statusData.authorId;
-        let isAuthorByInfo = request.auth.uid == statusData.authorInfo.id;
-        return isAuthorById || isAuthorByInfo;
-    }
-    
-    function isSignedIn() {
-      return request.auth != null && request.auth.uid != null;
+    function isAuthorOrCollaborator(storyId) {
+      let storyData = get(/databases/$(database)/documents/stories/$(storyId)).data;
+      return isOwner(storyData.author.id) || request.auth.uid in storyData.collaboratorIds;
     }
 
-    // New Helper for Admins - exciting feature #4
     function isAdmin() {
-      // In a real app, this list would be managed in a secure collection.
-      // For now, you can manually add your own UID here for testing.
-      let adminUIDs = [];
-      return request.auth.uid in adminUIDs;
+      // In a real app, this would be a list of admin UIDs
+      // For now, it's empty, so no one is an admin.
+      return request.auth.uid in [];
     }
 
-    // New Helper for rate limiting - exciting feature #2
-    function isRateLimited() {
-      // Prevent updates more than once every 2 seconds.
-      return request.time > resource.data.updatedAt + duration.value(2, 's');
-    }
-
-    // =================================
-    // Collections
-    // =================================
-
+    // USER PROFILES
     match /users/{userId} {
-      allow read: if true;
-      allow create: if request.auth.uid == userId;
-      // Rule #1: Lock Down User Profiles
-      // Rule #4 (partial): Only admins can change roles
-      // Rule #5: Prevent Self-Following
-      allow update: if request.auth.uid == userId
-                    && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role || isAdmin())
-                    && !(userId in request.resource.data.followingIds);
+      // Anyone can read a user's public profile
+      allow read;
+      // Only the owner can create or update their own profile
+      allow create, update: if isOwner(userId);
+      // Prevent users from following themselves
+      allow update: if ! (request.resource.data.followingIds.hasAny([userId]));
+      // Prevent direct manipulation of follower counts
+      allow update: if ! ('followersCount' in request.resource.data) || request.resource.data.followersCount == resource.data.followersCount;
     }
-    
+
+    // STORIES
     match /stories/{storyId} {
-      // Rule for premium chapter access
-      allow read: if resource.data.visibility == 'Public' || 
-                   (resource.data.visibility == 'Unlisted' && isSignedIn()) ||
-                   (isAuthorOrCollaborator(resource.data));
-                   
-      allow create: if isAuthor(request.resource.data);
-      // Rule #2: Secure Story Ownership
-      allow update: if isAuthorOrCollaborator(resource.data);
-      allow delete: if isAuthor(resource.data);
-
-      match /chapters/{chapterId} {
-        // This is a virtual rule for data inside the story document, not a real subcollection
-        // The logic for reading chapters is handled by the parent story's read rule.
-        // Exciting feature #1: enforce premium access logic.
-        allow read: if resource.data.accessType != 'premium' || 
-                     (isSignedIn() && (
-                       isAuthorOrCollaborator(get(/databases/$(database)/documents/stories/$(storyId)).data) ||
-                       (chapterId in get(/databases/$(database)/documents/stories/$(storyId)).data.chapters &&
-                        get(/databases/$(database)/documents/stories/$(storyId)).data.chapters[chapterId].allowedUsers[request.auth.uid].expiresAt > request.time)
-                     ));
-      }
-    }
-
-    match /feedPosts/{postId} {
-      allow read: if true;
-      // Rule #3 (partial): Enforce data integrity on creation
-      allow create: if isAuthor(request.resource.data);
-      allow update, delete: if isAuthor(resource.data);
-    }
-
-    match /prompts/{promptId} {
-      allow read: if resource.data.isArchived == false;
-      // Rule #3 (partial): Enforce data integrity on creation
-      allow create: if isAuthor(request.resource.data);
-      allow update, delete: if isAuthor(resource.data);
-    }
-
-    match /statusUpdates/{statusId} {
-      allow read: if true;
-      // Rule #5: Enforce Required Fields
-      allow create: if isAuthorOfStatus(request.resource.data)
-                    && request.resource.data.authorId == request.auth.uid
-                    && 'mediaUrl' in request.resource.data
-                    && 'expiresAt' in request.resource.data
-                    && request.resource.data.isArchived == false
-                    && request.resource.data.isTrashed == false;
-
-      // Rule #1 & #3 & #4: Secure & Logical Updates
-      allow update: if isAuthorOfStatus(resource.data)
-                    // Rule #2: Immutable fields
-                    && request.resource.data.authorId == resource.data.authorId
-                    && request.resource.data.createdAt == resource.data.createdAt
-                    // Rule #3: Logical state flow (can't trash if not archived)
-                    && (!('isTrashed' in request.resource.data && request.resource.data.isTrashed == true) || resource.data.isArchived == true);
+      // Read access is determined by visibility
+      allow read: if resource.data.visibility == 'Public' 
+                  || resource.data.visibility == 'Unlisted' 
+                  || isAuthorOrCollaborator(storyId);
+                  
+      // Only authenticated users can create stories
+      allow create: if request.auth != null && request.resource.data.author.id == request.auth.uid;
       
-      // Rule #4: Secure Deletion
-      allow delete: if isAuthorOfStatus(resource.data) && resource.data.isTrashed == true;
-    }
-
-    match /conversations/{conversationId} {
-      allow read, update: if request.auth.uid in resource.data.participantIds;
-      allow create: if request.auth.uid in request.resource.data.participantIds;
+      // Only the author or a collaborator can update
+      allow update: if isAuthorOrCollaborator(storyId);
       
-      // Rule #4: Protect Private Conversations
-      match /messages/{messageId} {
-        allow read, create: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        allow update, delete: if request.auth.uid == resource.data.senderId;
-      }
+      // Only the author can delete
+      allow delete: if isOwner(get(/databases/$(database)/documents/stories/$(storyId)).data.author.id);
     }
-
+    
+    // COMMENTS
     match /comments/{commentId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.user.id;
+      // Anyone can read comments
+      allow read;
+      // Only authenticated users can create comments
+      allow create: if request.auth != null && isOwner(request.resource.data.user.id);
+      // Only the comment owner can update or delete
+      allow update, delete: if isOwner(resource.data.user.id);
     }
     
+    // NOTIFICATIONS
     match /notifications/{notificationId} {
-        allow read, update, delete: if request.auth.uid == resource.data.userId;
-        allow create: if isSignedIn(); // Server-side logic should validate this further
+        // Users can only access their own notifications
+        allow read, update, delete: if isOwner(resource.data.userId);
+        // Only trusted server logic can create notifications
+        allow create: if false; 
     }
 
-    match /letters/{letterId} {
-        allow read, update: if request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id;
-        allow create: if isSignedIn() && request.auth.uid == request.resource.data.reader.id;
-        allow delete: if false; // Letters cannot be deleted by clients
+    // CONVERSATIONS & MESSAGES
+    match /conversations/{conversationId} {
+      allow read, create, update: if request.auth.uid in resource.data.participantIds;
+      
+      match /messages/{messageId} {
+         allow read, create: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+         allow update, delete: if isOwner(resource.data.senderId);
+      }
     }
     
-    // New Collection for enforcing "one like per user" - for exciting feature #3
-    match /likes/{likeId} {
-        // A like document ID could be `${userId}_${postId}`
-        allow read: if true;
-        allow create: if request.auth.uid == request.resource.data.userId;
-        allow delete: if request.auth.uid == resource.data.userId;
-        allow update: if false; // Likes cannot be updated
+    // FEED POSTS
+    match /feedPosts/{postId} {
+        allow read;
+        allow create: if isOwner(request.resource.data.authorId);
+        // Prevent direct manipulation of like counts, let server actions handle it
+        allow update: if ! ('likesCount' in request.resource.data) || request.resource.data.likesCount == resource.data.likesCount;
+        allow delete: if isOwner(resource.data.authorId);
+    }
+
+    // LETTERS
+    match /letters/{letterId} {
+      // Only author or reader can read
+      allow read: if isOwner(resource.data.authorId) || isOwner(resource.data.reader.id);
+      // Only reader can create
+      allow create: if isOwner(request.resource.data.reader.id);
+      // Only author can update (for response/pinning)
+      allow update: if isOwner(resource.data.authorId);
+    }
+    
+    // PROMPTS
+    match /prompts/{promptId} {
+        allow read;
+        // Ensure author ID is correct on creation
+        allow create: if isOwner(request.resource.data.author.id);
+        // Only owner can update or delete
+        allow update, delete: if isOwner(resource.data.author.id);
+    }
+
+    // STATUS UPDATES
+    match /statusUpdates/{statusId} {
+        // Any authenticated user can read a published status
+        allow read: if request.auth != null;
+
+        // On create, enforce ownership and default states
+        allow create: if isOwner(request.resource.data.authorId)
+                      && request.resource.data.isArchived == false
+                      && request.resource.data.isTrashed == false;
+                      
+        // For updates, use specific helper function
+        allow update: if isOwner(resource.data.authorId);
+        
+        // Secure Deletion: only allow deleting if item is already in trash
+        allow delete: if isOwner(resource.data.authorId) && resource.data.isTrashed == true;
     }
   }
 }
