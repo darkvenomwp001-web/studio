@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogTrigger, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, X, Pause, Play, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +23,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     const [animationKey, setAnimationKey] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const { toast } = useToast();
 
     const currentStatus = userStatuses && userStatuses[currentStatusIndex];
@@ -34,23 +35,34 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     }, [selectedUser]);
 
     useEffect(() => {
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+        }
         if (!isOpen || !userStatuses || userStatuses.length === 0 || isPaused) return;
         
         if (!currentStatus) return;
 
         const isVideo = currentStatus.mediaType === 'video';
-        const videoDuration = videoRef.current?.duration;
-
-        let timeoutDuration = 5000; // Default for images
-        if (isVideo && videoDuration && !isNaN(videoDuration)) {
-            timeoutDuration = videoDuration * 1000;
-        }
         
-        const timer = setTimeout(() => {
-           handleNext();
-        }, timeoutDuration);
+        let duration = 5000; // Default for images and notes
+        if(isVideo) {
+            const videoElement = videoRef.current;
+            if (videoElement && videoElement.duration) {
+                duration = videoElement.duration * 1000;
+            } else {
+                duration = 15000; // Fallback duration for video if not loaded
+            }
+        }
 
-        return () => clearTimeout(timer);
+        timeoutRef.current = setTimeout(() => {
+           handleNext();
+        }, duration);
+
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
     }, [isOpen, currentStatusIndex, selectedUser, userStatuses, isPaused, currentStatus]);
 
     const handleNext = () => {
@@ -87,10 +99,23 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     
     useEffect(() => {
         const videoElement = videoRef.current;
-        if (videoElement && !isPaused && isOpen) {
-            videoElement.play().catch(e => console.warn("Video play was interrupted, this is usually safe to ignore during navigation."));
-        } else if (videoElement && isPaused) {
-            videoElement.pause();
+        if (videoElement) {
+            const handlePlay = () => setIsPaused(false);
+            const handlePause = () => setIsPaused(true);
+
+            videoElement.addEventListener('play', handlePlay);
+            videoElement.addEventListener('pause', handlePause);
+
+            if (!isPaused && isOpen) {
+                videoElement.play().catch(e => console.warn("Video play was interrupted, this is usually safe to ignore during navigation."));
+            } else if (isPaused) {
+                videoElement.pause();
+            }
+
+            return () => {
+                videoElement.removeEventListener('play', handlePlay);
+                videoElement.removeEventListener('pause', handlePause);
+            }
         }
     }, [currentStatus, isPaused, isOpen]);
 
@@ -100,7 +125,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         const result = await permanentlyDeleteStatusUpdate(currentStatus.id, currentUser.id);
         if (result.success) {
             toast({ title: "Status Deleted" });
-            onStatusArchived(currentStatus.authorId, currentStatus.id); // This function name is now a bit misleading, but it does what we need: removes the status from the UI state
+            onStatusArchived(currentStatus.authorId, currentStatus.id); 
             onOpenChange(false);
         } else {
             toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -161,18 +186,18 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                 </div>
                 {/* Progress bars */}
                 <div className="absolute top-2 left-2 right-2 flex gap-1 z-10">
-                    {userStatuses.map((_, index) => (
+                    {userStatuses.map((status, index) => (
                         <div key={index} className="h-0.5 flex-1 bg-white/30 rounded-full overflow-hidden">
                              <div 
                                 key={`${animationKey}-${index}`}
                                 className={cn(
                                     "h-full bg-white",
                                     index < currentStatusIndex ? 'w-full' : 'w-0',
-                                    index === currentStatusIndex && !isPaused && 'animate-width-grow'
+                                    index === currentStatusIndex && 'animate-width-grow'
                                 )}
                                 style={{
                                     animationPlayState: isPaused ? 'paused' : 'running',
-                                    animationDuration: userStatuses[index].mediaType === 'video' ? '15s' : '5s', // Basic duration adjustment
+                                    animationDuration: status.mediaType === 'video' ? '15s' : '5s', 
                                 }}
                             ></div>
                         </div>
