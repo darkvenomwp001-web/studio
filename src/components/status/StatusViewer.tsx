@@ -13,6 +13,7 @@ import { Timestamp } from 'firebase/firestore';
 import { archiveStatusUpdate } from '@/app/actions/statusActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
 export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void }) {
@@ -193,4 +194,3 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         </Dialog>
     )
 }
-
