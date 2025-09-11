@@ -65,12 +65,15 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     const togglePause = () => {
         const video = videoRef.current;
         if (video) {
-            if (video.paused) {
-                video.play();
-                setIsPaused(false);
-            } else {
-                video.pause();
-                setIsPaused(true);
+            // Add a guard to ensure video is still in the DOM
+            if (document.body.contains(video)) {
+                if (video.paused) {
+                    video.play().catch(e => console.error("Play interrupted:", e));
+                    setIsPaused(false);
+                } else {
+                    video.pause();
+                    setIsPaused(true);
+                }
             }
         } else {
             setIsPaused(prev => !prev);
@@ -82,6 +85,17 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
             videoRef.current.pause();
         }
     };
+    
+    // Cleanup effect to pause video on unmount or when status changes
+    useEffect(() => {
+        const videoElement = videoRef.current;
+        return () => {
+            if (videoElement && !videoElement.paused) {
+                videoElement.pause();
+            }
+        };
+    }, [currentStatusIndex, selectedUser]);
+
 
     const currentStatus = userStatuses[currentStatusIndex];
 
