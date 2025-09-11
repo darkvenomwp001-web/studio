@@ -113,6 +113,7 @@
         "fields": {
           "authorId": { "type": "string", "description": "ID of the status author.", "reference": "users" },
           "mediaUrl": { "type": "string", "description": "URL of the image or video for the status." },
+          "mediaType": { "type": "string", "description": "'image' or 'video'." },
           "note": { "type": "string", "description": "A short text note, an alternative to media." },
           "spotifyUrl": { "type": "string", "description": "A link to a Spotify track." },
           "textOverlay": { "type": "string", "description": "A caption displayed on top of media." },

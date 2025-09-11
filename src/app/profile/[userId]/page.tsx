@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, X, Music, Trash2 } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Trash2, Music } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Story, User as AppUser, StatusUpdate } from '@/types';
@@ -78,8 +78,8 @@ function ProfileNote({ note, isOwnProfile, onDelete }: { note: StatusUpdate, isO
     if (!note.note && !note.spotifyUrl) return null;
 
     return (
-        <Card className="bg-muted/50 border-dashed">
-            <div className="p-4 relative">
+        <Card className="bg-muted/50 border-dashed relative">
+            <div className="p-4">
                  {isOwnProfile && (
                     <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => onDelete(note.id)}>
                         <Trash2 className="h-4 w-4" />
@@ -156,8 +156,6 @@ export default function UserProfilePage() {
       console.error("Error fetching live follower count:", error);
     });
 
-    // Fetch user's current note
-    const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
     const activeStatusesQuery = query(
       collection(db, 'statusUpdates'), 
       where('authorId', '==', userId), 
@@ -329,7 +327,7 @@ export default function UserProfilePage() {
             <div 
                 className={cn(
                     "relative p-1 rounded-full",
-                    hasActiveStatus && "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 cursor-pointer"
+                    hasActiveStatus && !(currentNote) && "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 cursor-pointer"
                 )}
                 onClick={() => hasActiveStatus && setIsStatusViewerOpen(true)}
             >
@@ -341,8 +339,11 @@ export default function UserProfilePage() {
           <div className="flex-1 text-center md:text-left">
             <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">{displayName}</h1>
             <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
-            {currentNote && <div className="mt-2"><ProfileNote note={currentNote} isOwnProfile={isOwnProfile} onDelete={handleDeleteNote} /></div>}
-            {profileUser.bio && !currentNote && <p className="text-muted-foreground mt-1 max-w-xl">{profileUser.bio}</p>}
+            {currentNote ? (
+                <div className="mt-2"><ProfileNote note={currentNote} isOwnProfile={isOwnProfile} onDelete={handleDeleteNote} /></div>
+            ) : (
+                profileUser.bio && <p className="text-muted-foreground mt-1 max-w-xl">{profileUser.bio}</p>
+            )}
             <div className="mt-3 flex flex-wrap gap-2 justify-center md:justify-start">
               {profileUser.role && <Badge variant={profileUser.role === 'writer' ? 'default' : 'secondary'} className="capitalize">{profileUser.role}</Badge>}
             </div>

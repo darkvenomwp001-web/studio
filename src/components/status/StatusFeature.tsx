@@ -11,12 +11,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Vote, Trash2, RotateCcw, Archive, Sparkles, Wand2, Music, Play, Pause } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardHeader, CardFooter } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { restoreStatusUpdate, permanentlyDeleteStatusUpdate, archiveStatusUpdate } from '@/app/actions/statusActions';
@@ -113,12 +113,10 @@ export default function StatusFeature() {
         return;
     }
 
-    // This query now fetches all non-archived, non-trashed statuses that are either published & not expired, OR are drafts by the current user.
     const statusesQuery = query(
       collection(db, 'statusUpdates'),
       where('isArchived', '==', false),
       where('isTrashed', '==', false)
-      // We can't combine 'expiresAt' and 'authorId draft' queries, so we filter client-side.
     );
     
     const unsubStatuses = onSnapshot(statusesQuery, (snapshot) => {
@@ -160,16 +158,16 @@ export default function StatusFeature() {
 
     const liveStatuses = allStatuses.filter(s => s.status === 'published');
     
-    // Put current user's status first if it exists
-    const currentUserLive = liveStatuses.filter(s => s.authorId === user?.id);
-    if (currentUserLive.length > 0 && user) {
-        groups.set(user!.id, { user: user as User, statuses: currentUserLive });
-        newStatusOrder.push(user!.id);
+    if (user) {
+        const currentUserLive = liveStatuses.filter(s => s.authorId === user.id);
+        if (currentUserLive.length > 0) {
+            groups.set(user.id, { user: user as User, statuses: currentUserLive });
+            newStatusOrder.push(user.id);
+        }
     }
     
-    // Then add others
     liveStatuses.forEach(status => {
-        if (status.authorId === user?.id) return; // Already added
+        if (status.authorId === user?.id) return;
         if (!groups.has(status.authorId)) {
             groups.set(status.authorId, { user: status.authorInfo as User, statuses: [] });
             newStatusOrder.push(status.authorId);
@@ -193,7 +191,7 @@ export default function StatusFeature() {
         const nextUserId = statusOrder[currentIndex + 1];
         setSelectedUserForViewing(groupedStatuses.get(nextUserId)!.user);
     } else {
-        setIsViewerOpen(false); // Close if last user
+        setIsViewerOpen(false);
     }
   };
   const handlePrevUser = () => {
@@ -202,7 +200,7 @@ export default function StatusFeature() {
         const prevUserId = statusOrder[currentIndex - 1];
         setSelectedUserForViewing(groupedStatuses.get(prevUserId)!.user);
     } else {
-         setIsViewerOpen(false); // Close if first user
+         setIsViewerOpen(false);
     }
   }
 
@@ -220,6 +218,11 @@ export default function StatusFeature() {
     setSelectedFilter('filter-none');
     setExpiryDuration('24');
   }
+  
+  const handleTabChange = (value: string) => {
+    // Reset forms when switching tabs to avoid state confusion
+    resetUploader();
+  };
 
   const handleMediaSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -231,7 +234,7 @@ export default function StatusFeature() {
       setMediaFile(file);
       const isVideo = file.type.startsWith('video/');
       setMediaType(isVideo ? 'video' : 'image');
-      setIsPreviewPlaying(isVideo); // Autoplay videos on select
+      setIsPreviewPlaying(isVideo);
 
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -252,14 +255,9 @@ export default function StatusFeature() {
         }
     }
   };
-
-  const handleStatusSubmit = async (status: 'published' | 'draft', type: 'media' | 'note' = 'media') => {
-    if (!user) return;
-    if (type === 'media' && !mediaFile) return;
-    if (type === 'note' && !noteContent.trim() && !spotifyUrl.trim()) return;
-
-    setIsSubmitting(true);
-    
+  
+  const createBaseStatus = (status: 'published' | 'draft') => {
+    if (!user) return null;
     const authorInfo = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
     
     let expiryTime = null;
@@ -268,7 +266,7 @@ export default function StatusFeature() {
         expiryTime = Timestamp.fromMillis(Date.now() + durationHours * 60 * 60 * 1000);
     }
 
-    const statusData: Omit<StatusUpdate, 'id'> = {
+    return {
         authorId: user.id,
         authorInfo: authorInfo,
         createdAt: serverTimestamp(),
@@ -277,54 +275,85 @@ export default function StatusFeature() {
         status,
         expiresAt: expiryTime,
     };
+  };
 
-    if (type === 'media' && mediaFile) {
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-        if (!cloudName || !uploadPreset) {
-            toast({ title: 'Configuration Error', description: 'Cloudinary environment variables are not set.', variant: 'destructive' });
-            setIsSubmitting(false);
-            return;
-        }
+  const handleNoteSubmit = async (status: 'published' | 'draft') => {
+    const baseStatus = createBaseStatus(status);
+    if (!baseStatus) return;
+    if (!noteContent.trim() && !spotifyUrl.trim()) {
+        toast({ title: "Note is empty", description: "Please write a note or add a song.", variant: "destructive" });
+        return;
+    }
+    
+    setIsSubmitting(true);
+    const statusData: Omit<StatusUpdate, 'id'> = {
+        ...baseStatus,
+        note: noteContent.trim() || undefined,
+        spotifyUrl: spotifyUrl.trim() || undefined
+    };
 
+    try {
+        await addDoc(collection(db, 'statusUpdates'), statusData);
+        toast({ title: `Note ${status === 'published' ? 'Posted!' : 'Saved as Draft!'}` });
+        setIsUploaderOpen(false);
+        resetUploader();
+    } catch (error) {
+        console.error("Error saving note status:", error);
+        toast({ title: "Failed to save note", variant: "destructive"});
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const handleMediaSubmit = async (status: 'published' | 'draft') => {
+    const baseStatus = createBaseStatus(status);
+    if (!baseStatus || !mediaFile) return;
+
+    setIsSubmitting(true);
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName || !uploadPreset) {
+        toast({ title: 'Configuration Error', description: 'Cloudinary environment variables are not set.', variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+    }
+    
+    let mediaUrl = '';
+    try {
         const formData = new FormData();
         formData.append('file', mediaFile);
         formData.append('upload_preset', uploadPreset);
-        
-        let mediaUrl = '';
-        try {
-            const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'video' ? 'video' : 'image'}/upload`;
-            const response = await fetch(uploadUrl, { method: 'POST', body: formData });
-            const data = await response.json();
-            if (data.secure_url) {
-                mediaUrl = data.secure_url;
-            } else {
-                throw new Error(data.error?.message || 'Unknown Cloudinary error');
-            }
-        } catch (error) {
-            console.error("Error uploading to Cloudinary: ", error);
-            toast({ title: 'Media Upload Failed', variant: 'destructive' });
-            setIsSubmitting(false);
-            return;
+        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'video' ? 'video' : 'image'}/upload`;
+        const response = await fetch(uploadUrl, { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.secure_url) {
+            mediaUrl = data.secure_url;
+        } else {
+            throw new Error(data.error?.message || 'Unknown Cloudinary error');
         }
-
-        statusData.mediaUrl = mediaUrl;
-        statusData.mediaType = mediaType;
-        if (textOverlay.trim()) statusData.textOverlay = textOverlay.trim();
-        if (showPollCreator && pollQuestion.trim() && pollOption1.trim() && pollOption2.trim()) {
-            statusData.poll = {
-                question: pollQuestion.trim(),
-                options: [
-                    { id: 'opt1', text: pollOption1.trim(), votes: [] },
-                    { id: 'opt2', text: pollOption2.trim(), votes: [] }
-                ]
-            };
-        }
-    } else if (type === 'note') {
-        if (noteContent.trim()) statusData.note = noteContent.trim();
-        if (spotifyUrl.trim()) statusData.spotifyUrl = spotifyUrl.trim();
+    } catch (error) {
+        console.error("Error uploading to Cloudinary: ", error);
+        toast({ title: 'Media Upload Failed', variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
     }
 
+    const statusData: Omit<StatusUpdate, 'id'> = {
+        ...baseStatus,
+        mediaUrl: mediaUrl,
+        mediaType: mediaType,
+        textOverlay: textOverlay.trim() || undefined,
+    };
+    
+    if (showPollCreator && pollQuestion.trim() && pollOption1.trim() && pollOption2.trim()) {
+        statusData.poll = {
+            question: pollQuestion.trim(),
+            options: [
+                { id: 'opt1', text: pollOption1.trim(), votes: [] },
+                { id: 'opt2', text: pollOption2.trim(), votes: [] }
+            ]
+        };
+    }
 
     try {
         await addDoc(collection(db, 'statusUpdates'), statusData);
@@ -338,12 +367,13 @@ export default function StatusFeature() {
     }
   };
 
+
   const handlePublishDraft = async (draftId: string) => {
     const expiresAt = Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000);
     await updateDoc(doc(db, "statusUpdates", draftId), {
         status: 'published',
         expiresAt: expiresAt,
-        createdAt: serverTimestamp(), // Update timestamp on publish
+        createdAt: serverTimestamp(),
     });
     toast({title: "Draft Published!"});
   }
@@ -408,7 +438,6 @@ export default function StatusFeature() {
       <div className="bg-card p-3 rounded-lg shadow-sm">
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-start space-x-4">
-            {/* Add/Edit Note Bubble */}
             <div className="text-center flex-shrink-0 w-20">
                 <button 
                     onClick={() => setIsUploaderOpen(true)} 
@@ -448,7 +477,7 @@ export default function StatusFeature() {
                     <DialogTitle>Manage Status</DialogTitle>
                     <DialogDescription>Upload a new status, share a note, or manage your drafts and trash.</DialogDescription>
                 </DialogHeader>
-                 <Tabs defaultValue="upload" className="w-full">
+                 <Tabs defaultValue="upload" className="w-full" onValueChange={handleTabChange}>
                     <TabsList className="grid w-full grid-cols-4">
                         <TabsTrigger value="notes">Note</TabsTrigger>
                         <TabsTrigger value="upload">Media</TabsTrigger>
@@ -481,7 +510,7 @@ export default function StatusFeature() {
                             </div>
                         </div>
                          <DialogFooter>
-                            <Button onClick={() => handleStatusSubmit('published', 'note')} disabled={isSubmitting || (!noteContent.trim() && !spotifyUrl.trim())}>
+                            <Button onClick={() => handleNoteSubmit('published')} disabled={isSubmitting || (!noteContent.trim() && !spotifyUrl.trim())}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                 Post Note
                             </Button>
@@ -590,8 +619,8 @@ export default function StatusFeature() {
                             </div>
                         </ScrollArea>
                          <DialogFooter>
-                            <Button variant="outline" onClick={() => handleStatusSubmit('draft', 'media')} disabled={!mediaFile || isSubmitting}>Save as Draft</Button>
-                            <Button onClick={() => handleStatusSubmit('published', 'media')} disabled={!mediaFile || isSubmitting}>
+                            <Button variant="outline" onClick={() => handleMediaSubmit('draft')} disabled={!mediaFile || isSubmitting}>Save as Draft</Button>
+                            <Button onClick={() => handleMediaSubmit('published')} disabled={!mediaFile || isSubmitting}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                 Publish Status
                             </Button>
