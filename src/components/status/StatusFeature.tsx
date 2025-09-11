@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -11,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -104,6 +105,8 @@ export default function StatusFeature() {
   
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(true);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
+  
+  const [uploaderDefaultTab, setUploaderDefaultTab] = useState('notes');
 
   const { toast } = useToast();
 
@@ -288,7 +291,7 @@ export default function StatusFeature() {
     setIsSubmitting(true);
     
     const statusData: { [key: string]: any } = { ...baseStatus };
-    if (noteContent.trim()) {
+     if (noteContent.trim()) {
         statusData.note = noteContent.trim();
     }
     if (spotifyUrl.trim()) {
@@ -326,7 +329,7 @@ export default function StatusFeature() {
         const formData = new FormData();
         formData.append('file', mediaFile);
         formData.append('upload_preset', uploadPreset);
-        formData.append('resource_type', mediaType);
+        formData.append('resource_type', 'auto');
         
         const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
         const response = await fetch(uploadUrl, { method: 'POST', body: formData });
@@ -433,6 +436,11 @@ export default function StatusFeature() {
         setGroupedStatuses(userGroups);
   };
 
+  const openUploader = (defaultTab: string) => {
+    setUploaderDefaultTab(defaultTab);
+    setIsUploaderOpen(true);
+  };
+
 
   if (authLoading) {
     return <div className="h-[98px] w-full bg-card rounded-lg animate-pulse" />;
@@ -447,15 +455,20 @@ export default function StatusFeature() {
       <div className="bg-card p-3 rounded-lg shadow-sm">
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-start space-x-4 px-4">
-            <div className="text-center flex-shrink-0 w-20">
-                <button 
-                    onClick={() => setIsUploaderOpen(true)} 
-                    className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center border-2 border-dashed border-primary/50 hover:border-primary transition-colors relative group"
-                >
-                    <Plus className="h-6 w-6 text-primary" />
-                </button>
-                <p className="text-xs mt-1 truncate">Add Status</p>
-            </div>
+            {draftStatuses.length > 0 && (
+                <div className="text-center flex-shrink-0 w-20">
+                    <button 
+                        onClick={() => openUploader('drafts')} 
+                        className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center border-2 border-dashed border-primary/50 hover:border-primary transition-colors relative group"
+                    >
+                        <Feather className="h-6 w-6 text-primary" />
+                        <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                            {draftStatuses.length}
+                        </div>
+                    </button>
+                    <p className="text-xs mt-1 truncate">Drafts</p>
+                </div>
+            )}
 
             {isLoading ? (
                 [...Array(4)].map((_, i) => (
@@ -483,10 +496,15 @@ export default function StatusFeature() {
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle>Manage Status</DialogTitle>
+                    <div className="flex justify-between items-center">
+                         <DialogTitle>Manage Status</DialogTitle>
+                         <Button variant="ghost" size="icon" onClick={() => openUploader('notes')}>
+                            <Plus className="h-4 w-4" />
+                         </Button>
+                    </div>
                     <DialogDescription>Upload a new status, share a note, or manage your drafts and trash.</DialogDescription>
                 </DialogHeader>
-                 <Tabs defaultValue="upload" className="w-full" onValueChange={handleTabChange}>
+                 <Tabs defaultValue={uploaderDefaultTab} value={uploaderDefaultTab} onValueChange={(value) => { setUploaderDefaultTab(value); handleTabChange(value);}} className="w-full">
                     <TabsList className="grid w-full grid-cols-4">
                         <TabsTrigger value="notes">Note</TabsTrigger>
                         <TabsTrigger value="upload">Media</TabsTrigger>
@@ -701,3 +719,4 @@ export default function StatusFeature() {
     
 
     
+
