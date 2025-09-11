@@ -7,7 +7,7 @@ import type { User, StatusUpdate } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, Archive, Pause, Play, Trash2 } from 'lucide-react';
+import { Loader2, X, Pause, Play, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Timestamp } from 'firebase/firestore';
@@ -25,6 +25,8 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     const videoRef = useRef<HTMLVideoElement>(null);
     const { toast } = useToast();
 
+    const currentStatus = userStatuses && userStatuses[currentStatusIndex];
+
     useEffect(() => {
         setCurrentStatusIndex(0);
         setAnimationKey(prev => prev + 1); // Reset animation
@@ -34,17 +36,22 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     useEffect(() => {
         if (!isOpen || !userStatuses || userStatuses.length === 0 || isPaused) return;
         
-        const currentStatus = userStatuses[currentStatusIndex];
         if (!currentStatus) return;
 
         const isVideo = currentStatus.mediaType === 'video';
+        const videoDuration = videoRef.current?.duration;
+
+        let timeoutDuration = 5000; // Default for images
+        if (isVideo && videoDuration && !isNaN(videoDuration)) {
+            timeoutDuration = videoDuration * 1000;
+        }
         
         const timer = setTimeout(() => {
            handleNext();
-        }, isVideo ? (videoRef.current?.duration || 5) * 1000 : 5000); // Use video duration if available, else 5s
+        }, timeoutDuration);
 
         return () => clearTimeout(timer);
-    }, [isOpen, currentStatusIndex, selectedUser, userStatuses, isPaused]);
+    }, [isOpen, currentStatusIndex, selectedUser, userStatuses, isPaused, currentStatus]);
 
     const handleNext = () => {
         setAnimationKey(prev => prev + 1);
@@ -78,15 +85,14 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         }
     };
     
-    // Cleanup effect to pause video on unmount or when status changes
     useEffect(() => {
         const videoElement = videoRef.current;
-        return () => {
-            if (videoElement && !videoElement.paused) {
-                videoElement.pause();
-            }
-        };
-    }, [currentStatusIndex, selectedUser]);
+        if (videoElement && !isPaused && isOpen) {
+            videoElement.play().catch(e => console.warn("Video play was interrupted, this is usually safe to ignore during navigation."));
+        } else if (videoElement && isPaused) {
+            videoElement.pause();
+        }
+    }, [currentStatus, isPaused, isOpen]);
 
 
     const handleDelete = async () => {
