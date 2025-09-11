@@ -286,11 +286,14 @@ export default function StatusFeature() {
     }
     
     setIsSubmitting(true);
-    const statusData: Omit<StatusUpdate, 'id'> = {
-        ...baseStatus,
-        note: noteContent.trim() || undefined,
-        spotifyUrl: spotifyUrl.trim() || undefined
-    };
+    
+    const statusData: { [key: string]: any } = { ...baseStatus };
+    if (noteContent.trim()) {
+        statusData.note = noteContent.trim();
+    }
+    if (spotifyUrl.trim()) {
+        statusData.spotifyUrl = spotifyUrl.trim();
+    }
 
     try {
         await addDoc(collection(db, 'statusUpdates'), statusData);
@@ -338,7 +341,7 @@ export default function StatusFeature() {
         return;
     }
 
-    const statusData: Omit<StatusUpdate, 'id'> & { [key: string]: any } = {
+    const statusData: { [key: string]: any } = {
         ...baseStatus,
         mediaUrl: mediaUrl,
         mediaType: mediaType,
