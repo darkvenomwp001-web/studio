@@ -204,8 +204,8 @@ export interface StatusUpdate {
     authorInfo: UserSummary;
     mediaUrl: string;
     mediaType: 'image' | 'video';
-    textOverlay?: string; // New field for text on status
-    poll?: Poll; // New field for polls on status
+    textOverlay?: string;
+    poll?: Poll;
     expiresAt: any | null;
     createdAt: any;
     isArchived: boolean;

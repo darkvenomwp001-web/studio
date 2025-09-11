@@ -147,8 +147,8 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                     {userStatuses.map((_, index) => (
                         <div key={index} className="h-0.5 flex-1 bg-white/30 rounded-full overflow-hidden">
                              <div 
-                                key={animationKey}
-                                className={cn("h-full bg-white", !isPaused && 'animate-width-grow')}
+                                key={`${animationKey}-${index}`}
+                                className={cn("h-full bg-white", index === currentStatusIndex && !isPaused && 'animate-width-grow')}
                                 style={{
                                     width: index < currentStatusIndex ? '100%' : '0%',
                                     animationPlayState: isPaused ? 'paused' : 'running',
