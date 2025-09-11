@@ -55,6 +55,7 @@ interface AppUser extends AppUserType {
   createdAt?: any; 
   updatedAt?: any; 
   isAnonymous?: boolean;
+  writtenStories?: Story[];
 }
 
 interface AuthContextType {

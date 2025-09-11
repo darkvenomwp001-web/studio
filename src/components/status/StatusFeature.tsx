@@ -365,7 +365,8 @@ export default function StatusFeature() {
     
     let mediaUrl = '';
     try {
-        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'video' ? 'video' : 'image'}/upload`, { method: 'POST', body: formData });
+        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'video' ? 'video' : 'image'}/upload`;
+        const response = await fetch(uploadUrl, { method: 'POST', body: formData });
         const data = await response.json();
         if (data.secure_url) {
             mediaUrl = data.secure_url;
@@ -373,6 +374,7 @@ export default function StatusFeature() {
             throw new Error(data.error?.message || 'Unknown Cloudinary error');
         }
     } catch (error) {
+        console.error("Error uploading to Cloudinary: ", error);
         toast({ title: 'Media Upload Failed', variant: 'destructive' });
         setIsSubmitting(false);
         return;
@@ -554,7 +556,7 @@ export default function StatusFeature() {
                                     >
                                         <Camera className="h-10 w-10 text-muted-foreground mb-2" />
                                         <p className="text-muted-foreground">Click to upload image or video</p>
-                                        <Input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/mp4,video/quicktime,video/x-m4v" className="hidden" />
+                                        <Input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/*" className="hidden" />
                                     </div>
                                 )}
                                 
