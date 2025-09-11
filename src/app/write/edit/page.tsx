@@ -194,8 +194,8 @@ export default function WriteEditorPage() {
     if (!storyDetails || !currentChapter || isLoading || authLoading) return;
 
     const originalChapterInStory = storyDetails.chapters.find(c => c.id === currentChapter.id);
-    const contentChanged = content !== (originalChapterInStory?.content ?? '');
-    const titleChanged = chapterTitle !== (originalChapterInStory?.title ?? '');
+    const contentChanged = content !== (originalChapterInStory?.content ?? currentChapter.content);
+    const titleChanged = chapterTitle !== (originalChapterInStory?.title ?? currentChapter.title);
 
     if (content.length > 0 && (contentChanged || titleChanged)) {
       setAutoSaveStatus('Saving...');
@@ -203,6 +203,8 @@ export default function WriteEditorPage() {
         handleSaveDraft(false);
       }, 2500);
       return () => clearTimeout(timer);
+    } else {
+      setAutoSaveStatus('Saved');
     }
   }, [content, chapterTitle, storyDetails, currentChapter, isLoading, handleSaveDraft, authLoading]);
 

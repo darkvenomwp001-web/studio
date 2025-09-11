@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, ChangeEvent, FormEvent, useRef, useCallback } from 'react';
@@ -156,69 +157,8 @@ export default function EditStoryDetailsPage() {
     };
   }, [queryStoryId, user, authLoading, router, toast]);
 
-  useEffect(() => {
-    if (!coverImageFile || !story) {
-      return;
-    }
-
-    const uploadCoverImage = async () => {
-        setIsUploadingCover(true);
-        setAutoSaveStatus('Saving');
-        toast({ title: "Uploading Cover...", description: "Your new cover image is being uploaded to Cloudinary." });
-        
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-
-        if (!cloudName || !uploadPreset) {
-            toast({
-                title: 'Configuration Error',
-                description: 'Cloudinary environment variables are not set. Cannot upload cover.',
-                variant: 'destructive',
-            });
-            setIsUploadingCover(false);
-            setAutoSaveStatus('Error');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('file', coverImageFile);
-        formData.append('upload_preset', uploadPreset);
-
-        try {
-            const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await response.json();
-
-            if (data.secure_url) {
-                const downloadURL = data.secure_url;
-                const storyDocRef = doc(db, 'stories', story.id);
-                await updateDoc(storyDocRef, {
-                    coverImageUrl: downloadURL,
-                    lastUpdated: serverTimestamp(),
-                });
-                
-                setCoverImageFile(null);
-                toast({ title: "Cover Image Updated!", description: "Your new cover is saved." });
-                setAutoSaveStatus('Saved');
-            } else {
-                throw new Error(data.error?.message || 'Unknown Cloudinary error');
-            }
-        } catch (error: any) {
-            console.error("Error uploading cover image to Cloudinary:", error);
-            toast({ title: "Upload Failed", description: "Could not upload cover image.", variant: "destructive" });
-            setAutoSaveStatus('Error');
-        } finally {
-            setIsUploadingCover(false);
-        }
-    };
-
-    uploadCoverImage();
-  }, [coverImageFile, story, toast]);
-
   const handleAutoSaveChanges = useCallback(async () => {
-    if (!story || !user || !initialLoadComplete) {
+    if (!story || !user || !initialLoadComplete || isUploadingCover) {
       return;
     }
 
@@ -258,7 +198,7 @@ export default function EditStoryDetailsPage() {
       setAutoSaveStatus('Error');
       toast({ title: "Auto-save Failed", description: "Could not save changes.", variant: "destructive" });
     }
-  }, [story, user, storyTitle, summary, genre, tags, language, isMature, visibility, toast, initialLoadComplete]);
+  }, [story, user, storyTitle, summary, genre, tags, language, isMature, visibility, toast, initialLoadComplete, isUploadingCover]);
 
   useEffect(() => {
     if (!initialLoadComplete || isLoading || authLoading || !story || isUploadingCover) {
@@ -297,6 +237,7 @@ export default function EditStoryDetailsPage() {
     };
   }, [storyTitle, summary, genre, tags, language, isMature, visibility, story, initialLoadComplete, isLoading, authLoading, isUploadingCover, handleAutoSaveChanges, autoSaveStatus]);
 
+
   const handleCoverImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -313,6 +254,57 @@ export default function EditStoryDetailsPage() {
       setCoverImagePreview(URL.createObjectURL(file));
     }
   };
+  
+  useEffect(() => {
+    if (!coverImageFile || !story) {
+      return;
+    }
+
+    const uploadCoverImage = async () => {
+        setIsUploadingCover(true);
+        setAutoSaveStatus('Saving');
+        toast({ title: "Uploading Cover...", description: "Your new cover image is being uploaded." });
+        
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+        if (!cloudName || !uploadPreset) {
+            toast({ title: 'Configuration Error', description: 'Cloudinary environment variables not set.', variant: 'destructive' });
+            setIsUploadingCover(false);
+            setAutoSaveStatus('Error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', coverImageFile);
+        formData.append('upload_preset', uploadPreset);
+
+        try {
+            const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+            const data = await response.json();
+
+            if (data.secure_url) {
+                const downloadURL = data.secure_url;
+                const storyDocRef = doc(db, 'stories', story.id);
+                await updateDoc(storyDocRef, { coverImageUrl: downloadURL, lastUpdated: serverTimestamp() });
+                setCoverImageFile(null);
+                toast({ title: "Cover Image Updated!" });
+                setAutoSaveStatus('Saved');
+            } else {
+                throw new Error(data.error?.message || 'Unknown Cloudinary error');
+            }
+        } catch (error: any) {
+            console.error("Error uploading cover image:", error);
+            toast({ title: "Upload Failed", description: "Could not upload cover image.", variant: "destructive" });
+            setAutoSaveStatus('Error');
+        } finally {
+            setIsUploadingCover(false);
+        }
+    };
+
+    uploadCoverImage();
+  }, [coverImageFile, story, toast]);
+
   
   const confirmDeleteChapter = async (chapter: Chapter) => {
     if (!story) return;
@@ -449,6 +441,7 @@ export default function EditStoryDetailsPage() {
 
         if (userSnapshot.empty) {
             toast({ title: "User Not Found", description: `User @${premiumUsername} does not exist.`, variant: "destructive"});
+            setIsProcessingPremium(false);
             return;
         }
 
@@ -460,6 +453,7 @@ export default function EditStoryDetailsPage() {
 
         if (chapterIndex === -1) {
             toast({ title: "Error", description: "Chapter not found in story.", variant: "destructive" });
+            setIsProcessingPremium(false);
             return;
         }
 
@@ -814,7 +808,7 @@ export default function EditStoryDetailsPage() {
                             </div>
                             <div className="flex items-center space-x-2">
                             <RadioGroupItem value="Private" id="visPrivate" />
-                            <Label htmlFor="visPrivate" className="font-normal flex items-center"><Info className="mr-1.5 h-4 w-4"/>Private (Drafts)</Label>
+                            <Label htmlFor="visPrivate" className="font-normal flex items-center"><Lock className="mr-1.5 h-4 w-4"/>Private (Drafts)</Label>
                             </div>
                         </RadioGroup>
                         <p className="text-xs text-muted-foreground mt-1">
@@ -897,6 +891,7 @@ export default function EditStoryDetailsPage() {
             <AlertDialogTitle>Delete Chapter: "{chapterToDelete.title}"?</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete this chapter? This action cannot be undone and will remove the chapter permanently.
+              {chapterToDelete.accessType === 'premium' && <div className="mt-2 font-semibold text-destructive">This is a premium chapter. Deleting it will revoke access for all granted users.</div>}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -30,7 +30,8 @@ import {
   Loader2,
   Home,
   Moon,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import type { Story, Chapter, UserSummary, AllowedUser } from '@/types'; 
@@ -195,7 +196,7 @@ export default function StoryReaderPage() {
   }
   
   const author = story.author;
-  const visibleChapters = story.chapters.filter(ch => ch.status === 'Published' || (currentUser && (story.author.id === currentUser.id || story.collaboratorIds?.includes(currentUser.id))));
+  const visibleChapters = story.chapters.filter(ch => ch.status === 'Published' || (currentUser && (story.author.id === currentUser.id || story.collaboratorIds?.includes(currentUser.id))) || ch.accessType === 'premium');
 
   const currentVisibleChapterIndex = visibleChapters.findIndex(c => c.id === currentChapter.id);
 
