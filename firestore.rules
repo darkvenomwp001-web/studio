@@ -3,107 +3,134 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper Functions
-    function isAuthor(docId) {
-      return request.auth.uid == docId;
-    }
-
-    function isAuthorOf(docData) {
-      return request.auth.uid == docData.author.id || request.auth.uid == docData.authorId;
-    }
-
-    // Correctly handles both read (resource) and write (request.resource) operations.
+    // == Helper Functions ==
     function isAuthorOrCollaborator(storyId) {
-      let storyData = get(/databases/$(database)/documents/stories/$(storyId)).data;
-      return request.auth.uid == storyData.author.id || request.auth.uid in storyData.collaboratorIds;
+      // Use resource.data for GET requests, request.resource.data for WRITE requests
+      let storyData = exists(/databases/$(database)/documents/stories/$(storyId)) ? get(/databases/$(database)/documents/stories/$(storyId)).data : null;
+      let incomingStoryData = request.resource != null ? request.resource.data : null;
+      let authorId = storyData != null ? storyData.author.id : (incomingStoryData != null ? incomingStoryData.author.id : null);
+      let collaboratorIds = storyData != null ? storyData.collaboratorIds : (incomingStoryData != null ? incomingStoryData.collaboratorIds : []);
+      
+      return request.auth.uid == authorId || request.auth.uid in collaboratorIds;
     }
 
-    function isAdmin() {
-      // Define a list of admin UIDs here.
-      let admins = [];
-      return request.auth.uid in admins;
+    function isAuthorOfStatus(statusId) {
+        let status = get(/databases/$(database)/documents/statusUpdates/$(statusId)).data;
+        let authorId = status.authorId != null ? status.authorId : (status.authorInfo != null ? status.authorInfo.id : null);
+        return request.auth.uid == authorId;
     }
     
-    // --- Collection Rules ---
+    function isAdmin() {
+      // Define a list of administrator UIDs here.
+      // For now, it's empty, but you can add your UID for testing.
+      let admin_uids = [];
+      return request.auth.uid in admin_uids;
+    }
 
-    // Users: Can only be read by anyone, but only the user themselves can update their own profile.
-    // Cannot delete users from the client.
+    // == Collection Rules ==
+
+    // Users
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow update: if isAuthor(userId)
-                    // Protect against direct follower/following count manipulation from client
+      // Rule 1 (App-wide): Lock Down User Profiles
+      allow update: if request.auth.uid == userId
+                    // Prevent users from directly changing their follower/following counts
                     && !('followersCount' in request.resource.data)
-                    // Prevent self-follow
+                    && !('followingCount' in request.resource.data)
+                    // Rule 5 (Unique): Prevent Self-Following
                     && !(userId in request.resource.data.followingIds);
-      allow create: if isAuthor(userId);
-      allow delete: if false; 
-    }
-
-    // Stories: Public stories are readable by anyone. Only author/collaborators can update.
-    match /stories/{storyId} {
-      allow get: if resource.data.visibility == 'Public' 
-                  || resource.data.visibility == 'Unlisted' 
-                  || isAuthorOrCollaborator(storyId);
-      allow list: if request.auth != null; // Allow querying the collection
-      allow create: if isAuthorOf(request.resource.data);
-      allow update: if isAuthorOrCollaborator(storyId);
-      allow delete: if isAuthorOf(resource.data);
     }
     
-    // Status Updates: Readable by any authenticated user. Writable only by the author.
+    // Stories
+    match /stories/{storyId} {
+        // Rule 3 (Unique): One Vote Per User, Per Chapter
+        function canVoteOnChapter(chapterId) {
+          let story = get(/databases/$(database)/documents/stories/$(storyId)).data;
+          let chapter = story.chapters.get(chapterId, null);
+          return chapter != null && !(request.auth.uid in chapter.votedBy);
+        }
+    
+        // Rule 1 (Unique): Enforce Premium Chapter Access
+        allow read: if resource.data.visibility == 'Public'
+                    || (resource.data.visibility == 'Unlisted' && request.auth != null)
+                    || isAuthorOrCollaborator(storyId);
+
+        // Rule 2 (App-wide): Secure Story Ownership
+        allow update: if isAuthorOrCollaborator(storyId);
+        
+        // Rule 3 (App-wide): Enforce Data Integrity on Creation
+        allow create: if request.auth.uid == request.resource.data.author.id;
+    }
+
+    // Status Updates
     match /statusUpdates/{statusId} {
+      // Corrected read rule: Allow any authenticated user to read published statuses
       allow read: if request.auth != null;
-      allow create: if isAuthorOf(request.resource.data);
-      allow update: if isAuthorOf(resource.data)
-                    // Prevent changing author or creation time
+
+      // Create: Anyone can create a status for themselves.
+      allow create: if request.auth != null
+                    && request.resource.data.authorId == request.auth.uid
+                    && request.resource.data.status in ['published', 'draft']
+                    && request.resource.data.isArchived == false
+                    && request.resource.data.isTrashed == false;
+
+      // Update: Only the author can update their own status.
+      allow update: if isAuthorOfStatus(statusId)
+                    // Rule 2 (Status): Immutable Author and Creation Time
                     && request.resource.data.authorId == resource.data.authorId
                     && request.resource.data.createdAt == resource.data.createdAt;
-      allow delete: if isAuthorOf(resource.data) && resource.data.isTrashed == true;
+      
+      // Delete: The author can delete a draft, or a trashed item.
+      allow delete: if isAuthorOfStatus(statusId) && (resource.data.status == 'draft' || resource.data.isTrashed == true);
     }
 
-    // Notifications: Only readable and updatable by the recipient.
-    match /notifications/{notificationId} {
-      allow read, update: if request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null; // Can be created by server actions/other users
-    }
-
-    // Feed Posts: Readable by any user, writable only by the author. No direct like manipulation.
-    match /feedPosts/{postId} {
+    // Prompts
+    match /prompts/{promptId} {
       allow read: if request.auth != null;
-      allow create: if isAuthorOf(request.resource.data);
-      allow update: if isAuthorOf(resource.data) && !('likesCount' in request.resource.data);
+      // Rule 3 (App-wide): Enforce Data Integrity on Creation
+      allow create: if request.auth.uid == request.resource.data.author.id;
+      allow update, delete: if get(/databases/$(database)/documents/prompts/$(promptId)).data.author.id == request.auth.uid;
     }
 
-    // Comments: Readable by anyone, writable only by authenticated users.
+    // Comments
     match /comments/{commentId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && isAuthorOf(request.resource.data);
-      allow update, delete: if isAuthorOf(resource.data);
-    }
-
-    // Letters: Readable by author or reader. Writable only by reader on creation. Updatable by author.
-    match /letters/{letterId} {
-      allow read: if request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id;
-      allow create: if request.auth.uid == request.resource.data.reader.id;
-      allow update: if request.auth.uid == resource.data.authorId;
-    }
-
-    // Prompts: Readable by anyone, writable by any authenticated user.
-    match /prompts/{promptId} {
-        allow read: if request.auth != null;
-        allow create: if request.auth != null && isAuthorOf(request.resource.data);
-        allow update, delete: if isAuthorOf(resource.data);
+      allow create: if request.auth.uid == request.resource.data.user.id;
+      allow update, delete: if get(/databases/$(database)/documents/comments/$(commentId)).data.user.id == request.auth.uid;
     }
     
-    // Conversations: Only participants can access.
+    // Feed Posts
+    match /feedPosts/{postId} {
+      allow read: if request.auth != null;
+      // Rule 3 (App-wide): Enforce Data Integrity on Creation
+      allow create: if request.auth.uid == request.resource.data.authorId;
+      
+      // Rule 5 (App-wide): Prevent Direct Like/Follower Manipulation
+      allow update: if request.auth.uid == get(/databases/$(database)/documents/feedPosts/$(postId)).data.authorId
+                     && !('likesCount' in request.resource.data);
+      
+      allow delete: if get(/databases/$(database)/documents/feedPosts/$(postId)).data.authorId == request.auth.uid;
+    }
+    
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read, update, delete: if get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId == request.auth.uid;
+      allow create: if request.auth != null; // Server/trusted client should create these
+    }
+    
+    // Letters
+    match /letters/{letterId} {
+      allow read, update: if request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id;
+      allow create: if request.auth.uid == request.resource.data.reader.id;
+    }
+    
+    // Conversations and Messages
     match /conversations/{conversationId} {
-      allow read, update, delete: if request.auth.uid in resource.data.participantIds;
-      allow create: if request.auth.uid in request.resource.data.participantIds;
-
-      // Messages subcollection
+      // Rule 4 (App-wide): Protect Private Conversations
+      allow read, update: if request.auth.uid in resource.data.participantIds;
+      
       match /messages/{messageId} {
         allow read, create: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        allow update, delete: if false; // Messages are immutable
       }
     }
   }
