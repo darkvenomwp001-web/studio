@@ -52,7 +52,7 @@ export default function ArchivePage() {
         collection(db, 'statusUpdates'), 
         where('authorId', '==', user.id), 
         where('isArchived', '==', true),
-        where('isTrashed', '==', false),
+        where('isTrashed', '==', false), // This is the critical fix
         orderBy('archivedAt', 'desc')
     );
     const unsubStatuses = onSnapshot(statusesQuery, snapshot => {
