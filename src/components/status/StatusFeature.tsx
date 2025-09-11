@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -17,12 +18,13 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardFooter } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { restoreStatusUpdate, permanentlyDeleteStatusUpdate, archiveStatusUpdate } from '@/app/actions/statusActions';
 import { getStatusCaptions } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 
 
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
 function StatusBubble({ user, statuses, onSelect }: { user: User, statuses: StatusUpdate[], onSelect: (user: User) => void }) {
   return (
@@ -143,7 +145,11 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                 </div>
 
                 <div className="relative flex-1 flex items-center justify-center overflow-hidden">
-                    <Image src={currentStatus.mediaUrl} alt="Status Update" layout="fill" objectFit="contain" />
+                    {currentStatus.mediaType === 'video' ? (
+                        <video src={currentStatus.mediaUrl} autoPlay muted loop className="w-full h-full object-contain" />
+                    ) : (
+                        <Image src={currentStatus.mediaUrl} alt="Status Update" layout="fill" objectFit="contain" />
+                    )}
                      {currentStatus.textOverlay && (
                         <div className="absolute bottom-10 left-4 right-4 z-10">
                             <p className="text-white text-center text-lg font-semibold bg-black/50 p-2 rounded-md shadow-lg">
@@ -178,9 +184,10 @@ export default function StatusFeature() {
   const [isLoading, setIsLoading] = useState(true);
   
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
+  const mediaInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [textOverlay, setTextOverlay] = useState('');
   
@@ -197,6 +204,7 @@ export default function StatusFeature() {
   const [isGeneratingCaptions, startCaptionTransition] = useTransition();
 
   const [selectedFilter, setSelectedFilter] = useState<(typeof photoFilters)[number]['style']>('filter-none');
+  const [expiryDuration, setExpiryDuration] = useState<string>('24');
 
   const { toast } = useToast();
 
@@ -294,8 +302,8 @@ export default function StatusFeature() {
   }
 
   const resetUploader = () => {
-    setImageFile(null);
-    setImagePreview(null);
+    setMediaFile(null);
+    setMediaPreview(null);
     setTextOverlay('');
     setShowPollCreator(false);
     setPollQuestion('');
@@ -303,27 +311,29 @@ export default function StatusFeature() {
     setPollOption2('');
     setSuggestedCaptions([]);
     setSelectedFilter('filter-none');
+    setExpiryDuration('24');
   }
 
-  const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleMediaSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        toast({ title: "Image Too Large", description: `Please select an image smaller than ${MAX_IMAGE_SIZE_BYTES / (1024*1024)}MB.`, variant: "destructive" });
+      if (file.size > MAX_MEDIA_SIZE_BYTES) {
+        toast({ title: "Media File Too Large", description: `Please select a file smaller than ${MAX_MEDIA_SIZE_BYTES / (1024*1024)}MB.`, variant: "destructive" });
         return;
       }
-      setImageFile(file);
+      setMediaFile(file);
+      setMediaType(file.type.startsWith('video/') ? 'video' : 'image');
 
       const reader = new FileReader();
       reader.onload = (event) => {
-        setImagePreview(event.target?.result as string);
+        setMediaPreview(event.target?.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleStatusSubmit = async (status: 'published' | 'draft') => {
-    if (!imageFile || !user) return;
+    if (!mediaFile || !user) return;
     setIsSubmitting(true);
     
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -335,36 +345,42 @@ export default function StatusFeature() {
     }
 
     const formData = new FormData();
-    formData.append('file', imageFile);
+    formData.append('file', mediaFile);
     formData.append('upload_preset', uploadPreset);
     
-    let imageUrl = '';
+    let mediaUrl = '';
     try {
-        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'video' ? 'video' : 'image'}/upload`, { method: 'POST', body: formData });
         const data = await response.json();
         if (data.secure_url) {
-            imageUrl = data.secure_url;
+            mediaUrl = data.secure_url;
         } else {
             throw new Error(data.error?.message || 'Unknown Cloudinary error');
         }
     } catch (error) {
-        toast({ title: 'Image Upload Failed', variant: 'destructive' });
+        toast({ title: 'Media Upload Failed', variant: 'destructive' });
         setIsSubmitting(false);
         return;
     }
 
     const authorInfo = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
     
+    let expiryTime = null;
+    if (status === 'published') {
+        const durationHours = parseInt(expiryDuration, 10);
+        expiryTime = Timestamp.fromMillis(Date.now() + durationHours * 60 * 60 * 1000);
+    }
+
     const statusData: Omit<StatusUpdate, 'id'> = {
         authorId: user.id,
         authorInfo: authorInfo,
-        mediaUrl: imageUrl,
-        mediaType: 'image',
+        mediaUrl: mediaUrl,
+        mediaType: mediaType,
         createdAt: serverTimestamp(),
         isArchived: false,
         isTrashed: false,
         status,
-        expiresAt: status === 'published' ? Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000) : null,
+        expiresAt: expiryTime,
     };
     
     if (textOverlay.trim()) statusData.textOverlay = textOverlay.trim();
@@ -419,10 +435,10 @@ export default function StatusFeature() {
   }
   
   const handleGenerateCaptions = () => {
-    if (!imagePreview) return;
+    if (!mediaPreview) return;
     startCaptionTransition(async () => {
         setSuggestedCaptions([]);
-        const result = await getStatusCaptions({ photoDataUri: imagePreview });
+        const result = await getStatusCaptions({ photoDataUri: mediaPreview });
         if ('error' in result) {
             toast({ title: "AI Error", description: result.error, variant: "destructive" });
         } else {
@@ -500,9 +516,13 @@ export default function StatusFeature() {
                     <TabsContent value="upload">
                         <ScrollArea className="max-h-[60vh] pr-4">
                             <div className="py-4 space-y-4">
-                                {imagePreview ? (
+                                {mediaPreview ? (
                                     <div className="relative">
-                                        <Image src={imagePreview} alt="Preview" width={400} height={400} className={cn("w-full h-auto object-contain rounded-lg transition-all", selectedFilter)} />
+                                        {mediaType === 'image' ? (
+                                            <Image src={mediaPreview} alt="Preview" width={400} height={400} className={cn("w-full h-auto object-contain rounded-lg transition-all", selectedFilter)} />
+                                        ) : (
+                                            <video src={mediaPreview} autoPlay muted loop className="w-full h-auto object-contain rounded-lg" />
+                                        )}
                                         <div className="absolute top-2 right-2 flex gap-2">
                                             <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setShowPollCreator(!showPollCreator)}>
                                                 <Vote className="h-4 w-4" />
@@ -515,30 +535,32 @@ export default function StatusFeature() {
                                 ) : (
                                     <div 
                                         className="w-full h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted"
-                                        onClick={() => imageInputRef.current?.click()}
+                                        onClick={() => mediaInputRef.current?.click()}
                                     >
                                         <Camera className="h-10 w-10 text-muted-foreground mb-2" />
-                                        <p className="text-muted-foreground">Click to upload an image</p>
-                                        <Input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
+                                        <p className="text-muted-foreground">Click to upload image or video</p>
+                                        <Input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/mp4,video/quicktime,video/x-m4v" className="hidden" />
                                     </div>
                                 )}
                                 
-                                {imagePreview && (
+                                {mediaPreview && (
                                     <div className="space-y-4">
-                                        <div>
-                                            <Label className="text-xs text-muted-foreground">Filters</Label>
-                                            <ScrollArea className="w-full whitespace-nowrap">
-                                                <div className="flex space-x-2 pb-2">
-                                                    {photoFilters.map(filter => (
-                                                        <div key={filter.name} onClick={() => setSelectedFilter(filter.style)} className="text-center cursor-pointer">
-                                                            <Image src={imagePreview} alt={filter.name} width={60} height={60} className={cn("rounded-md object-cover w-16 h-16 border-2 transition-all", selectedFilter === filter.style ? 'border-primary' : 'border-transparent', filter.style)} />
-                                                            <p className="text-xs mt-1">{filter.name}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <ScrollBar orientation="horizontal" />
-                                            </ScrollArea>
-                                        </div>
+                                        {mediaType === 'image' && (
+                                          <div>
+                                              <Label className="text-xs text-muted-foreground">Filters</Label>
+                                              <ScrollArea className="w-full whitespace-nowrap">
+                                                  <div className="flex space-x-2 pb-2">
+                                                      {photoFilters.map(filter => (
+                                                          <div key={filter.name} onClick={() => setSelectedFilter(filter.style)} className="text-center cursor-pointer">
+                                                              <Image src={mediaPreview} alt={filter.name} width={60} height={60} className={cn("rounded-md object-cover w-16 h-16 border-2 transition-all", selectedFilter === filter.style ? 'border-primary' : 'border-transparent', filter.style)} />
+                                                              <p className="text-xs mt-1">{filter.name}</p>
+                                                          </div>
+                                                      ))}
+                                                  </div>
+                                                  <ScrollBar orientation="horizontal" />
+                                              </ScrollArea>
+                                          </div>
+                                        )}
 
                                         <Input type="text" placeholder="Add a caption..." value={textOverlay} onChange={(e) => setTextOverlay(e.target.value)} maxLength={100} />
                                         
@@ -565,13 +587,28 @@ export default function StatusFeature() {
                                                 </div>
                                             </div>
                                         )}
+
+                                        <div>
+                                            <Label htmlFor="expiry-select">Set Expiry Duration</Label>
+                                            <Select value={expiryDuration} onValueChange={setExpiryDuration}>
+                                                <SelectTrigger id="expiry-select" className="w-[180px]">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="3">3 Hours</SelectItem>
+                                                    <SelectItem value="6">6 Hours</SelectItem>
+                                                    <SelectItem value="12">12 Hours</SelectItem>
+                                                    <SelectItem value="24">24 Hours</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         </ScrollArea>
                          <DialogFooter>
-                            <Button variant="outline" onClick={() => handleStatusSubmit('draft')} disabled={!imageFile || isSubmitting}>Save as Draft</Button>
-                            <Button onClick={() => handleStatusSubmit('published')} disabled={!imageFile || isSubmitting}>
+                            <Button variant="outline" onClick={() => handleStatusSubmit('draft')} disabled={!mediaFile || isSubmitting}>Save as Draft</Button>
+                            <Button onClick={() => handleStatusSubmit('published')} disabled={!mediaFile || isSubmitting}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                 Publish Status
                             </Button>
