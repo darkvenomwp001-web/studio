@@ -564,10 +564,12 @@ export default function StatusFeature() {
 
                                         <Input type="text" placeholder="Add a caption..." value={textOverlay} onChange={(e) => setTextOverlay(e.target.value)} maxLength={100} />
                                         
+                                        {mediaType === 'image' && (
                                         <Button variant="outline" size="sm" onClick={handleGenerateCaptions} disabled={isGeneratingCaptions}>
                                             {isGeneratingCaptions ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Wand2 className="h-4 w-4 mr-2" />}
                                             Generate AI Captions
                                         </Button>
+                                        )}
                                         
                                         {suggestedCaptions.length > 0 && (
                                             <div className="flex flex-wrap gap-2">
