@@ -194,11 +194,38 @@ export default function StoryReaderPage() {
         toast({ title: "Please sign in", description: "You need to be logged in to vote.", variant: "destructive" });
         return;
     }
+    if (isVoting) return;
+
     setIsVoting(true);
+    
+    // Optimistic UI Update
+    const originalChapter = { ...currentChapter };
+    const wasVoting = originalChapter.voterIds?.includes(currentUser.id) || false;
+
+    const newVoterIds = wasVoting
+      ? originalChapter.voterIds?.filter(id => id !== currentUser.id)
+      : [...(originalChapter.voterIds || []), currentUser.id];
+    
+    const newVoteCount = wasVoting
+        ? Math.max(0, (originalChapter.votes || 0) - 1)
+        : (originalChapter.votes || 0) + 1;
+
+    const updatedOptimisticChapter: Chapter = {
+        ...originalChapter,
+        voterIds: newVoterIds,
+        votes: newVoteCount,
+    };
+    setCurrentChapter(updatedOptimisticChapter);
+
+
     const result = await toggleChapterVote(story.id, currentChapter.id, currentUser.id);
+    
     if (!result.success) {
+        // Revert UI on failure
+        setCurrentChapter(originalChapter);
         toast({ title: "Vote Failed", description: result.error, variant: "destructive" });
     }
+    
     setIsVoting(false);
   };
 
