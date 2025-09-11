@@ -199,7 +199,7 @@ export default function StoryOverviewPage() {
        <div className="flex flex-col items-center text-center space-y-4">
         <div className="relative aspect-[2/3] w-full max-w-[240px] rounded-lg overflow-hidden shadow-2xl group">
           <Image
-            src={story.coverImageUrl || `https://placehold.co/512x800.png`}
+            src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
             alt={story.title}
             layout="fill"
             objectFit="cover"

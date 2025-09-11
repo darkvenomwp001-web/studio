@@ -84,7 +84,7 @@ export default function Bookshelf() {
                     id: 'mock_friend_id',
                     username: 'a_fellow_reader',
                     displayName: 'A Fellow Reader',
-                    avatarUrl: `https://placehold.co/100x100.png`
+                    avatarUrl: `https://picsum.photos/seed/friend/100/100`
                 });
             }
         }, (error) => {
@@ -142,7 +142,7 @@ export default function Bookshelf() {
                             <div className="md:flex">
                                 <div className="md:flex-shrink-0 md:w-1/3 relative aspect-[2/3]">
                                     <Image
-                                    src={friendsPick.coverImageUrl || `https://placehold.co/512x800.png`}
+                                    src={friendsPick.coverImageUrl || `https://picsum.photos/seed/${friendsPick.id}/512/800`}
                                     alt={friendsPick.title}
                                     layout="fill"
                                     objectFit="cover"

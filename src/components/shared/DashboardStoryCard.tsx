@@ -44,7 +44,7 @@ export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
           <Link href={`/stories/${story.id}`} passHref className="block flex-shrink-0">
             <div className="relative w-28 h-40 sm:w-32 sm:h-48 bg-muted">
               <Image
-                src={story.coverImageUrl || 'https://placehold.co/512x800.png'}
+                src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
                 alt={story.title}
                 layout="fill"
                 objectFit="cover"

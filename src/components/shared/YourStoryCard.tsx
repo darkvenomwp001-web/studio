@@ -20,7 +20,7 @@ export default function YourStoryCard({ story }: YourStoryCardProps) {
       <div className="flex-shrink-0 w-36 md:w-40 group cursor-pointer">
         <div className="aspect-[2/3] relative rounded-md overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200 bg-muted">
           <Image
-            src={story.coverImageUrl || `https://placehold.co/512x800.png`}
+            src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
             alt={story.title}
             layout="fill"
             objectFit="cover"

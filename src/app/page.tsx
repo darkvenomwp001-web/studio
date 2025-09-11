@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/dialog';
 import { createPrompt, archivePrompt, updatePrompt } from '@/app/actions/promptActions';
 import { useRouter } from 'next/navigation';
+import placeholderImages from '@/app/lib/placeholder-images.json';
 
 function ForYouTabContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
@@ -122,9 +123,9 @@ function ForYouTabContent() {
   }, []);
   
   const popularGenres = [
-    { name: "Fantasy", icon: Swords, blurb: "Epic quests & magical realms await.", dataAiHint: "dragon castle", cover: "https://placehold.co/512x800.png" },
-    { name: "Sci-Fi", icon: Rocket, blurb: "Explore galaxies & future tech.", dataAiHint: "space station", cover: "https://placehold.co/512x800.png"},
-    { name: "Romance", icon: HeartIcon, blurb: "Heartfelt connections & love stories.", dataAiHint: "couple sunset", cover: "https://placehold.co/512x800.png"},
+    { name: "Fantasy", icon: Swords, blurb: "Epic quests & magical realms await.", dataAiHint: "dragon castle", cover: "https://picsum.photos/seed/fantasy/512/800" },
+    { name: "Sci-Fi", icon: Rocket, blurb: "Explore galaxies & future tech.", dataAiHint: "space station", cover: "https://picsum.photos/seed/sci-fi/512/800"},
+    { name: "Romance", icon: HeartIcon, blurb: "Heartfelt connections & love stories.", dataAiHint: "couple sunset", cover: "https://picsum.photos/seed/romance/512/800"},
   ];
   
   if (isDataLoading) {
@@ -147,7 +148,7 @@ function ForYouTabContent() {
             <div className="md:flex">
               <div className="md:flex-shrink-0 md:w-1/3 relative aspect-[2/3]">
                 <Image
-                  src={storySpotlight.coverImageUrl || `https://placehold.co/512x800.png`}
+                  src={storySpotlight.coverImageUrl || `https://picsum.photos/seed/${storySpotlight.id}/512/800`}
                   alt={storySpotlight.title}
                   layout="fill"
                   objectFit="cover"
@@ -237,7 +238,7 @@ function ForYouTabContent() {
                 <div className="flex-shrink-0 w-52 group cursor-pointer">
                     <Card className="flex flex-col items-center p-4 bg-card rounded-lg shadow-md hover:shadow-xl transition-all duration-300 ease-in-out transform hover:-translate-y-1 h-full">
                     <Avatar className="w-28 h-28 mb-4 border-4 border-accent/30 group-hover:border-accent transition-colors">
-                        <AvatarImage src={author.avatarUrl || `https://placehold.co/120x120.png`} alt={author.displayName || author.username} data-ai-hint="profile person" />
+                        <AvatarImage src={author.avatarUrl || `https://picsum.photos/seed/${author.id}/120/120`} alt={author.displayName || author.username} data-ai-hint="profile person" />
                         <AvatarFallback className="text-3xl">{author.username.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <h3 className="text-lg font-semibold font-headline text-center group-hover:text-accent transition-colors">{author.displayName || author.username}</h3>

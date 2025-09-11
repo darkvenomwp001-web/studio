@@ -114,7 +114,7 @@ export default function StoriesPage() {
                   aria-label={`View story: ${story.title}`}
                 >
                   <Image
-                    src={story.coverImageUrl || `https://placehold.co/1200x500.png`} 
+                    src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}-banner/1200/500`} 
                     alt={story.title}
                     layout="fill"
                     objectFit="cover"

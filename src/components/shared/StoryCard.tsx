@@ -42,7 +42,7 @@ export default function StoryCard({ story }: StoryCardProps) {
       <Card className="h-full flex flex-col overflow-hidden hover:shadow-xl transition-shadow duration-300 ease-in-out cursor-pointer group bg-card">
         <CardHeader className="p-0 relative aspect-[2/3] overflow-hidden">
           <Image
-            src={story.coverImageUrl || `https://placehold.co/512x800.png`}
+            src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
             alt={story.title}
             layout="fill"
             objectFit="cover"

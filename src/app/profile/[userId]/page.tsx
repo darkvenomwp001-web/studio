@@ -26,6 +26,7 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import FollowerUserCard from '@/components/shared/FollowerUserCard';
+import placeholderImages from '@/app/lib/placeholder-images.json';
 
 interface ProfileStoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>;
@@ -254,7 +255,7 @@ export default function UserProfilePage() {
     <div className="space-y-10 pb-10">
       <header className="bg-card p-6 md:p-8 rounded-lg shadow-lg relative">
         <div className="absolute top-0 left-0 w-full h-32 md:h-48 bg-gradient-to-br from-primary/30 to-accent/30 rounded-t-lg -z-10">
-             <Image src="https://placehold.co/1200x300.png" alt="Profile banner" layout="fill" objectFit="cover" className="rounded-t-lg opacity-50" data-ai-hint="abstract landscape"/>
+             <Image src={placeholderImages.profile.banner} alt="Profile banner" layout="fill" objectFit="cover" className="rounded-t-lg opacity-50" data-ai-hint="abstract landscape"/>
         </div>
         
         <div className="flex flex-col md:flex-row items-center md:items-end gap-6 pt-16 md:pt-24">
