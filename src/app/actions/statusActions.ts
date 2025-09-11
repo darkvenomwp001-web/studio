@@ -141,12 +141,8 @@ export async function permanentlyDeleteStatusUpdate(
           return { success: false, error: 'You do not have permission to delete this status.' };
         }
 
-        // Allow deletion if it's a draft OR if it's trashed
-        if (statusData.status !== 'draft' && !statusData.isTrashed) {
-          return { success: false, error: 'This status must be in the trash to be deleted.' };
-        }
-
         await deleteDoc(statusRef);
+        revalidatePath('/'); // Revalidate home page feed
         revalidatePath('/settings/archive');
         revalidatePath('/settings/trash');
         return { success: true };
