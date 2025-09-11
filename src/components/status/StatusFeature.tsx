@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Vote, Trash2, RotateCcw, Archive, Sparkles, Wand2, Music } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Vote, Trash2, RotateCcw, Archive, Sparkles, Wand2, Music, Play, Pause } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -60,9 +60,13 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
 
     useEffect(() => {
         if (!isOpen || !userStatuses || userStatuses.length === 0 || isPaused) return;
+        
+        const isVideo = userStatuses[currentStatusIndex]?.mediaType === 'video';
+        
         const timer = setTimeout(() => {
            handleNext();
-        }, 5000); // Auto-advance after 5 seconds
+        }, isVideo ? (videoRef.current?.duration || 5) * 1000 : 5000); // Use video duration if available, else 5s
+
         return () => clearTimeout(timer);
     }, [isOpen, currentStatusIndex, selectedUser, userStatuses, isPaused]);
 
@@ -164,9 +168,8 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                                 key={`${animationKey}-${index}`}
                                 className={cn("h-full bg-white", index === currentStatusIndex && !isPaused && 'animate-width-grow')}
                                 style={{
-                                    width: index < currentStatusIndex ? '100%' : '0%',
                                     animationPlayState: isPaused ? 'paused' : 'running',
-                                    animationDuration: '5s'
+                                    animationDuration: userStatuses[index].mediaType === 'video' ? '15s' : '5s', // Basic duration adjustment
                                 }}
                             ></div>
                         </div>
@@ -174,7 +177,7 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                 </div>
 
                 <div className="relative flex-1 flex items-center justify-center overflow-hidden" onClick={togglePause}>
-                    {isMediaStatus && currentStatus.mediaType === 'video' && (
+                    {isMediaStatus && currentStatus.mediaType === 'video' ? (
                         <video 
                             key={currentStatus.id}
                             ref={videoRef} 
@@ -184,22 +187,17 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                             onCanPlay={handleVideoCanPlay}
                             className="w-full h-full object-contain" 
                         />
-                    )}
-                    {isMediaStatus && currentStatus.mediaType === 'image' && (
+                    ) : isMediaStatus && currentStatus.mediaType === 'image' ? (
                         <Image src={currentStatus.mediaUrl!} alt="Status Update" layout="fill" objectFit="contain" />
-                    )}
-                    
-                    {isNoteStatus && (
+                    ) : isNoteStatus && currentStatus.note ? (
                          <div className="absolute inset-0 flex items-center justify-center p-8 bg-black">
-                             {currentStatus.note && (
-                                <p className="text-white text-center text-2xl font-semibold whitespace-pre-line">
-                                    {currentStatus.note}
-                                </p>
-                             )}
+                            <p className="text-white text-center text-2xl font-semibold whitespace-pre-line">
+                                {currentStatus.note}
+                            </p>
                          </div>
-                    )}
+                    ) : null}
                     
-                    {isMediaStatus && currentStatus.textOverlay && (
+                    {currentStatus.textOverlay && (
                         <div className="absolute bottom-10 left-4 right-4 z-10">
                             <p className="text-white text-center text-lg font-semibold bg-black/50 p-2 rounded-md shadow-lg">
                                 {currentStatus.textOverlay}
@@ -207,7 +205,7 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                         </div>
                     )}
 
-                    {isNoteStatus && currentStatus.spotifyUrl && (
+                    {currentStatus.spotifyUrl && (
                         <div className="absolute bottom-10 left-4 right-4 z-10">
                            <SpotifyPlayer />
                         </div>
@@ -263,6 +261,9 @@ export default function StatusFeature() {
 
   const [selectedFilter, setSelectedFilter] = useState<(typeof photoFilters)[number]['style']>('filter-none');
   const [expiryDuration, setExpiryDuration] = useState<string>('24');
+  
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(true);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
 
   const { toast } = useToast();
 
@@ -382,13 +383,27 @@ export default function StatusFeature() {
         return;
       }
       setMediaFile(file);
-      setMediaType(file.type.startsWith('video/') ? 'video' : 'image');
+      const isVideo = file.type.startsWith('video/');
+      setMediaType(isVideo ? 'video' : 'image');
+      setIsPreviewPlaying(isVideo); // Autoplay videos on select
 
       const reader = new FileReader();
       reader.onload = (event) => {
         setMediaPreview(event.target?.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+  
+  const handlePreviewPlayToggle = () => {
+    if (previewVideoRef.current) {
+        if (previewVideoRef.current.paused) {
+            previewVideoRef.current.play();
+            setIsPreviewPlaying(true);
+        } else {
+            previewVideoRef.current.pause();
+            setIsPreviewPlaying(false);
+        }
     }
   };
 
@@ -620,11 +635,18 @@ export default function StatusFeature() {
                         <ScrollArea className="max-h-[60vh] pr-4">
                             <div className="py-4 space-y-4">
                                 {mediaPreview ? (
-                                    <div className="relative">
+                                    <div className="relative group">
                                         {mediaType === 'image' ? (
                                             <Image src={mediaPreview} alt="Preview" width={400} height={400} className={cn("w-full h-auto object-contain rounded-lg transition-all", selectedFilter)} />
                                         ) : (
-                                            <video src={mediaPreview} autoPlay muted loop className="w-full h-auto object-contain rounded-lg" />
+                                            <video ref={previewVideoRef} src={mediaPreview} autoPlay muted loop playsInline className="w-full h-auto object-contain rounded-lg" />
+                                        )}
+                                        {mediaType === 'video' && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Button variant="ghost" size="icon" className="text-white h-16 w-16" onClick={handlePreviewPlayToggle}>
+                                                    {isPreviewPlaying ? <Pause className="h-10 w-10" /> : <Play className="h-10 w-10" />}
+                                                </Button>
+                                            </div>
                                         )}
                                         <div className="absolute top-2 right-2 flex gap-2">
                                             <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setShowPollCreator(!showPollCreator)}>
