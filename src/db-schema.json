@@ -115,6 +115,8 @@
           "mediaUrl": { "type": "string", "description": "URL of the image or video for the status." },
           "note": { "type": "string", "description": "A short text note, an alternative to media." },
           "spotifyUrl": { "type": "string", "description": "A link to a Spotify track." },
+          "textOverlay": { "type": "string", "description": "A caption displayed on top of media." },
+          "poll": { "type": "map", "description": "A poll attached to the status." },
           "status": { "type": "string", "description": "'published' or 'draft'." },
           "isArchived": { "type": "boolean", "description": "True if the status is archived after expiring." },
           "isTrashed": { "type": "boolean", "description": "True if the user moved the status to trash." },
