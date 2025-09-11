@@ -4,7 +4,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ChevronRight, UserCog, KeyRound, Archive, Trash2, FileText, ShieldCheck, Info, Bell, MessageCircle, Settings, Palette } from 'lucide-react';
+import { Loader2, ChevronRight, UserCog, KeyRound, Archive, Trash2, FileText, ShieldCheck, Info, Bell, MessageCircle, Settings, Palette, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 interface SettingsLinkProps {
@@ -75,6 +75,7 @@ export default function SettingsHubPage() {
             <CardContent className="p-2">
                 <SettingsLink href="/settings/archive" icon={Archive} title="Archive" description="View your archived prompts and expired statuses." />
                 <SettingsLink href="/settings/trash" icon={Trash2} title="Trash" description="Manage items you have moved to the trash." />
+                <SettingsLink href="/settings/echoes" icon={Sparkles} title="Echoes" description="Rediscover your journey and impact." />
             </CardContent>
           </Card>
         </section>
