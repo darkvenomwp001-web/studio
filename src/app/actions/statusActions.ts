@@ -136,8 +136,14 @@ export async function permanentlyDeleteStatusUpdate(
             return { success: true, error: 'Status already deleted.' };
         }
         
-        if (!isOwner(userId, statusSnap.data())) {
+        const statusData = statusSnap.data();
+        if (!isOwner(userId, statusData)) {
           return { success: false, error: 'You do not have permission to delete this status.' };
+        }
+
+        // Allow deletion if it's a draft OR if it's trashed
+        if (statusData.status !== 'draft' && !statusData.isTrashed) {
+          return { success: false, error: 'This status must be in the trash to be deleted.' };
         }
 
         await deleteDoc(statusRef);
