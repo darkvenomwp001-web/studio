@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -81,15 +82,15 @@ export default function LettersPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="text-center space-y-4">
-        <div>
-          <h1 className="text-4xl font-headline font-bold text-primary flex items-center justify-center gap-3">
-            <Mailbox className="h-10 w-10" />
+      <div className="text-center space-y-3">
+        <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary flex items-center justify-center gap-2">
+            <Mailbox className="h-8 w-8 md:h-10 md:w-10" />
             Mailbox
-          </h1>
-          <p className="text-muted-foreground">Heartfelt messages from readers and authors.</p>
+        </h1>
+        <p className="text-muted-foreground text-sm md:text-base">Heartfelt messages from readers and authors.</p>
+        <div className="flex justify-center">
+            <ComposeLetterDialog />
         </div>
-        <ComposeLetterDialog />
       </div>
 
       <Tabs defaultValue="received" className="w-full">
