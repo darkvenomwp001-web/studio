@@ -6,15 +6,17 @@ import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader2, Pin, PinOff } from 'lucide-react';
+import { Loader2, Pin, PinOff, Trash2 } from 'lucide-react';
 import type { Letter as LetterType } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { deleteLetter } from '@/app/actions/letterActions';
 
 export default function LetterCard({ letter, isAuthorView }: { letter: LetterType, isAuthorView: boolean }) {
   const { user, addNotification } = useAuth();
@@ -70,6 +72,19 @@ export default function LetterCard({ letter, isAuthorView }: { letter: LetterTyp
       setIsDialogOpen(false);
     }
   };
+
+  const handleDeleteLetter = async () => {
+    if (!user) return;
+    setIsProcessing(true);
+    const result = await deleteLetter(letter.id, user.id);
+    if (result.success) {
+      toast({ title: "Letter Deleted", description: "Your letter has been permanently removed." });
+      setIsDialogOpen(false);
+    } else {
+      toast({ title: "Error", description: result.error, variant: "destructive" });
+    }
+    setIsProcessing(false);
+  }
   
   const fromUser = isAuthorView ? letter.reader.displayName || letter.reader.username : 'You';
   const toUser = isAuthorView ? 'You' : `the author of "${letter.storyTitle}"`;
@@ -128,13 +143,39 @@ export default function LetterCard({ letter, isAuthorView }: { letter: LetterTyp
                 </div>
             )}
         </div>
-        <DialogFooter className="justify-start">
-             {isAuthorView && letter.visibility === 'public' && (
-                <Button variant="outline" onClick={handleTogglePin} disabled={isProcessing}>
-                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : letter.isPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />}
-                    {letter.isPinned ? 'Unpin Letter' : 'Pin to Story Page'}
-                </Button>
-             )}
+        <DialogFooter className="justify-between">
+            <div className="flex gap-2">
+                {isAuthorView && letter.visibility === 'public' && (
+                    <Button variant="outline" onClick={handleTogglePin} disabled={isProcessing}>
+                        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : letter.isPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />}
+                        {letter.isPinned ? 'Unpin Letter' : 'Pin to Story Page'}
+                    </Button>
+                )}
+                 {!isAuthorView && (
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                           <Button variant="destructive" disabled={isProcessing}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete Letter
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this letter?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                This action is permanent and cannot be undone. The author will no longer be able to see this letter.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDeleteLetter}>
+                                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                    Yes, Delete
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                 )}
+            </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
