@@ -47,20 +47,23 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
     const { user: currentUser } = useAuth();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
+    const [isPaused, setIsPaused] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const { toast } = useToast();
 
     useEffect(() => {
         setCurrentStatusIndex(0);
         setAnimationKey(prev => prev + 1); // Reset animation
+        setIsPaused(false);
     }, [selectedUser]);
 
     useEffect(() => {
-        if (!isOpen || !userStatuses || userStatuses.length === 0) return;
+        if (!isOpen || !userStatuses || userStatuses.length === 0 || isPaused) return;
         const timer = setTimeout(() => {
            handleNext();
         }, 5000); // Auto-advance after 5 seconds
         return () => clearTimeout(timer);
-    }, [isOpen, currentStatusIndex, selectedUser, userStatuses]);
+    }, [isOpen, currentStatusIndex, selectedUser, userStatuses, isPaused]);
 
     const handleNext = () => {
         setAnimationKey(prev => prev + 1);
@@ -76,6 +79,17 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
             setCurrentStatusIndex(prev => prev - 1);
         } else {
             onPrev(); // Move to prev user
+        }
+    }
+
+    const togglePause = () => {
+        setIsPaused(!isPaused);
+        if (videoRef.current) {
+            if (isPaused) {
+                videoRef.current.play();
+            } else {
+                videoRef.current.pause();
+            }
         }
     }
 
@@ -134,19 +148,20 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                         <div key={index} className="h-0.5 flex-1 bg-white/30 rounded-full overflow-hidden">
                              <div 
                                 key={animationKey}
-                                className="h-full bg-white" 
-                                style={{ 
-                                    width: index < currentStatusIndex ? '100%' : index === currentStatusIndex ? '100%' : '0%', 
-                                    animation: index === currentStatusIndex ? 'width-grow 5s linear' : 'none' 
+                                className={cn("h-full bg-white", !isPaused && 'animate-width-grow')}
+                                style={{
+                                    width: index < currentStatusIndex ? '100%' : '0%',
+                                    animationPlayState: isPaused ? 'paused' : 'running',
+                                    animationDuration: '5s'
                                 }}
                             ></div>
                         </div>
                     ))}
                 </div>
 
-                <div className="relative flex-1 flex items-center justify-center overflow-hidden">
+                <div className="relative flex-1 flex items-center justify-center overflow-hidden" onClick={togglePause}>
                     {currentStatus.mediaType === 'video' ? (
-                        <video src={currentStatus.mediaUrl} autoPlay muted loop playsInline className="w-full h-full object-contain" />
+                        <video ref={videoRef} src={currentStatus.mediaUrl} autoPlay playsInline className="w-full h-full object-contain" />
                     ) : (
                         <Image src={currentStatus.mediaUrl} alt="Status Update" layout="fill" objectFit="contain" />
                     )}

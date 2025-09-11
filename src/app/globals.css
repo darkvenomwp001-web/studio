@@ -7,6 +7,14 @@ body {
   @apply font-body;
 }
 
+/* Added for Night Reading Portal */
+body.night-portal {
+  --background: 0 0% 0%;
+  --foreground: 210 15% 80%;
+  --card: 0 0% 5%;
+  --border: 210 10% 20%;
+}
+
 @layer base {
   :root {
     --background: 210 20% 95%; 

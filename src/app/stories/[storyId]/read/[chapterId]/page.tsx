@@ -15,7 +15,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft,
@@ -32,8 +34,12 @@ import {
   Moon,
   Sparkles,
   Lock,
-  BookmarkCheck
+  BookmarkCheck,
+  Sun,
+  Monitor,
+  TextIcon,
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
 import type { Story, Chapter, UserSummary, AllowedUser } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
@@ -44,11 +50,15 @@ import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment } fro
 import { toggleChapterVote } from '@/app/actions/storyActions';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 
+type FontSize = 'sm' | 'base' | 'lg' | 'xl';
+const fontSizes: FontSize[] = ['sm', 'base', 'lg', 'xl'];
+
 export default function StoryReaderPage() {
   const params = useParams();
   const router = useRouter();
   const { user: currentUser, addToLibrary, removeFromLibrary } = useAuth();
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
   
   const storyId = Array.isArray(params.storyId) ? params.storyId[0] : params.storyId;
   const chapterIdParams = Array.isArray(params.chapterId) ? params.chapterId[0] : params.chapterId;
@@ -63,8 +73,32 @@ export default function StoryReaderPage() {
   const [isAccessGranted, setIsAccessGranted] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
 
+  const [fontSize, setFontSize] = useState<FontSize>('base');
+  const [isNightPortalActive, setIsNightPortalActive] = useState(false);
+
   const contentRef = useRef<HTMLDivElement>(null);
   const viewIncrementedRef = useRef(false);
+
+  // Load reading preferences from localStorage
+  useEffect(() => {
+    const savedFontSize = localStorage.getItem('reader-font-size') as FontSize;
+    const savedNightPortal = localStorage.getItem('reader-night-portal') === 'true';
+    if (savedFontSize && fontSizes.includes(savedFontSize)) {
+      setFontSize(savedFontSize);
+    }
+    setIsNightPortalActive(savedNightPortal);
+  }, []);
+
+  // Apply night portal class to body
+  useEffect(() => {
+    document.body.classList.toggle('night-portal', isNightPortalActive);
+    localStorage.setItem('reader-night-portal', String(isNightPortalActive));
+  }, [isNightPortalActive]);
+  
+  // Save font size to localStorage
+  useEffect(() => {
+    localStorage.setItem('reader-font-size', fontSize);
+  }, [fontSize]);
 
   const incrementViewCount = useCallback(async () => {
     if (viewIncrementedRef.current || !storyId) return;
@@ -148,7 +182,11 @@ export default function StoryReaderPage() {
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      // Clean up night portal class on unmount
+      document.body.classList.remove('night-portal');
+    };
   }, [storyId, chapterIdParams, router, currentUser, toast, incrementViewCount]);
 
   useEffect(() => {
@@ -297,12 +335,25 @@ export default function StoryReaderPage() {
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Appearance</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem disabled>Font Size (Soon)</DropdownMenuItem>
-                <DropdownMenuItem disabled>Theme (Soon)</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                 <DropdownMenuItem onClick={() => toast({title: "Night Reading Portal Coming Soon!"})}>
+                <DropdownMenuItem onClick={() => setIsNightPortalActive(!isNightPortalActive)}>
                     <Moon className="mr-2 h-4 w-4" /> Night Reading Portal
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Font Size</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={fontSize} onValueChange={(v) => setFontSize(v as FontSize)}>
+                    {fontSizes.map(size => (
+                        <DropdownMenuRadioItem key={size} value={size} className="capitalize">
+                            <TextIcon className="mr-2 h-4 w-4" /> {size}
+                        </DropdownMenuRadioItem>
+                    ))}
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Theme</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+                    <DropdownMenuRadioItem value="light"><Sun className="mr-2 h-4 w-4" />Light</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="dark"><Moon className="mr-2 h-4 w-4" />Dark</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="system"><Monitor className="mr-2 h-4 w-4" />System</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
             </DropdownMenuContent>
             </DropdownMenu>
         </div>
@@ -390,7 +441,15 @@ export default function StoryReaderPage() {
                 toggleMainControls();
             }
         }}> 
-            <article className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20 prose-reading">
+            <article className={cn(
+              "prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20 prose-reading",
+              {
+                'prose-sm': fontSize === 'sm',
+                'prose-base': fontSize === 'base',
+                'prose-lg': fontSize === 'lg',
+                'prose-xl': fontSize === 'xl',
+              }
+            )}>
             {isAccessGranted ? (
                 <>
                 <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4 text-center">{currentChapter.title}</h2>
