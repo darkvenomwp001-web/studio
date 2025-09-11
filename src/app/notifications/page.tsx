@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -7,7 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, MessageSquare, Loader2, CheckCircle, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Paperclip, Smile, Sparkles, HelpCircle, Vote } from 'lucide-react';
+import { Bell, MessageSquare, Loader2, CheckCircle, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Paperclip, Smile, Sparkles, HelpCircle, Vote, Award } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -101,6 +102,8 @@ function NotificationsList() {
                 return <Mail className="h-5 w-5 text-cyan-500" />;
             case 'letter_response':
                 return <MailCheck className="h-5 w-5 text-teal-500" />;
+            case 'achievement_unlocked':
+                return <Award className="h-5 w-5 text-yellow-500" />;
             case 'announcement':
                 return <Bell className="h-5 w-5 text-orange-500" />;
             default:
@@ -542,7 +545,7 @@ function MessagesClient() {
                                 {conversationStarters.length > 0 && (
                                     <div className="mt-4 space-y-2 text-left">
                                         {conversationStarters.map((starter, i) => (
-                                            <Button key={i} variant="outline" size="sm" className="w-full text-wrap h-auto" onClick={() => setNewMessageContent(starter)}>"{starter}"</Button>
+                                            <Button key={i} variant="outline" size="sm" className="w-full text-wrap h-auto" onClick={() => setNewMessageContent(starter)}>{starter}</Button>
                                         ))}
                                     </div>
                                 )}

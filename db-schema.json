@@ -15,6 +15,9 @@
           "followingCount": { "type": "number", "description": "Total number of users they follow." },
           "followingIds": { "type": "array", "description": "An array of user IDs that this user follows." },
           "readingList": { "type": "array", "description": "Array of story objects the user has saved." },
+          "level": { "type": "number", "description": "User's current level based on XP." },
+          "xp": { "type": "number", "description": "User's experience points, earned through engagement." },
+          "achievements": { "type": "array", "description": "Array of achievement objects the user has unlocked." },
           "createdAt": { "type": "timestamp", "description": "When the user account was created." },
           "updatedAt": { "type": "timestamp", "description": "When the user profile was last updated." },
           "isAnonymous": { "type": "boolean", "description": "Flag for guest users." }

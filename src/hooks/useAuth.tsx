@@ -4,8 +4,9 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import type { User as AppUserType, NotificationType, UserSummary, Story, ReadingListItem } from '@/types';
+import type { User as AppUserType, NotificationType, UserSummary, Story, ReadingListItem, Achievement } from '@/types';
 import { auth, db } from '@/lib/firebase';
+import { addNotification } from '@/app/actions/notificationActions';
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -37,14 +38,14 @@ import {
   orderBy,
   limit,
   onSnapshot,
-  addDoc,
   writeBatch,
   getDocs,
-  increment,
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+
+const USER_CACHE_KEY = 'd4rkv3nom_user_cache';
 
 interface AppUser extends AppUserType {
   email?: string;
@@ -98,8 +99,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast();
 
+  const handleAchievementUnlock = useCallback((newAchievements: Achievement[], oldAchievements: Achievement[]) => {
+      if (newAchievements.length > oldAchievements.length) {
+          const latestAchievement = newAchievements[newAchievements.length - 1];
+          // Check if we already showed this toast
+          const toastId = `ach-toast-${latestAchievement.id}`;
+          const hasSeenToast = sessionStorage.getItem(toastId);
+          if (!hasSeenToast) {
+            toast({
+              title: "🏆 Achievement Unlocked!",
+              description: latestAchievement.name,
+            });
+            sessionStorage.setItem(toastId, 'true');
+          }
+      }
+  }, [toast]);
+
+
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | undefined;
+    
+    // Attempt to load user from cache first for instant UI
+    try {
+        const cachedUser = sessionStorage.getItem(USER_CACHE_KEY);
+        if (cachedUser) {
+            setUser(JSON.parse(cachedUser));
+        }
+    } catch (e) {
+        console.warn("Could not read user cache from sessionStorage", e);
+    }
+
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (unsubscribeUserDoc) {
@@ -111,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userRef = doc(db, 'users', firebaseUser.uid);
         
         unsubscribeUserDoc = onSnapshot(userRef, async (userSnap) => {
+          const oldAchievements = user?.achievements || [];
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
             // Fetch the user's written stories to populate the `writtenStories` field
@@ -118,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const storiesSnapshot = await getDocs(storiesQuery);
             const writtenStories = storiesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
 
-            setUser({
+            const fullUser: AppUser = {
               id: firebaseUser.uid,
               email: firebaseUser.email || firestoreUserData.email,
               username: firestoreUserData.username || 'User',
@@ -126,6 +156,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               avatarUrl: firestoreUserData.avatarUrl || firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(firestoreUserData.username || 'U').charAt(0).toUpperCase()}`,
               bio: firestoreUserData.bio || 'No bio yet.',
               role: firestoreUserData.role || 'reader',
+              level: firestoreUserData.level || 1,
+              xp: firestoreUserData.xp || 0,
+              achievements: firestoreUserData.achievements || [],
               followersCount: firestoreUserData.followersCount || 0,
               followingCount: firestoreUserData.followingIds?.length || 0,
               followingIds: firestoreUserData.followingIds || [],
@@ -134,7 +167,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               isAnonymous: firebaseUser.isAnonymous,
               createdAt: firestoreUserData.createdAt,
               updatedAt: firestoreUserData.updatedAt,
-            });
+            };
+
+            setUser(fullUser);
+            sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(fullUser));
+            if(fullUser.achievements) {
+                handleAchievementUnlock(fullUser.achievements, oldAchievements);
+            }
           } else {
             // This logic runs once if the user document doesn't exist, e.g., on first sign-in
             const isAnonymous = firebaseUser.isAnonymous;
@@ -151,6 +190,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`,
               bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse! Ready to explore.',
               role: 'reader',
+              level: 1,
+              xp: 0,
+              achievements: [],
               followersCount: 0,
               followingCount: 0,
               followingIds: [],
@@ -162,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
             await setDoc(userRef, newUserProfile, { merge: true });
             setUser(newUserProfile); 
+            sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(newUserProfile));
           }
           setLoading(false);
         }, (error) => {
@@ -177,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // If even anonymous sign in fails, there's a deeper config issue.
             setUser(null);
             setLoading(false);
+            sessionStorage.removeItem(USER_CACHE_KEY);
         });
       }
     });
@@ -187,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         unsubscribeUserDoc();
       }
     };
-  }, []);
+  }, [handleAchievementUnlock]);
 
 
   useEffect(() => {
@@ -357,6 +401,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatarUrl: `https://placehold.co/100x100.png?text=${username.charAt(0).toUpperCase()}`,
           bio: 'New to LitVerse! Ready to explore.',
           role: 'reader',
+          level: 1,
+          xp: 0,
+          achievements: [],
           followersCount: 0,
           followingCount: 0,
           followingIds: [],
@@ -441,6 +488,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
       await signOut(auth);
+      sessionStorage.removeItem(USER_CACHE_KEY);
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
     } catch (error) {
       handleAuthError(error as AuthError, "Sign Out");
@@ -600,20 +648,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addNotification = useCallback(async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
-    const newNotifData = {
-      ...notificationData,
-      timestamp: serverTimestamp(),
-      isRead: false,
-    };
-    try {
-      await addDoc(collection(db, 'notifications'), newNotifData);
-    } catch (error) {
-      console.error("Error adding notification to Firestore:", error);
-      toast({ title: "Error", description: "Could not create notification.", variant: "destructive" });
-    }
-  }, [toast]);
-
   const markNotificationAsRead = async (notificationId: string) => {
     if (!user) return;
     try {
@@ -677,26 +711,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // 2. Create a notification for the target user
-    const notificationRef = doc(collection(db, "notifications"));
-    const actorSummary: UserSummary = {
-      id: user.id,
-      username: user.username,
-      displayName: user.displayName || user.username,
-      avatarUrl: user.avatarUrl
-    };
-    batch.set(notificationRef, {
-      userId: targetUserId,
-      type: 'new_follower',
-      message: `${user.displayName || user.username} started following you.`,
-      link: `/profile/${user.id}`,
-      actor: actorSummary,
-      timestamp: serverTimestamp(),
-      isRead: false,
-    });
+    const targetUserData = targetUserDoc.data();
+    if(targetUserData){
+        const actorSummary: UserSummary = {
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName || user.username,
+          avatarUrl: user.avatarUrl
+        };
+        await addNotification({
+            userId: targetUserId,
+            type: 'new_follower',
+            message: `${user.displayName || user.username} started following you.`,
+            link: `/profile/${user.id}`,
+            actor: actorSummary
+        });
+    }
 
     try {
       await batch.commit();
-      const targetUserData = targetUserDoc.data();
       toast({title: "Followed", description: `You are now following ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
     } catch (error) {
       console.error("Error in follow batch write:", error);

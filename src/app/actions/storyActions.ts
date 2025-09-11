@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import type { Story } from '@/types';
+import { awardXP } from './userActions';
 
 export async function toggleChapterVote(
   storyId: string,
@@ -38,14 +39,21 @@ export async function toggleChapterVote(
     const voterIds = chapter.voterIds || [];
     const hasVoted = voterIds.includes(userId);
 
+    let newVoteCount;
+
     if (hasVoted) {
       // Unvote
       storyData.chapters[chapterIndex].voterIds = voterIds.filter(id => id !== userId);
-      storyData.chapters[chapterIndex].votes = Math.max(0, (chapter.votes || 0) - 1);
+      newVoteCount = Math.max(0, (chapter.votes || 0) - 1);
+      storyData.chapters[chapterIndex].votes = newVoteCount;
     } else {
       // Vote
       storyData.chapters[chapterIndex].voterIds = [...voterIds, userId];
-      storyData.chapters[chapterIndex].votes = (chapter.votes || 0) + 1;
+      newVoteCount = (chapter.votes || 0) + 1;
+      storyData.chapters[chapterIndex].votes = newVoteCount;
+      
+      // Award XP for voting
+      await awardXP(userId, 'vote');
     }
     
     await updateDoc(storyRef, { chapters: storyData.chapters });

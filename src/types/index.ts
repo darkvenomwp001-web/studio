@@ -1,6 +1,13 @@
 
 import type { Timestamp } from 'firebase/firestore';
 
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  unlockedAt: string;
+}
+
 export interface User {
   id: string; // Document ID from Firestore (auth UID)
   username: string;
@@ -14,6 +21,9 @@ export interface User {
   followingIds?: string[];
   writtenStories?: Story[]; // Changed to hold full story objects for attach feature
   readingList?: ReadingListItem[];
+  level?: number;
+  xp?: number;
+  achievements?: Achievement[];
   createdAt?: any;
   updatedAt?: any;
   dataAiHint?: string; // Added for AI image hints
@@ -94,7 +104,7 @@ export interface ReadingListItem {
 export interface NotificationType {
     id: string;
     userId: string;
-    type: 'new_follower' | 'new_chapter' | 'story_update' | 'comment_reply' | 'mention' | 'announcement' | 'new_letter' | 'letter_response' | 'premium_access';
+    type: 'new_follower' | 'new_chapter' | 'story_update' | 'comment_reply' | 'mention' | 'announcement' | 'new_letter' | 'letter_response' | 'premium_access' | 'achievement_unlocked';
     message: string;
     link: string;
     isRead: boolean;
