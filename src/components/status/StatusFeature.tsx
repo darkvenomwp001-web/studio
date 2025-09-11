@@ -458,7 +458,7 @@ export default function StatusFeature() {
            <div className="text-center flex-shrink-0 w-20">
              <button 
                 onClick={() => openUploader('notes')}
-                className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center border-2 border-dashed border-border hover:border-primary transition-colors"
+                className="w-16 h-16 mx-auto rounded-full bg-muted/50 flex items-center justify-center border-2 border-dashed border-border hover:border-primary transition-colors"
               >
                <Plus className="h-6 w-6 text-muted-foreground" />
              </button>
@@ -710,5 +710,6 @@ export default function StatusFeature() {
     
 
     
+
 
 
