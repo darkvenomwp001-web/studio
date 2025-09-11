@@ -16,6 +16,50 @@ function isOwner(userId: string, statusData: { [key: string]: any }): boolean {
   return false;
 }
 
+/**
+ * Moves a published status back to drafts.
+ * @param statusId The ID of the status update.
+ * @param userId The ID of the user performing the action.
+ * @returns A promise that resolves to an object indicating success or failure.
+ */
+export async function moveStatusToDrafts(
+  statusId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!userId) {
+    return { success: false, error: 'User not authenticated.' };
+  }
+  try {
+    const statusRef = doc(db, 'statusUpdates', statusId);
+    const statusSnap = await getDoc(statusRef);
+
+    if (!statusSnap.exists()) {
+      return { success: false, error: 'Status not found.' };
+    }
+    
+    const statusData = statusSnap.data();
+    if (!isOwner(userId, statusData)) {
+      return { success: false, error: 'You do not have permission to edit this status.' };
+    }
+
+    if (statusData.status !== 'published') {
+      return { success: false, error: 'Only published statuses can be moved to drafts.' };
+    }
+
+    await updateDoc(statusRef, {
+      status: 'draft',
+      expiresAt: null, // Drafts don't expire
+      updatedAt: serverTimestamp()
+    });
+
+    revalidatePath('/'); // Revalidate home page feed
+    return { success: true };
+  } catch (error) {
+    console.error('Error moving status to drafts:', error);
+    return { success: false, error: 'Could not move status to drafts.' };
+  }
+}
+
 
 export async function archiveStatusUpdate(
   statusId: string,

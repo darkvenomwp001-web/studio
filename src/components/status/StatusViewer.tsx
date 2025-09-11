@@ -6,19 +6,18 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogTrigger, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, Pause, Play, Trash2, Feather } from 'lucide-react';
+import { Loader2, X, Pause, Play, Feather } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Timestamp } from 'firebase/firestore';
-import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
+import { moveStatusToDrafts } from '@/app/actions/statusActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
-export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived, onOpenUploader }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void, onOpenUploader: (defaultTab: string) => void }) {
+export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void }) {
     const { user: currentUser } = useAuth();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
@@ -26,6 +25,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     const videoRef = useRef<HTMLVideoElement>(null);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const { toast } = useToast();
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const currentStatus = userStatuses && userStatuses[currentStatusIndex];
 
@@ -58,9 +58,9 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
             if (videoElement && videoElement.readyState > 0) { // If metadata is loaded
                 setupTimeout(videoElement.duration);
             } else if (videoElement) {
-                 videoElement.onloadedmetadata = () => {
-                     setupTimeout(videoElement.duration);
-                 };
+                 const onLoadedMetadata = () => setupTimeout(videoElement.duration);
+                 videoElement.addEventListener('loadedmetadata', onLoadedMetadata);
+                 return () => videoElement.removeEventListener('loadedmetadata', onLoadedMetadata);
             } else {
                  setupTimeout(15); // Fallback if ref is not ready
             }
@@ -102,30 +102,33 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         if (videoElement) {
             if (!isPaused && isOpen) {
                 videoElement.play().catch(e => console.warn("Video play was interrupted. This is often safe to ignore."));
-            } else if (isPaused) {
+            } else {
                 videoElement.pause();
             }
         }
     }, [currentStatus, isPaused, isOpen]);
 
 
-    const handleDelete = async () => {
-        if (!currentUser || !currentStatus) return;
-        const result = await permanentlyDeleteStatusUpdate(currentStatus.id, currentUser.id);
+    const handleMoveToDrafts = async () => {
+        if (!currentUser || !currentStatus || !isOwnStatus) return;
+        setIsProcessing(true);
+        const result = await moveStatusToDrafts(currentStatus.id, currentUser.id);
         if (result.success) {
-            toast({ title: "Status Deleted" });
+            toast({ title: "Status Moved to Drafts" });
             onStatusArchived(currentStatus.authorId, currentStatus.id); 
-            onOpenChange(false);
+            // If it was the last status for this user, close the viewer
+            if (userStatuses.length === 1) {
+                 onOpenChange(false);
+            } else {
+                // otherwise move to the next status
+                handleNext();
+            }
         } else {
             toast({ title: "Error", description: result.error, variant: "destructive" });
         }
+        setIsProcessing(false);
     };
     
-    const handleOpenDrafts = () => {
-        onOpenChange(false);
-        onOpenUploader('drafts');
-    }
-
     if (!selectedUser || !currentStatus) {
         return null;
     }
@@ -153,28 +156,9 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     </div>
                      <div className="flex items-center gap-1">
                         {isOwnStatus && (
-                            <>
-                                <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={handleOpenDrafts}>
-                                    <Feather className="h-5 w-5" />
-                                </Button>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
-                                            <Trash2 className="h-5 w-5" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Delete this status?</AlertDialogTitle>
-                                            <AlertDialogDescription>This action is permanent and cannot be undone.</AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </>
+                             <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={handleMoveToDrafts} disabled={isProcessing} title="Move to Drafts">
+                                {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Feather className="h-5 w-5" />}
+                             </Button>
                         )}
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={() => onOpenChange(false)}>
                               <X className="h-5 w-5"/>
