@@ -37,12 +37,12 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
       onClick={() => onSelect(user)}
     >
       {isNote && (
-        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-max max-w-xs mb-2">
+        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-max max-w-[150px] mb-2">
             <div className="bg-muted px-2.5 py-1.5 rounded-lg shadow-md">
                 <p className="text-xs text-foreground truncate">{latestStatus.note}</p>
                  {latestStatus.spotifyUrl && <Music className="h-3 w-3 text-muted-foreground mx-auto mt-0.5" />}
             </div>
-             <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-muted"></div>
+             <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-[5px] border-t-muted"></div>
         </div>
       )}
       <div className={cn(
@@ -113,37 +113,39 @@ export default function StatusFeature() {
         return;
     }
 
-    const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
-    const liveQuery = query(
+    // This query now fetches all non-archived, non-trashed statuses that are either published & not expired, OR are drafts by the current user.
+    const statusesQuery = query(
       collection(db, 'statusUpdates'),
-      where('createdAt', '>', twentyFourHoursAgo),
-      where('status', '==', 'published'),
       where('isArchived', '==', false),
-      orderBy('createdAt', 'desc')
+      where('isTrashed', '==', false)
+      // We can't combine 'expiresAt' and 'authorId draft' queries, so we filter client-side.
     );
-
-    const draftQuery = query(collection(db, 'statusUpdates'), where('authorId', '==', user.id), where('status', '==', 'draft'), orderBy('createdAt', 'desc'));
-    const trashQuery = query(collection(db, 'statusUpdates'), where('authorId', '==', user.id), where('isTrashed', '==', true), orderBy('trashedAt', 'desc'));
-
-
-    const unsubLive = onSnapshot(liveQuery, (snapshot) => {
-      const statusesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
-      setAllStatuses(statusesData);
-    });
     
-    const unsubDrafts = onSnapshot(draftQuery, (snapshot) => {
-        setDraftStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
+    const unsubStatuses = onSnapshot(statusesQuery, (snapshot) => {
+        const now = Date.now();
+        const allFetchedStatuses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
+
+        const liveAndRelevant = allFetchedStatuses.filter(s => {
+            const isPublishedAndLive = s.status === 'published' && s.expiresAt && (s.expiresAt as Timestamp).toMillis() > now;
+            const isOwnDraft = s.status === 'draft' && s.authorId === user.id;
+            return isPublishedAndLive || isOwnDraft;
+        });
+
+        const sortedStatuses = liveAndRelevant.sort((a, b) => (b.createdAt as Timestamp).toMillis() - (a.createdAt as Timestamp).toMillis());
+        setAllStatuses(sortedStatuses);
+
+        setDraftStatuses(sortedStatuses.filter(s => s.status === 'draft'));
+        setIsLoading(false);
     });
 
+    const trashQuery = query(collection(db, 'statusUpdates'), where('authorId', '==', user.id), where('isTrashed', '==', true), orderBy('trashedAt', 'desc'));
     const unsubTrash = onSnapshot(trashQuery, (snapshot) => {
         setTrashedStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
     });
 
-    setIsLoading(false);
 
     return () => {
-        unsubLive();
-        unsubDrafts();
+        unsubStatuses();
         unsubTrash();
     };
   }, [user]);
@@ -152,11 +154,11 @@ export default function StatusFeature() {
     const groups = new Map<string, {user: User, statuses: StatusUpdate[]}>(new Map());
     const newStatusOrder: string[] = [];
 
-    const liveStatuses = allStatuses.filter(s => s.status === 'published' && s.expiresAt && (s.expiresAt as Timestamp).toMillis() > Date.now() );
+    const liveStatuses = allStatuses.filter(s => s.status === 'published');
     
     // Put current user's status first if it exists
     const currentUserLive = liveStatuses.filter(s => s.authorId === user?.id);
-    if (currentUserLive.length > 0) {
+    if (currentUserLive.length > 0 && user) {
         groups.set(user!.id, { user: user as User, statuses: currentUserLive });
         newStatusOrder.push(user!.id);
     }
@@ -348,13 +350,15 @@ export default function StatusFeature() {
   }
   
   const handleRestoreFromTrash = async (statusId: string) => {
-    const result = await restoreStatusUpdate(statusId, user!.id);
+    if (!user) return;
+    const result = await restoreStatusUpdate(statusId, user.id);
     if(result.success) toast({title: "Status Restored"});
     else toast({title: "Error", description: result.error, variant: 'destructive'});
   }
 
   const handleDeleteFromTrash = async (statusId: string) => {
-     const result = await permanentlyDeleteStatusUpdate(statusId, user!.id);
+     if (!user) return;
+     const result = await permanentlyDeleteStatusUpdate(statusId, user.id);
      if(result.success) toast({title: "Status Permanently Deleted"});
      else toast({title: "Error", description: result.error, variant: 'destructive'});
   }
@@ -398,34 +402,37 @@ export default function StatusFeature() {
   return (
     <>
       <div className="bg-card p-3 rounded-lg shadow-sm">
-      <div className="flex items-center space-x-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted">
-          {/* Add/Edit Note Bubble */}
-          <div className="text-center flex-shrink-0 w-20">
-              <button 
-                  onClick={() => setIsUploaderOpen(true)} 
-                  className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center border-2 border-dashed border-primary/50 hover:border-primary transition-colors relative group"
-              >
-                  <Plus className="h-6 w-6 text-primary" />
-              </button>
-              <p className="text-xs mt-1 truncate">Add Status</p>
-          </div>
+      <ScrollArea className="w-full whitespace-nowrap">
+        <div className="flex items-start space-x-4">
+            {/* Add/Edit Note Bubble */}
+            <div className="text-center flex-shrink-0 w-20">
+                <button 
+                    onClick={() => setIsUploaderOpen(true)} 
+                    className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center border-2 border-dashed border-primary/50 hover:border-primary transition-colors relative group"
+                >
+                    <Plus className="h-6 w-6 text-primary" />
+                </button>
+                <p className="text-xs mt-1 truncate">Add Status</p>
+            </div>
 
-          {isLoading ? (
-              [...Array(4)].map((_, i) => (
-                  <div key={i} className="flex-shrink-0 w-20 text-center">
-                       <div className="w-16 h-16 rounded-full bg-muted animate-pulse mx-auto"></div>
-                       <div className="h-2 w-12 bg-muted rounded mt-2 mx-auto animate-pulse"></div>
-                  </div>
-              ))
-          ) : (
-            statusOrder.map((userId) => {
-                const group = groupedStatuses.get(userId);
-                if (!group) return null;
-                const latestStatus = group.statuses.sort((a, b) => (b.createdAt as Timestamp).toMillis() - (a.createdAt as Timestamp).toMillis())[0];
-                return <StatusBubble key={userId} user={group.user} statuses={group.statuses} onSelect={handleSelectUser} latestStatus={latestStatus} />
-            })
-          )}
-      </div>
+            {isLoading ? (
+                [...Array(4)].map((_, i) => (
+                    <div key={i} className="flex-shrink-0 w-20 text-center">
+                        <div className="w-16 h-16 rounded-full bg-muted animate-pulse mx-auto"></div>
+                        <div className="h-2 w-12 bg-muted rounded mt-2 mx-auto animate-pulse"></div>
+                    </div>
+                ))
+            ) : (
+                statusOrder.map((userId) => {
+                    const group = groupedStatuses.get(userId);
+                    if (!group) return null;
+                    const latestStatus = group.statuses.sort((a, b) => (b.createdAt as Timestamp).toMillis() - (a.createdAt as Timestamp).toMillis())[0];
+                    return <StatusBubble key={userId} user={group.user} statuses={group.statuses} onSelect={handleSelectUser} latestStatus={latestStatus} />
+                })
+            )}
+        </div>
+        <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
             <DialogContent className="sm:max-w-xl">

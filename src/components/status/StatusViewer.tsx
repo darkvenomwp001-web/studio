@@ -139,8 +139,13 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                         <div key={index} className="h-0.5 flex-1 bg-white/30 rounded-full overflow-hidden">
                              <div 
                                 key={`${animationKey}-${index}`}
-                                className={cn("h-full bg-white", index === currentStatusIndex && !isPaused && 'animate-width-grow')}
+                                className={cn(
+                                    "h-full",
+                                    index < currentStatusIndex ? 'bg-white' : 'bg-transparent',
+                                    index === currentStatusIndex && !isPaused && 'bg-white animate-width-grow'
+                                )}
                                 style={{
+                                    width: index < currentStatusIndex ? '100%' : '0%',
                                     animationPlayState: isPaused ? 'paused' : 'running',
                                     animationDuration: userStatuses[index].mediaType === 'video' ? '15s' : '5s', // Basic duration adjustment
                                 }}
@@ -150,20 +155,22 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                 </div>
 
                 <div className="relative flex-1 flex items-center justify-center overflow-hidden" onClick={togglePause}>
-                    {isMediaStatus && currentStatus.mediaType === 'video' ? (
-                        <video 
-                            key={currentStatus.id}
-                            ref={videoRef} 
-                            src={currentStatus.mediaUrl} 
-                            autoPlay 
-                            playsInline 
-                            onCanPlay={handleVideoCanPlay}
-                            className="w-full h-full object-contain" 
-                        />
-                    ) : isMediaStatus && currentStatus.mediaType === 'image' ? (
-                        <Image src={currentStatus.mediaUrl!} alt="Status Update" layout="fill" objectFit="contain" />
+                    {isMediaStatus ? (
+                         currentStatus.mediaType === 'video' ? (
+                            <video 
+                                key={currentStatus.id}
+                                ref={videoRef} 
+                                src={currentStatus.mediaUrl} 
+                                autoPlay 
+                                playsInline
+                                onCanPlay={handleVideoCanPlay}
+                                className="w-full h-full object-contain" 
+                            />
+                        ) : (
+                            <Image src={currentStatus.mediaUrl!} alt="Status Update" layout="fill" objectFit="contain" />
+                        )
                     ) : isNoteStatus ? (
-                         <div className="absolute inset-0 flex items-center justify-center p-8 bg-black">
+                         <div className="absolute inset-0 flex items-center justify-center p-8 bg-gradient-to-br from-gray-900 to-black">
                             {currentStatus.note && (
                                 <p className="text-white text-center text-2xl font-semibold whitespace-pre-line">
                                     {currentStatus.note}
@@ -180,8 +187,13 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                         </div>
                     )}
 
-                    {currentStatus.spotifyUrl && (
-                        <div className="absolute bottom-10 left-4 right-4 z-10">
+                    {currentStatus.spotifyUrl && !currentStatus.note && (
+                        <div className="absolute inset-0 flex items-center justify-center p-8 bg-gradient-to-br from-green-900 via-gray-900 to-black">
+                            <SpotifyPlayer />
+                        </div>
+                    )}
+                     {currentStatus.spotifyUrl && currentStatus.note && (
+                         <div className="absolute bottom-10 left-4 right-4 z-10">
                            <SpotifyPlayer />
                         </div>
                     )}

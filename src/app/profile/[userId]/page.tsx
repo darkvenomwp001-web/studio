@@ -166,7 +166,7 @@ export default function UserProfilePage() {
       orderBy('expiresAt', 'desc')
     );
     const unsubscribeStatuses = onSnapshot(activeStatusesQuery, (snapshot) => {
-        const statuses = snapshot.docs.map(doc => ({id: snapshot.docs[0].id, ...doc.data()} as StatusUpdate));
+        const statuses = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as StatusUpdate));
         setUserActiveStatuses(statuses);
         
         const note = statuses.find(s => s.note || s.spotifyUrl) || null;
@@ -288,6 +288,11 @@ export default function UserProfilePage() {
         toast({ title: 'Error', description: 'Could not delete note.', variant: 'destructive'});
     }
   }
+
+  const onStatusArchived = (archivedUserId: string, statusId: string) => {
+        setUserActiveStatuses(prev => prev.filter(s => s.id !== statusId));
+  };
+
 
   if (authLoading || isLoadingData) {
     return (
@@ -470,7 +475,7 @@ export default function UserProfilePage() {
         userStatuses={userActiveStatuses}
         onNext={() => setIsStatusViewerOpen(false)} // No next user on this page
         onPrev={() => setIsStatusViewerOpen(false)} // No prev user on this page
-        onStatusArchived={() => {}} // No-op, archiving is handled elsewhere
+        onStatusArchived={onStatusArchived}
     />
     </>
   );
