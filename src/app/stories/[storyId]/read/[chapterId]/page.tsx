@@ -31,7 +31,8 @@ import {
   Home,
   Moon,
   Sparkles,
-  Lock
+  Lock,
+  BookmarkCheck
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import type { Story, Chapter, UserSummary, AllowedUser } from '@/types'; 
@@ -40,13 +41,12 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment } from 'firebase/firestore';
-import Header from '@/components/layout/Header';
-import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
+import { toggleChapterVote } from '@/app/actions/storyActions';
 
 export default function StoryReaderPage() {
   const params = useParams();
   const router = useRouter();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, addToLibrary, removeFromLibrary } = useAuth();
   const { toast } = useToast();
   
   const storyId = Array.isArray(params.storyId) ? params.storyId[0] : params.storyId;
@@ -60,6 +60,7 @@ export default function StoryReaderPage() {
   const [tocVisible, setTocVisible] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
   const [isAccessGranted, setIsAccessGranted] = useState(false);
+  const [isVoting, setIsVoting] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const viewIncrementedRef = useRef(false);
@@ -187,6 +188,35 @@ export default function StoryReaderPage() {
       });
   };
 
+  const handleVoteClick = async () => {
+    if (!currentUser || !story || !currentChapter) {
+        toast({ title: "Please sign in", description: "You need to be logged in to vote.", variant: "destructive" });
+        return;
+    }
+    setIsVoting(true);
+    const result = await toggleChapterVote(story.id, currentChapter.id, currentUser.id);
+    if (!result.success) {
+        toast({ title: "Vote Failed", description: result.error, variant: "destructive" });
+    }
+    setIsVoting(false);
+  };
+
+  const handleLibraryAction = () => {
+    if (!story) return;
+    if (!currentUser) {
+        toast({ title: "Please Sign In", description: "You must be logged in to manage your library.", variant: "destructive"});
+        router.push('/auth/signin');
+        return;
+    }
+
+    const isInLibrary = currentUser.readingList?.some(item => item.id === story.id);
+    if (isInLibrary) {
+      removeFromLibrary(story.id);
+    } else {
+      addToLibrary(story);
+    }
+  };
+
   if (isLoading || !story || !currentChapter) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
@@ -203,6 +233,8 @@ export default function StoryReaderPage() {
   const prevChapterId = currentVisibleChapterIndex > 0 ? visibleChapters[currentVisibleChapterIndex - 1].id : null;
   const nextChapterId = currentVisibleChapterIndex < visibleChapters.length - 1 ? visibleChapters[currentVisibleChapterIndex + 1].id : null;
 
+  const hasVoted = currentUser ? currentChapter?.voterIds?.includes(currentUser.id) : false;
+  const isInLibrary = currentUser?.readingList?.some(item => item.id === story.id);
 
   return (
     <>
@@ -369,8 +401,8 @@ export default function StoryReaderPage() {
                 </Button>
                 
                 <div className="flex items-center gap-2 rounded-full bg-muted/50 px-4 py-1">
-                    <Button variant="ghost" size="icon" onClick={() => toast({title: "Vote feature coming soon!"})} aria-label="Vote for this chapter">
-                        <ThumbsUp className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" onClick={handleVoteClick} disabled={isVoting} aria-label="Vote for this chapter">
+                        <ThumbsUp className={cn("h-5 w-5", hasVoted && "fill-primary text-primary")} />
                     </Button>
                     <Separator orientation="vertical" className="h-6" />
                     <Link href={`/stories/${storyId}/read/${chapterIdParams}/comments`} passHref>
@@ -379,8 +411,8 @@ export default function StoryReaderPage() {
                       </Button>
                     </Link>
                     <Separator orientation="vertical" className="h-6" />
-                     <Button variant="ghost" size="icon" onClick={() => toast({title: "Bookmark feature coming soon!"})} aria-label="Bookmark">
-                        <Bookmark className="h-5 w-5" />
+                     <Button variant="ghost" size="icon" onClick={handleLibraryAction} aria-label="Add to library">
+                       {isInLibrary ? <BookmarkCheck className="h-5 w-5 text-primary" /> : <Bookmark className="h-5 w-5" />}
                     </Button>
                     <Separator orientation="vertical" className="h-6" />
                     <Button variant="ghost" size="icon" onClick={handleShare} aria-label="Share this story">
