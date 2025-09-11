@@ -37,7 +37,7 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
       onClick={() => onSelect(user)}
     >
       {isNote && (
-        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-max max-w-[150px] mb-2">
+        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-max max-w-[150px] mb-2 z-10">
             <div className="bg-muted px-2.5 py-1.5 rounded-lg shadow-md">
                 <p className="text-xs text-foreground truncate">{latestStatus.note}</p>
                  {latestStatus.spotifyUrl && <Music className="h-3 w-3 text-muted-foreground mx-auto mt-0.5" />}
@@ -701,4 +701,3 @@ export default function StatusFeature() {
     
 
     
-
