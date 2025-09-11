@@ -65,7 +65,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     const togglePause = () => {
         const video = videoRef.current;
         if (video) {
-            // Add a guard to ensure video is still in the DOM
             if (document.body.contains(video)) {
                 if (video.paused) {
                     video.play().catch(e => console.error("Play interrupted:", e));
@@ -77,12 +76,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
             }
         } else {
             setIsPaused(prev => !prev);
-        }
-    };
-    
-    const handleVideoCanPlay = () => {
-        if (isPaused && videoRef.current) {
-            videoRef.current.pause();
         }
     };
     
@@ -177,7 +170,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                                 src={currentStatus.mediaUrl} 
                                 autoPlay 
                                 playsInline
-                                onCanPlay={handleVideoCanPlay}
                                 className="w-full h-full object-contain" 
                             />
                         ) : (
