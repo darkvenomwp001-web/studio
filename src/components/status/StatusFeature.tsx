@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useRef, ChangeEvent } from 'react';
+import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate, Poll } from '@/types';
 import { db } from '@/lib/firebase';
@@ -11,14 +10,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Vote, Trash2, RotateCcw } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Vote, Trash2, RotateCcw, Archive, Sparkles, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardFooter } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { restoreStatusUpdate, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
+import { restoreStatusUpdate, permanentlyDeleteStatusUpdate, archiveStatusUpdate } from '@/app/actions/statusActions';
+import { getStatusCaptions } from '@/app/actions/aiActions';
+import { cn } from '@/lib/utils';
 
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -40,10 +41,11 @@ function StatusBubble({ user, statuses, onSelect }: { user: User, statuses: Stat
   );
 }
 
-function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void }) {
+function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void }) {
     const { user: currentUser } = useAuth();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
+    const { toast } = useToast();
 
     useEffect(() => {
         setCurrentStatusIndex(0);
@@ -77,9 +79,23 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
 
     const currentStatus = userStatuses[currentStatusIndex];
 
+    const handleArchive = async () => {
+        if (!currentUser || !currentStatus) return;
+        const result = await archiveStatusUpdate(currentStatus.id, currentUser.id);
+        if (result.success) {
+            toast({ title: "Status Archived" });
+            onStatusArchived(currentStatus.authorId, currentStatus.id);
+            onOpenChange(false);
+        } else {
+            toast({ title: "Error", description: result.error, variant: "destructive" });
+        }
+    };
+
     if (!selectedUser || !currentStatus) {
         return null;
     }
+    
+    const isOwnStatus = currentUser?.id === selectedUser.id;
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -98,6 +114,11 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                         <span className="text-gray-300 text-xs">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
                      <div className="flex items-center gap-1">
+                        {isOwnStatus && (
+                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={handleArchive}>
+                                <Archive className="h-5 w-5" />
+                            </Button>
+                        )}
                         <DialogClose asChild>
                           <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
                               <X className="h-5 w-5"/>
@@ -140,6 +161,14 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
     )
 }
 
+const photoFilters = [
+    { name: 'None', style: 'filter-none' },
+    { name: 'Noir', style: 'filter-grayscale-100 contrast-125' },
+    { name: 'Vintage', style: 'filter-sepia-60' },
+    { name: 'Cold', style: 'filter-hue-rotate-180 saturate-150' },
+    { name: 'Vibrant', style: 'filter-saturate-200' },
+] as const;
+
 export default function StatusFeature() {
   const { user, loading: authLoading } = useAuth();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
@@ -159,12 +188,16 @@ export default function StatusFeature() {
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOption1, setPollOption1] = useState('');
   const [pollOption2, setPollOption2] = useState('');
-
   
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [selectedUserForViewing, setSelectedUserForViewing] = useState<User | null>(null);
   const [statusOrder, setStatusOrder] = useState<string[]>([]);
   
+  const [suggestedCaptions, setSuggestedCaptions] = useState<string[]>([]);
+  const [isGeneratingCaptions, startCaptionTransition] = useTransition();
+
+  const [selectedFilter, setSelectedFilter] = useState<(typeof photoFilters)[number]['style']>('filter-none');
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -176,19 +209,11 @@ export default function StatusFeature() {
     const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
     const liveQuery = query(
       collection(db, 'statusUpdates'),
-      where('authorId', '!=', user.id), // a simple way to filter for others
+      // where('authorId', '!=', user.id), // a simple way to filter for others
       where('createdAt', '>', twentyFourHoursAgo),
       where('status', '==', 'published'),
       orderBy('createdAt', 'desc')
     );
-
-    const ownLiveQuery = query(
-      collection(db, 'statusUpdates'),
-      where('authorId', '==', user.id),
-      where('createdAt', '>', twentyFourHoursAgo),
-      where('status', '==', 'published'),
-      orderBy('createdAt', 'desc')
-    )
 
     const draftQuery = query(collection(db, 'statusUpdates'), where('authorId', '==', user.id), where('status', '==', 'draft'), orderBy('createdAt', 'desc'));
     const trashQuery = query(collection(db, 'statusUpdates'), where('authorId', '==', user.id), where('isTrashed', '==', true), orderBy('trashedAt', 'desc'));
@@ -196,14 +221,9 @@ export default function StatusFeature() {
 
     const unsubLive = onSnapshot(liveQuery, (snapshot) => {
       const statusesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
-      setAllStatuses(prev => [...prev.filter(s => s.authorId !== user.id), ...statusesData]);
+      setAllStatuses(statusesData);
     });
     
-    const unsubOwnLive = onSnapshot(ownLiveQuery, (snapshot) => {
-       const ownStatuses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
-       setAllStatuses(prev => [...prev.filter(s => s.authorId === user.id), ...ownStatuses]);
-    });
-
     const unsubDrafts = onSnapshot(draftQuery, (snapshot) => {
         setDraftStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
     });
@@ -216,7 +236,6 @@ export default function StatusFeature() {
 
     return () => {
         unsubLive();
-        unsubOwnLive();
         unsubDrafts();
         unsubTrash();
     };
@@ -226,7 +245,7 @@ export default function StatusFeature() {
     const groups = new Map<string, {user: User, statuses: StatusUpdate[]}>(new Map());
     const newStatusOrder: string[] = [];
 
-    const liveStatuses = allStatuses.filter(s => s.status === 'published');
+    const liveStatuses = allStatuses.filter(s => s.status === 'published' && s.expiresAt && (s.expiresAt as Timestamp).toMillis() > Date.now() );
     
     // Put current user's status first if it exists
     const currentUserLive = liveStatuses.filter(s => s.authorId === user?.id);
@@ -282,6 +301,8 @@ export default function StatusFeature() {
     setPollQuestion('');
     setPollOption1('');
     setPollOption2('');
+    setSuggestedCaptions([]);
+    setSelectedFilter('filter-none');
   }
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -292,7 +313,12 @@ export default function StatusFeature() {
         return;
       }
       setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImagePreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -391,6 +417,34 @@ export default function StatusFeature() {
      if(result.success) toast({title: "Status Permanently Deleted"});
      else toast({title: "Error", description: result.error, variant: 'destructive'});
   }
+  
+  const handleGenerateCaptions = () => {
+    if (!imagePreview) return;
+    startCaptionTransition(async () => {
+        setSuggestedCaptions([]);
+        const result = await getStatusCaptions({ photoDataUri: imagePreview });
+        if ('error' in result) {
+            toast({ title: "AI Error", description: result.error, variant: "destructive" });
+        } else {
+            setSuggestedCaptions(result.captions);
+        }
+    });
+  }
+
+  const onStatusArchived = (archivedUserId: string, statusId: string) => {
+        setAllStatuses(prev => prev.filter(s => s.id !== statusId));
+        const userGroups = new Map(groupedStatuses);
+        const userGroup = userGroups.get(archivedUserId);
+        if (userGroup) {
+            userGroup.statuses = userGroup.statuses.filter(s => s.id !== statusId);
+            if (userGroup.statuses.length === 0) {
+                userGroups.delete(archivedUserId);
+                setStatusOrder(prev => prev.filter(id => id !== archivedUserId));
+            }
+        }
+        setGroupedStatuses(userGroups);
+  };
+
 
   if (authLoading) {
     return <div className="h-[98px] w-full bg-card rounded-lg animate-pulse" />;
@@ -448,7 +502,7 @@ export default function StatusFeature() {
                             <div className="py-4 space-y-4">
                                 {imagePreview ? (
                                     <div className="relative">
-                                        <Image src={imagePreview} alt="Preview" width={400} height={400} className="w-full h-auto object-contain rounded-lg" />
+                                        <Image src={imagePreview} alt="Preview" width={400} height={400} className={cn("w-full h-auto object-contain rounded-lg transition-all", selectedFilter)} />
                                         <div className="absolute top-2 right-2 flex gap-2">
                                             <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setShowPollCreator(!showPollCreator)}>
                                                 <Vote className="h-4 w-4" />
@@ -471,23 +525,46 @@ export default function StatusFeature() {
                                 
                                 {imagePreview && (
                                     <div className="space-y-4">
-                                    <Input
-                                        type="text"
-                                        placeholder="Add a caption..."
-                                        value={textOverlay}
-                                        onChange={(e) => setTextOverlay(e.target.value)}
-                                        maxLength={100}
-                                    />
-                                    {showPollCreator && (
-                                        <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
-                                            <Label>Create a Poll</Label>
-                                            <Input placeholder="Poll Question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
-                                            <div className="flex gap-2">
-                                                <Input placeholder="Option 1" value={pollOption1} onChange={e => setPollOption1(e.target.value)} />
-                                                <Input placeholder="Option 2" value={pollOption2} onChange={e => setPollOption2(e.target.value)} />
-                                            </div>
+                                        <div>
+                                            <Label className="text-xs text-muted-foreground">Filters</Label>
+                                            <ScrollArea className="w-full whitespace-nowrap">
+                                                <div className="flex space-x-2 pb-2">
+                                                    {photoFilters.map(filter => (
+                                                        <div key={filter.name} onClick={() => setSelectedFilter(filter.style)} className="text-center cursor-pointer">
+                                                            <Image src={imagePreview} alt={filter.name} width={60} height={60} className={cn("rounded-md object-cover w-16 h-16 border-2 transition-all", selectedFilter === filter.style ? 'border-primary' : 'border-transparent', filter.style)} />
+                                                            <p className="text-xs mt-1">{filter.name}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <ScrollBar orientation="horizontal" />
+                                            </ScrollArea>
                                         </div>
-                                    )}
+
+                                        <Input type="text" placeholder="Add a caption..." value={textOverlay} onChange={(e) => setTextOverlay(e.target.value)} maxLength={100} />
+                                        
+                                        <Button variant="outline" size="sm" onClick={handleGenerateCaptions} disabled={isGeneratingCaptions}>
+                                            {isGeneratingCaptions ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Wand2 className="h-4 w-4 mr-2" />}
+                                            Generate AI Captions
+                                        </Button>
+                                        
+                                        {suggestedCaptions.length > 0 && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {suggestedCaptions.map((caption, i) => (
+                                                    <Button key={i} size="sm" variant="secondary" onClick={() => setTextOverlay(caption)}>{caption}</Button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {showPollCreator && (
+                                            <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
+                                                <Label>Create a Poll</Label>
+                                                <Input placeholder="Poll Question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
+                                                <div className="flex gap-2">
+                                                    <Input placeholder="Option 1" value={pollOption1} onChange={e => setPollOption1(e.target.value)} />
+                                                    <Input placeholder="Option 2" value={pollOption2} onChange={e => setPollOption2(e.target.value)} />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -549,6 +626,7 @@ export default function StatusFeature() {
             userStatuses={selectedUserForViewing ? groupedStatuses.get(selectedUserForViewing.id)?.statuses || [] : []}
             onNext={handleNextUser}
             onPrev={handlePrevUser}
+            onStatusArchived={onStatusArchived}
         />
     </>
   );

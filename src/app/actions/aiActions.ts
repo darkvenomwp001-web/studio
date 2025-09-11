@@ -4,6 +4,7 @@ import { improveWritingStyle as improveWritingStyleFlow, ImproveWritingStyleInpu
 import { detectPlagiarism as detectPlagiarismFlow, DetectPlagiarismInput, DetectPlagiarismOutput } from '@/ai/flows/detect-plagiarism-flow';
 import { matchStoryMood as matchStoryMoodFlow, MatchStoryMoodInput, MatchStoryMoodOutput } from '@/ai/flows/mood-matcher-flow';
 import { generateConversationStarters as generateConversationStartersFlow, GenerateConversationStartersInput, GenerateConversationStartersOutput } from '@/ai/flows/generate-conversation-starters';
+import { generateStatusCaption as generateStatusCaptionFlow, GenerateStatusCaptionInput, GenerateStatusCaptionOutput } from '@/ai/flows/generate-status-caption';
 
 export async function getWritingSuggestions(input: ImproveWritingStyleInput): Promise<ImproveWritingStyleOutput | { error: string }> {
   try {
@@ -47,6 +48,16 @@ export async function getConversationStarters(input: GenerateConversationStarter
         return result;
     } catch (error) {
         console.error("Error in getConversationStarters AI action:", error);
+        return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
+    }
+}
+
+export async function getStatusCaptions(input: GenerateStatusCaptionInput): Promise<GenerateStatusCaptionOutput | { error: string }> {
+    try {
+        const result = await generateStatusCaptionFlow(input);
+        return result;
+    } catch (error) {
+        console.error("Error in getStatusCaptions AI action:", error);
         return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
     }
 }
