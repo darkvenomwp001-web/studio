@@ -291,7 +291,7 @@ export default function StatusFeature() {
     setIsSubmitting(true);
     
     const statusData: { [key: string]: any } = { ...baseStatus };
-     if (noteContent.trim()) {
+    if (noteContent.trim()) {
         statusData.note = noteContent.trim();
     }
     if (spotifyUrl.trim()) {
@@ -331,7 +331,7 @@ export default function StatusFeature() {
         formData.append('upload_preset', uploadPreset);
         formData.append('resource_type', 'auto');
         
-        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
+        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'video' ? 'video' : 'image'}/upload`;
         const response = await fetch(uploadUrl, { method: 'POST', body: formData });
         const data = await response.json();
         if (data.secure_url) {
@@ -455,20 +455,15 @@ export default function StatusFeature() {
       <div className="bg-card p-3 rounded-lg shadow-sm">
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-start space-x-4 px-4">
-            {draftStatuses.length > 0 && (
-                <div className="text-center flex-shrink-0 w-20">
-                    <button 
-                        onClick={() => openUploader('drafts')} 
-                        className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center border-2 border-dashed border-primary/50 hover:border-primary transition-colors relative group"
-                    >
-                        <Feather className="h-6 w-6 text-primary" />
-                        <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                            {draftStatuses.length}
-                        </div>
-                    </button>
-                    <p className="text-xs mt-1 truncate">Drafts</p>
-                </div>
-            )}
+           <div className="text-center flex-shrink-0 w-20">
+             <button 
+                onClick={() => openUploader('notes')}
+                className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center border-2 border-dashed border-border hover:border-primary transition-colors"
+              >
+               <Plus className="h-6 w-6 text-muted-foreground" />
+             </button>
+             <p className="text-xs mt-1 truncate">Add Status</p>
+           </div>
 
             {isLoading ? (
                 [...Array(4)].map((_, i) => (
@@ -496,12 +491,7 @@ export default function StatusFeature() {
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                    <div className="flex justify-between items-center">
-                         <DialogTitle>Manage Status</DialogTitle>
-                         <Button variant="ghost" size="icon" onClick={() => openUploader('notes')}>
-                            <Plus className="h-4 w-4" />
-                         </Button>
-                    </div>
+                     <DialogTitle>Manage Status</DialogTitle>
                     <DialogDescription>Upload a new status, share a note, or manage your drafts and trash.</DialogDescription>
                 </DialogHeader>
                  <Tabs defaultValue={uploaderDefaultTab} value={uploaderDefaultTab} onValueChange={(value) => { setUploaderDefaultTab(value); handleTabChange(value);}} className="w-full">
@@ -711,6 +701,7 @@ export default function StatusFeature() {
         onNext={handleNextUser}
         onPrev={handlePrevUser}
         onStatusArchived={onStatusArchived}
+        onOpenUploader={openUploader}
       />
     </>
   );
@@ -719,4 +710,5 @@ export default function StatusFeature() {
     
 
     
+
 

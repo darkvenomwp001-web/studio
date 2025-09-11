@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -7,7 +8,7 @@ import type { User, StatusUpdate } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogTrigger, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, Pause, Play, Trash2 } from 'lucide-react';
+import { Loader2, X, Pause, Play, Trash2, Feather } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Timestamp } from 'firebase/firestore';
@@ -17,7 +18,7 @@ import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
-export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void }) {
+export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived, onOpenUploader }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void, onOpenUploader: (defaultTab: string) => void }) {
     const { user: currentUser } = useAuth();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
@@ -38,25 +39,35 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
         }
-        if (!isOpen || !userStatuses || userStatuses.length === 0 || isPaused) return;
+        if (!isOpen || !userStatuses || userStatuses.length === 0 || isPaused || !currentStatus) return;
         
-        if (!currentStatus) return;
-
         const isVideo = currentStatus.mediaType === 'video';
-        
         let duration = 5000; // Default for images and notes
+
+        const setupTimeout = (videoDuration: number | null) => {
+            if (isVideo && videoDuration) {
+                duration = videoDuration * 1000;
+            }
+            timeoutRef.current = setTimeout(() => {
+               handleNext();
+            }, duration);
+        };
+        
         if(isVideo) {
             const videoElement = videoRef.current;
-            if (videoElement && videoElement.duration) {
-                duration = videoElement.duration * 1000;
+            if (videoElement && videoElement.readyState > 0) { // If metadata is loaded
+                setupTimeout(videoElement.duration);
+            } else if (videoElement) {
+                 videoElement.onloadedmetadata = () => {
+                     setupTimeout(videoElement.duration);
+                 };
             } else {
-                duration = 15000; // Fallback duration for video if not loaded
+                 setupTimeout(15); // Fallback if ref is not ready
             }
+        } else {
+            setupTimeout(null); // Not a video
         }
 
-        timeoutRef.current = setTimeout(() => {
-           handleNext();
-        }, duration);
 
         return () => {
             if (timeoutRef.current) {
@@ -83,38 +94,16 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     }
 
     const togglePause = () => {
-        const video = videoRef.current;
-        if (video) {
-            if (video.paused) {
-                video.play().catch(e => console.error("Play interrupted:", e));
-                setIsPaused(false);
-            } else {
-                video.pause();
-                setIsPaused(true);
-            }
-        } else {
-            setIsPaused(prev => !prev);
-        }
+        setIsPaused(prev => !prev);
     };
     
     useEffect(() => {
         const videoElement = videoRef.current;
         if (videoElement) {
-            const handlePlay = () => setIsPaused(false);
-            const handlePause = () => setIsPaused(true);
-
-            videoElement.addEventListener('play', handlePlay);
-            videoElement.addEventListener('pause', handlePause);
-
             if (!isPaused && isOpen) {
-                videoElement.play().catch(e => console.warn("Video play was interrupted, this is usually safe to ignore during navigation."));
+                videoElement.play().catch(e => console.warn("Video play was interrupted. This is often safe to ignore."));
             } else if (isPaused) {
                 videoElement.pause();
-            }
-
-            return () => {
-                videoElement.removeEventListener('play', handlePlay);
-                videoElement.removeEventListener('pause', handlePause);
             }
         }
     }, [currentStatus, isPaused, isOpen]);
@@ -131,6 +120,11 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
             toast({ title: "Error", description: result.error, variant: "destructive" });
         }
     };
+    
+    const handleOpenDrafts = () => {
+        onOpenChange(false);
+        onOpenUploader('drafts');
+    }
 
     if (!selectedUser || !currentStatus) {
         return null;
@@ -158,7 +152,30 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                         <span className="text-gray-300 text-xs">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
                      <div className="flex items-center gap-1">
-                        
+                        {isOwnStatus && (
+                            <>
+                                <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={handleOpenDrafts}>
+                                    <Feather className="h-5 w-5" />
+                                </Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                                            <Trash2 className="h-5 w-5" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Delete this status?</AlertDialogTitle>
+                                            <AlertDialogDescription>This action is permanent and cannot be undone.</AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </>
+                        )}
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={() => onOpenChange(false)}>
                               <X className="h-5 w-5"/>
                         </Button>
@@ -193,6 +210,8 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                                 src={currentStatus.mediaUrl} 
                                 autoPlay 
                                 playsInline
+                                muted
+                                loop
                                 className="w-full h-full object-contain" 
                             />
                         ) : (
