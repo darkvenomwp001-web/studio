@@ -82,13 +82,13 @@ export default function LettersPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="text-center space-y-3">
+      <div className="text-center space-y-2">
         <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary flex items-center justify-center gap-2">
             <Mailbox className="h-8 w-8 md:h-10 md:w-10" />
             Mailbox
         </h1>
         <p className="text-muted-foreground text-sm md:text-base">Heartfelt messages from readers and authors.</p>
-        <div className="flex justify-center">
+        <div className="flex justify-center pt-2">
             <ComposeLetterDialog />
         </div>
       </div>
@@ -105,11 +105,11 @@ export default function LettersPage() {
         
         <TabsContent value="received" className="mt-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Received Letters</CardTitle>
-              <CardDescription>Letters sent to you by readers of your stories.</CardDescription>
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-lg">Received Letters</CardTitle>
+              <CardDescription className="text-sm">Letters sent to you by readers of your stories.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="p-2 sm:p-4 space-y-2">
               {isLoadingLetters ? (
                  <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
               ) : receivedLetters.length > 0 ? (
@@ -122,11 +122,11 @@ export default function LettersPage() {
         </TabsContent>
         <TabsContent value="sent" className="mt-4">
            <Card>
-            <CardHeader>
-              <CardTitle>Sent Letters</CardTitle>
-              <CardDescription>Letters you've sent to authors.</CardDescription>
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-lg">Sent Letters</CardTitle>
+              <CardDescription className="text-sm">Letters you've sent to authors.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="p-2 sm:p-4 space-y-2">
               {isLoadingLetters ? (
                  <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
               ) : sentLetters.length > 0 ? (

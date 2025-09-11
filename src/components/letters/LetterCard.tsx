@@ -80,21 +80,21 @@ export default function LetterCard({ letter, isAuthorView }: { letter: LetterTyp
         if(open) handleMarkAsRead();
     }}>
       <DialogTrigger asChild>
-        <div className={cn("p-4 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors", !letter.isReadByAuthor && isAuthorView && "bg-primary/10 border-primary/50")}>
-            <div className="flex justify-between items-start">
-                <div className="flex-1 space-y-1">
-                    <p className="text-sm text-muted-foreground">
+        <div className={cn("p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors", !letter.isReadByAuthor && isAuthorView && "bg-primary/10 border-primary/50")}>
+            <div className="flex justify-between items-start gap-2">
+                <div className="flex-1 space-y-0.5 overflow-hidden">
+                    <p className="text-xs text-muted-foreground">
                         {isAuthorView ? `From: ${fromUser}` : `To: ${toUser}`}
                     </p>
-                    <h4 className="font-semibold text-foreground truncate">
+                    <h4 className="font-semibold text-foreground truncate text-sm">
                        <Link href={`/stories/${letter.storyId}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>
                         {letter.storyTitle}
                        </Link>
-                        <span className="text-muted-foreground font-normal"> - Ch: {letter.chapterTitle}</span>
+                        <span className="text-muted-foreground font-normal text-xs"> - {letter.chapterTitle}</span>
                     </h4>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{letter.content}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-1">{letter.content}</p>
                 </div>
-                <div className="text-xs text-muted-foreground text-right ml-2 whitespace-nowrap">
+                <div className="text-[10px] text-muted-foreground text-right ml-1 whitespace-nowrap pt-0.5">
                    {letter.timestamp?.toDate ? formatDistanceToNow(letter.timestamp.toDate(), { addSuffix: true }) : 'Sending...'}
                 </div>
             </div>
