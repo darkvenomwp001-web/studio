@@ -25,12 +25,15 @@ import {
   limit,
   type Unsubscribe,
   getDoc,
-  deleteDoc
+  deleteDoc,
+  Timestamp
 } from 'firebase/firestore';
 import FollowerUserCard from '@/components/shared/FollowerUserCard';
 import placeholderImages from '@/app/lib/placeholder-images.json';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Card } from '@/components/ui/card';
+import StatusViewer from '@/components/status/StatusViewer';
+
 
 interface ProfileStoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>;
@@ -109,6 +112,8 @@ export default function UserProfilePage() {
   const [followingDetails, setFollowingDetails] = useState<AppUser[]>([]);
   const [followersDetails, setFollowersDetails] = useState<AppUser[]>([]);
   const [currentNote, setCurrentNote] = useState<StatusUpdate | null>(null);
+  const [userActiveStatuses, setUserActiveStatuses] = useState<StatusUpdate[]>([]);
+  const [isStatusViewerOpen, setIsStatusViewerOpen] = useState(false);
   
   const isOwnProfile = currentUser?.id === userId;
 
@@ -126,6 +131,7 @@ export default function UserProfilePage() {
     setFollowersDetails([]);
     setLiveFollowersCount(null);
     setCurrentNote(null);
+    setUserActiveStatuses([]);
     setIsLoadingData(true);
 
     const userDocRef = doc(db, 'users', userId);
@@ -151,31 +157,26 @@ export default function UserProfilePage() {
     });
 
     // Fetch user's current note
-    const noteQuery = query(
+    const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+    const activeStatusesQuery = query(
       collection(db, 'statusUpdates'), 
       where('authorId', '==', userId), 
-      where('note', '!=', null), 
-      orderBy('createdAt', 'desc'), 
-      limit(1)
+      where('status', '==', 'published'),
+      where('expiresAt', '>', new Date()),
+      orderBy('expiresAt', 'desc')
     );
-    const unsubscribeNote = onSnapshot(noteQuery, (snapshot) => {
-        if (!snapshot.empty) {
-            const noteData = {id: snapshot.docs[0].id, ...snapshot.docs[0].data()} as StatusUpdate;
-            if (noteData.expiresAt && noteData.expiresAt.toDate() > new Date()) {
-                setCurrentNote(noteData);
-            } else {
-                setCurrentNote(null);
-            }
-        } else {
-            setCurrentNote(null);
-        }
+    const unsubscribeStatuses = onSnapshot(activeStatusesQuery, (snapshot) => {
+        const statuses = snapshot.docs.map(doc => ({id: snapshot.docs[0].id, ...doc.data()} as StatusUpdate));
+        setUserActiveStatuses(statuses);
+        
+        const note = statuses.find(s => s.note || s.spotifyUrl) || null;
+        setCurrentNote(note);
     });
-
 
     return () => {
       unsubscribeUser();
       unsubscribeFollowersCount();
-      unsubscribeNote();
+      unsubscribeStatuses();
     };
   }, [userId, router, toast]);
 
@@ -309,8 +310,10 @@ export default function UserProfilePage() {
 
   const isFollowing = currentUser?.followingIds?.includes(profileUser.id) || false;
   const displayName = profileUser.displayName || profileUser.username;
+  const hasActiveStatus = userActiveStatuses.length > 0;
 
   return (
+    <>
     <div className="space-y-10 pb-10">
       <header className="bg-card p-6 md:p-8 rounded-lg shadow-lg relative">
         <div className="absolute top-0 left-0 w-full h-32 md:h-48 bg-gradient-to-br from-primary/30 to-accent/30 rounded-t-lg -z-10">
@@ -318,10 +321,18 @@ export default function UserProfilePage() {
         </div>
         
         <div className="flex flex-col md:flex-row items-center md:items-end gap-6 pt-16 md:pt-24">
-          <Avatar className="h-32 w-32 md:h-40 md:w-40 border-4 border-background shadow-xl">
-            <AvatarImage src={profileUser.avatarUrl || 'https://placehold.co/160x160.png'} alt={displayName} data-ai-hint="profile person" />
-            <AvatarFallback className="text-4xl">{displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
+            <div 
+                className={cn(
+                    "relative p-1 rounded-full",
+                    hasActiveStatus && "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 cursor-pointer"
+                )}
+                onClick={() => hasActiveStatus && setIsStatusViewerOpen(true)}
+            >
+                <Avatar className="h-32 w-32 md:h-40 md:w-40 border-4 border-background shadow-xl">
+                    <AvatarImage src={profileUser.avatarUrl || 'https://placehold.co/160x160.png'} alt={displayName} data-ai-hint="profile person" />
+                    <AvatarFallback className="text-4xl">{displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+            </div>
           <div className="flex-1 text-center md:text-left">
             <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">{displayName}</h1>
             <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
@@ -451,5 +462,16 @@ export default function UserProfilePage() {
         </div>
       )}
     </div>
+    
+    <StatusViewer
+        isOpen={isStatusViewerOpen}
+        onOpenChange={setIsStatusViewerOpen}
+        selectedUser={profileUser}
+        userStatuses={userActiveStatuses}
+        onNext={() => setIsStatusViewerOpen(false)} // No next user on this page
+        onPrev={() => setIsStatusViewerOpen(false)} // No prev user on this page
+        onStatusArchived={() => {}} // No-op, archiving is handled elsewhere
+    />
+    </>
   );
 }
