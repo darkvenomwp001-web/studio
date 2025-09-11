@@ -5,11 +5,7 @@ import { db } from '@/lib/firebase';
 import {
   doc,
   updateDoc,
-  arrayUnion,
-  arrayRemove,
   getDoc,
-  writeBatch,
-  increment,
 } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import type { Story } from '@/types';
