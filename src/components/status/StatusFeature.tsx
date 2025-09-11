@@ -326,7 +326,9 @@ export default function StatusFeature() {
         const formData = new FormData();
         formData.append('file', mediaFile);
         formData.append('upload_preset', uploadPreset);
-        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'video' ? 'video' : 'image'}/upload`;
+        formData.append('resource_type', mediaType);
+        
+        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
         const response = await fetch(uploadUrl, { method: 'POST', body: formData });
         const data = await response.json();
         if (data.secure_url) {
@@ -699,3 +701,4 @@ export default function StatusFeature() {
     
 
     
+
