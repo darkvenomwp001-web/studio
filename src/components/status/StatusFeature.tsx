@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Vote, Trash2, RotateCcw, Archive, Sparkles, Wand2 } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Vote, Trash2, RotateCcw, Archive, Sparkles, Wand2, Music } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { restoreStatusUpdate, permanentlyDeleteStatusUpdate, archiveStatusUpdate } from '@/app/actions/statusActions';
 import { getStatusCaptions } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
+import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
@@ -162,14 +163,26 @@ function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext
                 <div className="relative flex-1 flex items-center justify-center overflow-hidden" onClick={togglePause}>
                     {currentStatus.mediaType === 'video' ? (
                         <video ref={videoRef} src={currentStatus.mediaUrl} autoPlay playsInline className="w-full h-full object-contain" />
-                    ) : (
+                    ) : currentStatus.mediaUrl ? (
                         <Image src={currentStatus.mediaUrl} alt="Status Update" layout="fill" objectFit="contain" />
+                    ) : null}
+                     {currentStatus.note && (
+                        <div className="absolute inset-0 flex items-center justify-center p-8 bg-black">
+                            <p className="text-white text-center text-2xl font-semibold whitespace-pre-line">
+                                {currentStatus.note}
+                            </p>
+                        </div>
                     )}
-                     {currentStatus.textOverlay && (
+                    {currentStatus.textOverlay && (
                         <div className="absolute bottom-10 left-4 right-4 z-10">
                             <p className="text-white text-center text-lg font-semibold bg-black/50 p-2 rounded-md shadow-lg">
                                 {currentStatus.textOverlay}
                             </p>
+                        </div>
+                    )}
+                    {currentStatus.spotifyUrl && (
+                        <div className="absolute bottom-10 left-4 right-4 z-10">
+                           <SpotifyPlayer />
                         </div>
                     )}
                 </div>
@@ -210,6 +223,9 @@ export default function StatusFeature() {
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOption1, setPollOption1] = useState('');
   const [pollOption2, setPollOption2] = useState('');
+
+  const [noteContent, setNoteContent] = useState('');
+  const [spotifyUrl, setSpotifyUrl] = useState('');
   
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [selectedUserForViewing, setSelectedUserForViewing] = useState<User | null>(null);
@@ -320,6 +336,8 @@ export default function StatusFeature() {
     setMediaFile(null);
     setMediaPreview(null);
     setTextOverlay('');
+    setNoteContent('');
+    setSpotifyUrl('');
     setShowPollCreator(false);
     setPollQuestion('');
     setPollOption1('');
@@ -347,39 +365,13 @@ export default function StatusFeature() {
     }
   };
 
-  const handleStatusSubmit = async (status: 'published' | 'draft') => {
-    if (!mediaFile || !user) return;
+  const handleStatusSubmit = async (status: 'published' | 'draft', type: 'media' | 'note' = 'media') => {
+    if (!user) return;
+    if (type === 'media' && !mediaFile) return;
+    if (type === 'note' && !noteContent.trim() && !spotifyUrl.trim()) return;
+
     setIsSubmitting(true);
     
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-    if (!cloudName || !uploadPreset) {
-        toast({ title: 'Configuration Error', description: 'Cloudinary environment variables are not set.', variant: 'destructive' });
-        setIsSubmitting(false);
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', mediaFile);
-    formData.append('upload_preset', uploadPreset);
-    
-    let mediaUrl = '';
-    try {
-        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'video' ? 'video' : 'image'}/upload`;
-        const response = await fetch(uploadUrl, { method: 'POST', body: formData });
-        const data = await response.json();
-        if (data.secure_url) {
-            mediaUrl = data.secure_url;
-        } else {
-            throw new Error(data.error?.message || 'Unknown Cloudinary error');
-        }
-    } catch (error) {
-        console.error("Error uploading to Cloudinary: ", error);
-        toast({ title: 'Media Upload Failed', variant: 'destructive' });
-        setIsSubmitting(false);
-        return;
-    }
-
     const authorInfo = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
     
     let expiryTime = null;
@@ -391,26 +383,60 @@ export default function StatusFeature() {
     const statusData: Omit<StatusUpdate, 'id'> = {
         authorId: user.id,
         authorInfo: authorInfo,
-        mediaUrl: mediaUrl,
-        mediaType: mediaType,
         createdAt: serverTimestamp(),
         isArchived: false,
         isTrashed: false,
         status,
         expiresAt: expiryTime,
     };
-    
-    if (textOverlay.trim()) statusData.textOverlay = textOverlay.trim();
-    
-    if (showPollCreator && pollQuestion.trim() && pollOption1.trim() && pollOption2.trim()) {
-        statusData.poll = {
-            question: pollQuestion.trim(),
-            options: [
-                { id: 'opt1', text: pollOption1.trim(), votes: [] },
-                { id: 'opt2', text: pollOption2.trim(), votes: [] }
-            ]
-        };
+
+    if (type === 'media' && mediaFile) {
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+        if (!cloudName || !uploadPreset) {
+            toast({ title: 'Configuration Error', description: 'Cloudinary environment variables are not set.', variant: 'destructive' });
+            setIsSubmitting(false);
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', mediaFile);
+        formData.append('upload_preset', uploadPreset);
+        
+        let mediaUrl = '';
+        try {
+            const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'video' ? 'video' : 'image'}/upload`;
+            const response = await fetch(uploadUrl, { method: 'POST', body: formData });
+            const data = await response.json();
+            if (data.secure_url) {
+                mediaUrl = data.secure_url;
+            } else {
+                throw new Error(data.error?.message || 'Unknown Cloudinary error');
+            }
+        } catch (error) {
+            console.error("Error uploading to Cloudinary: ", error);
+            toast({ title: 'Media Upload Failed', variant: 'destructive' });
+            setIsSubmitting(false);
+            return;
+        }
+
+        statusData.mediaUrl = mediaUrl;
+        statusData.mediaType = mediaType;
+        if (textOverlay.trim()) statusData.textOverlay = textOverlay.trim();
+        if (showPollCreator && pollQuestion.trim() && pollOption1.trim() && pollOption2.trim()) {
+            statusData.poll = {
+                question: pollQuestion.trim(),
+                options: [
+                    { id: 'opt1', text: pollOption1.trim(), votes: [] },
+                    { id: 'opt2', text: pollOption2.trim(), votes: [] }
+                ]
+            };
+        }
+    } else if (type === 'note') {
+        if (noteContent.trim()) statusData.note = noteContent.trim();
+        if (spotifyUrl.trim()) statusData.spotifyUrl = spotifyUrl.trim();
     }
+
 
     try {
         await addDoc(collection(db, 'statusUpdates'), statusData);
@@ -522,14 +548,47 @@ export default function StatusFeature() {
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle>Manage Status</DialogTitle>
-                    <DialogDescription>Upload a new status, or manage your drafts and trash.</DialogDescription>
+                    <DialogDescription>Upload a new status, share a note, or manage your drafts and trash.</DialogDescription>
                 </DialogHeader>
                  <Tabs defaultValue="upload" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="upload">Upload</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="notes">Note</TabsTrigger>
+                        <TabsTrigger value="upload">Media</TabsTrigger>
                         <TabsTrigger value="drafts">Drafts</TabsTrigger>
                         <TabsTrigger value="trash">Trash</TabsTrigger>
                     </TabsList>
+                    <TabsContent value="notes">
+                        <div className="py-4 space-y-4">
+                            <Label htmlFor="note-content">Share a quick note...</Label>
+                            <Input id="note-content" placeholder="What's on your mind?" value={noteContent} onChange={e => setNoteContent(e.target.value)} maxLength={140} />
+                            <Label htmlFor="spotify-url">...or a song</Label>
+                            <div className="flex items-center gap-2">
+                                <Music className="h-5 w-5 text-muted-foreground" />
+                                <Input id="spotify-url" placeholder="Paste a Spotify track link (optional)" value={spotifyUrl} onChange={e => setSpotifyUrl(e.target.value)} />
+                            </div>
+                            {spotifyUrl && <SpotifyPlayer />}
+                             <div>
+                                <Label htmlFor="expiry-select-note">Set Expiry Duration</Label>
+                                <Select value={expiryDuration} onValueChange={setExpiryDuration}>
+                                    <SelectTrigger id="expiry-select-note" className="w-[180px] mt-1">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="3">3 Hours</SelectItem>
+                                        <SelectItem value="6">6 Hours</SelectItem>
+                                        <SelectItem value="12">12 Hours</SelectItem>
+                                        <SelectItem value="24">24 Hours</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                         <DialogFooter>
+                            <Button onClick={() => handleStatusSubmit('published', 'note')} disabled={isSubmitting || (!noteContent.trim() && !spotifyUrl.trim())}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                Post Note
+                            </Button>
+                        </DialogFooter>
+                    </TabsContent>
                     <TabsContent value="upload">
                         <ScrollArea className="max-h-[60vh] pr-4">
                             <div className="py-4 space-y-4">
@@ -626,8 +685,8 @@ export default function StatusFeature() {
                             </div>
                         </ScrollArea>
                          <DialogFooter>
-                            <Button variant="outline" onClick={() => handleStatusSubmit('draft')} disabled={!mediaFile || isSubmitting}>Save as Draft</Button>
-                            <Button onClick={() => handleStatusSubmit('published')} disabled={!mediaFile || isSubmitting}>
+                            <Button variant="outline" onClick={() => handleStatusSubmit('draft', 'media')} disabled={!mediaFile || isSubmitting}>Save as Draft</Button>
+                            <Button onClick={() => handleStatusSubmit('published', 'media')} disabled={!mediaFile || isSubmitting}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                 Publish Status
                             </Button>
@@ -638,8 +697,12 @@ export default function StatusFeature() {
                             <div className="space-y-2 p-1">
                                 {draftStatuses.length > 0 ? draftStatuses.map(draft => (
                                     <Card key={draft.id} className="flex items-center p-2">
-                                        <Image src={draft.mediaUrl} alt="Draft" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
-                                        <p className="text-sm flex-1 truncate">{draft.textOverlay || "No caption"}</p>
+                                        {draft.mediaUrl ? (
+                                             <Image src={draft.mediaUrl} alt="Draft" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
+                                        ): (
+                                            <div className="w-[60px] h-[60px] flex items-center justify-center bg-muted rounded-md mr-3 text-2xl">📝</div>
+                                        )}
+                                        <p className="text-sm flex-1 truncate">{draft.textOverlay || draft.note || "No caption"}</p>
                                         <div className="flex gap-1">
                                             <Button size="sm" variant="outline" onClick={() => handlePublishDraft(draft.id)}>Publish</Button>
                                             <Button size="sm" variant="destructive" onClick={() => handleDeleteDraft(draft.id)}><Trash2 className="h-4 w-4" /></Button>
@@ -654,8 +717,12 @@ export default function StatusFeature() {
                             <div className="space-y-2 p-1">
                                 {trashedStatuses.length > 0 ? trashedStatuses.map(item => (
                                     <Card key={item.id} className="flex items-center p-2">
-                                        <Image src={item.mediaUrl} alt="Trashed item" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
-                                        <p className="text-sm flex-1 truncate">{item.textOverlay || "No caption"}</p>
+                                         {item.mediaUrl ? (
+                                             <Image src={item.mediaUrl} alt="Trashed item" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
+                                        ): (
+                                            <div className="w-[60px] h-[60px] flex items-center justify-center bg-muted rounded-md mr-3 text-2xl">📝</div>
+                                        )}
+                                        <p className="text-sm flex-1 truncate">{item.textOverlay || item.note || "No caption"}</p>
                                         <div className="flex gap-1">
                                             <Button size="sm" variant="outline" onClick={() => handleRestoreFromTrash(item.id)}><RotateCcw className="h-4 w-4"/></Button>
                                             <AlertDialog>

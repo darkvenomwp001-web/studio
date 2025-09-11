@@ -31,11 +31,11 @@ export default function SpotifyPlayer() {
   };
 
   return (
-    <Card className="bg-gradient-to-br from-green-900/50 via-card to-card shadow-xl border-green-500/20">
+    <Card className="bg-gradient-to-br from-green-900/50 via-card to-card shadow-lg border-green-500/20">
         <CardContent className="p-4 flex flex-col sm:flex-row items-center gap-4">
             <div className="flex items-center gap-4 flex-1">
                 <div className="relative w-16 h-16 rounded-md overflow-hidden flex-shrink-0">
-                    <Image src="https://placehold.co/128x128.png" alt="Album Art" layout="fill" data-ai-hint="album cover music" />
+                    <Image src="https://picsum.photos/seed/spotify/128" alt="Album Art" layout="fill" data-ai-hint="album cover music" />
                 </div>
                 <div>
                     <h4 className="font-bold text-lg leading-tight text-foreground">lofi hip hop radio</h4>

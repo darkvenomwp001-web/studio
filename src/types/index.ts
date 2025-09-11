@@ -202,9 +202,11 @@ export interface StatusUpdate {
     id: string;
     authorId: string;
     authorInfo: UserSummary;
-    mediaUrl: string;
-    mediaType: 'image' | 'video';
+    mediaUrl?: string;
+    mediaType?: 'image' | 'video';
     textOverlay?: string;
+    note?: string;
+    spotifyUrl?: string;
     poll?: Poll;
     expiresAt: any | null;
     createdAt: any;

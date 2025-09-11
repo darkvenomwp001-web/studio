@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -6,10 +7,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, X } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, X, Music, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Story, User as AppUser } from '@/types';
+import type { Story, User as AppUser, StatusUpdate } from '@/types';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -24,9 +25,12 @@ import {
   limit,
   type Unsubscribe,
   getDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import FollowerUserCard from '@/components/shared/FollowerUserCard';
 import placeholderImages from '@/app/lib/placeholder-images.json';
+import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
+import { Card } from '@/components/ui/card';
 
 interface ProfileStoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>;
@@ -67,6 +71,28 @@ function ProfileStoryCard({ story, isPrivate = false }: ProfileStoryCardProps) {
   );
 }
 
+function ProfileNote({ note, isOwnProfile, onDelete }: { note: StatusUpdate, isOwnProfile: boolean, onDelete: (noteId: string) => void }) {
+    if (!note.note && !note.spotifyUrl) return null;
+
+    return (
+        <Card className="bg-muted/50 border-dashed">
+            <div className="p-4 relative">
+                 {isOwnProfile && (
+                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => onDelete(note.id)}>
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                )}
+                {note.note && <p className="text-center text-lg font-medium">“{note.note}”</p>}
+                {note.spotifyUrl && (
+                    <div className="mt-4">
+                        <SpotifyPlayer />
+                    </div>
+                )}
+            </div>
+        </Card>
+    );
+}
+
 export default function UserProfilePage() {
   const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading, signOutFirebase } = useAuth();
   const params = useParams();
@@ -82,6 +108,7 @@ export default function UserProfilePage() {
   const [privateWorks, setPrivateWorks] = useState<Story[]>([]); 
   const [followingDetails, setFollowingDetails] = useState<AppUser[]>([]);
   const [followersDetails, setFollowersDetails] = useState<AppUser[]>([]);
+  const [currentNote, setCurrentNote] = useState<StatusUpdate | null>(null);
   
   const isOwnProfile = currentUser?.id === userId;
 
@@ -98,6 +125,7 @@ export default function UserProfilePage() {
     setFollowingDetails([]);
     setFollowersDetails([]);
     setLiveFollowersCount(null);
+    setCurrentNote(null);
     setIsLoadingData(true);
 
     const userDocRef = doc(db, 'users', userId);
@@ -122,10 +150,32 @@ export default function UserProfilePage() {
       console.error("Error fetching live follower count:", error);
     });
 
+    // Fetch user's current note
+    const noteQuery = query(
+      collection(db, 'statusUpdates'), 
+      where('authorId', '==', userId), 
+      where('note', '!=', null), 
+      orderBy('createdAt', 'desc'), 
+      limit(1)
+    );
+    const unsubscribeNote = onSnapshot(noteQuery, (snapshot) => {
+        if (!snapshot.empty) {
+            const noteData = {id: snapshot.docs[0].id, ...snapshot.docs[0].data()} as StatusUpdate;
+            if (noteData.expiresAt && noteData.expiresAt.toDate() > new Date()) {
+                setCurrentNote(noteData);
+            } else {
+                setCurrentNote(null);
+            }
+        } else {
+            setCurrentNote(null);
+        }
+    });
+
 
     return () => {
       unsubscribeUser();
       unsubscribeFollowersCount();
+      unsubscribeNote();
     };
   }, [userId, router, toast]);
 
@@ -229,6 +279,15 @@ export default function UserProfilePage() {
     }
   };
 
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+        await deleteDoc(doc(db, 'statusUpdates', noteId));
+        toast({ title: 'Note deleted' });
+    } catch(error) {
+        toast({ title: 'Error', description: 'Could not delete note.', variant: 'destructive'});
+    }
+  }
+
   if (authLoading || isLoadingData) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
@@ -266,7 +325,8 @@ export default function UserProfilePage() {
           <div className="flex-1 text-center md:text-left">
             <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">{displayName}</h1>
             <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
-            {profileUser.bio && <p className="text-muted-foreground mt-1 max-w-xl">{profileUser.bio}</p>}
+            {currentNote && <div className="mt-2"><ProfileNote note={currentNote} isOwnProfile={isOwnProfile} onDelete={handleDeleteNote} /></div>}
+            {profileUser.bio && !currentNote && <p className="text-muted-foreground mt-1 max-w-xl">{profileUser.bio}</p>}
             <div className="mt-3 flex flex-wrap gap-2 justify-center md:justify-start">
               {profileUser.role && <Badge variant={profileUser.role === 'writer' ? 'default' : 'secondary'} className="capitalize">{profileUser.role}</Badge>}
             </div>
