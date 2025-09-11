@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Plus, Camera, Send, X, ChevronLeft, ChevronRight, Vote, Trash2, RotateCcw, Archive, Sparkles, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardFooter } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -209,9 +209,9 @@ export default function StatusFeature() {
     const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
     const liveQuery = query(
       collection(db, 'statusUpdates'),
-      // where('authorId', '!=', user.id), // a simple way to filter for others
       where('createdAt', '>', twentyFourHoursAgo),
       where('status', '==', 'published'),
+      where('isArchived', '==', false),
       orderBy('createdAt', 'desc')
     );
 
