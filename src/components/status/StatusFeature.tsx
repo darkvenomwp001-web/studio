@@ -131,7 +131,11 @@ export default function StatusFeature() {
             return isPublishedAndLive || isOwnDraft;
         });
 
-        const sortedStatuses = liveAndRelevant.sort((a, b) => (b.createdAt as Timestamp).toMillis() - (a.createdAt as Timestamp).toMillis());
+        const sortedStatuses = liveAndRelevant.sort((a, b) => {
+          const timeA = a.createdAt ? (a.createdAt as Timestamp).toMillis() : 0;
+          const timeB = b.createdAt ? (b.createdAt as Timestamp).toMillis() : 0;
+          return timeB - timeA;
+        });
         setAllStatuses(sortedStatuses);
 
         setDraftStatuses(sortedStatuses.filter(s => s.status === 'draft'));
@@ -426,7 +430,11 @@ export default function StatusFeature() {
                 statusOrder.map((userId) => {
                     const group = groupedStatuses.get(userId);
                     if (!group) return null;
-                    const latestStatus = group.statuses.sort((a, b) => (b.createdAt as Timestamp).toMillis() - (a.createdAt as Timestamp).toMillis())[0];
+                    const latestStatus = group.statuses.sort((a, b) => {
+                        const timeA = a.createdAt ? (a.createdAt as Timestamp).toMillis() : 0;
+                        const timeB = b.createdAt ? (b.createdAt as Timestamp).toMillis() : 0;
+                        return timeB - timeA;
+                    })[0];
                     return <StatusBubble key={userId} user={group.user} statuses={group.statuses} onSelect={handleSelectUser} latestStatus={latestStatus} />
                 })
             )}
