@@ -446,7 +446,7 @@ export default function StatusFeature() {
     <>
       <div className="bg-card p-3 rounded-lg shadow-sm">
       <ScrollArea className="w-full whitespace-nowrap">
-        <div className="flex items-start space-x-4">
+        <div className="flex items-start space-x-4 px-4">
             <div className="text-center flex-shrink-0 w-20">
                 <button 
                     onClick={() => setIsUploaderOpen(true)} 
