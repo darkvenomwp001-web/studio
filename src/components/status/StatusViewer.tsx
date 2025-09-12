@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -165,11 +166,9 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     </div>
                      <div className="flex items-center gap-1">
                         {isOwnStatus && (
-                            <Link href="/settings/statuses" passHref>
-                                 <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" title="Manage Statuses">
-                                    <Feather className="h-5 w-5" />
-                                 </Button>
-                            </Link>
+                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" title="Move to Drafts" onClick={handleMoveToDraftsClick} disabled={isProcessing}>
+                                {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Feather className="h-5 w-5" />}
+                            </Button>
                         )}
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={() => onOpenChange(false)}>
                               <X className="h-5 w-5"/>
