@@ -5,117 +5,91 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-
-    function isDataOwner(resource) {
-        return isOwner(resource.data.authorId) || isOwner(resource.data.author.id);
+    
+    function isOwnerOfStatus() {
+        return request.auth.uid == resource.data.authorId;
     }
     
-    function getRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-    
-    function isAdmin() {
-      return getRole() == 'admin';
+    function isCreatingOwnStatus() {
+        return request.auth.uid == request.resource.data.authorId;
     }
 
-    // USERS: Can read anyone's public profile. Can only write to their own.
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // USERS
     match /users/{userId} {
-      allow read;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if false; // Users should not delete their own accounts directly
+      allow read: if true;
+      allow create, update, delete: if isOwner(userId);
     }
-
-    // STORIES:
-    // Read: Can read any public or unlisted story. Can read own private/draft stories.
-    // Create: Any signed-in user can create a story (defaults to private).
-    // Update: Only the author or a collaborator can update.
-    // Delete: Only the author can delete.
+    
+    // STORIES
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted'
-                    || (isSignedIn() && (isDataOwner(resource) || request.auth.uid in resource.data.collaboratorIds));
-      allow create: if isSignedIn() && isDataOwner(request.resource);
-      allow update: if isSignedIn() && (isDataOwner(resource) || request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if isSignedIn() && isDataOwner(resource);
+      allow read: if resource.data.visibility == 'Public' 
+                  || resource.data.visibility == 'Unlisted'
+                  || (request.auth != null && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
+      allow create: if request.auth != null && isOwner(request.resource.data.author.id);
+      allow update: if request.auth != null && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds);
+      allow delete: if request.auth != null && isOwner(resource.data.author.id);
     }
     
-    // COMMENTS:
-    // Read: Anyone can read comments.
-    // Create: Signed-in users can create comments. Must be the correct user.
-    // Update/Delete: Only the original commenter can update/delete their own comment.
+    // COMMENTS
     match /comments/{commentId} {
-      allow read;
-      allow create: if isSignedIn() && isDataOwner(request.resource);
-      allow update, delete: if isSignedIn() && isDataOwner(resource);
+        allow read: if true;
+        allow create: if request.auth != null && isOwner(request.resource.data.user.id);
+        allow update, delete: if request.auth != null && isOwner(resource.data.user.id);
     }
 
-    // NOTIFICATIONS:
-    // Read/Write: Only the user themselves can access their notifications.
-    match /notifications/{notificationId} {
-      allow read, update, delete: if isOwner(resource.data.userId);
-      allow create: if isSignedIn(); // Server-side logic creates notifications
+    // NOTIFICATIONS
+     match /notifications/{notificationId} {
+        allow read, update, delete: if request.auth != null && isOwner(resource.data.userId);
+        // Create is handled by server-side actions (backend function or another rule)
+        allow create: if true; // Simplification for now, should be locked down in prod
     }
 
-    // CONVERSATIONS:
-    // Read/Write: Only participants in the conversation can access it and its messages.
+    // CONVERSATIONS
     match /conversations/{conversationId} {
-      allow read, create, update, delete: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+        allow read, update, create: if request.auth != null && request.auth.uid in resource.data.participantIds;
 
-      match /messages/{messageId} {
-         allow read, create, update, delete: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-      }
+        match /messages/{messageId} {
+            allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        }
     }
-
-    // FEED POSTS:
-    // Read: Any signed-in user can read feed posts.
-    // Create: Signed-in users can create a post for themselves.
-    // Update: Only like/unlike is allowed by signed-in users.
-    // Delete: Only the author can delete.
+    
+    // FEED
     match /feedPosts/{postId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isDataOwner(request.resource);
-      allow update: if isSignedIn(); // Allow liking/unliking
-      allow delete: if isSignedIn() && isDataOwner(resource);
-    }
-
-    // STATUS UPDATES:
-    // Read: Any signed-in user can read published statuses.
-    // Create: Signed-in users can create their own status.
-    // Update/Delete: Only the author can manage their own status.
-    match /statusUpdates/{statusId} {
-      allow read: if isSignedIn() && resource.data.status == 'published';
-      allow create: if isSignedIn() && isDataOwner(request.resource);
-      allow update, delete: if isSignedIn() && isOwner(resource.data.authorId);
+        allow read: if true;
+        allow create: if request.auth != null && isOwner(request.resource.data.author.id);
+        allow update: if request.auth != null; // Liking is an update
+        allow delete: if request.auth != null && isOwner(resource.data.author.id);
     }
     
-    // PROMPTS:
-    // Read: Any signed-in user can read prompts.
-    // Create: Signed-in users can create a prompt.
-    // Update/Delete: Only the original author can modify.
+    // PROMPTS
     match /prompts/{promptId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isDataOwner(request.resource);
-      allow update, delete: if isSignedIn() && isDataOwner(resource);
+        allow read: if resource.data.isArchived == false;
+        allow create: if request.auth != null && isOwner(request.resource.data.author.id);
+        allow update, delete: if request.auth != null && isOwner(resource.data.author.id);
     }
     
-    // LETTERS:
-    // Read: Only the sender and recipient (author) can read. Public letters are not implemented in rules yet.
-    // Create: Any signed-in user can send a letter.
-    // Update: Recipient can pin/respond.
-    // Delete: Sender can delete their own letter.
+    // LETTERS
     match /letters/{letterId} {
-      allow read: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
-      allow create: if isSignedIn() && isOwner(request.resource.data.reader.id);
-      allow update: if isSignedIn() && isOwner(resource.data.authorId);
-      allow delete: if isSignedIn() && isOwner(resource.data.reader.id);
+        allow read: if resource.data.visibility == 'public' || (request.auth != null && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id)));
+        allow create: if request.auth != null && isOwner(request.resource.data.reader.id);
+        allow update: if request.auth != null && isOwner(resource.data.authorId); // Only author can pin/respond
+        allow delete: if request.auth != null && isOwner(resource.data.reader.id); // Only reader can delete
     }
 
+    // STATUS UPDATES
+    match /statusUpdates/{statusId} {
+      allow read: if resource.data.status == 'published' && resource.data.expiresAt > request.time;
+      allow create: if request.auth != null && isCreatingOwnStatus();
+      allow update: if request.auth != null && isOwnerOfStatus();
+      allow delete: if request.auth != null && isOwnerOfStatus();
+    }
   }
 }
