@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { archiveStatusUpdate } from '@/app/actions/statusActions';
+import { archiveStatusUpdate, moveStatusToDrafts } from '@/app/actions/statusActions';
 
 
 export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void, onOpenUploader?: (defaultTab: string) => void; }) {
@@ -129,6 +129,20 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     
     const isMediaStatus = !!currentStatus.mediaUrl;
     const isNoteStatus = !!currentStatus.note || !!currentStatus.spotifyUrl;
+    
+    const handleMoveToDraftsClick = async () => {
+        if (!isOwnStatus || !currentStatus) return;
+        setIsProcessing(true);
+        const result = await moveStatusToDrafts(currentStatus.id, currentUser!.id);
+        if (result.success) {
+            onOpenChange(false);
+            onStatusArchived(currentUser!.id, currentStatus.id); // Re-use this to remove from UI
+            toast({ title: "Status Moved to Drafts", description: "You can now edit it from the 'Manage' tab in the status creator."});
+        } else {
+            toast({ title: "Error", description: result.error, variant: "destructive" });
+        }
+        setIsProcessing(false);
+    }
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -149,11 +163,27 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     </div>
                      <div className="flex items-center gap-1">
                         {isOwnStatus && (
-                             <Link href="/settings/statuses" passHref>
-                               <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" title="Manage Statuses">
-                                   <Feather className="h-5 w-5" />
-                               </Button>
-                             </Link>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                     <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" title="Move to Drafts">
+                                        {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Feather className="h-5 w-5" />}
+                                     </Button>
+                                </AlertDialogTrigger>
+                                 <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Move Status to Drafts?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                        This will remove the status from public view and allow you to edit it again.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleMoveToDraftsClick}>
+                                        Move to Drafts
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         )}
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={() => onOpenChange(false)}>
                               <X className="h-5 w-5"/>
