@@ -177,7 +177,7 @@ export async function permanentlyDeleteStatusUpdate(
         const statusRef = doc(db, 'statusUpdates', statusId);
         const statusSnap = await getDoc(statusRef);
         if (!statusSnap.exists()) {
-            return { success: true, error: 'Status already deleted.' };
+            return { success: true }; // Item is already gone, count as success.
         }
         
         const statusData = statusSnap.data();
@@ -189,6 +189,7 @@ export async function permanentlyDeleteStatusUpdate(
         revalidatePath('/'); // Revalidate home page feed
         revalidatePath('/settings/archive');
         revalidatePath('/settings/trash');
+        revalidatePath('/settings/statuses');
         return { success: true };
     } catch (error) {
         console.error('Error permanently deleting status:', error);
