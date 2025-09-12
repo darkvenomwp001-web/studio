@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -79,11 +80,11 @@ function ProfileSong({ user }: { user: AppUser }) {
 
     return (
         <Card className="bg-muted/50 border-dashed">
-            <div className="p-4">
+            <div className="p-4 space-y-4">
                 {user.profileSongNote && (
-                    <p className="text-center text-lg font-medium mb-4">“{user.profileSongNote}”</p>
+                    <p className="text-center text-lg font-medium italic">“{user.profileSongNote}”</p>
                 )}
-                <SpotifyPlayer />
+                <SpotifyPlayer trackUrl={user.profileSongUrl} />
             </div>
         </Card>
     );
@@ -318,14 +319,11 @@ export default function UserProfilePage() {
           <div className="flex-1 text-center md:text-left">
             <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">{displayName}</h1>
             <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
-            {profileUser.profileSongUrl ? (
-                <div className="mt-2"><ProfileSong user={profileUser} /></div>
-            ) : (
-                profileUser.bio && <p className="text-muted-foreground mt-1 max-w-xl">{profileUser.bio}</p>
-            )}
+            {profileUser.bio && <p className="text-muted-foreground mt-1 max-w-xl">{profileUser.bio}</p>}
             <div className="mt-3 flex flex-wrap gap-2 justify-center md:justify-start">
               {profileUser.role && <Badge variant={profileUser.role === 'writer' ? 'default' : 'secondary'} className="capitalize">{profileUser.role}</Badge>}
             </div>
+            {profileUser.profileSongUrl && <div className="mt-4"><ProfileSong user={profileUser} /></div>}
           </div>
           <div className="flex flex-col sm:flex-row gap-2 mt-4 md:mt-0 self-center md:self-end">
             {isOwnProfile ? (

@@ -12,13 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { restoreStatusUpdate, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 import { getStatusCaptions } from '@/app/actions/aiActions';
@@ -73,8 +73,7 @@ const photoFilters = [
 export default function StatusFeature() {
   const { user, loading: authLoading } = useAuth();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
-  const [draftStatuses, setDraftStatuses] = useState<StatusUpdate[]>([]);
-  const [trashedStatuses, setTrashedStatuses] = useState<StatusUpdate[]>([]);
+  const [managedStatuses, setManagedStatuses] = useState<StatusUpdate[]>([]);
   const [groupedStatuses, setGroupedStatuses] = useState<Map<string, {user: User, statuses: StatusUpdate[]}>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   
@@ -94,6 +93,9 @@ export default function StatusFeature() {
   const [noteContent, setNoteContent] = useState('');
   const [spotifyUrl, setSpotifyUrl] = useState('');
   const [showSpotifyInput, setShowSpotifyInput] = useState(false);
+
+  const [prompt, setPrompt] = useState('What book character would you want to have dinner with?');
+  const [promptResponse, setPromptResponse] = useState('');
   
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [selectedUserForViewing, setSelectedUserForViewing] = useState<User | null>(null);
@@ -121,7 +123,6 @@ export default function StatusFeature() {
     const statusesQuery = query(
       collection(db, 'statusUpdates'),
       where('isArchived', '==', false),
-      where('isTrashed', '==', false)
     );
     
     const unsubStatuses = onSnapshot(statusesQuery, (snapshot) => {
@@ -141,19 +142,13 @@ export default function StatusFeature() {
         });
         setAllStatuses(sortedStatuses);
 
-        setDraftStatuses(sortedStatuses.filter(s => s.status === 'draft'));
+        const manageable = allFetchedStatuses.filter(s => s.authorId === user.id && (s.status === 'draft' || s.isTrashed));
+        setManagedStatuses(manageable.sort((a,b) => (b.trashedAt || b.createdAt)?.toMillis() - (a.trashedAt || a.createdAt)?.toMillis()));
         setIsLoading(false);
     });
 
-    const trashQuery = query(collection(db, 'statusUpdates'), where('authorId', '==', user.id), where('isTrashed', '==', true), orderBy('trashedAt', 'desc'));
-    const unsubTrash = onSnapshot(trashQuery, (snapshot) => {
-        setTrashedStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
-    });
-
-
     return () => {
         unsubStatuses();
-        unsubTrash();
     };
   }, [user]);
 
@@ -223,10 +218,10 @@ export default function StatusFeature() {
     setSuggestedCaptions([]);
     setSelectedFilter('filter-none');
     setExpiryDuration('24');
+    setPromptResponse('');
   }
   
   const handleTabChange = (value: string) => {
-    // Reset forms when switching tabs to avoid state confusion
     resetUploader();
   };
 
@@ -283,40 +278,51 @@ export default function StatusFeature() {
     };
   };
 
-  const handleNoteSubmit = async (status: 'published' | 'draft') => {
+  const handleSubmit = async (status: 'published' | 'draft', data: Record<string, any>) => {
     const baseStatus = createBaseStatus(status);
     if (!baseStatus) return;
-    if (!noteContent.trim() && !spotifyUrl.trim()) {
-        toast({ title: "Note is empty", description: "Please write a note or add a song.", variant: "destructive" });
-        return;
-    }
-    
-    setIsSubmitting(true);
-    
-    const statusData: { [key: string]: any } = { ...baseStatus };
-    if (noteContent.trim()) {
-        statusData.note = noteContent.trim();
-    }
-    if (spotifyUrl.trim()) {
-        statusData.spotifyUrl = spotifyUrl.trim();
-    }
 
+    setIsSubmitting(true);
+    const statusData = { ...baseStatus, ...data };
+    
     try {
         await addDoc(collection(db, 'statusUpdates'), statusData);
-        toast({ title: `Note ${status === 'published' ? 'Posted!' : 'Saved as Draft!'}` });
+        toast({ title: `Status ${status === 'published' ? 'Published!' : 'Saved as Draft!'}` });
         setIsUploaderOpen(false);
         resetUploader();
     } catch (error) {
-        console.error("Error saving note status:", error);
-        toast({ title: "Failed to save note", variant: "destructive"});
+        console.error("Error saving status:", error);
+        toast({ title: "Failed to save status", variant: "destructive"});
     } finally {
         setIsSubmitting(false);
     }
   };
 
+
+  const handleNoteSubmit = async (status: 'published' | 'draft') => {
+    if (!noteContent.trim() && !spotifyUrl.trim()) {
+        toast({ title: "Note is empty", description: "Please write a note or add a song.", variant: "destructive" });
+        return;
+    }
+    const data: Record<string, any> = {};
+    if (noteContent.trim()) data.note = noteContent.trim();
+    if (spotifyUrl.trim()) data.spotifyUrl = spotifyUrl.trim();
+    await handleSubmit(status, data);
+  };
+  
+  const handlePromptSubmit = async (status: 'published' | 'draft') => {
+    if (!promptResponse.trim()) {
+        toast({ title: "Response is empty", variant: "destructive" });
+        return;
+    }
+    const data: Record<string, any> = {
+        note: `Q: ${prompt}\nA: ${promptResponse.trim()}`
+    };
+    await handleSubmit(status, data);
+  };
+
   const handleMediaSubmit = async (status: 'published' | 'draft') => {
-    const baseStatus = createBaseStatus(status);
-    if (!baseStatus || !mediaFile) return;
+    if (!mediaFile) return;
 
     setIsSubmitting(true);
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -350,7 +356,6 @@ export default function StatusFeature() {
     }
 
     const statusData: { [key: string]: any } = {
-        ...baseStatus,
         mediaUrl: mediaUrl,
         mediaType: mediaType,
     };
@@ -368,18 +373,8 @@ export default function StatusFeature() {
             ]
         };
     }
-
-    try {
-        await addDoc(collection(db, 'statusUpdates'), statusData);
-        toast({ title: `Status ${status === 'published' ? 'Published!' : 'Saved as Draft!'}` });
-        setIsUploaderOpen(false);
-        resetUploader();
-    } catch (error) {
-        console.error("Error saving status:", error);
-        toast({ title: "Failed to save status", variant: "destructive"});
-    } finally {
-        setIsSubmitting(false);
-    }
+    setIsSubmitting(false);
+    await handleSubmit(status, statusData);
   };
 
 
@@ -439,11 +434,6 @@ export default function StatusFeature() {
         setGroupedStatuses(userGroups);
   };
 
-  const openUploader = (defaultTab: string) => {
-    setUploaderDefaultTab(defaultTab);
-    setIsUploaderOpen(true);
-  };
-
 
   if (authLoading) {
     return <div className="h-[98px] w-full bg-card rounded-lg animate-pulse" />;
@@ -460,7 +450,7 @@ export default function StatusFeature() {
         <div className="flex items-start space-x-4 px-4">
            <div className="text-center flex-shrink-0 w-20">
              <button 
-                onClick={() => openUploader('notes')}
+                onClick={() => setIsUploaderOpen(true)}
                 className="w-16 h-16 mx-auto rounded-full bg-muted/50 flex items-center justify-center border-2 border-dashed border-border hover:border-primary transition-colors"
               >
                <Plus className="h-6 w-6 text-muted-foreground" />
@@ -494,15 +484,15 @@ export default function StatusFeature() {
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                     <DialogTitle>Manage Status</DialogTitle>
-                    <DialogDescription>Upload a new status, share a note, or manage your drafts and trash.</DialogDescription>
+                     <DialogTitle>Create Status</DialogTitle>
+                    <DialogDescription>Share a quick update with your followers.</DialogDescription>
                 </DialogHeader>
                  <Tabs defaultValue={uploaderDefaultTab} value={uploaderDefaultTab} onValueChange={(value) => { setUploaderDefaultTab(value); handleTabChange(value);}} className="w-full">
                     <TabsList className="grid w-full grid-cols-4">
                         <TabsTrigger value="notes">Note</TabsTrigger>
+                        <TabsTrigger value="prompts">Prompt</TabsTrigger>
                         <TabsTrigger value="upload">Media</TabsTrigger>
-                        <TabsTrigger value="drafts">Drafts</TabsTrigger>
-                        <TabsTrigger value="trash">Trash</TabsTrigger>
+                        <TabsTrigger value="manage">Manage</TabsTrigger>
                     </TabsList>
                     <TabsContent value="notes">
                         <div className="py-4 space-y-4">
@@ -525,7 +515,7 @@ export default function StatusFeature() {
                                 </div>
                             )}
 
-                            {spotifyUrl && <div className="animate-in fade-in duration-300"><SpotifyPlayer /></div>}
+                            {spotifyUrl && <div className="animate-in fade-in duration-300"><SpotifyPlayer trackUrl={spotifyUrl} /></div>}
 
                             <div className="border-t pt-3 flex justify-between items-center">
                                  <div className="flex items-center">
@@ -553,6 +543,30 @@ export default function StatusFeature() {
                             <Button onClick={() => handleNoteSubmit('published')} disabled={isSubmitting || (!noteContent.trim() && !spotifyUrl.trim())}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                 Post Note
+                            </Button>
+                        </DialogFooter>
+                    </TabsContent>
+                    <TabsContent value="prompts">
+                        <div className="py-4 space-y-4">
+                            <div className="p-4 bg-muted rounded-lg">
+                                <p className="text-sm font-medium text-muted-foreground">Today's Prompt:</p>
+                                <p className="text-lg font-semibold">{prompt}</p>
+                            </div>
+                             <Textarea
+                                id="prompt-response"
+                                placeholder="Your answer..."
+                                value={promptResponse}
+                                onChange={e => setPromptResponse(e.target.value)}
+                                className="min-h-[120px] text-base bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
+                            />
+                        </div>
+                         <DialogFooter>
+                             <Button variant="ghost" onClick={() => handlePromptSubmit('draft')} disabled={isSubmitting || !promptResponse.trim()}>
+                                Save as Draft
+                            </Button>
+                            <Button onClick={() => handlePromptSubmit('published')} disabled={isSubmitting || !promptResponse.trim()}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                Post Response
                             </Button>
                         </DialogFooter>
                     </TabsContent>
@@ -666,49 +680,41 @@ export default function StatusFeature() {
                             </Button>
                         </DialogFooter>
                     </TabsContent>
-                    <TabsContent value="drafts">
-                        <ScrollArea className="h-96">
-                            <div className="space-y-2 p-1">
-                                {draftStatuses.length > 0 ? draftStatuses.map(draft => (
-                                    <Card key={draft.id} className="flex items-center p-2">
-                                        {draft.mediaUrl ? (
-                                             <Image src={draft.mediaUrl} alt="Draft" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
-                                        ): (
-                                            <div className="w-[60px] h-[60px] flex items-center justify-center bg-muted rounded-md mr-3 text-2xl">📝</div>
-                                        )}
-                                        <p className="text-sm flex-1 truncate">{draft.textOverlay || draft.note || "No caption"}</p>
-                                        <div className="flex gap-1">
-                                            <Button size="sm" variant="outline" onClick={() => handlePublishDraft(draft.id)}>Publish</Button>
-                                            <Button size="sm" variant="destructive" onClick={() => handleDeleteDraft(draft.id)}><Trash2 className="h-4 w-4" /></Button>
-                                        </div>
-                                    </Card>
-                                )) : <p className="text-center text-muted-foreground py-10">No drafts saved.</p>}
-                            </div>
-                        </ScrollArea>
-                    </TabsContent>
-                    <TabsContent value="trash">
+                    <TabsContent value="manage">
                          <ScrollArea className="h-96">
                             <div className="space-y-2 p-1">
-                                {trashedStatuses.length > 0 ? trashedStatuses.map(item => (
-                                    <Card key={item.id} className="flex items-center p-2">
-                                         {item.mediaUrl ? (
-                                             <Image src={item.mediaUrl} alt="Trashed item" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
+                                {managedStatuses.length > 0 ? managedStatuses.map(item => (
+                                    <Card key={item.id} className={cn("flex items-center p-2", item.isTrashed && "opacity-60")}>
+                                        {item.mediaUrl ? (
+                                             <Image src={item.mediaUrl} alt="Status item" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
                                         ): (
                                             <div className="w-[60px] h-[60px] flex items-center justify-center bg-muted rounded-md mr-3 text-2xl">📝</div>
                                         )}
-                                        <p className="text-sm flex-1 truncate">{item.textOverlay || item.note || "No caption"}</p>
+                                        <div className="flex-1">
+                                            <p className="text-sm truncate">{item.textOverlay || item.note || "No caption"}</p>
+                                            <p className="text-xs font-semibold text-destructive">{item.isTrashed ? "In Trash" : "Draft"}</p>
+                                        </div>
                                         <div className="flex gap-1">
-                                            <Button size="sm" variant="outline" onClick={() => handleRestoreFromTrash(item.id)}><RotateCcw className="h-4 w-4"/></Button>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader><AlertDialogTitle>Delete Forever?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                                                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromTrash(item.id)}>Delete</AlertDialogAction></AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
+                                            {item.isTrashed ? (
+                                                <>
+                                                    <Button size="sm" variant="outline" onClick={() => handleRestoreFromTrash(item.id)}><RotateCcw className="h-4 w-4"/></Button>
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader><AlertDialogTitle>Delete Forever?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromTrash(item.id)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Button size="sm" variant="outline" onClick={() => handlePublishDraft(item.id)}>Publish</Button>
+                                                    <Button size="sm" variant="destructive" onClick={() => handleDeleteDraft(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                                                </>
+                                            )}
                                         </div>
                                     </Card>
-                                )) : <p className="text-center text-muted-foreground py-10">Trash is empty.</p>}
+                                )) : <p className="text-center text-muted-foreground py-10">No drafts or trashed items.</p>}
                             </div>
                         </ScrollArea>
                     </TabsContent>
@@ -724,7 +730,6 @@ export default function StatusFeature() {
         onNext={handleNextUser}
         onPrev={handlePrevUser}
         onStatusArchived={onStatusArchived}
-        onOpenUploader={openUploader}
       />
     </>
   );
@@ -733,6 +738,7 @@ export default function StatusFeature() {
     
 
     
+
 
 
 

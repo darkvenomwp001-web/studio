@@ -29,7 +29,7 @@ import {
 import { archiveStatusUpdate } from '@/app/actions/statusActions';
 
 
-export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void }) {
+export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void, onOpenUploader?: (defaultTab: string) => void; }) {
     const { user: currentUser } = useAuth();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
@@ -216,12 +216,12 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
 
                     {currentStatus.spotifyUrl && !currentStatus.note && (
                         <div className="absolute inset-0 flex items-center justify-center p-8 bg-gradient-to-br from-green-900 via-gray-900 to-black">
-                            <SpotifyPlayer />
+                            <SpotifyPlayer trackUrl={currentStatus.spotifyUrl} />
                         </div>
                     )}
                      {currentStatus.spotifyUrl && currentStatus.note && (
-                         <div className="absolute bottom-10 left-4 right-4 z-10">
-                           <SpotifyPlayer />
+                         <div className="absolute bottom-20 left-4 right-4 z-10">
+                           <SpotifyPlayer trackUrl={currentStatus.spotifyUrl} />
                         </div>
                     )}
                 </div>

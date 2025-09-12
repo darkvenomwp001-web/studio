@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Users, Search as SearchIcon, Loader2 } from 'lucide-react';
+import { BookOpen, Users, Search as SearchIcon, Loader2, X } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -20,6 +20,7 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Debounce function
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -91,7 +92,7 @@ export default function SearchResultsPage() {
         where('username', '>=', currentQuery.trim()),
         where('username', '<=', currentQuery.trim() + '\uf8ff'),
         orderBy('username'),
-        limit(6)
+        limit(8)
       );
       const usernameSnapshot = await getDocs(usernameQuery);
       const usersByUsername = usernameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
@@ -102,7 +103,7 @@ export default function SearchResultsPage() {
         where('displayName', '>=', currentQuery.trim()),
         where('displayName', '<=', currentQuery.trim() + '\uf8ff'),
         orderBy('displayName'),
-        limit(6)
+        limit(8)
       );
       const displayNameSnapshot = await getDocs(displayNameQuery);
       const usersByDisplayName = displayNameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
@@ -112,7 +113,7 @@ export default function SearchResultsPage() {
       usersByUsername.forEach(user => combinedUsers.set(user.id, user));
       usersByDisplayName.forEach(user => combinedUsers.set(user.id, user)); 
       
-      setUserResults(Array.from(combinedUsers.values()));
+      setUserResults(Array.from(combinedUsers.values()).slice(0,8));
 
     } catch (error) {
       console.error("Error performing search:", error);
@@ -142,9 +143,10 @@ export default function SearchResultsPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newQuery = e.target.value;
     setSearchTerm(newQuery);
-    if (newQuery.trim()) {
+    const trimmedQuery = newQuery.trim();
+    if (trimmedQuery) {
       setIsLoading(true);
-      debouncedSearch(newQuery);
+      router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`, { scroll: false });
     } else {
       setStoryResults([]);
       setUserResults([]);
@@ -153,95 +155,99 @@ export default function SearchResultsPage() {
     }
   };
 
-  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmedQuery = searchTerm.trim();
-    if (trimmedQuery) {
-      router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
-    } else {
-      router.push('/search');
-    }
+  const handleClearSearch = () => {
+    setSearchTerm('');
+    setStoryResults([]);
+    setUserResults([]);
+    setIsLoading(false);
+    router.push('/search', { scroll: false });
   };
   
   const noResultsFound = !isLoading && searchTerm.trim() !== '' && storyResults.length === 0 && userResults.length === 0;
 
   return (
-    <div className="space-y-12">
-      <header className="pb-6 border-b">
-        <h1 className="text-3xl md:text-4xl font-headline font-bold mb-6 text-center">
-          Search D4RKV3NOM
-        </h1>
-        <form onSubmit={handleSearchSubmit} className="max-w-xl mx-auto flex gap-2">
+    <div className="space-y-6">
+      <header className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-3 border-b mb-6">
+        <div className="relative max-w-xl mx-auto">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input 
             type="search" 
-            placeholder="Search stories, authors, tags..." 
-            className="flex-grow text-base h-12 px-4 focus-visible:ring-primary"
+            placeholder="Search stories and authors..." 
+            className="w-full text-base h-12 px-10 rounded-full bg-muted focus-visible:ring-primary focus-visible:bg-background"
             value={searchTerm}
             onChange={handleInputChange}
             aria-label="Search query"
           />
-          <Button type="submit" size="lg" className="bg-primary hover:bg-primary/90 h-12">
-            <SearchIcon className="mr-0 md:mr-2 h-5 w-5" />
-            <span className="hidden md:inline">Search</span>
-          </Button>
-        </form>
+          {searchTerm && (
+             <Button variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full" onClick={handleClearSearch}>
+                <X className="h-5 w-5 text-muted-foreground" />
+            </Button>
+          )}
+        </div>
       </header>
 
       {isLoading && (
         <div className="text-center py-10">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground mt-2">Searching...</p>
         </div>
       )}
 
       {!isLoading && !searchTerm.trim() && (
-         <div className="text-center py-10">
-          <p className="text-muted-foreground">Enter a term above to find stories and authors.</p>
+         <div className="text-center py-16 px-4">
+          <SearchIcon className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+          <h2 className="text-xl font-headline font-semibold">Find Your Next Story</h2>
+          <p className="text-muted-foreground">Search for stories, authors, or topics.</p>
         </div>
       )}
 
       {noResultsFound && (
-        <div className="text-center py-10 bg-card p-8 rounded-lg shadow">
-          <p className="text-xl text-muted-foreground">No results found for &quot;{searchTerm}&quot;.</p>
-          <p className="text-sm text-muted-foreground mt-2">Try searching for something else or check your spelling.</p>
+        <div className="text-center py-16 px-4 bg-card rounded-lg shadow-sm">
+          <h2 className="text-xl font-headline font-semibold mb-2">No Results Found</h2>
+          <p className="text-muted-foreground">We couldn't find anything for "{searchTerm}". Try another search.</p>
         </div>
       )}
       
-      {!isLoading && storyResults.length > 0 && (
-        <section>
-          <h2 className="text-2xl font-headline font-semibold mb-6 flex items-center gap-2">
-            <BookOpen className="text-primary h-6 w-6" /> Matching Stories ({storyResults.length})
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {storyResults.map(story => (
-              <StoryCard key={story.id} story={story} />
-            ))}
-          </div>
-        </section>
-      )}
+      {!isLoading && (storyResults.length > 0 || userResults.length > 0) && (
+        <Tabs defaultValue="stories" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+                <TabsTrigger value="stories" disabled={storyResults.length === 0}>
+                    <BookOpen className="mr-2 h-4 w-4" /> Stories ({storyResults.length})
+                </TabsTrigger>
+                <TabsTrigger value="authors" disabled={userResults.length === 0}>
+                    <Users className="mr-2 h-4 w-4" /> Authors ({userResults.length})
+                </TabsTrigger>
+            </TabsList>
 
-      {!isLoading && userResults.length > 0 && (
-        <section>
-          <h2 className="text-2xl font-headline font-semibold mb-6 flex items-center gap-2">
-            <Users className="text-primary h-6 w-6" /> Matching Authors ({userResults.length})
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {userResults.map(author => (
-              <Link href={`/profile/${author.id}`} key={author.id} passHref>
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                  <CardContent className="pt-6 flex flex-col items-center text-center h-full">
-                    <Avatar className="w-24 h-24 mb-4 border-2 border-primary/30">
-                      <AvatarImage src={author.avatarUrl || `https://placehold.co/100x100.png`} alt={author.displayName || author.username} data-ai-hint="profile person" />
-                      <AvatarFallback>{(author.displayName || author.username).substring(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <h3 className="text-lg font-semibold font-headline">{author.displayName || author.username}</h3>
-                    {author.bio && <p className="text-xs text-muted-foreground mt-1 line-clamp-2 flex-grow">{author.bio}</p>}
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </section>
+            <TabsContent value="stories" className="mt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {storyResults.map(story => (
+                    <StoryCard key={story.id} story={story} />
+                    ))}
+                </div>
+            </TabsContent>
+
+            <TabsContent value="authors" className="mt-6">
+                 <div className="grid grid-cols-1 gap-4">
+                    {userResults.map(author => (
+                    <Link href={`/profile/${author.id}`} key={author.id} passHref>
+                        <Card className="hover:shadow-md transition-shadow cursor-pointer hover:bg-muted/50">
+                        <CardContent className="p-3 flex items-center gap-4">
+                            <Avatar className="w-14 h-14 border-2 border-primary/30">
+                            <AvatarImage src={author.avatarUrl || `https://placehold.co/100x100.png`} alt={author.displayName || author.username} data-ai-hint="profile person" />
+                            <AvatarFallback>{(author.displayName || author.username).substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-grow">
+                                <h3 className="font-semibold font-headline text-md">{author.displayName || author.username}</h3>
+                                <p className="text-xs text-muted-foreground">@{author.username}</p>
+                                {author.bio && <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{author.bio}</p>}
+                            </div>
+                        </CardContent>
+                        </Card>
+                    </Link>
+                    ))}
+                </div>
+            </TabsContent>
+        </Tabs>
       )}
     </div>
   );
