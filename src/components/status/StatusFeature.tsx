@@ -25,6 +25,7 @@ import { getStatusCaptions } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import StatusViewer from './StatusViewer';
+import { Textarea } from '../ui/textarea';
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
@@ -92,6 +93,7 @@ export default function StatusFeature() {
 
   const [noteContent, setNoteContent] = useState('');
   const [spotifyUrl, setSpotifyUrl] = useState('');
+  const [showSpotifyInput, setShowSpotifyInput] = useState(false);
   
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [selectedUserForViewing, setSelectedUserForViewing] = useState<User | null>(null);
@@ -213,6 +215,7 @@ export default function StatusFeature() {
     setTextOverlay('');
     setNoteContent('');
     setSpotifyUrl('');
+    setShowSpotifyInput(false);
     setShowPollCreator(false);
     setPollQuestion('');
     setPollOption1('');
@@ -503,30 +506,50 @@ export default function StatusFeature() {
                     </TabsList>
                     <TabsContent value="notes">
                         <div className="py-4 space-y-4">
-                            <Label htmlFor="note-content">Share a quick note...</Label>
-                            <Input id="note-content" placeholder="What's on your mind?" value={noteContent} onChange={e => setNoteContent(e.target.value)} maxLength={140} />
-                            <Label htmlFor="spotify-url">...or a song</Label>
-                            <div className="flex items-center gap-2">
-                                <Music className="h-5 w-5 text-muted-foreground" />
-                                <Input id="spotify-url" placeholder="Paste a Spotify track link (optional)" value={spotifyUrl} onChange={e => setSpotifyUrl(e.target.value)} />
-                            </div>
-                            {spotifyUrl && <SpotifyPlayer />}
-                             <div>
-                                <Label htmlFor="expiry-select-note">Set Expiry Duration</Label>
-                                <Select value={expiryDuration} onValueChange={setExpiryDuration}>
-                                    <SelectTrigger id="expiry-select-note" className="w-[180px] mt-1">
+                            <Textarea
+                                id="note-content"
+                                placeholder={`What's on your mind, ${user?.displayName || user?.username}?`}
+                                value={noteContent}
+                                onChange={e => setNoteContent(e.target.value)}
+                                className="min-h-[120px] text-base bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
+                            />
+                            {showSpotifyInput && (
+                                <div className="flex items-center gap-2 animate-in fade-in duration-300">
+                                    <Music className="h-5 w-5 text-muted-foreground" />
+                                    <Input 
+                                        id="spotify-url" 
+                                        placeholder="Paste a Spotify track link" 
+                                        value={spotifyUrl} 
+                                        onChange={e => setSpotifyUrl(e.target.value)} 
+                                    />
+                                </div>
+                            )}
+
+                            {spotifyUrl && <div className="animate-in fade-in duration-300"><SpotifyPlayer /></div>}
+
+                            <div className="border-t pt-3 flex justify-between items-center">
+                                 <div className="flex items-center">
+                                    <Button variant="ghost" size="icon" title="Add Song" onClick={() => setShowSpotifyInput(!showSpotifyInput)}>
+                                        <Music className={cn("h-5 w-5", showSpotifyInput ? "text-primary" : "text-muted-foreground")} />
+                                    </Button>
+                                 </div>
+                                  <Select value={expiryDuration} onValueChange={setExpiryDuration}>
+                                    <SelectTrigger className="w-[150px]">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="3">3 Hours</SelectItem>
-                                        <SelectItem value="6">6 Hours</SelectItem>
-                                        <SelectItem value="12">12 Hours</SelectItem>
-                                        <SelectItem value="24">24 Hours</SelectItem>
+                                        <SelectItem value="3">Expires in 3 Hours</SelectItem>
+                                        <SelectItem value="6">Expires in 6 Hours</SelectItem>
+                                        <SelectItem value="12">Expires in 12 Hours</SelectItem>
+                                        <SelectItem value="24">Expires in 24 Hours</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
                          <DialogFooter>
+                            <Button variant="ghost" onClick={() => handleNoteSubmit('draft')} disabled={isSubmitting || (!noteContent.trim() && !spotifyUrl.trim())}>
+                                Save as Draft
+                            </Button>
                             <Button onClick={() => handleNoteSubmit('published')} disabled={isSubmitting || (!noteContent.trim() && !spotifyUrl.trim())}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                 Post Note
@@ -710,6 +733,7 @@ export default function StatusFeature() {
     
 
     
+
 
 
 
