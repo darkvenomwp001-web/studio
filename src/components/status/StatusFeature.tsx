@@ -433,6 +433,11 @@ export default function StatusFeature() {
         }
         setGroupedStatuses(userGroups);
   };
+  
+  const handleOpenUploader = (defaultTab: string) => {
+    setUploaderDefaultTab(defaultTab);
+    setIsUploaderOpen(true);
+  };
 
 
   if (authLoading) {
@@ -730,6 +735,7 @@ export default function StatusFeature() {
         onNext={handleNextUser}
         onPrev={handlePrevUser}
         onStatusArchived={onStatusArchived}
+        onOpenUploader={handleOpenUploader}
       />
     </>
   );
@@ -738,6 +744,7 @@ export default function StatusFeature() {
     
 
     
+
 
 
 

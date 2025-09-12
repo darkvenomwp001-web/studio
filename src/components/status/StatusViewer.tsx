@@ -29,7 +29,7 @@ import {
 import { archiveStatusUpdate, moveStatusToDrafts } from '@/app/actions/statusActions';
 
 
-export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void, onOpenUploader?: (defaultTab: string) => void; }) {
+export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived, onOpenUploader }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void, onOpenUploader?: (defaultTab: string) => void; }) {
     const { user: currentUser } = useAuth();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
@@ -136,8 +136,9 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         const result = await moveStatusToDrafts(currentStatus.id, currentUser!.id);
         if (result.success) {
             onOpenChange(false);
-            onStatusArchived(currentUser!.id, currentStatus.id); // Re-use this to remove from UI
+            onStatusArchived(currentUser!.id, currentStatus.id);
             toast({ title: "Status Moved to Drafts", description: "You can now edit it from the 'Manage' tab in the status creator."});
+            onOpenUploader?.('manage');
         } else {
             toast({ title: "Error", description: result.error, variant: "destructive" });
         }
@@ -264,3 +265,4 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         </Dialog>
     )
 }
+
