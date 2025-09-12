@@ -5,15 +5,16 @@ import { useState, useEffect, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { Loader2, ArrowLeft, Wind } from 'lucide-react';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { Loader2, ArrowLeft, Wind, Trash2, MoreHorizontal, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { StatusUpdate } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
 import { useToast } from '@/hooks/use-toast';
-import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
+import { permanentlyDeleteStatusUpdate, archiveStatusUpdate, trashStatusUpdate } from '@/app/actions/statusActions';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +27,8 @@ export default function ManageStatusesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const [itemToDelete, setItemToDelete] = useState<StatusUpdate | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -41,6 +44,7 @@ export default function ManageStatusesPage() {
         where('authorId', '==', user.id), 
         where('status', '==', 'published'),
         where('expiresAt', '>', now),
+        where('isTrashed', '==', false),
         orderBy('expiresAt', 'asc')
     );
     
@@ -49,7 +53,7 @@ export default function ManageStatusesPage() {
       setIsLoading(false);
     }, (error) => {
         console.error("Error fetching live statuses:", error);
-        toast({ title: "Error", description: "Could not load your live statuses.", variant: "destructive"});
+        toast({ title: "Error", description: "Could not load your live statuses. This may be due to missing database indexes.", variant: "destructive"});
         setIsLoading(false);
     });
 
@@ -62,19 +66,36 @@ export default function ManageStatusesPage() {
     setDeletingId(statusId); // Trigger the animation
 
     startTransition(async () => {
-      // Wait for animation to be visible
       await new Promise(resolve => setTimeout(resolve, 300));
       
       const result = await permanentlyDeleteStatusUpdate(statusId, user.id);
       if (result.success) {
           toast({ title: "Status Vanished", description: "The status has been permanently deleted." });
-          // The onSnapshot listener will handle removing the item from the UI
       } else {
           toast({ title: "Error", description: result.error, variant: "destructive" });
-          setDeletingId(null); // Reset animation on failure
+          setDeletingId(null); 
       }
-      // No need to setDeletingId(null) on success, as the item will disappear from the list
     });
+  };
+
+  const handleMoveToTrash = async (statusId: string) => {
+    if (!user) return;
+    const result = await trashStatusUpdate(statusId, user.id);
+    if (result.success) {
+        toast({ title: "Status Moved to Trash" });
+    } else {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+    }
+  };
+
+  const handleArchive = async (statusId: string) => {
+    if (!user) return;
+    const result = await archiveStatusUpdate(statusId, user.id);
+    if (result.success) {
+        toast({ title: "Status Archived" });
+    } else {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+    }
   };
 
   if (isLoading) {
@@ -86,15 +107,16 @@ export default function ManageStatusesPage() {
   }
 
   return (
+    <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
     <div className="max-w-4xl mx-auto space-y-8 py-8">
       <header>
-        <Button variant="ghost" onClick={() => router.back()} className="mb-2">
+        <Button variant="ghost" onClick={() => router.push('/settings/content')} className="mb-2">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
         <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-3">
           Manage Live Statuses
         </h1>
-        <p className="text-muted-foreground">Make your active statuses vanish into thin air. This action is permanent.</p>
+        <p className="text-muted-foreground">Manage your active status updates before they expire.</p>
       </header>
       
       <div className="space-y-4">
@@ -120,26 +142,30 @@ export default function ManageStatusesPage() {
                         Expires: {formatDate(item.expiresAt)}
                     </div>
                 </div>
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" className="bg-gradient-to-br from-red-500 to-orange-400 text-white hover:from-red-600 hover:to-orange-500 shadow-md hover:shadow-lg transition-all transform hover:scale-105">
-                            <Wind className="mr-2 h-4 w-4" /> Vanish
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Make this status vanish forever?</AlertDialogTitle>
-                        <AlertDialogDescription>This action is permanent and cannot be undone. The status will be gone forever.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleVanish(item.id)} className="bg-destructive hover:bg-destructive/90">
-                          {isPending && deletingId === item.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wind className="mr-2 h-4 w-4" />}
-                          Yes, Make it Vanish
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                         <DropdownMenuItem onClick={() => handleArchive(item.id)}>
+                            <Archive className="mr-2 h-4 w-4" />
+                            Archive
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleMoveToTrash(item.id)}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Move to Trash
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                            onClick={() => setItemToDelete(item)}
+                        >
+                            <Wind className="mr-2 h-4 w-4" />
+                            Vanish Forever
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </CardContent>
           </Card>
         )) : (
@@ -155,5 +181,22 @@ export default function ManageStatusesPage() {
         )}
       </div>
     </div>
+    
+    {itemToDelete && (
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Make this status vanish forever?</AlertDialogTitle>
+                <AlertDialogDescription>This action is permanent and cannot be undone. The status will be gone forever.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => { if(itemToDelete) handleVanish(itemToDelete.id); }} className="bg-destructive hover:bg-destructive/90">
+                {isPending && deletingId === itemToDelete.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wind className="mr-2 h-4 w-4" />}
+                Yes, Make it Vanish
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    )}
+    </AlertDialog>
   );
 }
