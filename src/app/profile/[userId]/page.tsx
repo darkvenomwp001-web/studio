@@ -74,23 +74,16 @@ function ProfileStoryCard({ story, isPrivate = false }: ProfileStoryCardProps) {
   );
 }
 
-function ProfileNote({ note, isOwnProfile, onDelete }: { note: StatusUpdate, isOwnProfile: boolean, onDelete: (noteId: string) => void }) {
-    if (!note.note && !note.spotifyUrl) return null;
+function ProfileSong({ user }: { user: AppUser }) {
+    if (!user.profileSongUrl) return null;
 
     return (
-        <Card className="bg-muted/50 border-dashed relative">
+        <Card className="bg-muted/50 border-dashed">
             <div className="p-4">
-                 {isOwnProfile && (
-                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => onDelete(note.id)}>
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
+                {user.profileSongNote && (
+                    <p className="text-center text-lg font-medium mb-4">“{user.profileSongNote}”</p>
                 )}
-                {note.note && <p className="text-center text-lg font-medium">“{note.note}”</p>}
-                {note.spotifyUrl && (
-                    <div className="mt-4">
-                        <SpotifyPlayer />
-                    </div>
-                )}
+                <SpotifyPlayer />
             </div>
         </Card>
     );
@@ -111,7 +104,6 @@ export default function UserProfilePage() {
   const [privateWorks, setPrivateWorks] = useState<Story[]>([]); 
   const [followingDetails, setFollowingDetails] = useState<AppUser[]>([]);
   const [followersDetails, setFollowersDetails] = useState<AppUser[]>([]);
-  const [currentNote, setCurrentNote] = useState<StatusUpdate | null>(null);
   const [userActiveStatuses, setUserActiveStatuses] = useState<StatusUpdate[]>([]);
   const [isStatusViewerOpen, setIsStatusViewerOpen] = useState(false);
   
@@ -130,7 +122,6 @@ export default function UserProfilePage() {
     setFollowingDetails([]);
     setFollowersDetails([]);
     setLiveFollowersCount(null);
-    setCurrentNote(null);
     setUserActiveStatuses([]);
     setIsLoadingData(true);
 
@@ -166,9 +157,6 @@ export default function UserProfilePage() {
     const unsubscribeStatuses = onSnapshot(activeStatusesQuery, (snapshot) => {
         const statuses = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as StatusUpdate));
         setUserActiveStatuses(statuses);
-        
-        const note = statuses.find(s => s.note || s.spotifyUrl) || null;
-        setCurrentNote(note);
     });
 
     return () => {
@@ -278,15 +266,6 @@ export default function UserProfilePage() {
     }
   };
 
-  const handleDeleteNote = async (noteId: string) => {
-    try {
-        await deleteDoc(doc(db, 'statusUpdates', noteId));
-        toast({ title: 'Note deleted' });
-    } catch(error) {
-        toast({ title: 'Error', description: 'Could not delete note.', variant: 'destructive'});
-    }
-  }
-
   const onStatusArchived = (archivedUserId: string, statusId: string) => {
         setUserActiveStatuses(prev => prev.filter(s => s.id !== statusId));
   };
@@ -327,7 +306,7 @@ export default function UserProfilePage() {
             <div 
                 className={cn(
                     "relative p-1 rounded-full",
-                    hasActiveStatus && !(currentNote) && "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 cursor-pointer"
+                    hasActiveStatus && "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 cursor-pointer"
                 )}
                 onClick={() => hasActiveStatus && setIsStatusViewerOpen(true)}
             >
@@ -339,8 +318,8 @@ export default function UserProfilePage() {
           <div className="flex-1 text-center md:text-left">
             <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">{displayName}</h1>
             <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
-            {currentNote ? (
-                <div className="mt-2"><ProfileNote note={currentNote} isOwnProfile={isOwnProfile} onDelete={handleDeleteNote} /></div>
+            {profileUser.profileSongUrl ? (
+                <div className="mt-2"><ProfileSong user={profileUser} /></div>
             ) : (
                 profileUser.bio && <p className="text-muted-foreground mt-1 max-w-xl">{profileUser.bio}</p>
             )}

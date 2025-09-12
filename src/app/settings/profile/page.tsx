@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Save, UploadCloud, ArrowLeft, UserCog } from 'lucide-react';
+import { Loader2, Save, UploadCloud, ArrowLeft, UserCog, Music } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -24,6 +25,8 @@ export default function EditProfilePage() {
   const [role, setRole] = useState<'reader' | 'writer' | undefined>(undefined);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [profileSongUrl, setProfileSongUrl] = useState('');
+  const [profileSongNote, setProfileSongNote] = useState('');
   
   const [isProfileUpdating, setIsProfileUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -35,6 +38,8 @@ export default function EditProfilePage() {
       setBio(user.bio || '');
       setRole(user.role || 'reader');
       setAvatarPreview(user.avatarUrl || null);
+      setProfileSongUrl(user.profileSongUrl || '');
+      setProfileSongNote(user.profileSongNote || '');
     }
   }, [user]);
 
@@ -107,7 +112,15 @@ export default function EditProfilePage() {
         }
     }
     
-    await updateUserProfile({ displayName, username, avatarUrl: newAvatarUrl, bio, role });
+    await updateUserProfile({ 
+        displayName, 
+        username, 
+        avatarUrl: newAvatarUrl, 
+        bio, 
+        role,
+        profileSongUrl,
+        profileSongNote 
+    });
     setAvatarFile(null);
     setIsProfileUpdating(false);
   };
@@ -190,6 +203,20 @@ export default function EditProfilePage() {
                       <SelectItem value="writer">Writer</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </CardContent>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Music className="h-5 w-5 text-accent"/> Profile Song</CardTitle>
+                <CardDescription>Set a song that represents your current vibe.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                 <div>
+                  <Label htmlFor="profileSongUrl">Spotify Track URL</Label>
+                  <Input id="profileSongUrl" value={profileSongUrl} onChange={(e) => setProfileSongUrl(e.target.value)} placeholder="Paste a Spotify track link here" disabled={anySubmitting} />
+                </div>
+                 <div>
+                  <Label htmlFor="profileSongNote">Note (optional)</Label>
+                  <Input id="profileSongNote" value={profileSongNote} onChange={(e) => setProfileSongNote(e.target.value)} placeholder="e.g., 'Current writing mood'" disabled={anySubmitting} />
                 </div>
               </CardContent>
               <CardFooter>

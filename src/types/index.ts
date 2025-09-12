@@ -24,6 +24,8 @@ export interface User {
   level?: number;
   xp?: number;
   achievements?: Achievement[];
+  profileSongUrl?: string;
+  profileSongNote?: string;
   createdAt?: any;
   updatedAt?: any;
   dataAiHint?: string; // Added for AI image hints

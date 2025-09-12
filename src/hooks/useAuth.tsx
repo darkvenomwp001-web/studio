@@ -56,6 +56,8 @@ interface AppUser extends AppUserType {
   updatedAt?: any; 
   isAnonymous?: boolean;
   writtenStories?: Story[];
+  profileSongUrl?: string;
+  profileSongNote?: string;
 }
 
 interface AuthContextType {
@@ -160,6 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               level: firestoreUserData.level || 1,
               xp: firestoreUserData.xp || 0,
               achievements: firestoreUserData.achievements || [],
+              profileSongUrl: firestoreUserData.profileSongUrl || '',
+              profileSongNote: firestoreUserData.profileSongNote || '',
               followersCount: firestoreUserData.followersCount || 0,
               followingCount: firestoreUserData.followingIds?.length || 0,
               followingIds: firestoreUserData.followingIds || [],
@@ -194,6 +198,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               level: 1,
               xp: 0,
               achievements: [],
+              profileSongUrl: '',
+              profileSongNote: '',
               followersCount: 0,
               followingCount: 0,
               followingIds: [],
@@ -515,6 +521,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (updates.username !== undefined) dataToUpdate.username = updates.username;
       if (updates.bio !== undefined) dataToUpdate.bio = updates.bio;
       if (updates.role !== undefined) dataToUpdate.role = updates.role;
+      if (updates.profileSongUrl !== undefined) dataToUpdate.profileSongUrl = updates.profileSongUrl;
+      if (updates.profileSongNote !== undefined) dataToUpdate.profileSongNote = updates.profileSongNote;
       if (updates.avatarUrl !== undefined && updates.avatarUrl !== user?.avatarUrl) {
           dataToUpdate.avatarUrl = updates.avatarUrl;
       }
