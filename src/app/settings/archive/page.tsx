@@ -54,73 +54,38 @@ export default function ArchivePage() {
     });
 
     setIsLoadingStatuses(true);
-    // Query 1: Manually archived statuses
-    const manualArchiveQuery = query(
+    // This single query now handles all archived statuses correctly.
+    const statusesQuery = query(
         collection(db, 'statusUpdates'), 
         where('authorId', '==', user.id), 
         where('isArchived', '==', true),
-        where('isTrashed', '==', false)
+        where('isTrashed', '==', false),
+        orderBy('archivedAt', 'desc')
     );
-    // Query 2: Expired statuses
-    const expiredQuery = query(
-        collection(db, 'statusUpdates'),
-        where('authorId', '==', user.id),
-        where('status', '==', 'published'),
-        where('expiresAt', '<', new Date()),
-        where('isTrashed', '==', false)
-    );
+    
+    const unsubStatuses = onSnapshot(statusesQuery, (snapshot) => {
+        const statuses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
+        setAllArchivedStatuses(statuses);
+        setFilteredStatuses(statuses);
 
-    const unsubManual = onSnapshot(manualArchiveQuery, manualSnapshot => {
-        const manualStatuses = manualSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
-        
-        const unsubExpired = onSnapshot(expiredQuery, expiredSnapshot => {
-            const expiredStatuses = expiredSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
-
-            // Merge and deduplicate results
-            const combinedMap = new Map<string, StatusUpdate>();
-            [...manualStatuses, ...expiredStatuses].forEach(status => {
-                // Manually archived non-expired statuses take precedence if duplicated.
-                if (!combinedMap.has(status.id)) {
-                    combinedMap.set(status.id, status);
-                }
-            });
-
-            const combinedStatuses = Array.from(combinedMap.values()).sort((a, b) => {
-                const timeA = (a.archivedAt || a.expiresAt) as Timestamp;
-                const timeB = (b.archivedAt || b.expiresAt) as Timestamp;
-                return timeB.toMillis() - timeA.toMillis();
-            });
-
-            setAllArchivedStatuses(combinedStatuses);
-            setFilteredStatuses(combinedStatuses);
-
-            // Populate filter options
-            const months = new Set<string>();
-            combinedStatuses.forEach(status => {
-                const date = (status.archivedAt || status.expiresAt as Timestamp)?.toDate();
-                if (date) {
-                    months.add(format(startOfMonth(date), 'yyyy-MM'));
-                }
-            });
-            setAvailableMonths(Array.from(months));
-            setIsLoadingStatuses(false);
-        }, error => {
-             console.error("Error fetching expired statuses:", error);
-             toast({ title: "Error", description: "Could not load expired statuses.", variant: "destructive" });
-             setIsLoadingStatuses(false);
+        const months = new Set<string>();
+        statuses.forEach(status => {
+            const date = (status.archivedAt as Timestamp)?.toDate();
+            if (date) {
+                months.add(format(startOfMonth(date), 'yyyy-MM'));
+            }
         });
-
-        return () => unsubExpired();
-
-    }, error => {
+        setAvailableMonths(Array.from(months));
+        setIsLoadingStatuses(false);
+    }, (error) => {
         console.error("Error fetching archived statuses:", error);
-        toast({ title: "Error", description: "Could not load archived statuses.", variant: "destructive" });
+        toast({ title: "Error loading archived statuses.", description: "This can happen if database indexes are missing. Please check your Firebase console.", variant: "destructive"});
         setIsLoadingStatuses(false);
     });
 
     return () => {
       unsubPrompts();
-      unsubManual();
+      unsubStatuses();
     };
   }, [user, authLoading, router, toast]);
 
@@ -130,7 +95,7 @@ export default function ArchivePage() {
     } else {
       const selectedDate = new Date(selectedMonth + '-02'); // Use day 2 to avoid timezone issues
       const filtered = allArchivedStatuses.filter(status => {
-        const statusDate = (status.archivedAt || status.expiresAt as Timestamp)?.toDate();
+        const statusDate = (status.archivedAt as Timestamp)?.toDate();
         return statusDate && 
                statusDate.getFullYear() === selectedDate.getFullYear() &&
                statusDate.getMonth() === selectedDate.getMonth();
