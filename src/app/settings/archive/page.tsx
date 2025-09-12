@@ -5,12 +5,13 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { Loader2, ArrowLeft, Archive as ArchiveIcon, Trash2, Edit, FileText, Camera } from 'lucide-react';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { Loader2, ArrowLeft, Archive as ArchiveIcon, Trash2, Edit, FileText, Camera, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Prompt, StatusUpdate } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +19,7 @@ import { permanentlyDeletePrompt } from '@/app/actions/promptActions';
 import { permanentlyDeleteStatusUpdate, trashStatusUpdate } from '@/app/actions/statusActions';
 import Image from 'next/image';
 import Link from 'next/link';
+import { format, startOfMonth } from 'date-fns';
 
 export default function ArchivePage() {
   const { user, loading: authLoading } = useAuth();
@@ -25,7 +27,11 @@ export default function ArchivePage() {
   const { toast } = useToast();
 
   const [archivedPrompts, setArchivedPrompts] = useState<Prompt[]>([]);
-  const [archivedStatuses, setArchivedStatuses] = useState<StatusUpdate[]>([]);
+  const [allArchivedStatuses, setAllArchivedStatuses] = useState<StatusUpdate[]>([]);
+  const [filteredStatuses, setFilteredStatuses] = useState<StatusUpdate[]>([]);
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(true);
   const [isLoadingStatuses, setIsLoadingStatuses] = useState(true);
 
@@ -48,16 +54,64 @@ export default function ArchivePage() {
     });
 
     setIsLoadingStatuses(true);
-    const statusesQuery = query(
+    // Query 1: Manually archived statuses
+    const manualArchiveQuery = query(
         collection(db, 'statusUpdates'), 
         where('authorId', '==', user.id), 
         where('isArchived', '==', true),
-        where('isTrashed', '==', false), // This is the critical fix
-        orderBy('archivedAt', 'desc')
+        where('isTrashed', '==', false)
     );
-    const unsubStatuses = onSnapshot(statusesQuery, snapshot => {
-        setArchivedStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
-        setIsLoadingStatuses(false);
+    // Query 2: Expired statuses
+    const expiredQuery = query(
+        collection(db, 'statusUpdates'),
+        where('authorId', '==', user.id),
+        where('status', '==', 'published'),
+        where('expiresAt', '<', new Date()),
+        where('isTrashed', '==', false)
+    );
+
+    const unsubManual = onSnapshot(manualArchiveQuery, manualSnapshot => {
+        const manualStatuses = manualSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
+        
+        const unsubExpired = onSnapshot(expiredQuery, expiredSnapshot => {
+            const expiredStatuses = expiredSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
+
+            // Merge and deduplicate results
+            const combinedMap = new Map<string, StatusUpdate>();
+            [...manualStatuses, ...expiredStatuses].forEach(status => {
+                // Manually archived non-expired statuses take precedence if duplicated.
+                if (!combinedMap.has(status.id)) {
+                    combinedMap.set(status.id, status);
+                }
+            });
+
+            const combinedStatuses = Array.from(combinedMap.values()).sort((a, b) => {
+                const timeA = (a.archivedAt || a.expiresAt) as Timestamp;
+                const timeB = (b.archivedAt || b.expiresAt) as Timestamp;
+                return timeB.toMillis() - timeA.toMillis();
+            });
+
+            setAllArchivedStatuses(combinedStatuses);
+            setFilteredStatuses(combinedStatuses);
+
+            // Populate filter options
+            const months = new Set<string>();
+            combinedStatuses.forEach(status => {
+                const date = (status.archivedAt || status.expiresAt as Timestamp)?.toDate();
+                if (date) {
+                    months.add(format(startOfMonth(date), 'yyyy-MM'));
+                }
+            });
+            setAvailableMonths(Array.from(months));
+            setIsLoadingStatuses(false);
+        }, error => {
+             console.error("Error fetching expired statuses:", error);
+             toast({ title: "Error", description: "Could not load expired statuses.", variant: "destructive" });
+             setIsLoadingStatuses(false);
+        });
+
+        return () => unsubExpired();
+
     }, error => {
         console.error("Error fetching archived statuses:", error);
         toast({ title: "Error", description: "Could not load archived statuses.", variant: "destructive" });
@@ -66,9 +120,25 @@ export default function ArchivePage() {
 
     return () => {
       unsubPrompts();
-      unsubStatuses();
+      unsubManual();
     };
   }, [user, authLoading, router, toast]);
+
+  useEffect(() => {
+    if (selectedMonth === 'all') {
+      setFilteredStatuses(allArchivedStatuses);
+    } else {
+      const selectedDate = new Date(selectedMonth + '-02'); // Use day 2 to avoid timezone issues
+      const filtered = allArchivedStatuses.filter(status => {
+        const statusDate = (status.archivedAt || status.expiresAt as Timestamp)?.toDate();
+        return statusDate && 
+               statusDate.getFullYear() === selectedDate.getFullYear() &&
+               statusDate.getMonth() === selectedDate.getMonth();
+      });
+      setFilteredStatuses(filtered);
+    }
+  }, [selectedMonth, allArchivedStatuses]);
+
 
   const handleMoveToTrash = async (statusId: string) => {
     if (!user) return;
@@ -106,23 +176,37 @@ export default function ArchivePage() {
 
        <Tabs defaultValue="statuses" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="statuses">Archived Statuses ({archivedStatuses.length})</TabsTrigger>
+            <TabsTrigger value="statuses">Archived Statuses ({filteredStatuses.length})</TabsTrigger>
             <TabsTrigger value="prompts">Archived Prompts ({archivedPrompts.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="statuses" className="mt-4">
+             <div className="flex justify-end mb-4">
+                <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={availableMonths.length === 0}>
+                    <SelectTrigger className="w-[220px]">
+                        <Calendar className="mr-2 h-4 w-4" />
+                        <SelectValue placeholder="Filter by date..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Time</SelectItem>
+                        {availableMonths.map(month => (
+                             <SelectItem key={month} value={month}>{format(new Date(month + '-02'), 'MMMM yyyy')}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
             <div className="space-y-4">
                 {isLoadingStatuses ? (
                      <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
-                ) : archivedStatuses.length > 0 ? archivedStatuses.map(status => (
+                ) : filteredStatuses.length > 0 ? filteredStatuses.map(status => (
                     <Card key={status.id}>
                         <CardContent className="p-4 flex flex-col sm:flex-row items-start gap-4">
                              <div className="w-full sm:w-32 h-auto sm:h-32 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
-                                <Image src={status.mediaUrl} alt="Archived status" layout="responsive" width={128} height={128} objectFit="cover" />
+                                <Image src={status.mediaUrl!} alt="Archived status" layout="responsive" width={128} height={128} objectFit="cover" />
                             </div>
                             <div className="flex-1">
                                 <p className="text-sm text-muted-foreground">Status from {formatDate(status.createdAt)}</p>
-                                <p className="text-xs text-muted-foreground mt-1">Archived on {formatDate(status.archivedAt)}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Archived on {formatDate(status.archivedAt || status.expiresAt)}</p>
                             </div>
                         </CardContent>
                         <CardFooter className="gap-2">
@@ -136,7 +220,12 @@ export default function ArchivePage() {
                     <CardHeader>
                       <Camera className="mx-auto h-12 w-12 text-muted-foreground" />
                       <CardTitle>No Archived Statuses</CardTitle>
-                      <CardDescription>Statuses you archive or that expire will appear here.</CardDescription>
+                      <CardDescription>
+                         {selectedMonth === 'all' 
+                            ? "Statuses you archive or that expire will appear here." 
+                            : `No statuses were archived in ${format(new Date(selectedMonth + '-02'), 'MMMM yyyy')}.`
+                         }
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <Link href="/" passHref>
