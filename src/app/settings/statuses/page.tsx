@@ -9,7 +9,7 @@ import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'fireba
 import { Loader2, ArrowLeft, Wind, Trash2, MoreHorizontal, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { StatusUpdate } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
@@ -110,7 +110,7 @@ export default function ManageStatusesPage() {
     <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
     <div className="max-w-4xl mx-auto space-y-8 py-8">
       <header>
-        <Button variant="ghost" onClick={() => router.push('/settings/content')} className="mb-2">
+        <Button variant="ghost" onClick={() => router.push('/settings')} className="mb-2">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
         <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-3">
