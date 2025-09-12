@@ -4,92 +4,87 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
     
-    function isOwnerOfStatus() {
-        return request.auth.uid == resource.data.authorId;
-    }
-    
-    function isCreatingOwnStatus() {
-        return request.auth.uid == request.resource.data.authorId;
+    function isStoryOwner(story) {
+      return isOwner(story.author.id);
     }
 
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // USERS
     match /users/{userId} {
-      allow read: if true;
-      allow create, update, delete: if isOwner(userId);
+      allow read;
+      allow write: if isOwner(userId);
     }
     
-    // STORIES
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' 
-                  || resource.data.visibility == 'Unlisted'
-                  || (request.auth != null && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds));
-      allow create: if request.auth != null && isOwner(request.resource.data.author.id);
-      allow update: if request.auth != null && (isOwner(resource.data.author.id) || request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if request.auth != null && isOwner(resource.data.author.id);
+      allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted';
+      allow write: if isAuthenticated() && isStoryOwner(request.resource.data);
+      
+      match /chapters/{chapterId} {
+        allow read, write: if isAuthenticated() && isStoryOwner(get(/databases/$(database)/documents/stories/$(storyId)).data);
+      }
     }
-    
-    // COMMENTS
+
     match /comments/{commentId} {
-        allow read: if true;
-        allow create: if request.auth != null && isOwner(request.resource.data.user.id);
-        allow update, delete: if request.auth != null && isOwner(resource.data.user.id);
+        allow read;
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() && isOwner(resource.data.user.id);
     }
 
-    // NOTIFICATIONS
-     match /notifications/{notificationId} {
-        allow read, update, delete: if request.auth != null && isOwner(resource.data.userId);
-        // Create is handled by server-side actions (backend function or another rule)
-        allow create: if true; // Simplification for now, should be locked down in prod
+    match /notifications/{notificationId} {
+        allow read, write: if isAuthenticated() && isOwner(resource.data.userId);
     }
 
-    // CONVERSATIONS
     match /conversations/{conversationId} {
-        allow read, update, create: if request.auth != null && request.auth.uid in resource.data.participantIds;
-
+        allow read, write: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
+        
         match /messages/{messageId} {
-            allow read, create: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+            allow read, write: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
         }
     }
-    
-    // FEED
+
     match /feedPosts/{postId} {
-        allow read: if true;
-        allow create: if request.auth != null && isOwner(request.resource.data.author.id);
-        allow update: if request.auth != null; // Liking is an update
-        allow delete: if request.auth != null && isOwner(resource.data.author.id);
+        allow read;
+        allow create: if isAuthenticated() && isOwner(request.resource.data.authorId);
+        allow update: if isAuthenticated();
     }
     
-    // PROMPTS
     match /prompts/{promptId} {
-        allow read: if resource.data.isArchived == false;
-        allow create: if request.auth != null && isOwner(request.resource.data.author.id);
-        allow update, delete: if request.auth != null && isOwner(resource.data.author.id);
-    }
-    
-    // LETTERS
-    match /letters/{letterId} {
-        allow read: if resource.data.visibility == 'public' || (request.auth != null && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id)));
-        allow create: if request.auth != null && isOwner(request.resource.data.reader.id);
-        allow update: if request.auth != null && isOwner(resource.data.authorId); // Only author can pin/respond
-        allow delete: if request.auth != null && isOwner(resource.data.reader.id); // Only reader can delete
+        allow read;
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() && isOwner(resource.data.author.id);
     }
 
-    // STATUS UPDATES
+    match /letters/{letterId} {
+        allow read: if isAuthenticated() && (
+            isOwner(resource.data.reader.id) ||
+            isOwner(resource.data.authorId) ||
+            resource.data.visibility == 'public'
+        );
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated() && isOwner(resource.data.authorId);
+        allow delete: if isAuthenticated() && isOwner(resource.data.reader.id);
+    }
+
     match /statusUpdates/{statusId} {
-      allow read: if resource.data.status == 'published' && resource.data.expiresAt > request.time;
-      allow create: if request.auth != null && isCreatingOwnStatus();
-      allow update: if request.auth != null && isOwnerOfStatus();
-      allow delete: if request.auth != null && isOwnerOfStatus();
+        // Anyone can read published, non-expired statuses
+        allow read: if resource.data.status == 'published' && resource.data.expiresAt > request.time;
+        // The owner can read their own statuses regardless of state (draft, archived, trashed)
+        allow read: if isAuthenticated() && isOwner(resource.data.authorId);
+
+        // Any authenticated user can create a status for themselves
+        allow create: if isAuthenticated() && isOwner(request.resource.data.authorId);
+        
+        // Only the owner can update their status (e.g., to archive or trash it)
+        allow update: if isAuthenticated() && isOwner(resource.data.authorId);
+
+        // Only the owner can permanently delete their status
+        allow delete: if isAuthenticated() && isOwner(resource.data.authorId);
     }
   }
 }
