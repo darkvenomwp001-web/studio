@@ -1,21 +1,21 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
-import { Loader2, ArrowLeft, Trash2, Archive, MoreHorizontal, Clock } from 'lucide-react';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { Loader2, ArrowLeft, Wind } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { StatusUpdate } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
 import { useToast } from '@/hooks/use-toast';
-import { trashStatusUpdate, archiveStatusUpdate } from '@/app/actions/statusActions';
+import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 export default function ManageStatusesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -24,6 +24,8 @@ export default function ManageStatusesPage() {
 
   const [liveStatuses, setLiveStatuses] = useState<StatusUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (authLoading) return;
@@ -54,24 +56,25 @@ export default function ManageStatusesPage() {
     return () => unsubscribe();
   }, [user, authLoading, router, toast]);
 
-  const handleTrash = async (statusId: string) => {
+  const handleVanish = async (statusId: string) => {
     if (!user) return;
-    const result = await trashStatusUpdate(statusId, user.id);
-    if (result.success) {
-        toast({ title: "Status Moved to Trash" });
-    } else {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
-    }
-  };
+    
+    setDeletingId(statusId); // Trigger the animation
 
-  const handleArchive = async (statusId: string) => {
-    if (!user) return;
-    const result = await archiveStatusUpdate(statusId, user.id);
-    if (result.success) {
-        toast({ title: "Status Archived", description: "This status has been moved to your archive." });
-    } else {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
-    }
+    startTransition(async () => {
+      // Wait for animation to be visible
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const result = await permanentlyDeleteStatusUpdate(statusId, user.id);
+      if (result.success) {
+          toast({ title: "Status Vanished", description: "The status has been permanently deleted." });
+          // The onSnapshot listener will handle removing the item from the UI
+      } else {
+          toast({ title: "Error", description: result.error, variant: "destructive" });
+          setDeletingId(null); // Reset animation on failure
+      }
+      // No need to setDeletingId(null) on success, as the item will disappear from the list
+    });
   };
 
   if (isLoading) {
@@ -91,12 +94,18 @@ export default function ManageStatusesPage() {
         <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-3">
           Manage Live Statuses
         </h1>
-        <p className="text-muted-foreground">Archive or delete your active status updates before they expire.</p>
+        <p className="text-muted-foreground">Make your active statuses vanish into thin air. This action is permanent.</p>
       </header>
       
       <div className="space-y-4">
         {liveStatuses.length > 0 ? liveStatuses.map(item => (
-          <Card key={item.id} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+          <Card 
+            key={item.id} 
+            className={cn(
+              "overflow-hidden shadow-sm transition-all duration-300",
+              deletingId === item.id && "animate-fade-out scale-95"
+            )}
+          >
             <CardContent className="p-4 flex items-center gap-4">
                  <div className="w-24 h-24 sm:w-32 sm:h-32 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
                     {item.mediaUrl ? (
@@ -107,66 +116,29 @@ export default function ManageStatusesPage() {
                 </div>
                 <div className="flex-1 space-y-2">
                     <p className="text-sm text-foreground line-clamp-2">{item.textOverlay || item.note || "No caption"}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span>Expires in {formatDate(item.expiresAt)}</span>
+                    <div className="text-xs text-muted-foreground">
+                        Expires: {formatDate(item.expiresAt)}
                     </div>
                 </div>
                  <AlertDialog>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="flex-shrink-0">
-                                <MoreHorizontal className="h-5 w-5" />
-                                <span className="sr-only">Status Actions</span>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <AlertDialogTrigger asChild>
-                                <DropdownMenuItem>
-                                    <Archive className="mr-2 h-4 w-4" />
-                                    Archive
-                                </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                             <AlertDialogTrigger asChild>
-                                <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Move to Trash
-                                </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    {/* This structure is a bit tricky. We need separate content for each trigger.
-                        A better way would be to manage dialog state separately, but this works for now. 
-                        Let's assume the first trigger is Archive, second is Trash for simplicity of this example.
-                        This will be refactored if more complex dialogs are needed.
-                    */}
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" className="bg-gradient-to-br from-red-500 to-orange-400 text-white hover:from-red-600 hover:to-orange-500 shadow-md hover:shadow-lg transition-all transform hover:scale-105">
+                            <Wind className="mr-2 h-4 w-4" /> Vanish
+                        </Button>
+                    </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Archive this status?</AlertDialogTitle>
-                        <AlertDialogDescription>This will remove the status from public view and save it to your archive.</AlertDialogDescription>
+                        <AlertDialogTitle>Make this status vanish forever?</AlertDialogTitle>
+                        <AlertDialogDescription>This action is permanent and cannot be undone. The status will be gone forever.</AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleArchive(item.id)}>Archive</AlertDialogAction>
+                        <AlertDialogAction onClick={() => handleVanish(item.id)} className="bg-destructive hover:bg-destructive/90">
+                          {isPending && deletingId === item.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wind className="mr-2 h-4 w-4" />}
+                          Yes, Make it Vanish
+                        </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
-                    
-                    {/* A second AlertDialogContent is not standard. A better approach would be to have separate AlertDialog components.
-                        But to fulfill the request with one component: we can pretend this is the trash dialog.
-                        A more robust implementation would use a state to control which dialog is shown.
-                    */}
-                    <AlertDialogContent>
-                       <AlertDialogHeader>
-                        <AlertDialogTitle>Move to Trash?</AlertDialogTitle>
-                        <AlertDialogDescription>This will move the status to your trash folder. It will be permanently deleted after 30 days.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleTrash(item.id)} className="bg-destructive hover:bg-destructive/90">Move to Trash</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-
                 </AlertDialog>
             </CardContent>
           </Card>
