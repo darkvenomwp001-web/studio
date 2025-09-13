@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -81,6 +81,8 @@ export default function StatusFeature() {
   const [isLoading, setIsLoading] = useState(true);
   
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
+  const [uploaderScreen, setUploaderScreen] = useState<'picker' | 'editor'>('picker');
+  
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
@@ -111,7 +113,7 @@ export default function StatusFeature() {
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(true);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   
-  const [uploaderDefaultTab, setUploaderDefaultTab] = useState('note');
+  const [uploaderDefaultTab, setUploaderDefaultTab] = useState('media');
 
   const { toast } = useToast();
 
@@ -206,6 +208,7 @@ export default function StatusFeature() {
   }
 
   const resetUploader = () => {
+    setUploaderScreen('picker');
     setMediaFile(null);
     setMediaPreview(null);
     setTextOverlay('');
@@ -448,12 +451,237 @@ export default function StatusFeature() {
     return null;
   }
   
+  const renderPickerScreen = () => (
+    <>
+      <DialogHeader className="px-6 pt-6">
+        <DialogTitle>Create Status</DialogTitle>
+        <DialogDescription>Share a quick update with your followers. It will disappear after 24 hours.</DialogDescription>
+      </DialogHeader>
+      <Tabs defaultValue={uploaderDefaultTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col">
+        <TabsList className="grid w-full grid-cols-4 mx-auto sticky top-0 px-6">
+          <TabsTrigger value="note">Note</TabsTrigger>
+          <TabsTrigger value="media">Media</TabsTrigger>
+          <TabsTrigger value="song">Song</TabsTrigger>
+          <TabsTrigger value="manage">Manage</TabsTrigger>
+        </TabsList>
+        <TabsContent value="note" className="flex-grow flex flex-col px-6 pb-6">
+            <div className="py-4 space-y-4 flex-grow">
+                <Textarea
+                    placeholder={`What's on your mind, ${user?.displayName || user?.username}?`}
+                    value={noteContent}
+                    onChange={e => setNoteContent(e.target.value)}
+                    className="min-h-[120px] h-full text-lg bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
+                />
+            </div>
+             <DialogFooter className="mt-auto">
+                <Button variant="ghost" onClick={() => handleNoteSubmit('draft')} disabled={isSubmitting || !noteContent.trim()}>
+                    Save as Draft
+                </Button>
+                <Button onClick={() => handleNoteSubmit('published')} disabled={isSubmitting || !noteContent.trim()}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    Post Note
+                </Button>
+            </DialogFooter>
+        </TabsContent>
+        <TabsContent value="media" className="flex-grow flex flex-col p-0">
+             <div className="flex-grow flex flex-col p-6 overflow-hidden">
+                <div 
+                    className="w-full aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted relative overflow-hidden"
+                    onClick={() => mediaInputRef.current?.click()}
+                >
+                    {mediaPreview ? (
+                        <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" />
+                    ) : (
+                        <>
+                            <Camera className="h-10 w-10 text-muted-foreground mb-2" />
+                            <p className="text-muted-foreground">Select from gallery</p>
+                        </>
+                    )}
+                    <Input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/*" className="hidden" />
+                </div>
+                <div className="mt-4">
+                    <p className="text-sm font-medium">Gallery</p>
+                    <div className="mt-2 text-center text-xs text-muted-foreground bg-muted/50 p-4 rounded-lg">
+                        Direct gallery access is not available in web apps.
+                        <br />
+                        Click above to select a file from your device.
+                    </div>
+                </div>
+            </div>
+            <DialogFooter className="p-6 pt-0 mt-auto">
+                <Button onClick={() => setUploaderScreen('editor')} disabled={!mediaFile}>
+                    Next <ArrowRight className="ml-2 h-4 w-4"/>
+                </Button>
+            </DialogFooter>
+        </TabsContent>
+        <TabsContent value="song" className="px-6 pb-6">
+            <div className="py-4 space-y-4">
+                <SongSearch
+                    onSongSelect={(song) => {
+                        setSpotifyUrl(`https://open.spotify.com/track/${song.id}`);
+                        setSongLyricSnippet(null);
+                    }}
+                    onLyricSelect={setSongLyricSnippet}
+                />
+                {spotifyUrl && songLyricSnippet && (
+                    <div className="p-3 bg-muted rounded-md text-center">
+                        <p className="text-sm font-semibold italic text-foreground/80">"{songLyricSnippet}"</p>
+                    </div>
+                )}
+            </div>
+            <DialogFooter>
+                <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !spotifyUrl.trim()}>
+                    Save as Draft
+                </Button>
+                <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !spotifyUrl.trim()}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    Post Song
+                </Button>
+            </DialogFooter>
+        </TabsContent>
+        <TabsContent value="manage" className="px-6 pb-6">
+             <ScrollArea className="h-96">
+                <div className="space-y-2 p-1">
+                    {managedStatuses.length > 0 ? managedStatuses.map(item => (
+                        <Card key={item.id} className={cn("flex items-center p-2", item.isTrashed && "opacity-60")}>
+                            {item.mediaUrl ? (
+                                 <Image src={item.mediaUrl} alt="Status item" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
+                            ): (
+                                <div className="w-[60px] h-[60px] flex items-center justify-center bg-muted rounded-md mr-3 text-2xl">📝</div>
+                            )}
+                            <div className="flex-1">
+                                <p className="text-sm truncate">{item.textOverlay || item.note || "No caption"}</p>
+                                <p className="text-xs font-semibold text-destructive">{item.isTrashed ? "In Trash" : "Draft"}</p>
+                            </div>
+                            <div className="flex gap-1">
+                                {item.isTrashed ? (
+                                    <>
+                                        <Button size="sm" variant="outline" onClick={() => handleRestoreFromTrash(item.id)}><RotateCcw className="h-4 w-4"/></Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader><AlertDialogTitle>Delete Forever?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                                <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromTrash(item.id)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Button size="sm" variant="outline" onClick={() => handlePublishDraft(item.id)}>Publish</Button>
+                                        <Button size="sm" variant="destructive" onClick={() => handleDeleteDraft(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                                    </>
+                                )}
+                            </div>
+                        </Card>
+                    )) : <p className="text-center text-muted-foreground py-10">No drafts or trashed items.</p>}
+                </div>
+            </ScrollArea>
+        </TabsContent>
+      </Tabs>
+    </>
+  );
+
+  const renderEditorScreen = () => (
+    <div className="h-full flex flex-col">
+        <DialogHeader className="p-4 border-b">
+            <div className="flex justify-between items-center">
+                <Button variant="ghost" size="icon" onClick={() => setUploaderScreen('picker')}><X className="h-5 w-5" /></Button>
+                <DialogTitle>Edit Status</DialogTitle>
+                <Button onClick={() => handleMediaSubmit('published')} disabled={!mediaFile || isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    Post
+                </Button>
+            </div>
+        </DialogHeader>
+        <ScrollArea className="flex-grow">
+            <div className="p-4 space-y-4">
+                <div className="relative group">
+                    {mediaType === 'image' ? (
+                        <Image src={mediaPreview!} alt="Preview" width={400} height={400} className={cn("w-full h-auto object-contain rounded-lg transition-all", selectedFilter)} />
+                    ) : (
+                        <video ref={previewVideoRef} src={mediaPreview!} autoPlay muted loop playsInline className="w-full h-auto object-contain rounded-lg" />
+                    )}
+                </div>
+                
+                <div className="space-y-4">
+                    {mediaType === 'image' && (
+                        <div>
+                            <Label className="text-xs text-muted-foreground">Filters</Label>
+                            <ScrollArea className="w-full whitespace-nowrap">
+                                <div className="flex space-x-2 pb-2">
+                                    {photoFilters.map(filter => (
+                                        <div key={filter.name} onClick={() => setSelectedFilter(filter.style)} className="text-center cursor-pointer">
+                                            <Image src={mediaPreview!} alt={filter.name} width={60} height={60} className={cn("rounded-md object-cover w-16 h-16 border-2 transition-all", selectedFilter === filter.style ? 'border-primary' : 'border-transparent', filter.style)} />
+                                            <p className="text-xs mt-1">{filter.name}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                                <ScrollBar orientation="horizontal" />
+                            </ScrollArea>
+                        </div>
+                    )}
+
+                    <Input type="text" placeholder="Add a caption..." value={textOverlay} onChange={(e) => setTextOverlay(e.target.value)} maxLength={100} />
+                    
+                    {mediaType === 'image' && (
+                    <Button variant="outline" size="sm" onClick={handleGenerateCaptions} disabled={isGeneratingCaptions}>
+                        {isGeneratingCaptions ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Wand2 className="h-4 w-4 mr-2" />}
+                        Generate AI Captions
+                    </Button>
+                    )}
+                    
+                    {suggestedCaptions.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {suggestedCaptions.map((caption, i) => (
+                                <Button key={i} size="sm" variant="secondary" onClick={() => setTextOverlay(caption)}>{caption}</Button>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="flex items-center justify-between p-2 border rounded-md">
+                        <Label htmlFor="poll-switch">Add a Poll</Label>
+                        <Switch id="poll-switch" checked={showPollCreator} onCheckedChange={setShowPollCreator} />
+                    </div>
+
+                    {showPollCreator && (
+                        <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
+                            <Input placeholder="Poll Question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
+                            <div className="flex gap-2">
+                                <Input placeholder="Option 1" value={pollOption1} onChange={e => setPollOption1(e.target.value)} />
+                                <Input placeholder="Option 2" value={pollOption2} onChange={e => setPollOption2(e.target.value)} />
+                            </div>
+                        </div>
+                    )}
+
+                    <div>
+                        <Label htmlFor="expiry-select">Set Expiry Duration</Label>
+                        <Select value={expiryDuration} onValueChange={setExpiryDuration}>
+                            <SelectTrigger id="expiry-select" className="w-[180px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="3">3 Hours</SelectItem>
+                                <SelectItem value="6">6 Hours</SelectItem>
+                                <SelectItem value="12">12 Hours</SelectItem>
+                                <SelectItem value="24">24 Hours</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            </div>
+        </ScrollArea>
+         <DialogFooter className="p-4 border-t">
+            <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={!mediaFile || isSubmitting}>Save as Draft</Button>
+        </DialogFooter>
+    </div>
+  );
+  
   return (
     <>
       <div className="bg-card p-3 rounded-lg shadow-sm">
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-start space-x-4 px-4">
-           <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={() => setIsUploaderOpen(true)}>
+           <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={() => handleOpenUploader('media')}>
              <div className="relative w-16 h-16 mx-auto">
                 <Avatar className="w-full h-full border-2 border-border group-hover:border-primary/50 transition-colors">
                     <AvatarImage src={user.avatarUrl} className="group-hover:opacity-80 transition-opacity" />
@@ -490,227 +718,8 @@ export default function StatusFeature() {
         </ScrollArea>
       </div>
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
-            <DialogContent className="sm:max-w-xl p-0">
-                <Tabs defaultValue={uploaderDefaultTab} value={uploaderDefaultTab} onValueChange={(value) => { setUploaderDefaultTab(value); handleTabChange(value);}} className="w-full pt-6">
-                    <TabsList className="grid w-full grid-cols-4 -mt-2 mb-2 px-6">
-                        <TabsTrigger value="note">Note</TabsTrigger>
-                        <TabsTrigger value="media">Media</TabsTrigger>
-                        <TabsTrigger value="song">Song</TabsTrigger>
-                        <TabsTrigger value="manage">Manage</TabsTrigger>
-                    </TabsList>
-                    <div className="px-6">
-                        <DialogHeader>
-                            <DialogTitle>Create Status</DialogTitle>
-                            <DialogDescription>Share a quick update with your followers.</DialogDescription>
-                        </DialogHeader>
-                    </div>
-                    <TabsContent value="note" className="px-6">
-                        <div className="py-4 space-y-4">
-                            <Textarea
-                                id="note-content"
-                                placeholder={`What's on your mind, ${user?.displayName || user?.username}?`}
-                                value={noteContent}
-                                onChange={e => setNoteContent(e.target.value)}
-                                className="min-h-[120px] text-base bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
-                            />
-                            <div className="border-t pt-3 flex justify-end items-center">
-                                  <Select value={expiryDuration} onValueChange={setExpiryDuration}>
-                                    <SelectTrigger className="w-[150px]">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="3">Expires in 3 Hours</SelectItem>
-                                        <SelectItem value="6">Expires in 6 Hours</SelectItem>
-                                        <SelectItem value="12">Expires in 12 Hours</SelectItem>
-                                        <SelectItem value="24">Expires in 24 Hours</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                         <DialogFooter>
-                            <Button variant="ghost" onClick={() => handleNoteSubmit('draft')} disabled={isSubmitting || !noteContent.trim()}>
-                                Save as Draft
-                            </Button>
-                            <Button onClick={() => handleNoteSubmit('published')} disabled={isSubmitting || !noteContent.trim()}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                                Post Note
-                            </Button>
-                        </DialogFooter>
-                    </TabsContent>
-                    <TabsContent value="media" className="px-6">
-                        <ScrollArea className="max-h-[60vh] pr-4">
-                            <div className="py-4 space-y-4">
-                                {mediaPreview ? (
-                                    <div className="relative group">
-                                        {mediaType === 'image' ? (
-                                            <Image src={mediaPreview} alt="Preview" width={400} height={400} className={cn("w-full h-auto object-contain rounded-lg transition-all", selectedFilter)} />
-                                        ) : (
-                                            <video ref={previewVideoRef} src={mediaPreview} autoPlay muted loop playsInline className="w-full h-auto object-contain rounded-lg" />
-                                        )}
-                                        {mediaType === 'video' && (
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button variant="ghost" size="icon" className="text-white h-16 w-16" onClick={handlePreviewPlayToggle}>
-                                                    {isPreviewPlaying ? <Pause className="h-10 w-10" /> : <Play className="h-10 w-10" />}
-                                                </Button>
-                                            </div>
-                                        )}
-                                        <div className="absolute top-2 right-2 flex gap-2">
-                                            <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setShowPollCreator(!showPollCreator)}>
-                                                <Vote className="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="destructive" size="icon" className="h-7 w-7" onClick={resetUploader}>
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div 
-                                        className="w-full h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted"
-                                        onClick={() => mediaInputRef.current?.click()}
-                                    >
-                                        <Camera className="h-10 w-10 text-muted-foreground mb-2" />
-                                        <p className="text-muted-foreground">Click to upload image or video</p>
-                                        <Input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/*" className="hidden" />
-                                    </div>
-                                )}
-                                
-                                {mediaPreview && (
-                                    <div className="space-y-4">
-                                        {mediaType === 'image' && (
-                                          <div>
-                                              <Label className="text-xs text-muted-foreground">Filters</Label>
-                                              <ScrollArea className="w-full whitespace-nowrap">
-                                                  <div className="flex space-x-2 pb-2">
-                                                      {photoFilters.map(filter => (
-                                                          <div key={filter.name} onClick={() => setSelectedFilter(filter.style)} className="text-center cursor-pointer">
-                                                              <Image src={mediaPreview} alt={filter.name} width={60} height={60} className={cn("rounded-md object-cover w-16 h-16 border-2 transition-all", selectedFilter === filter.style ? 'border-primary' : 'border-transparent', filter.style)} />
-                                                              <p className="text-xs mt-1">{filter.name}</p>
-                                                          </div>
-                                                      ))}
-                                                  </div>
-                                                  <ScrollBar orientation="horizontal" />
-                                              </ScrollArea>
-                                          </div>
-                                        )}
-
-                                        <Input type="text" placeholder="Add a caption..." value={textOverlay} onChange={(e) => setTextOverlay(e.target.value)} maxLength={100} />
-                                        
-                                        {mediaType === 'image' && (
-                                        <Button variant="outline" size="sm" onClick={handleGenerateCaptions} disabled={isGeneratingCaptions}>
-                                            {isGeneratingCaptions ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Wand2 className="h-4 w-4 mr-2" />}
-                                            Generate AI Captions
-                                        </Button>
-                                        )}
-                                        
-                                        {suggestedCaptions.length > 0 && (
-                                            <div className="flex flex-wrap gap-2">
-                                                {suggestedCaptions.map((caption, i) => (
-                                                    <Button key={i} size="sm" variant="secondary" onClick={() => setTextOverlay(caption)}>{caption}</Button>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {showPollCreator && (
-                                            <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
-                                                <Label>Create a Poll</Label>
-                                                <Input placeholder="Poll Question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
-                                                <div className="flex gap-2">
-                                                    <Input placeholder="Option 1" value={pollOption1} onChange={e => setPollOption1(e.target.value)} />
-                                                    <Input placeholder="Option 2" value={pollOption2} onChange={e => setPollOption2(e.target.value)} />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div>
-                                            <Label htmlFor="expiry-select">Set Expiry Duration</Label>
-                                            <Select value={expiryDuration} onValueChange={setExpiryDuration}>
-                                                <SelectTrigger id="expiry-select" className="w-[180px]">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="3">3 Hours</SelectItem>
-                                                    <SelectItem value="6">6 Hours</SelectItem>
-                                                    <SelectItem value="12">12 Hours</SelectItem>
-                                                    <SelectItem value="24">24 Hours</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </ScrollArea>
-                         <DialogFooter>
-                            <Button variant="outline" onClick={() => handleMediaSubmit('draft')} disabled={!mediaFile || isSubmitting}>Save as Draft</Button>
-                            <Button onClick={() => handleMediaSubmit('published')} disabled={!mediaFile || isSubmitting}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                                Publish Status
-                            </Button>
-                        </DialogFooter>
-                    </TabsContent>
-                     <TabsContent value="song" className="px-6">
-                        <div className="py-4 space-y-4">
-                            <SongSearch
-                                onSongSelect={(song) => {
-                                    setSpotifyUrl(`https://open.spotify.com/track/${song.id}`);
-                                    setSongLyricSnippet(null);
-                                }}
-                                onLyricSelect={setSongLyricSnippet}
-                            />
-                            {spotifyUrl && songLyricSnippet && (
-                                <div className="p-3 bg-muted rounded-md text-center">
-                                    <p className="text-sm font-semibold italic text-foreground/80">"{songLyricSnippet}"</p>
-                                </div>
-                            )}
-                        </div>
-                        <DialogFooter>
-                            <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !spotifyUrl.trim()}>
-                                Save as Draft
-                            </Button>
-                            <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !spotifyUrl.trim()}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                                Post Song
-                            </Button>
-                        </DialogFooter>
-                    </TabsContent>
-                    <TabsContent value="manage" className="px-6">
-                         <ScrollArea className="h-96">
-                            <div className="space-y-2 p-1">
-                                {managedStatuses.length > 0 ? managedStatuses.map(item => (
-                                    <Card key={item.id} className={cn("flex items-center p-2", item.isTrashed && "opacity-60")}>
-                                        {item.mediaUrl ? (
-                                             <Image src={item.mediaUrl} alt="Status item" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
-                                        ): (
-                                            <div className="w-[60px] h-[60px] flex items-center justify-center bg-muted rounded-md mr-3 text-2xl">📝</div>
-                                        )}
-                                        <div className="flex-1">
-                                            <p className="text-sm truncate">{item.textOverlay || item.note || "No caption"}</p>
-                                            <p className="text-xs font-semibold text-destructive">{item.isTrashed ? "In Trash" : "Draft"}</p>
-                                        </div>
-                                        <div className="flex gap-1">
-                                            {item.isTrashed ? (
-                                                <>
-                                                    <Button size="sm" variant="outline" onClick={() => handleRestoreFromTrash(item.id)}><RotateCcw className="h-4 w-4"/></Button>
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader><AlertDialogTitle>Delete Forever?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                                                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromTrash(item.id)}>Delete</AlertDialogAction></AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Button size="sm" variant="outline" onClick={() => handlePublishDraft(item.id)}>Publish</Button>
-                                                    <Button size="sm" variant="destructive" onClick={() => handleDeleteDraft(item.id)}><Trash2 className="h-4 w-4" /></Button>
-                                                </>
-                                            )}
-                                        </div>
-                                    </Card>
-                                )) : <p className="text-center text-muted-foreground py-10">No drafts or trashed items.</p>}
-                            </div>
-                        </ScrollArea>
-                    </TabsContent>
-                </Tabs>
+            <DialogContent className="p-0 m-0 bg-background border-0 w-screen h-screen max-w-full sm:max-w-md sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
+                {uploaderScreen === 'picker' ? renderPickerScreen() : renderEditorScreen()}
             </DialogContent>
         </Dialog>
 
@@ -727,3 +736,5 @@ export default function StatusFeature() {
     </>
   );
 }
+
+    
