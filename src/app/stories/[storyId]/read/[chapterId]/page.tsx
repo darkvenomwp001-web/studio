@@ -50,10 +50,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { BubbleMenu, EditorContent, useEditor } from '@tiptap/react'
+import { BubbleMenu, Editor, EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
-import Highlight from '@tiptap/extension-highlight'
+import TiptapUnderline from '@tiptap/extension-underline'
+import TiptapHighlight from '@tiptap/extension-highlight'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 
@@ -96,13 +96,15 @@ export default function StoryReaderPage() {
   const viewIncrementedRef = useRef(false);
 
   const editor = useEditor({
-    editable: true, // Set to true to allow bubble menu commands
+    editable: true, 
     editorProps: {
-      handleTextInput: () => true, // Prevent typing
-      handlePaste: () => true, // Prevent pasting
-      handleDrop: () => true, // Prevent dropping
+      attributes: {
+        class: 'focus:outline-none',
+      },
+      handleTextInput: () => true,
+      handlePaste: () => true,
+      handleDrop: () => true,
       handleKeyDown: (view, event) => {
-        // Allow selection and copy, but prevent all other input
         if (event.ctrlKey || event.metaKey) {
           if (['c', 'a'].includes(event.key.toLowerCase())) {
             return false;
@@ -114,8 +116,8 @@ export default function StoryReaderPage() {
     content: '',
     extensions: [
       StarterKit,
-      Underline,
-      Highlight.configure({ multicolor: true }),
+      TiptapUnderline,
+      TiptapHighlight.configure({ multicolor: true }),
     ],
   });
 
@@ -524,7 +526,6 @@ export default function StoryReaderPage() {
       >
         <div ref={contentRef} className="min-h-[calc(100vh-10rem)]" onClick={(e) => {
              const target = e.target as HTMLElement;
-            // Toggle controls if clicking on the main background, but not on text content itself
             if (!editor?.isFocused && target.closest('.ProseMirror') === null) {
                 toggleMainControls();
             }
@@ -545,7 +546,16 @@ export default function StoryReaderPage() {
                                </div>
                             </PopoverContent>
                         </Popover>
-                        <Button variant="ghost" size="icon" onClick={() => router.push(`/stories/${storyId}/read/${chapterIdParams}/comments`)} title="Comment on Selection">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                                const { from, to } = editor.state.selection;
+                                const selectedText = editor.state.doc.textBetween(from, to, ' ');
+                                router.push(`/stories/${storyId}/read/${chapterIdParams}/comments?quote=${encodeURIComponent(selectedText)}`);
+                            }}
+                            title="Comment on Selection"
+                        >
                             <MessageSquare className="h-5 w-5" />
                         </Button>
                     </div>
@@ -638,7 +648,6 @@ export default function StoryReaderPage() {
       </footer>
     </div>
     <div className="hidden md:block">
-      {/* This ensures the BottomNav is not rendered on desktop for this page */}
     </div>
     <div className="md:hidden">
        <BottomNavigationBar />

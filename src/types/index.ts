@@ -85,10 +85,11 @@ export interface Comment {
   user: UserSummary;
   storyId: string;
   chapterId: string;
-  content: string; // Changed from text
+  content: string; 
   timestamp: any; // Can be serverTimestamp or Timestamp
   parentId?: string | null;
   likes?: number;
+  quote?: string;
 }
 
 export interface ReadingListItem {

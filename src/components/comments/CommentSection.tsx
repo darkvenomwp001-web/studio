@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
@@ -172,7 +173,12 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
             </div>
           </div>
         ) : (
-          <p className="text-sm text-foreground/90 mt-1 whitespace-pre-line">{comment.content}</p>
+            <div className="mt-1">
+                {comment.quote && (
+                    <blockquote className="border-l-2 pl-2 text-xs italic text-muted-foreground mb-1">"{comment.quote}"</blockquote>
+                )}
+                <p className="text-sm text-foreground/90 whitespace-pre-line">{comment.content}</p>
+            </div>
         )}
 
         {!isEditing && (
@@ -245,9 +251,10 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
 interface CommentSectionProps {
   storyId: string;
   chapterId: string;
+  quote?: string;
 }
 
-export default function CommentSection({ storyId, chapterId }: CommentSectionProps) {
+export default function CommentSection({ storyId, chapterId, quote }: CommentSectionProps) {
   const { user: currentUser, loading: authLoading } = useAuth();
   const [newComment, setNewComment] = useState('');
   const [allComments, setAllComments] = useState<CommentType[]>([]);
@@ -298,7 +305,7 @@ export default function CommentSection({ storyId, chapterId }: CommentSectionPro
     if (!currentUser || newComment.trim() === '' || !storyId || !chapterId) return;
 
     setIsPostingComment(true);
-    const commentData: Omit<CommentType, 'id'> = {
+    const commentData: Omit<CommentType, 'id'> & { quote?: string } = {
       user: { 
         id: currentUser.id, 
         username: currentUser.username, 
@@ -313,6 +320,10 @@ export default function CommentSection({ storyId, chapterId }: CommentSectionPro
       likes: 0,
     };
     
+    if (quote && !replyingTo) {
+      commentData.quote = quote;
+    }
+
     try {
       await addDoc(collection(db, 'comments'), commentData);
       setNewComment('');
@@ -365,7 +376,7 @@ export default function CommentSection({ storyId, chapterId }: CommentSectionPro
                 <div className="relative">
                     <Textarea
                         id="comment-textarea"
-                        placeholder={replyingTo ? `Replying to ${replyingTo.username}...` : "Add a comment..."}
+                        placeholder={replyingTo ? `Replying to ${replyingTo.username}...` : (quote ? "Commenting on quote..." : "Add a comment...")}
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         className="min-h-[40px] bg-background border-border focus-visible:ring-primary rounded-xl pr-10"

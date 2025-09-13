@@ -1,11 +1,12 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import CommentSection from '@/components/comments/CommentSection';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, Quote } from 'lucide-react';
 import type { Story, Chapter } from '@/types';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -14,10 +15,12 @@ import { useToast } from '@/hooks/use-toast';
 export default function CommentsPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { toast } = useToast();
 
     const storyId = Array.isArray(params.storyId) ? params.storyId[0] : params.storyId;
     const chapterId = Array.isArray(params.chapterId) ? params.chapterId[0] : params.chapterId;
+    const quote = searchParams.get('quote');
 
     const [story, setStory] = useState<Story | null>(null);
     const [chapter, setChapter] = useState<Chapter | null>(null);
@@ -81,9 +84,15 @@ export default function CommentsPage() {
                         <p className="text-muted-foreground">Comments for chapter in "{story.title}"</p>
                     </>
                 )}
+                 {quote && (
+                    <blockquote className="mt-4 border-l-4 pl-4 italic text-muted-foreground flex gap-2">
+                        <Quote className="h-5 w-5 flex-shrink-0" />
+                        <span className="line-clamp-3">"{quote}"</span>
+                    </blockquote>
+                )}
             </header>
             
-            <CommentSection storyId={storyId} chapterId={chapterId} />
+            <CommentSection storyId={storyId} chapterId={chapterId} quote={quote || undefined} />
         </div>
     );
 }
