@@ -38,23 +38,25 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
       className="relative text-center flex-shrink-0 w-20 cursor-pointer group"
       onClick={() => onSelect(user)}
     >
-      {isNote && (
-        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-max max-w-[150px] mb-2 z-20">
-            <div className="bg-muted px-2.5 py-1.5 rounded-lg shadow-md">
-                <p className="text-xs text-foreground truncate">{latestStatus.note}</p>
-                 {latestStatus.spotifyUrl && <Music className="h-3 w-3 text-muted-foreground mx-auto mt-0.5" />}
-            </div>
-             <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-[5px] border-t-muted"></div>
+      <div className="relative w-16 h-16 mx-auto group-hover:scale-110 transition-transform duration-200">
+         <div className={cn(
+            "w-16 h-16 p-0.5 rounded-full",
+            !isNote && "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500"
+        )}>
+            <Avatar className="w-full h-full border-2 border-background">
+            <AvatarImage src={user.avatarUrl} data-ai-hint="profile person" />
+            <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
+            </Avatar>
         </div>
-      )}
-      <div className={cn(
-          "w-16 h-16 p-0.5 rounded-full mx-auto group-hover:scale-110 transition-all",
-          !isNote && "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500"
-      )}>
-        <Avatar className="w-full h-full border-2 border-background">
-          <AvatarImage src={user.avatarUrl} data-ai-hint="profile person" />
-          <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
-        </Avatar>
+         {isNote && (
+            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-max max-w-[150px] mb-2 z-20">
+                <div className="bg-muted px-2.5 py-1.5 rounded-lg shadow-md">
+                    <p className="text-xs text-foreground truncate">{latestStatus.note}</p>
+                    {latestStatus.spotifyUrl && <Music className="h-3 w-3 text-muted-foreground mx-auto mt-0.5" />}
+                </div>
+                <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-[5px] border-t-muted"></div>
+            </div>
+        )}
       </div>
       <p className="text-xs mt-1 truncate">{user.displayName || user.username}</p>
     </div>
@@ -452,13 +454,15 @@ export default function StatusFeature() {
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-start space-x-4 px-4">
            <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={() => setIsUploaderOpen(true)}>
-             <Avatar className="w-16 h-16 mx-auto border-2 border-dashed border-border p-0.5 group-hover:border-primary transition-colors">
-                <AvatarImage src={user.avatarUrl} className="opacity-50 group-hover:opacity-70 transition-opacity" />
-                <AvatarFallback>{user.username?.substring(0,1).toUpperCase()}</AvatarFallback>
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
-                    <Plus className="h-6 w-6 text-white" />
+             <div className="relative w-16 h-16 mx-auto">
+                <Avatar className="w-full h-full border-2 border-border group-hover:border-primary/50 transition-colors">
+                    <AvatarImage src={user.avatarUrl} className="group-hover:opacity-80 transition-opacity" />
+                    <AvatarFallback>{user.username?.substring(0,1).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-card">
+                    <Plus className="h-4 w-4 text-primary-foreground" />
                 </div>
-             </Avatar>
+             </div>
              <p className="text-xs mt-1 truncate">Your Status</p>
            </div>
 
