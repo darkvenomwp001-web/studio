@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -453,11 +454,7 @@ export default function StatusFeature() {
   
   const renderPickerScreen = () => (
     <>
-      <DialogHeader className="px-6 pt-6">
-        <DialogTitle>Create Status</DialogTitle>
-        <DialogDescription>Share a quick update with your followers. It will disappear after 24 hours.</DialogDescription>
-      </DialogHeader>
-      <Tabs defaultValue={uploaderDefaultTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col">
+      <Tabs defaultValue={uploaderDefaultTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
         <TabsList className="grid w-full grid-cols-4 mx-auto sticky top-0 px-6">
           <TabsTrigger value="note">Note</TabsTrigger>
           <TabsTrigger value="media">Media</TabsTrigger>
