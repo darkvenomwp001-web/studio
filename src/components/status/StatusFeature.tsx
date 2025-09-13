@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -48,7 +49,7 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
             </Avatar>
         </div>
          {isNote && (
-            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-max max-w-[150px] mb-2 z-20">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full w-max max-w-[150px] mb-2 z-[60]">
                 <div className="bg-muted px-2.5 py-1.5 rounded-lg shadow-md">
                     <p className="text-xs text-foreground truncate">{latestStatus.note}</p>
                     {latestStatus.spotifyUrl && <Music className="h-3 w-3 text-muted-foreground mx-auto mt-0.5" />}
@@ -452,11 +453,11 @@ export default function StatusFeature() {
   
   const renderPickerScreen = () => (
     <>
+      <DialogHeader className="sr-only">
+        <DialogTitle>Create Status</DialogTitle>
+        <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
+      </DialogHeader>
       <Tabs defaultValue={uploaderDefaultTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
-         <DialogHeader className="sr-only">
-            <DialogTitle>Create Status</DialogTitle>
-            <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
-        </DialogHeader>
         <TabsList className="grid w-full grid-cols-4 mx-auto sticky top-0 px-6">
           <TabsTrigger value="note">Note</TabsTrigger>
           <TabsTrigger value="media">Media</TabsTrigger>
@@ -673,9 +674,9 @@ export default function StatusFeature() {
   );
   
   return (
-    <>
+    <div className='py-4'>
       <ScrollArea className="w-full whitespace-nowrap">
-        <div className="flex items-start space-x-4">
+        <div className="flex items-start space-x-4 px-4">
            <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={() => handleOpenUploader('media')}>
              <div className="relative w-16 h-16 mx-auto">
                 <Avatar className="w-full h-full border-2 border-border group-hover:border-primary/50 transition-colors">
@@ -714,10 +715,6 @@ export default function StatusFeature() {
 
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
             <DialogContent className="p-0 m-0 bg-transparent border-0 w-screen h-screen max-w-full sm:max-w-md sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
-                <div className="sr-only">
-                    <DialogTitle>Create Status</DialogTitle>
-                    <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
-                </div>
                 {uploaderScreen === 'picker' ? renderPickerScreen() : renderEditorScreen()}
             </DialogContent>
         </Dialog>
@@ -732,6 +729,6 @@ export default function StatusFeature() {
         onStatusArchived={onStatusArchived}
         onOpenUploader={handleOpenUploader}
       />
-    </>
+    </div>
   );
 }

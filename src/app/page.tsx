@@ -1,3 +1,4 @@
+
 'use client'; 
 
 import Link from 'next/link';
@@ -340,7 +341,7 @@ export default function HomePage() {
     <>
       <Header />
       <main className="flex-1 container mx-auto px-4 pb-24 md:pb-8">
-        <section className="mb-4">
+        <section>
           <StatusFeature />
         </section>
         
