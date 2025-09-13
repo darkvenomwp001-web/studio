@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil, RefreshCw } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import type { Story, UserSummary, Prompt } from '@/types';
-import { useEffect, useState, FormEvent, useRef } from 'react';
+import { useEffect, useState, FormEvent, useRef, useTransition } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -261,6 +261,15 @@ function ForYouTabContent() {
 
 function ThreadsTabContent() {
     const { user, loading } = useAuth();
+    const [isRefreshing, startRefreshTransition] = useTransition();
+
+    const handleRefresh = () => {
+        startRefreshTransition(() => {
+            // In a real app, you'd re-fetch data here.
+            // For now, we just simulate a delay.
+            return new Promise(resolve => setTimeout(resolve, 500));
+        });
+    }
 
     if (loading) {
         return (
@@ -283,6 +292,12 @@ function ThreadsTabContent() {
     return (
         <div className="py-8 max-w-2xl mx-auto space-y-8">
             <CreatePostForm user={user} />
+            <div className="flex justify-center">
+                <Button onClick={handleRefresh} variant="outline" size="sm" disabled={isRefreshing}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    {isRefreshing ? 'Refreshing...' : 'Refresh Feed'}
+                </Button>
+            </div>
             <HomeFeed user={user} />
         </div>
     );

@@ -116,7 +116,7 @@ body.night-portal {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
    /* Custom prose styles for tighter paragraph spacing */
