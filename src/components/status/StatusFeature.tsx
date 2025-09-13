@@ -70,6 +70,15 @@ const photoFilters = [
     { name: 'Vibrant', style: 'filter-saturate-200' },
 ] as const;
 
+// Mock data for song search
+const mockSongs = [
+    { id: '4cOdK2wGLETOMsVCDgM5tZ', title: 'drivers license', artist: 'Olivia Rodrigo', cover: 'https://i.scdn.co/image/ab67616d00004851a9792496273434e447545367' },
+    { id: '1iIhYk1kGat5o3F1Isr6iG', title: 'positions', artist: 'Ariana Grande', cover: 'https://i.scdn.co/image/ab67616d00004851ab2523a6f3b0632617e97f5d'},
+    { id: '5QO79kh1waicV47BqGRL3g', title: 'Save Your Tears', artist: 'The Weeknd', cover: 'https://i.scdn.co/image/ab67616d00004851e33335b868a253381a17b258'},
+    { id: '7qEHsqek33rTcFNT9PFqLf', title: 'Blinding Lights', artist: 'The Weeknd', cover: 'https://i.scdn.co/image/ab67616d00004851e33335b868a253381a17b258'},
+    { id: '27OeeYzk6klgBh8ZJvpiMX', title: 'good 4 u', artist: 'Olivia Rodrigo', cover: 'https://i.scdn.co/image/ab67616d00004851a9792496273434e447545367' },
+];
+
 export default function StatusFeature() {
   const { user, loading: authLoading } = useAuth();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
@@ -91,11 +100,10 @@ export default function StatusFeature() {
   const [pollOption2, setPollOption2] = useState('');
 
   const [noteContent, setNoteContent] = useState('');
+  
   const [spotifyUrl, setSpotifyUrl] = useState('');
-  const [showSpotifyInput, setShowSpotifyInput] = useState(false);
-
-  const [prompt, setPrompt] = useState('What book character would you want to have dinner with?');
-  const [promptResponse, setPromptResponse] = useState('');
+  const [songSearchTerm, setSongSearchTerm] = useState('');
+  const [songSearchResults, setSongSearchResults] = useState(mockSongs);
   
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [selectedUserForViewing, setSelectedUserForViewing] = useState<User | null>(null);
@@ -110,7 +118,7 @@ export default function StatusFeature() {
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(true);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   
-  const [uploaderDefaultTab, setUploaderDefaultTab] = useState('notes');
+  const [uploaderDefaultTab, setUploaderDefaultTab] = useState('note');
 
   const { toast } = useToast();
 
@@ -210,7 +218,8 @@ export default function StatusFeature() {
     setTextOverlay('');
     setNoteContent('');
     setSpotifyUrl('');
-    setShowSpotifyInput(false);
+    setSongSearchTerm('');
+    setSongSearchResults(mockSongs);
     setShowPollCreator(false);
     setPollQuestion('');
     setPollOption1('');
@@ -218,7 +227,6 @@ export default function StatusFeature() {
     setSuggestedCaptions([]);
     setSelectedFilter('filter-none');
     setExpiryDuration('24');
-    setPromptResponse('');
   }
   
   const handleTabChange = (value: string) => {
@@ -300,26 +308,25 @@ export default function StatusFeature() {
 
 
   const handleNoteSubmit = async (status: 'published' | 'draft') => {
-    if (!noteContent.trim() && !spotifyUrl.trim()) {
-        toast({ title: "Note is empty", description: "Please write a note or add a song.", variant: "destructive" });
+    if (!noteContent.trim()) {
+        toast({ title: "Note is empty", description: "Please write a note.", variant: "destructive" });
         return;
     }
-    const data: Record<string, any> = {};
-    if (noteContent.trim()) data.note = noteContent.trim();
-    if (spotifyUrl.trim()) data.spotifyUrl = spotifyUrl.trim();
+    const data: Record<string, any> = { note: noteContent.trim() };
     await handleSubmit(status, data);
   };
   
-  const handlePromptSubmit = async (status: 'published' | 'draft') => {
-    if (!promptResponse.trim()) {
-        toast({ title: "Response is empty", variant: "destructive" });
+  const handleSongSubmit = async (status: 'published' | 'draft') => {
+      if (!spotifyUrl.trim()) {
+        toast({ title: "No song selected", variant: "destructive" });
         return;
-    }
-    const data: Record<string, any> = {
-        note: `Q: ${prompt}\nA: ${promptResponse.trim()}`
-    };
-    await handleSubmit(status, data);
-  };
+      }
+      const data: Record<string, any> = {
+          spotifyUrl,
+          note: noteContent.trim() || ''
+      };
+      await handleSubmit(status, data);
+  }
 
   const handleMediaSubmit = async (status: 'published' | 'draft') => {
     if (!mediaFile) return;
@@ -493,12 +500,13 @@ export default function StatusFeature() {
                     <DialogDescription>Share a quick update with your followers.</DialogDescription>
                 </DialogHeader>
                  <Tabs defaultValue={uploaderDefaultTab} value={uploaderDefaultTab} onValueChange={(value) => { setUploaderDefaultTab(value); handleTabChange(value);}} className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="notes">Note</TabsTrigger>
-                        <TabsTrigger value="upload">Media</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="note">Note</TabsTrigger>
+                        <TabsTrigger value="media">Media</TabsTrigger>
+                        <TabsTrigger value="song">Song</TabsTrigger>
                         <TabsTrigger value="manage">Manage</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="notes">
+                    <TabsContent value="note">
                         <div className="py-4 space-y-4">
                             <Textarea
                                 id="note-content"
@@ -507,26 +515,7 @@ export default function StatusFeature() {
                                 onChange={e => setNoteContent(e.target.value)}
                                 className="min-h-[120px] text-base bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
                             />
-                            {showSpotifyInput && (
-                                <div className="flex items-center gap-2 animate-in fade-in duration-300">
-                                    <Music className="h-5 w-5 text-muted-foreground" />
-                                    <Input 
-                                        id="spotify-url" 
-                                        placeholder="Paste a Spotify track link" 
-                                        value={spotifyUrl} 
-                                        onChange={e => setSpotifyUrl(e.target.value)} 
-                                    />
-                                </div>
-                            )}
-
-                            {spotifyUrl && <div className="animate-in fade-in duration-300"><SpotifyPlayer trackUrl={spotifyUrl} /></div>}
-
-                            <div className="border-t pt-3 flex justify-between items-center">
-                                 <div className="flex items-center">
-                                    <Button variant="ghost" size="icon" title="Add Song" onClick={() => setShowSpotifyInput(!showSpotifyInput)}>
-                                        <Music className={cn("h-5 w-5", showSpotifyInput ? "text-primary" : "text-muted-foreground")} />
-                                    </Button>
-                                 </div>
+                            <div className="border-t pt-3 flex justify-end items-center">
                                   <Select value={expiryDuration} onValueChange={setExpiryDuration}>
                                     <SelectTrigger className="w-[150px]">
                                         <SelectValue />
@@ -541,16 +530,16 @@ export default function StatusFeature() {
                             </div>
                         </div>
                          <DialogFooter>
-                            <Button variant="ghost" onClick={() => handleNoteSubmit('draft')} disabled={isSubmitting || (!noteContent.trim() && !spotifyUrl.trim())}>
+                            <Button variant="ghost" onClick={() => handleNoteSubmit('draft')} disabled={isSubmitting || !noteContent.trim()}>
                                 Save as Draft
                             </Button>
-                            <Button onClick={() => handleNoteSubmit('published')} disabled={isSubmitting || (!noteContent.trim() && !spotifyUrl.trim())}>
+                            <Button onClick={() => handleNoteSubmit('published')} disabled={isSubmitting || !noteContent.trim()}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                 Post Note
                             </Button>
                         </DialogFooter>
                     </TabsContent>
-                    <TabsContent value="upload">
+                    <TabsContent value="media">
                         <ScrollArea className="max-h-[60vh] pr-4">
                             <div className="py-4 space-y-4">
                                 {mediaPreview ? (
@@ -660,6 +649,59 @@ export default function StatusFeature() {
                             </Button>
                         </DialogFooter>
                     </TabsContent>
+                     <TabsContent value="song">
+                        <div className="py-4 space-y-4">
+                            <Input 
+                                placeholder="Search for a song or artist..." 
+                                value={songSearchTerm}
+                                onChange={(e) => {
+                                    setSongSearchTerm(e.target.value);
+                                    // Mock search filtering
+                                    const filtered = mockSongs.filter(song => 
+                                        song.title.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                                        song.artist.toLowerCase().includes(e.target.value.toLowerCase())
+                                    );
+                                    setSongSearchResults(filtered);
+                                }}
+                            />
+                            {spotifyUrl && <div className="animate-in fade-in duration-300"><SpotifyPlayer trackUrl={spotifyUrl} /></div>}
+
+                            <ScrollArea className="h-60">
+                                <div className="space-y-2 pr-4">
+                                {songSearchResults.map(song => (
+                                    <div 
+                                        key={song.id} 
+                                        className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-muted"
+                                        onClick={() => setSpotifyUrl(`https://open.spotify.com/track/${song.id}`)}
+                                    >
+                                        <Image src={song.cover} alt={song.title} width={40} height={40} className="rounded-sm" />
+                                        <div className="flex-1">
+                                            <p className="font-semibold text-sm truncate">{song.title}</p>
+                                            <p className="text-xs text-muted-foreground">{song.artist}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {songSearchTerm && songSearchResults.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">No songs found.</p>}
+                                </div>
+                            </ScrollArea>
+                             <Textarea
+                                id="song-note-content"
+                                placeholder={`Add a note... (optional)`}
+                                value={noteContent}
+                                onChange={e => setNoteContent(e.target.value)}
+                                className="min-h-[60px] text-base bg-transparent border rounded-md p-2"
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !spotifyUrl.trim()}>
+                                Save as Draft
+                            </Button>
+                            <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !spotifyUrl.trim()}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                Post Song
+                            </Button>
+                        </DialogFooter>
+                    </TabsContent>
                     <TabsContent value="manage">
                          <ScrollArea className="h-96">
                             <div className="space-y-2 p-1">
@@ -719,6 +761,7 @@ export default function StatusFeature() {
     
 
     
+
 
 
 
