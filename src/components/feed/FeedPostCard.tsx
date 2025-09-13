@@ -7,11 +7,12 @@ import Image from 'next/image';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle } from 'lucide-react';
+import { Heart, MessageCircle, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { toggleLikePost } from '@/app/actions/feedActions';
+import SpotifyPlayer from '../shared/SpotifyPlayer';
 
 interface FeedPostCardProps {
   post: FeedPost;
@@ -39,8 +40,8 @@ export default function FeedPostCard({ post, currentUser }: FeedPostCardProps) {
 
   return (
     <Card className="w-full">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3 mb-3">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-3">
           <Link href={`/profile/${post.author.id}`}>
             <Avatar className="h-10 w-10">
               <AvatarImage src={post.author.avatarUrl} alt={post.author.displayName} data-ai-hint="profile person" />
@@ -58,19 +59,30 @@ export default function FeedPostCard({ post, currentUser }: FeedPostCardProps) {
         </div>
 
         {post.content && (
-            <p className="text-foreground/90 whitespace-pre-line mb-3">
+            <p className="text-foreground/90 whitespace-pre-line">
             {post.content}
             </p>
         )}
 
         {post.imageUrl && (
-            <div className="my-3 rounded-lg overflow-hidden border">
+            <div className="rounded-lg overflow-hidden border">
                 <Image src={post.imageUrl} alt="Post image" width={500} height={500} className="w-full h-auto object-contain" />
             </div>
         )}
+        
+        {post.songUrl && (
+          <div className="space-y-2">
+            {post.songLyricSnippet && (
+              <blockquote className="border-l-2 pl-3 italic text-sm text-muted-foreground">
+                "{post.songLyricSnippet}"
+              </blockquote>
+            )}
+            <SpotifyPlayer trackUrl={post.songUrl} />
+          </div>
+        )}
 
         {post.storyId && post.storyTitle && (
-          <Link href={`/stories/${post.storyId}`} className="block mt-2">
+          <Link href={`/stories/${post.storyId}`} className="block">
             <div className="border rounded-lg flex items-center gap-3 p-2 hover:bg-muted/50 transition-colors">
               <Image
                 src={post.storyCoverUrl || 'https://placehold.co/512x800.png'}

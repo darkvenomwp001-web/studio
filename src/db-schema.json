@@ -105,6 +105,8 @@
           "content": { "type": "string", "description": "Text content of the post." },
           "imageUrl": { "type": "string", "description": "URL of an image attached to the post." },
           "storyId": { "type": "string", "description": "ID of a story attached to the post.", "reference": "stories" },
+          "songUrl": { "type": "string", "description": "A URL to a song (e.g., Spotify)." },
+          "songLyricSnippet": { "type": "string", "description": "A selected snippet of lyrics from the shared song." },
           "likesCount": { "type": "number", "description": "Total number of likes." },
           "likedBy": { "type": "array", "description": "Array of user IDs who liked the post." },
           "timestamp": { "type": "timestamp", "description": "When the post was created." }
@@ -118,6 +120,7 @@
           "mediaType": { "type": "string", "description": "'image' or 'video'." },
           "note": { "type": "string", "description": "A short text note, an alternative to media." },
           "spotifyUrl": { "type": "string", "description": "A link to a Spotify track." },
+          "songLyricSnippet": { "type": "string", "description": "A selected snippet of lyrics from the shared song." },
           "textOverlay": { "type": "string", "description": "A caption displayed on top of media." },
           "poll": { "type": "map", "description": "A poll attached to the status." },
           "status": { "type": "string", "description": "'published' or 'draft'." },

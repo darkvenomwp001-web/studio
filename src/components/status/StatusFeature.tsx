@@ -1,10 +1,9 @@
 
-
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StatusUpdate, Poll } from '@/types';
+import type { User, StatusUpdate, Poll, Story } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -26,6 +25,7 @@ import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import StatusViewer from './StatusViewer';
 import { Textarea } from '../ui/textarea';
+import SongSearch from './SongSearch';
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
@@ -70,14 +70,6 @@ const photoFilters = [
     { name: 'Vibrant', style: 'filter-saturate-200' },
 ] as const;
 
-// Mock data for song search
-const mockSongs = [
-    { id: '4cOdK2wGLETOMsVCDgM5tZ', title: 'drivers license', artist: 'Olivia Rodrigo', cover: 'https://i.scdn.co/image/ab67616d00004851a9792496273434e447545367' },
-    { id: '1iIhYk1kGat5o3F1Isr6iG', title: 'positions', artist: 'Ariana Grande', cover: 'https://i.scdn.co/image/ab67616d00004851ab2523a6f3b0632617e97f5d'},
-    { id: '5QO79kh1waicV47BqGRL3g', title: 'Save Your Tears', artist: 'The Weeknd', cover: 'https://i.scdn.co/image/ab67616d00004851e33335b868a253381a17b258'},
-    { id: '7qEHsqek33rTcFNT9PFqLf', title: 'Blinding Lights', artist: 'The Weeknd', cover: 'https://i.scdn.co/image/ab67616d00004851e33335b868a253381a17b258'},
-    { id: '27OeeYzk6klgBh8ZJvpiMX', title: 'good 4 u', artist: 'Olivia Rodrigo', cover: 'https://i.scdn.co/image/ab67616d00004851a9792496273434e447545367' },
-];
 
 export default function StatusFeature() {
   const { user, loading: authLoading } = useAuth();
@@ -102,8 +94,7 @@ export default function StatusFeature() {
   const [noteContent, setNoteContent] = useState('');
   
   const [spotifyUrl, setSpotifyUrl] = useState('');
-  const [songSearchTerm, setSongSearchTerm] = useState('');
-  const [songSearchResults, setSongSearchResults] = useState(mockSongs);
+  const [songLyricSnippet, setSongLyricSnippet] = useState<string | null>(null);
   
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [selectedUserForViewing, setSelectedUserForViewing] = useState<User | null>(null);
@@ -218,8 +209,7 @@ export default function StatusFeature() {
     setTextOverlay('');
     setNoteContent('');
     setSpotifyUrl('');
-    setSongSearchTerm('');
-    setSongSearchResults(mockSongs);
+    setSongLyricSnippet(null);
     setShowPollCreator(false);
     setPollQuestion('');
     setPollOption1('');
@@ -323,7 +313,8 @@ export default function StatusFeature() {
       }
       const data: Record<string, any> = {
           spotifyUrl,
-          note: noteContent.trim() || ''
+          note: noteContent.trim() || '',
+          songLyricSnippet: songLyricSnippet || '',
       };
       await handleSubmit(status, data);
   }
@@ -651,46 +642,18 @@ export default function StatusFeature() {
                     </TabsContent>
                      <TabsContent value="song">
                         <div className="py-4 space-y-4">
-                            <Input 
-                                placeholder="Search for a song or artist..." 
-                                value={songSearchTerm}
-                                onChange={(e) => {
-                                    setSongSearchTerm(e.target.value);
-                                    // Mock search filtering
-                                    const filtered = mockSongs.filter(song => 
-                                        song.title.toLowerCase().includes(e.target.value.toLowerCase()) ||
-                                        song.artist.toLowerCase().includes(e.target.value.toLowerCase())
-                                    );
-                                    setSongSearchResults(filtered);
+                            <SongSearch
+                                onSongSelect={(song) => {
+                                    setSpotifyUrl(`https://open.spotify.com/track/${song.id}`);
+                                    setSongLyricSnippet(null);
                                 }}
+                                onLyricSelect={setSongLyricSnippet}
                             />
-                            {spotifyUrl && <div className="animate-in fade-in duration-300"><SpotifyPlayer trackUrl={spotifyUrl} /></div>}
-
-                            <ScrollArea className="h-60">
-                                <div className="space-y-2 pr-4">
-                                {songSearchResults.map(song => (
-                                    <div 
-                                        key={song.id} 
-                                        className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-muted"
-                                        onClick={() => setSpotifyUrl(`https://open.spotify.com/track/${song.id}`)}
-                                    >
-                                        <Image src={song.cover} alt={song.title} width={40} height={40} className="rounded-sm" />
-                                        <div className="flex-1">
-                                            <p className="font-semibold text-sm truncate">{song.title}</p>
-                                            <p className="text-xs text-muted-foreground">{song.artist}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                                {songSearchTerm && songSearchResults.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">No songs found.</p>}
+                            {spotifyUrl && songLyricSnippet && (
+                                <div className="p-3 bg-muted rounded-md text-center">
+                                    <p className="text-sm font-semibold italic text-foreground/80">"{songLyricSnippet}"</p>
                                 </div>
-                            </ScrollArea>
-                             <Textarea
-                                id="song-note-content"
-                                placeholder={`Add a note... (optional)`}
-                                value={noteContent}
-                                onChange={e => setNoteContent(e.target.value)}
-                                className="min-h-[60px] text-base bg-transparent border rounded-md p-2"
-                            />
+                            )}
                         </div>
                         <DialogFooter>
                             <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !spotifyUrl.trim()}>
@@ -757,16 +720,3 @@ export default function StatusFeature() {
     </>
   );
 }
-
-    
-
-    
-
-
-
-
-
-
-
-
-

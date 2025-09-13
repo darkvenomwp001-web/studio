@@ -21,11 +21,13 @@ export async function createPost(
   storyTitle?: string,
   storyCoverUrl?: string,
   imageUrl?: string,
+  songUrl?: string,
+  songLyricSnippet?: string
 ): Promise<{ success: boolean; error?: string }> {
   if (!author) {
     return { success: false, error: 'User is not authenticated.' };
   }
-  if (content.trim().length === 0 && !imageUrl) {
+  if (content.trim().length === 0 && !imageUrl && !songUrl) {
     return { success: false, error: 'Post content cannot be empty.' };
   }
 
@@ -48,6 +50,13 @@ export async function createPost(
 
     if (imageUrl) {
         postData.imageUrl = imageUrl;
+    }
+
+    if (songUrl) {
+        postData.songUrl = songUrl;
+        if (songLyricSnippet) {
+            postData.songLyricSnippet = songLyricSnippet;
+        }
     }
 
     await addDoc(collection(db, 'feedPosts'), postData);

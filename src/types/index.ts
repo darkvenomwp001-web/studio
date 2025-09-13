@@ -182,6 +182,8 @@ export interface FeedPost {
     storyCoverUrl?: string;
     imageUrl?: string;
     dataAiHint?: string;
+    songUrl?: string;
+    songLyricSnippet?: string;
     timestamp: any;
     likesCount: number;
     commentsCount: number;
@@ -208,6 +210,7 @@ export interface StatusUpdate {
     textOverlay?: string;
     note?: string;
     spotifyUrl?: string;
+    songLyricSnippet?: string;
     poll?: Poll;
     expiresAt: any | null;
     createdAt: any;
