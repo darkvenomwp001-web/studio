@@ -34,7 +34,7 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
   const isNote = latestStatus && (latestStatus.note || latestStatus.spotifyUrl);
 
   return (
-    <div 
+    <div
       className="relative text-center flex-shrink-0 w-20 cursor-pointer group"
       onClick={() => onSelect(user)}
     >
@@ -722,3 +722,5 @@ export default function StatusFeature() {
     </>
   );
 }
+
+    
