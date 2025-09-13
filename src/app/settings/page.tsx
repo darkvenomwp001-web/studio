@@ -64,6 +64,7 @@ export default function SettingsHubPage() {
             <CardContent className="p-2">
                 <SettingsLink href="/settings/profile" icon={UserCog} title="Edit Profile" description="Update your avatar, username, bio, and more." />
                 <SettingsLink href="/settings/account" icon={KeyRound} title="Account Details" description="Manage your email and password." />
+                 <SettingsLink href="/premium" icon={Sparkles} title="Premium" description="Unlock exclusive features and support authors." />
             </CardContent>
           </Card>
         </section>
@@ -86,7 +87,6 @@ export default function SettingsHubPage() {
             <h2 className="text-lg font-headline font-semibold mb-2 px-4">Preferences</h2>
             <Card>
                  <CardContent className="p-2">
-                    <SettingsLink href="/letters" icon={Mailbox} title="Mailbox" description="Read and send letters to authors and readers." />
                     <SettingsLink href="/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." />
                     <SettingsLink href="/settings/messaging" icon={MessageCircle} title="Messaging" description="Control who can message you." />
                      <SettingsLink href="/settings/appearance" icon={Palette} title="Appearance" description="Customize the look and feel." />

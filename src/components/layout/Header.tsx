@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpenText, Home, Edit3, Brain, Sparkles } from 'lucide-react';
+import { BookOpenText, Home, Edit3, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -54,7 +54,6 @@ export default function Header() {
             <NavLink href="/"><Home className="h-5 w-5" /> Home</NavLink>
             <NavLink href="/stories"><BookOpenText className="h-5 w-5" /> Stories</NavLink>
             <NavLink href="/write"><Edit3 className="h-5 w-5" /> Write</NavLink>
-            <NavLink href="/premium"><Sparkles className="h-5 w-5" /> Premium</NavLink>
             <NavLink href="/ai-assistant"><Brain className="h-5 w-5" /> AI Assistant</NavLink>
           </div>
           
