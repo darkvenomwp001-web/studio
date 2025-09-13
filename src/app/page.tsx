@@ -324,7 +324,7 @@ export default function HomePage() {
         </section>
 
         <Tabs defaultValue="for-you" className="w-full">
-          <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-2 border-b">
+          <div className="border-b">
             <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto">
               <TabsTrigger value="for-you">For You</TabsTrigger>
               <TabsTrigger value="bookshelf">Bookshelf</TabsTrigger>
