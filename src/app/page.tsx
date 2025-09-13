@@ -131,12 +131,6 @@ function ForYouTabContent() {
     };
   }, []);
   
-  const popularGenres = [
-    { name: "Fantasy", icon: Swords, blurb: "Epic quests & magical realms await.", dataAiHint: "dragon castle", cover: "https://picsum.photos/seed/fantasy/512/800" },
-    { name: "Sci-Fi", icon: Rocket, blurb: "Explore galaxies & future tech.", dataAiHint: "space station", cover: "https://picsum.photos/seed/sci-fi/512/800"},
-    { name: "Romance", icon: HeartIcon, blurb: "Heartfelt connections & love stories.", dataAiHint: "couple sunset", cover: "https://picsum.photos/seed/romance/512/800"},
-  ];
-  
   if (isDataLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-20rem)]">
@@ -224,35 +218,6 @@ function ForYouTabContent() {
             </div>
           </section>
         )}
-      
-      {/* Quick Dive Genre Teasers Section */}
-      <section>
-        <h2 className="text-2xl font-headline font-bold mb-8 text-center">Dive Into Your Next Obsession</h2>
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-          {popularGenres.map(genre => {
-            const GenreIcon = genre.icon;
-            return (
-              <Card key={genre.name} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
-                <CardHeader className="p-0 relative aspect-[3/2] md:aspect-video">
-                  <Image src={genre.cover} alt={genre.name} fill objectFit="cover" data-ai-hint={genre.dataAiHint} className="group-hover:scale-105 transition-transform object-cover" />
-                  <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-4 text-center">
-                    <GenreIcon className="h-12 w-12 text-white mb-2 drop-shadow-lg" />
-                    <CardTitle className="text-2xl font-headline text-white drop-shadow-lg">{genre.name}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 text-center">
-                  <p className="text-sm text-muted-foreground mb-4 h-10 line-clamp-2">{genre.blurb}</p>
-                   <Link href={`/stories?genre=${genre.name.toLowerCase()}`} passHref>
-                     <Button variant="ghost" className="text-primary hover:text-primary/80 hover:bg-primary/10 w-full">
-                        Explore {genre.name} <ArrowRight className="ml-2 h-4 w-4" />
-                     </Button>
-                   </Link>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
 
       {/* Featured Authors Section */}
       {featuredAuthors.length > 0 && (
@@ -341,7 +306,7 @@ export default function HomePage() {
   return (
     <>
       <Header />
-      <div className="container mx-auto px-0 sm:px-4">
+      <main className="container mx-auto px-4 pb-24 md:pb-8">
         <StatusFeature />
         <div className="my-6">
             <Tabs defaultValue="for-you" className="w-full">
@@ -361,13 +326,6 @@ export default function HomePage() {
             </TabsContent>
             </Tabs>
         </div>
-       </div>
-
-
-      <main className="flex-1 container mx-auto px-4 pb-24 md:pb-8">
-        
-
-
       </main>
       <BottomNavigationBar />
     </>
