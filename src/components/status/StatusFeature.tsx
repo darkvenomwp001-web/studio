@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StatusUpdate, Poll, Story } from '@/types';
+import type { User, StatusUpdate, Poll, Story, Song } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -18,7 +18,7 @@ import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { restoreStatusUpdate, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 import { getStatusCaptions } from '@/app/actions/aiActions';
@@ -98,7 +98,7 @@ export default function StatusFeature() {
 
   const [noteContent, setNoteContent] = useState('');
   
-  const [spotifyUrl, setSpotifyUrl] = useState('');
+  const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [songLyricSnippet, setSongLyricSnippet] = useState<string | null>(null);
   
   const [isViewerOpen, setIsViewerOpen] = useState(false);
@@ -147,7 +147,7 @@ export default function StatusFeature() {
         setAllStatuses(sortedStatuses);
 
         const manageable = allFetchedStatuses.filter(s => s.authorId === user.id && (s.status === 'draft' || s.isTrashed));
-        setManagedStatuses(manageable.sort((a,b) => (b.trashedAt || b.createdAt)?.toMillis() - (a.trashedAt || a.createdAt)?.toMillis()));
+        setManagedStatuses(manageable.sort((a,b) => ((b.trashedAt || b.createdAt) as Timestamp)?.toMillis() - ((a.trashedAt || a.createdAt) as Timestamp)?.toMillis()));
         setIsLoading(false);
     });
 
@@ -214,7 +214,7 @@ export default function StatusFeature() {
     setMediaPreview(null);
     setTextOverlay('');
     setNoteContent('');
-    setSpotifyUrl('');
+    setSelectedSong(null);
     setSongLyricSnippet(null);
     setShowPollCreator(false);
     setPollQuestion('');
@@ -313,12 +313,12 @@ export default function StatusFeature() {
   };
   
   const handleSongSubmit = async (status: 'published' | 'draft') => {
-      if (!spotifyUrl.trim()) {
+      if (!selectedSong) {
         toast({ title: "No song selected", variant: "destructive" });
         return;
       }
       const data: Record<string, any> = {
-          spotifyUrl,
+          spotifyUrl: `https://open.spotify.com/track/${selectedSong.id}`,
           note: noteContent.trim() || '',
           songLyricSnippet: songLyricSnippet || '',
       };
@@ -514,23 +514,20 @@ export default function StatusFeature() {
         <TabsContent value="song" className="px-6 pb-6">
             <div className="py-4 space-y-4">
                 <SongSearch
-                    onSongSelect={(song) => {
-                        setSpotifyUrl(`https://open.spotify.com/track/${song.id}`);
-                        setSongLyricSnippet(null);
-                    }}
+                    onSongSelect={(song) => setSelectedSong(song)}
                     onLyricSelect={setSongLyricSnippet}
                 />
-                {spotifyUrl && songLyricSnippet && (
+                {selectedSong && songLyricSnippet && (
                     <div className="p-3 bg-muted rounded-md text-center">
                         <p className="text-sm font-semibold italic text-foreground/80">"{songLyricSnippet}"</p>
                     </div>
                 )}
             </div>
             <DialogFooter>
-                <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !spotifyUrl.trim()}>
+                <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !selectedSong}>
                     Save as Draft
                 </Button>
-                <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !spotifyUrl.trim()}>
+                <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !selectedSong}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                     Post Song
                 </Button>
@@ -557,7 +554,7 @@ export default function StatusFeature() {
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                                             <AlertDialogContent>
-                                                <AlertDialogHeader><AlertDialogTitle>Delete Forever?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                                <AlertDialogHeader><AlertDialogTitleComponent>Delete Forever?</AlertDialogTitleComponent><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
                                                 <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromTrash(item.id)}>Delete</AlertDialogAction></AlertDialogFooter>
                                             </AlertDialogContent>
                                         </AlertDialog>
@@ -716,6 +713,10 @@ export default function StatusFeature() {
       </div>
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
             <DialogContent className="p-0 m-0 bg-background border-0 w-screen h-screen max-w-full sm:max-w-md sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
+                <DialogHeader className="sr-only">
+                    <DialogTitle>Create Status</DialogTitle>
+                    <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
+                </DialogHeader>
                 {uploaderScreen === 'picker' ? renderPickerScreen() : renderEditorScreen()}
             </DialogContent>
         </Dialog>
