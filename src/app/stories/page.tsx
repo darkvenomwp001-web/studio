@@ -33,6 +33,7 @@ export default function StoriesPage() {
       storiesCol, 
       where('visibility', '==', 'Public'),
       where('status', '!=', 'Draft'),
+      orderBy('status'),
       orderBy('lastUpdated', 'desc')
     );
     
@@ -47,9 +48,10 @@ export default function StoriesPage() {
           id: doc.id, 
           ...data,
           author: authorSummary,
+          genre: data.genre || 'N/A',
+          tags: data.tags || [],
           lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
           chapters: data.chapters || [],
-          tags: data.tags || [],
         } as Story;
       });
       setAllStories(stories);
@@ -68,13 +70,13 @@ export default function StoriesPage() {
   const communityPicks = [...allStories].sort(() => 0.5 - Math.random()).slice(0, 10);
 
   const getUniqueGenres = (stories: Story[]): string[] => {
-    const allGenres = stories.flatMap(story => story.genre.toLowerCase()); 
-    return Array.from(new Set(allGenres)).map(genre => genre.charAt(0).toUpperCase() + genre.slice(1));
+    const allGenres = stories.flatMap(story => (story.genre || '').toLowerCase()); 
+    return Array.from(new Set(allGenres)).filter(g => g).map(genre => genre.charAt(0).toUpperCase() + genre.slice(1));
   };
   const uniqueGenres = getUniqueGenres(allStories);
 
   const getStoriesByGenre = (genre: string, limit: number = 10): Story[] => {
-    return allStories.filter(story => story.genre.toLowerCase() === genre.toLowerCase()).slice(0, limit);
+    return allStories.filter(story => (story.genre || '').toLowerCase() === genre.toLowerCase()).slice(0, limit);
   };
 
   const userReadingList: ReadingListItem[] = user?.readingList || [];
