@@ -493,9 +493,8 @@ export default function StatusFeature() {
                     <DialogDescription>Share a quick update with your followers.</DialogDescription>
                 </DialogHeader>
                  <Tabs defaultValue={uploaderDefaultTab} value={uploaderDefaultTab} onValueChange={(value) => { setUploaderDefaultTab(value); handleTabChange(value);}} className="w-full">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="notes">Note</TabsTrigger>
-                        <TabsTrigger value="prompts">Prompt</TabsTrigger>
                         <TabsTrigger value="upload">Media</TabsTrigger>
                         <TabsTrigger value="manage">Manage</TabsTrigger>
                     </TabsList>
@@ -548,30 +547,6 @@ export default function StatusFeature() {
                             <Button onClick={() => handleNoteSubmit('published')} disabled={isSubmitting || (!noteContent.trim() && !spotifyUrl.trim())}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                 Post Note
-                            </Button>
-                        </DialogFooter>
-                    </TabsContent>
-                    <TabsContent value="prompts">
-                        <div className="py-4 space-y-4">
-                            <div className="p-4 bg-muted rounded-lg">
-                                <p className="text-sm font-medium text-muted-foreground">Today's Prompt:</p>
-                                <p className="text-lg font-semibold">{prompt}</p>
-                            </div>
-                             <Textarea
-                                id="prompt-response"
-                                placeholder="Your answer..."
-                                value={promptResponse}
-                                onChange={e => setPromptResponse(e.target.value)}
-                                className="min-h-[120px] text-base bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
-                            />
-                        </div>
-                         <DialogFooter>
-                             <Button variant="ghost" onClick={() => handlePromptSubmit('draft')} disabled={isSubmitting || !promptResponse.trim()}>
-                                Save as Draft
-                            </Button>
-                            <Button onClick={() => handlePromptSubmit('published')} disabled={isSubmitting || !promptResponse.trim()}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                                Post Response
                             </Button>
                         </DialogFooter>
                     </TabsContent>
@@ -744,6 +719,7 @@ export default function StatusFeature() {
     
 
     
+
 
 
 
