@@ -340,11 +340,10 @@ export default function HomePage() {
   return (
     <>
       <Header />
+      <div className="container mx-auto px-4">
+        <StatusFeature />
+      </div>
       <main className="flex-1 container mx-auto px-4 pb-24 md:pb-8">
-        <section>
-          <StatusFeature />
-        </section>
-        
         <div className="mt-4">
            <Tabs defaultValue="for-you" className="w-full max-w-4xl mx-auto">
             <TabsList className="grid w-full grid-cols-3">

@@ -33,7 +33,7 @@ export default function RootLayout({
       </head>
       <body 
         className={cn(
-          "min-h-screen bg-background font-body antialiased overflow-x-hidden",
+          "min-h-screen bg-background font-body antialiased",
           inter.variable,
           spaceGrotesk.variable
         )}
