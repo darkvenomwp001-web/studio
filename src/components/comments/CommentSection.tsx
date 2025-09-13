@@ -103,6 +103,14 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
   
   const isOwner = currentUser?.id === comment.user.id;
 
+  // Real-time update for edited content
+  useEffect(() => {
+    if (!isEditing) {
+      setEditedContent(comment.content);
+    }
+  }, [comment.content, isEditing]);
+
+
   return (
     <div className="flex gap-3 py-4 border-b border-border/60 last:border-b-0">
       <Avatar className="h-10 w-10">

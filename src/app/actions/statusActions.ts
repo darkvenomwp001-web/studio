@@ -117,6 +117,7 @@ export async function trashStatusUpdate(
 
         await updateDoc(statusRef, {
             isTrashed: true,
+            isArchived: false,
             trashedAt: serverTimestamp()
         });
         revalidatePath('/');
@@ -150,10 +151,6 @@ export async function restoreStatusUpdate(
         await updateDoc(statusRef, {
             isTrashed: false,
             trashedAt: null,
-            // Also reset expiry and archived status on restore
-            expiresAt: Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000),
-            isArchived: false, 
-            archivedAt: null
         });
         revalidatePath('/settings/trash');
         revalidatePath('/settings/archive');

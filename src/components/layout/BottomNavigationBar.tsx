@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Library, Search, Bell, Mailbox } from 'lucide-react';
+import { Home, Library, Search, Bell, Mailbox, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth'; 
 
@@ -11,7 +11,7 @@ const navItems = [
   { href: '/', label: 'Home', icon: Home, requiresAuth: false, countKey: null },
   { href: '/library', label: 'Library', icon: Library, requiresAuth: true, countKey: null },
   { href: '/search', label: 'Search', icon: Search, requiresAuth: false, countKey: null },
-  { href: '/letters', label: 'Mailbox', icon: Mailbox, requiresAuth: true, countKey: null },
+  { href: '/premium', label: 'Premium', icon: Sparkles, requiresAuth: false, countKey: null },
   { href: '/notifications', label: 'Inbox', icon: Bell, requiresAuth: true, countKey: 'notifications' },
 ];
 

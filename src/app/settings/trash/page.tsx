@@ -58,7 +58,7 @@ export default function TrashPage() {
     if (!user) return;
     const result = await restoreStatusUpdate(statusId, user.id);
     if (result.success) {
-        toast({ title: "Status Restored", description: "The status is live again for 24 hours." });
+        toast({ title: "Status Restored", description: "The status has been moved back to your archive." });
     } else {
         toast({ title: "Error", description: result.error, variant: "destructive" });
     }
@@ -99,7 +99,7 @@ export default function TrashPage() {
           <Card key={item.id}>
             <CardContent className="p-4 flex items-start gap-4">
                  <div className="w-24 h-24 sm:w-32 sm:h-32 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
-                    <Image src={item.mediaUrl} alt="Trashed status" layout="fill" objectFit="cover" />
+                    <Image src={item.mediaUrl!} alt="Trashed status" layout="fill" objectFit="cover" />
                 </div>
                 <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Status from {formatDate(item.createdAt)}</p>
