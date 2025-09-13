@@ -49,6 +49,7 @@ import { useRouter } from 'next/navigation';
 import placeholderImages from '@/app/lib/placeholder-images.json';
 import CreatePostForm from '@/components/feed/CreatePostForm';
 import HomeFeed from '@/components/feed/HomeFeed';
+import { cn } from '@/lib/utils';
 
 
 function ForYouTabContent() {
@@ -141,44 +142,45 @@ function ForYouTabContent() {
 
   return (
     <div className="space-y-16 md:space-y-24 py-8">
-      {/* Story Spotlight Section */}
       {storySpotlight && (
-        <section>
-          <h2 className="text-2xl font-headline font-bold mb-8 text-center text-accent flex items-center justify-center gap-3">
-            <Award className="h-8 w-8" /> Story Spotlight
-          </h2>
-          <Card className="w-full max-w-4xl mx-auto overflow-hidden shadow-2xl hover:shadow-primary/20 transition-all duration-300 group">
-            <div className="md:flex">
-              <div className="md:flex-shrink-0 md:w-1/3 relative aspect-[2/3]">
-                <Image
-                  src={storySpotlight.coverImageUrl || `https://picsum.photos/seed/${storySpotlight.id}/512/800`}
-                  alt={storySpotlight.title}
-                  layout="fill"
-                  objectFit="cover"
-                  className="group-hover:scale-105 transition-transform duration-500"
-                  data-ai-hint={storySpotlight.dataAiHint || "book cover epic"}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent md:bg-gradient-to-r"></div>
-              </div>
-              <div className="p-6 md:p-8 flex flex-col justify-between flex-1 bg-card">
-                <div>
-                  <Badge variant="secondary" className="mb-2 bg-accent text-accent-foreground">{storySpotlight.genre}</Badge>
-                  <CardTitle className="text-2xl font-headline group-hover:text-primary transition-colors">{storySpotlight.title}</CardTitle>
-                  <CardDescription className="text-sm text-muted-foreground mt-1 mb-3">
-                    By <Link href={`/profile/${storySpotlight.author.id}`} className="hover:underline font-medium">{storySpotlight.author.displayName || storySpotlight.author.username}</Link>
-                  </CardDescription>
-                  <p className="text-muted-foreground text-sm line-clamp-4 mb-4">{storySpotlight.summary}</p>
-                </div>
-                <CardFooter className="p-0 flex flex-col sm:flex-row gap-3">
-                  <Link href={`/stories/${storySpotlight.id}`} passHref className="w-full sm:w-auto">
-                    <Button size="lg" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                      <BookHeart className="mr-2 h-5 w-5" /> Read Now
-                    </Button>
-                  </Link>
-                </CardFooter>
-              </div>
-            </div>
-          </Card>
+        <section className="relative w-full h-[60vh] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl group flex items-center justify-center text-white">
+          <div className="absolute inset-0 z-0">
+            <Image
+              src={storySpotlight.coverImageUrl || `https://picsum.photos/seed/${storySpotlight.id}/1200/600`}
+              alt={storySpotlight.title}
+              layout="fill"
+              objectFit="cover"
+              className="transition-transform duration-500 ease-in-out group-hover:scale-105"
+              data-ai-hint={storySpotlight.dataAiHint || "book cover epic"}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/10"></div>
+          </div>
+          <div className="relative z-10 p-8 md:p-12 text-center animate-fade-in">
+            <Badge 
+                variant="secondary" 
+                className="mb-4 bg-white/20 text-white backdrop-blur-sm animate-fade-in [animation-delay:200ms] opacity-0"
+            >
+                <Award className="h-4 w-4 mr-2"/>
+                Story Spotlight
+            </Badge>
+            <h2 
+                className="text-3xl md:text-5xl font-headline font-bold text-shadow-lg animate-fade-in [animation-delay:400ms] opacity-0"
+                style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}
+            >
+                {storySpotlight.title}
+            </h2>
+            <p className="mt-2 text-md md:text-lg animate-fade-in [animation-delay:600ms] opacity-0">
+              by <Link href={`/profile/${storySpotlight.author.id}`} className="hover:underline font-semibold">{storySpotlight.author.displayName || storySpotlight.author.username}</Link>
+            </p>
+             <p className="mt-4 max-w-xl mx-auto text-sm md:text-base text-white/90 line-clamp-3 animate-fade-in [animation-delay:800ms] opacity-0">
+                {storySpotlight.summary}
+            </p>
+            <Link href={`/stories/${storySpotlight.id}`} passHref>
+                <Button size="lg" className="mt-6 bg-white text-black hover:bg-white/90 animate-fade-in [animation-delay:1000ms] opacity-0">
+                  <BookHeart className="mr-2 h-5 w-5" /> Read Now
+                </Button>
+            </Link>
+          </div>
         </section>
       )}
 
@@ -318,30 +320,32 @@ export default function HomePage() {
   return (
     <>
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8 pb-24 md:pb-8">
+      <main className="flex-1 container mx-auto px-4 pb-24 md:pb-8">
         <section className="mb-8">
           <StatusFeature />
         </section>
-
-        <Tabs defaultValue="for-you" className="w-full">
-          <div className="border-b">
-            <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto">
+        
+        <div className="border-b sticky top-16 z-30 bg-background/95 backdrop-blur-sm -mx-4 px-4">
+           <Tabs defaultValue="for-you" className="w-full max-w-2xl mx-auto">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="for-you">For You</TabsTrigger>
               <TabsTrigger value="bookshelf">Bookshelf</TabsTrigger>
               <TabsTrigger value="threads">Threads</TabsTrigger>
             </TabsList>
-          </div>
-          
-          <TabsContent value="for-you" className="mt-6">
-            <ForYouTabContent />
-          </TabsContent>
-          <TabsContent value="bookshelf" className="mt-6">
-            <Bookshelf />
-          </TabsContent>
-          <TabsContent value="threads" className="mt-6">
-            <ThreadsTabContent />
-          </TabsContent>
-        </Tabs>
+            
+            <TabsContent value="for-you" className="mt-6">
+                <ForYouTabContent />
+            </TabsContent>
+            <TabsContent value="bookshelf" className="mt-6">
+                <Bookshelf />
+            </TabsContent>
+            <TabsContent value="threads" className="mt-6">
+                <ThreadsTabContent />
+            </TabsContent>
+          </Tabs>
+        </div>
+
+
       </main>
       <BottomNavigationBar />
     </>
