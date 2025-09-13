@@ -5,7 +5,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, Save, MoreHorizontal } from 'lucide-react';
+import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, Save, MoreHorizontal, Smile } from 'lucide-react';
 import type { Comment as CommentType } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -41,6 +41,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface CommentProps {
@@ -341,11 +343,15 @@ export default function CommentSection({ storyId, chapterId }: CommentSectionPro
     const commentRef = doc(db, 'comments', commentId);
     await deleteDoc(commentRef);
   };
+  
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setNewComment(prev => prev + emojiData.emoji);
+  };
 
   return (
     <AlertDialog>
         <section>
-        <h3 className="text-xl sm:text-2xl font-headline font-semibold mb-4 text-foreground">
+        <h3 className="text-xl sm:text-2xl font-headline font-semibold mb-6 text-foreground">
             Comments ({topLevelComments.length})
         </h3>
         
@@ -356,15 +362,27 @@ export default function CommentSection({ storyId, chapterId }: CommentSectionPro
                 <AvatarFallback>{currentUser.username?.substring(0, 1).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <Textarea
-                    id="comment-textarea"
-                    placeholder={replyingTo ? `Replying to ${replyingTo.username}...` : "Add a comment..."}
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    className="min-h-[40px] bg-background border-border focus-visible:ring-primary rounded-xl"
-                    rows={1}
-                    disabled={isPostingComment}
-                />
+                <div className="relative">
+                    <Textarea
+                        id="comment-textarea"
+                        placeholder={replyingTo ? `Replying to ${replyingTo.username}...` : "Add a comment..."}
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        className="min-h-[40px] bg-background border-border focus-visible:ring-primary rounded-xl pr-10"
+                        rows={1}
+                        disabled={isPostingComment}
+                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                         <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full">
+                            <Smile className="h-5 w-5 text-muted-foreground" />
+                         </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 border-0">
+                          <EmojiPicker onEmojiClick={onEmojiClick} />
+                      </PopoverContent>
+                    </Popover>
+                </div>
                  {replyingTo && (
                     <p className="text-xs text-muted-foreground mt-1">
                         Replying to {replyingTo.username}. <button type="button" className="text-primary hover:underline" onClick={() => setReplyingTo(null)}>Cancel</button>

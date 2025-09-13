@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -49,6 +50,16 @@ import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment } from 'firebase/firestore';
 import { toggleChapterVote } from '@/app/actions/storyActions';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { BubbleMenu, EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import Highlight from '@tiptap/extension-highlight'
+
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
 const fontSizes: FontSize[] = ['sm', 'base', 'lg', 'xl'];
@@ -78,6 +89,16 @@ export default function StoryReaderPage() {
 
   const contentRef = useRef<HTMLDivElement>(null);
   const viewIncrementedRef = useRef(false);
+
+  const editor = useEditor({
+    editable: false,
+    content: '',
+    extensions: [
+      StarterKit,
+      Underline,
+      Highlight.configure({ multicolor: true }),
+    ],
+  });
 
   // Load reading preferences from localStorage
   useEffect(() => {
@@ -127,6 +148,9 @@ export default function StoryReaderPage() {
 
         if (chapterData) {
             setCurrentChapter(chapterData);
+            if (editor && chapterData.content) {
+              editor.commands.setContent(chapterData.content);
+            }
             
             const visibleChapters = storyData.chapters.filter(c => c.status === 'Published' || c.accessType === 'premium');
             const chapterIndex = visibleChapters.findIndex(c => c.id === chapterIdParams);
@@ -187,7 +211,7 @@ export default function StoryReaderPage() {
       // Clean up night portal class on unmount
       document.body.classList.remove('night-portal');
     };
-  }, [storyId, chapterIdParams, router, currentUser, toast, incrementViewCount]);
+  }, [storyId, chapterIdParams, router, currentUser, toast, incrementViewCount, editor]);
 
   useEffect(() => {
     contentRef.current?.scrollTo(0, 0);
@@ -427,11 +451,11 @@ export default function StoryReaderPage() {
         <div ref={contentRef} className="min-h-[calc(100vh-10rem)]" onClick={(e) => {
              const target = e.target as HTMLElement;
             // Toggle controls if clicking on the main background, but not on text content itself
-            if (target.tagName !== 'P' && target.tagName !== 'H2') {
+            if (!editor?.isFocused && target.closest('.ProseMirror') === null) {
                 toggleMainControls();
             }
         }}> 
-            <article className={cn(
+             <article className={cn(
               "prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20 prose-reading",
               {
                 'prose-sm': fontSize === 'sm',
@@ -440,21 +464,17 @@ export default function StoryReaderPage() {
                 'prose-xl': fontSize === 'xl',
               }
             )}>
-            {isAccessGranted ? (
-                <>
-                <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4 text-center">{currentChapter.title}</h2>
-                {currentChapter.content.split('\n').map((paragraph, index) => (
-                  <p key={index} className="my-2">{paragraph || '\u00A0'}</p>
-                ))}
-                </>
-            ) : (
+              <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4 text-center">{currentChapter.title}</h2>
+              {isAccessGranted ? (
+                <EditorContent editor={editor} />
+              ) : (
                 <div className="text-center py-10 flex flex-col items-center gap-4">
                   <Sparkles className="w-16 h-16 text-yellow-500" />
                   <h2 className="text-2xl font-headline font-bold">Premium Chapter</h2>
                   <p className="text-muted-foreground max-w-md">This chapter is a special release available only to users granted premium access by the author.</p>
                   <Button onClick={() => router.push(`/stories/${storyId}`)}>Back to Story Overview</Button>
                 </div>
-            )}
+              )}
             </article>
         </div>
       </main>
@@ -479,7 +499,7 @@ export default function StoryReaderPage() {
                 
                 <div className="flex items-center gap-2 rounded-full bg-muted/50 px-4 py-1">
                     <Button variant="ghost" size="icon" onClick={handleVoteClick} disabled={isVoting} aria-label="Vote for this chapter">
-                        <ThumbsUp className={cn("h-5 w-5", hasVoted && "fill-primary text-primary")} />
+                        <ThumbsUp className={cn("h-5 w-5 transition-colors", hasVoted && "fill-primary text-primary")} />
                     </Button>
                     <Separator orientation="vertical" className="h-6" />
                     <Link href={`/stories/${storyId}/read/${chapterIdParams}/comments`} passHref>
