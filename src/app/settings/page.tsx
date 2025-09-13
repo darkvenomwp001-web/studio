@@ -4,7 +4,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ChevronRight, UserCog, KeyRound, Archive, Trash2, FileText, ShieldCheck, Info, Bell, MessageCircle, Settings, Palette, Sparkles, Wind } from 'lucide-react';
+import { Loader2, ChevronRight, UserCog, KeyRound, Archive, Trash2, FileText, ShieldCheck, Info, Bell, MessageCircle, Settings, Palette, Sparkles, Wind, Mailbox } from 'lucide-react';
 import Link from 'next/link';
 
 interface SettingsLinkProps {
@@ -86,7 +86,8 @@ export default function SettingsHubPage() {
             <h2 className="text-lg font-headline font-semibold mb-2 px-4">Preferences</h2>
             <Card>
                  <CardContent className="p-2">
-                    <SettingsLink href="/settings/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." />
+                    <SettingsLink href="/letters" icon={Mailbox} title="Mailbox" description="Read and send letters to authors and readers." />
+                    <SettingsLink href="/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." />
                     <SettingsLink href="/settings/messaging" icon={MessageCircle} title="Messaging" description="Control who can message you." />
                      <SettingsLink href="/settings/appearance" icon={Palette} title="Appearance" description="Customize the look and feel." />
                 </CardContent>
