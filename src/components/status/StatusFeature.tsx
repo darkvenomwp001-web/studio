@@ -451,14 +451,15 @@ export default function StatusFeature() {
       <div className="bg-card p-3 rounded-lg shadow-sm">
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-start space-x-4 px-4">
-           <div className="text-center flex-shrink-0 w-20">
-             <button 
-                onClick={() => setIsUploaderOpen(true)}
-                className="w-16 h-16 mx-auto rounded-full bg-muted/50 flex items-center justify-center border-2 border-dashed border-border hover:border-primary transition-colors"
-              >
-               <Plus className="h-6 w-6 text-muted-foreground" />
-             </button>
-             <p className="text-xs mt-1 truncate">Add Status</p>
+           <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={() => setIsUploaderOpen(true)}>
+             <Avatar className="w-16 h-16 mx-auto border-2 border-dashed border-border p-0.5 group-hover:border-primary transition-colors">
+                <AvatarImage src={user.avatarUrl} className="opacity-50 group-hover:opacity-70 transition-opacity" />
+                <AvatarFallback>{user.username?.substring(0,1).toUpperCase()}</AvatarFallback>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
+                    <Plus className="h-6 w-6 text-white" />
+                </div>
+             </Avatar>
+             <p className="text-xs mt-1 truncate">Your Status</p>
            </div>
 
             {isLoading ? (
@@ -722,5 +723,3 @@ export default function StatusFeature() {
     </>
   );
 }
-
-    
