@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -683,7 +682,7 @@ export default function StatusFeature() {
                     <AvatarImage src={user.avatarUrl} />
                     <AvatarFallback>{user.username?.substring(0,1).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-card">
+                <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
                     <Plus className="h-4 w-4 text-primary-foreground" />
                 </div>
              </div>
@@ -714,7 +713,11 @@ export default function StatusFeature() {
       </ScrollArea>
 
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
-            <DialogContent className="p-0 m-0 bg-background border-0 w-screen h-screen max-w-full sm:max-w-md sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
+            <DialogContent className="p-0 m-0 bg-transparent border-0 w-screen h-screen max-w-full sm:max-w-md sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
+                <div className="sr-only">
+                    <DialogTitle>Create Status</DialogTitle>
+                    <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
+                </div>
                 {uploaderScreen === 'picker' ? renderPickerScreen() : renderEditorScreen()}
             </DialogContent>
         </Dialog>
@@ -732,5 +735,3 @@ export default function StatusFeature() {
     </>
   );
 }
-
-    
