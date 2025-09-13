@@ -39,7 +39,7 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
       onClick={() => onSelect(user)}
     >
       {isNote && (
-        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-max max-w-[150px] mb-2 z-10">
+        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-max max-w-[150px] mb-2 z-20">
             <div className="bg-muted px-2.5 py-1.5 rounded-lg shadow-md">
                 <p className="text-xs text-foreground truncate">{latestStatus.note}</p>
                  {latestStatus.spotifyUrl && <Music className="h-3 w-3 text-muted-foreground mx-auto mt-0.5" />}
@@ -485,19 +485,21 @@ export default function StatusFeature() {
         </ScrollArea>
       </div>
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
-            <DialogContent className="sm:max-w-xl">
-                <DialogHeader>
-                     <DialogTitle>Create Status</DialogTitle>
-                    <DialogDescription>Share a quick update with your followers.</DialogDescription>
-                </DialogHeader>
-                 <Tabs defaultValue={uploaderDefaultTab} value={uploaderDefaultTab} onValueChange={(value) => { setUploaderDefaultTab(value); handleTabChange(value);}} className="w-full">
-                    <TabsList className="grid w-full grid-cols-4">
+            <DialogContent className="sm:max-w-xl p-0">
+                <Tabs defaultValue={uploaderDefaultTab} value={uploaderDefaultTab} onValueChange={(value) => { setUploaderDefaultTab(value); handleTabChange(value);}} className="w-full pt-6">
+                    <TabsList className="grid w-full grid-cols-4 -mt-2 mb-2 px-6">
                         <TabsTrigger value="note">Note</TabsTrigger>
                         <TabsTrigger value="media">Media</TabsTrigger>
                         <TabsTrigger value="song">Song</TabsTrigger>
                         <TabsTrigger value="manage">Manage</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="note">
+                    <div className="px-6">
+                        <DialogHeader>
+                            <DialogTitle>Create Status</DialogTitle>
+                            <DialogDescription>Share a quick update with your followers.</DialogDescription>
+                        </DialogHeader>
+                    </div>
+                    <TabsContent value="note" className="px-6">
                         <div className="py-4 space-y-4">
                             <Textarea
                                 id="note-content"
@@ -530,7 +532,7 @@ export default function StatusFeature() {
                             </Button>
                         </DialogFooter>
                     </TabsContent>
-                    <TabsContent value="media">
+                    <TabsContent value="media" className="px-6">
                         <ScrollArea className="max-h-[60vh] pr-4">
                             <div className="py-4 space-y-4">
                                 {mediaPreview ? (
@@ -640,7 +642,7 @@ export default function StatusFeature() {
                             </Button>
                         </DialogFooter>
                     </TabsContent>
-                     <TabsContent value="song">
+                     <TabsContent value="song" className="px-6">
                         <div className="py-4 space-y-4">
                             <SongSearch
                                 onSongSelect={(song) => {
@@ -665,7 +667,7 @@ export default function StatusFeature() {
                             </Button>
                         </DialogFooter>
                     </TabsContent>
-                    <TabsContent value="manage">
+                    <TabsContent value="manage" className="px-6">
                          <ScrollArea className="h-96">
                             <div className="space-y-2 p-1">
                                 {managedStatuses.length > 0 ? managedStatuses.map(item => (
