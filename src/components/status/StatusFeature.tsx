@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -455,6 +454,10 @@ export default function StatusFeature() {
   const renderPickerScreen = () => (
     <>
       <Tabs defaultValue={uploaderDefaultTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
+         <DialogHeader className="sr-only">
+            <DialogTitle>Create Status</DialogTitle>
+            <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
+        </DialogHeader>
         <TabsList className="grid w-full grid-cols-4 mx-auto sticky top-0 px-6">
           <TabsTrigger value="note">Note</TabsTrigger>
           <TabsTrigger value="media">Media</TabsTrigger>
@@ -580,7 +583,7 @@ export default function StatusFeature() {
         <DialogHeader className="p-4 border-b">
             <div className="flex justify-between items-center">
                 <Button variant="ghost" size="icon" onClick={() => setUploaderScreen('picker')}><X className="h-5 w-5" /></Button>
-                <DialogTitle>Edit Status</DialogTitle>
+                <DialogTitle className="sr-only">Edit Status</DialogTitle>
                 <Button onClick={() => handleMediaSubmit('published')} disabled={!mediaFile || isSubmitting}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                     Post
@@ -672,16 +675,15 @@ export default function StatusFeature() {
   
   return (
     <>
-      <div className="bg-card p-3 rounded-lg shadow-sm">
       <ScrollArea className="w-full whitespace-nowrap">
-        <div className="flex items-start space-x-4 px-4">
+        <div className="flex items-start space-x-4">
            <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={() => handleOpenUploader('media')}>
              <div className="relative w-16 h-16 mx-auto">
                 <Avatar className="w-full h-full border-2 border-border group-hover:border-primary/50 transition-colors">
-                    <AvatarImage src={user.avatarUrl} className="group-hover:opacity-80 transition-opacity" />
+                    <AvatarImage src={user.avatarUrl} />
                     <AvatarFallback>{user.username?.substring(0,1).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-card">
+                <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-card">
                     <Plus className="h-4 w-4 text-primary-foreground" />
                 </div>
              </div>
@@ -709,14 +711,10 @@ export default function StatusFeature() {
             )}
         </div>
         <ScrollBar orientation="horizontal" />
-        </ScrollArea>
-      </div>
+      </ScrollArea>
+
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
             <DialogContent className="p-0 m-0 bg-background border-0 w-screen h-screen max-w-full sm:max-w-md sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
-                <DialogHeader className="sr-only">
-                    <DialogTitle>Create Status</DialogTitle>
-                    <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
-                </DialogHeader>
                 {uploaderScreen === 'picker' ? renderPickerScreen() : renderEditorScreen()}
             </DialogContent>
         </Dialog>
