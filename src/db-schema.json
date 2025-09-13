@@ -50,7 +50,8 @@
               "status": { "type": "string", "description": "'Published' or 'Draft'." },
               "accessType": { "type": "string", "description": "'public' or 'premium'." },
               "allowedUsers": { "type": "array", "description": "List of users with access to premium chapters." },
-              "votes": { "type": "number", "description": "Number of votes for the chapter." }
+              "votes": { "type": "number", "description": "Number of votes for the chapter." },
+              "voterIds": { "type": "array", "description": "List of user IDs who have voted for the chapter." }
             }
           }
         }
@@ -123,7 +124,9 @@
           "isArchived": { "type": "boolean", "description": "True if the status is archived after expiring." },
           "isTrashed": { "type": "boolean", "description": "True if the user moved the status to trash." },
           "createdAt": { "type": "timestamp", "description": "When the status was created." },
-          "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." }
+          "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." },
+          "archivedAt": { "type": "timestamp", "description": "When the status was archived." },
+          "trashedAt": { "type": "timestamp", "description": "When the status was moved to trash." }
         }
       },
       "prompts": {

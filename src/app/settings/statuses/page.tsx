@@ -6,17 +6,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
-import { Loader2, ArrowLeft, MoreHorizontal, Edit, Save } from 'lucide-react';
+import { Loader2, ArrowLeft, MoreHorizontal, Edit, Save, Archive, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { StatusUpdate } from '@/types';
 import { formatDate } from '@/lib/placeholder-data';
 import { useToast } from '@/hooks/use-toast';
-import { moveStatusToDrafts } from '@/app/actions/statusActions';
+import { moveStatusToDrafts, trashStatusUpdate, archiveStatusUpdate, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import StatusFeature from '@/components/status/StatusFeature';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
 
 export default function ManageStatusesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -58,19 +60,38 @@ export default function ManageStatusesPage() {
     return () => unsubscribe();
   }, [user, authLoading, router, toast]);
 
-  const handleMoveToDrafts = async (statusId: string) => {
+  const handleAction = async (action: 'draft' | 'archive' | 'trash' | 'delete', statusId: string, statusTitle?: string) => {
     if (!user) return;
-    
     setIsProcessingId(statusId);
-    
-    const result = await moveStatusToDrafts(statusId, user.id);
+    let result: { success: boolean; error?: string; };
+    let toastMessage = "";
+
+    switch (action) {
+      case 'draft':
+        result = await moveStatusToDrafts(statusId, user.id);
+        toastMessage = "Status moved to Drafts";
+        break;
+      case 'archive':
+        result = await archiveStatusUpdate(statusId, user.id);
+        toastMessage = "Status Archived";
+        break;
+      case 'trash':
+        result = await trashStatusUpdate(statusId, user.id);
+        toastMessage = "Status moved to Trash";
+        break;
+      case 'delete':
+        result = await permanentlyDeleteStatusUpdate(statusId, user.id);
+        toastMessage = "Status Permanently Deleted";
+        break;
+      default:
+        result = { success: false, error: "Invalid action" };
+    }
+
     if (result.success) {
-        toast({ title: "Status Moved to Drafts" });
-        // The onSnapshot listener will automatically remove the item from the UI
+        toast({ title: toastMessage });
     } else {
         toast({ title: "Error", description: result.error, variant: "destructive" });
     }
-    
     setIsProcessingId(null);
   };
   
@@ -86,7 +107,7 @@ export default function ManageStatusesPage() {
     <div className="max-w-4xl mx-auto space-y-8 py-8">
       <header>
         <Button variant="ghost" onClick={() => router.push('/settings')} className="mb-2">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
         </Button>
         <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-3">
           Manage Live Statuses
@@ -123,13 +144,21 @@ export default function ManageStatusesPage() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                         <DropdownMenuItem onClick={() => handleMoveToDrafts(item.id)}>
+                         <DropdownMenuItem onClick={() => handleAction('draft', item.id)}>
                             <Save className="mr-2 h-4 w-4" />
                             Save as Draft
                         </DropdownMenuItem>
                          <DropdownMenuItem onClick={() => toast({ title: "Coming Soon!", description: "Direct editing of statuses will be available shortly." })}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleAction('archive', item.id)}>
+                            <Archive className="mr-2 h-4 w-4" />
+                            Archive
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleAction('trash', item.id)} className="text-destructive focus:text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Move to Trash
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

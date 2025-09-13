@@ -217,14 +217,24 @@ export default function StoryReaderPage() {
     }
   };
   
-  const handleShare = () => {
-     navigator.clipboard.writeText(window.location.href)
-      .then(() => {
+  const handleShare = async () => {
+    const shareData = {
+      title: `"${story?.title}" by ${story?.author.displayName || story?.author.username}`,
+      text: `Check out this chapter on LitVerse: ${currentChapter?.title}`,
+      url: window.location.href,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        toast({ title: 'Story Shared!', description: 'Thanks for spreading the word.' });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
         toast({ title: 'Link Copied!', description: `Link to "${story?.title} - ${currentChapter?.title}" copied to clipboard.` });
-      })
-      .catch(() => {
-        toast({ title: 'Share (Mock)', description: `Link would be shareable here.`});
-      });
+      }
+    } catch (error) {
+      console.error("Share failed:", error);
+      toast({ title: 'Share Failed', description: 'Could not share at this time.', variant: 'destructive' });
+    }
   };
 
   const handleVoteClick = async () => {
