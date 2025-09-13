@@ -186,11 +186,11 @@ function ForYouTabContent() {
 
       {/* Trending Stories Section */}
       <section>
-        <div className="flex flex-col mb-6">
-            <Link href="/stories" passHref className="self-end">
-                <Button variant="outline" className="text-sm">View All Stories <ArrowRight className="ml-2 h-4 w-4" /></Button>
-            </Link>
-            <h2 className="text-2xl font-headline font-bold text-primary mt-1">Trending Stories</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-headline font-bold text-primary">Trending Stories</h2>
+          <Link href="/stories" passHref>
+            <Button variant="outline" className="text-sm">View All <ArrowRight className="ml-2 h-4 w-4" /></Button>
+          </Link>
         </div>
         <div className="relative">
             <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
@@ -325,7 +325,7 @@ export default function HomePage() {
           <StatusFeature />
         </section>
         
-        <div className="border-b sticky top-16 z-30 bg-background/95 backdrop-blur-sm -mx-4 px-4">
+        <div className="mt-8">
            <Tabs defaultValue="for-you" className="w-full max-w-2xl mx-auto">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="for-you">For You</TabsTrigger>
