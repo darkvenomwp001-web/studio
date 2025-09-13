@@ -5,6 +5,8 @@ import { detectPlagiarism as detectPlagiarismFlow, DetectPlagiarismInput, Detect
 import { matchStoryMood as matchStoryMoodFlow, MatchStoryMoodInput, MatchStoryMoodOutput } from '@/ai/flows/mood-matcher-flow';
 import { generateConversationStarters as generateConversationStartersFlow, GenerateConversationStartersInput, GenerateConversationStartersOutput } from '@/ai/flows/generate-conversation-starters';
 import { generateStatusCaption as generateStatusCaptionFlow, GenerateStatusCaptionInput, GenerateStatusCaptionOutput } from '@/ai/flows/generate-status-caption';
+import { searchSongs as searchSongsFlow, SearchSongsInput, SearchSongsOutput } from '@/ai/flows/search-songs-flow';
+
 
 export async function getWritingSuggestions(input: ImproveWritingStyleInput): Promise<ImproveWritingStyleOutput | { error: string }> {
   try {
@@ -60,6 +62,17 @@ export async function getStatusCaptions(input: GenerateStatusCaptionInput): Prom
         return result;
     } catch (error) {
         console.error("Error in getStatusCaptions AI action:", error);
+        return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
+    }
+}
+
+
+export async function searchSongs(input: SearchSongsInput): Promise<SearchSongsOutput | { error: string }> {
+    try {
+        const result = await searchSongsFlow(input);
+        return result;
+    } catch (error) {
+        console.error("Error in searchSongs AI action:", error);
         return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
     }
 }
