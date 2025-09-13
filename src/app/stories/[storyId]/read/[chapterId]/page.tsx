@@ -11,16 +11,6 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
-import {
   ArrowLeft,
   ArrowRight,
   Bookmark,
@@ -29,7 +19,6 @@ import {
   Share2,
   X,
   ListOrdered,
-  Settings2,
   Loader2,
   Home,
   Moon,
@@ -48,7 +37,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
-import type { Story, Chapter, UserSummary, AllowedUser } from '@/types'; 
+import type { Story, Chapter } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -332,7 +321,7 @@ export default function StoryReaderPage() {
     }
   };
 
-  if (isLoading || !story || !currentChapter) {
+  if (isLoading || !story || !currentChapter || !editor) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -356,7 +345,7 @@ export default function StoryReaderPage() {
       {
         'prose-sm': fontSize === 'sm', 'prose-base': fontSize === 'base', 'prose-lg': fontSize === 'lg', 'prose-xl': fontSize === 'xl',
         'font-body': fontFamily === 'sans', 'font-serif': fontFamily === 'serif',
-        'prose-tight': lineHeight === 'tight', 'prose-normal': lineHeight === 'normal', 'prose-loose': lineHeight === 'loose',
+        'leading-tight': lineHeight === 'tight', 'leading-normal': lineHeight === 'normal', 'leading-loose': lineHeight === 'loose',
         'max-w-3xl mx-auto': layoutWidth === 'normal', 'max-w-5xl mx-auto': layoutWidth === 'wide',
       }
   );
@@ -392,7 +381,8 @@ export default function StoryReaderPage() {
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80">
-                <div className="grid gap-4">
+                <ScrollArea className="max-h-[80vh]">
+                <div className="grid gap-4 p-1">
                     <div className="space-y-2">
                         <h4 className="font-medium leading-none">Appearance</h4>
                         <p className="text-sm text-muted-foreground">
@@ -438,6 +428,7 @@ export default function StoryReaderPage() {
                     </div>
                     <Button variant="ghost" size="sm" onClick={resetAppearanceSettings}><RotateCcw className="mr-2 h-4 w-4" /> Reset</Button>
                 </div>
+                </ScrollArea>
             </PopoverContent>
         </Popover>
       </header>
@@ -527,11 +518,21 @@ export default function StoryReaderPage() {
              {editor && (
                 <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
                     <div className="flex gap-1 bg-card border shadow-lg p-1 rounded-md">
-                        <Button variant="ghost" size="sm" onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()} className={editor.isActive('highlight') ? 'is-active' : ''}>
-                            <Highlighter className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => router.push(`/stories/${storyId}/read/${chapterIdParams}/comments`)}>
-                            <MessageSquare className="h-4 w-4" />
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="ghost" size="icon" title="Highlight Text"><Highlighter className="h-5 w-5" /></Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-fit p-1">
+                               <div className="flex items-center gap-1">
+                                 <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()}><div className="w-5 h-5 rounded-full bg-yellow-300 border-2 border-border" /></Button>
+                                 <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#6ee7b7' }).run()}><div className="w-5 h-5 rounded-full bg-emerald-300 border-2 border-border" /></Button>
+                                 <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#f87171' }).run()}><div className="w-5 h-5 rounded-full bg-red-400 border-2 border-border" /></Button>
+                                 <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="w-4 h-4"/></Button>
+                               </div>
+                            </PopoverContent>
+                        </Popover>
+                        <Button variant="ghost" size="icon" onClick={() => router.push(`/stories/${storyId}/read/${chapterIdParams}/comments`)} title="Comment on Selection">
+                            <MessageSquare className="h-5 w-5" />
                         </Button>
                     </div>
                 </BubbleMenu>
@@ -631,9 +632,3 @@ export default function StoryReaderPage() {
     </>
   );
 }
-
-    
-
-    
-
-
