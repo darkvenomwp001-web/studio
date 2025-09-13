@@ -196,8 +196,8 @@ export default function StoryOverviewPage() {
 
   return (
     <div className="container mx-auto max-w-4xl py-8 px-4 space-y-8">
-       <div className="flex flex-col items-center text-center space-y-4">
-        <div className="relative w-full max-w-[240px] rounded-lg overflow-hidden shadow-2xl group">
+      <div className="flex flex-col md:flex-row md:items-start md:text-left text-center gap-6">
+        <div className="relative mx-auto md:mx-0 w-36 sm:w-40 flex-shrink-0 rounded-lg overflow-hidden shadow-2xl group">
           <Image
             src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
             alt={story.title}
@@ -210,7 +210,7 @@ export default function StoryOverviewPage() {
           <button
             onClick={handleMoodMatcherClick}
             aria-label="Mood Matcher"
-            className="absolute top-3 left-3 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+            className="absolute top-2 left-2 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
             title="AI Mood Matcher (Find similar vibes)"
             disabled={isMoodLoading}
           >
@@ -218,42 +218,45 @@ export default function StoryOverviewPage() {
           </button>
         </div>
 
-        <h1 className="text-2xl md:text-3xl font-headline font-bold text-foreground">{story.title}</h1>
-        <Link
-          href={`/profile/${displayAuthor.id}`}
-          className="inline-flex items-center gap-2.5 text-md text-muted-foreground hover:text-primary transition-colors group"
-        >
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={displayAuthor.avatarUrl} alt={displayAuthor.username} data-ai-hint="profile person" />
-            <AvatarFallback>{displayAuthor.username?.substring(0, 1).toUpperCase() || 'A'}</AvatarFallback>
-          </Avatar>
-          <span className="font-medium group-hover:underline">{displayAuthor.displayName || displayAuthor.username}</span>
-        </Link>
-      
-        <div className="flex justify-center items-center gap-2">
-            {firstChapterId ? (
-            <Link href={`/stories/${story.id}/read/${firstChapterId}`} passHref>
-                <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                <BookOpen className="mr-2 h-5 w-5" /> Start Reading
-                </Button>
-            </Link>
-            ) : (
-            <Button size="lg" disabled>
-                <BookOpen className="mr-2 h-5 w-5" /> No Chapters Yet
-            </Button>
-            )}
-            <Button size="icon" variant="outline" onClick={handleLibraryAction} title={isInLibrary ? "In your library" : "Add to Library"} disabled={authLoading}>
-              {authLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : isInLibrary ? <BookmarkCheck className="h-5 w-5 text-primary" /> : <BookmarkPlus className="h-5 w-5" />}
-            </Button>
-            {isAuthorOrCollaborator && (
-            <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
-                <Button size="icon" variant="outline" title="Edit Story Details">
-                <Edit className="h-5 w-5" />
-                </Button>
-            </Link>
-            )}
+        <div className="flex flex-col items-center md:items-start flex-grow">
+          <h1 className="text-2xl md:text-3xl font-headline font-bold text-foreground">{story.title}</h1>
+          <Link
+            href={`/profile/${displayAuthor.id}`}
+            className="inline-flex items-center gap-2.5 text-md text-muted-foreground hover:text-primary transition-colors group mt-1"
+          >
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={displayAuthor.avatarUrl} alt={displayAuthor.username} data-ai-hint="profile person" />
+              <AvatarFallback>{displayAuthor.username?.substring(0, 1).toUpperCase() || 'A'}</AvatarFallback>
+            </Avatar>
+            <span className="font-medium group-hover:underline">{displayAuthor.displayName || displayAuthor.username}</span>
+          </Link>
+        
+          <div className="flex justify-center md:justify-start items-center gap-2 mt-4">
+              {firstChapterId ? (
+              <Link href={`/stories/${story.id}/read/${firstChapterId}`} passHref>
+                  <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                  <BookOpen className="mr-2 h-5 w-5" /> Start Reading
+                  </Button>
+              </Link>
+              ) : (
+              <Button size="lg" disabled>
+                  <BookOpen className="mr-2 h-5 w-5" /> No Chapters Yet
+              </Button>
+              )}
+              <Button size="icon" variant="outline" onClick={handleLibraryAction} title={isInLibrary ? "In your library" : "Add to Library"} disabled={authLoading}>
+                {authLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : isInLibrary ? <BookmarkCheck className="h-5 w-5 text-primary" /> : <BookmarkPlus className="h-5 w-5" />}
+              </Button>
+              {isAuthorOrCollaborator && (
+              <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
+                  <Button size="icon" variant="outline" title="Edit Story Details">
+                  <Edit className="h-5 w-5" />
+                  </Button>
+              </Link>
+              )}
+          </div>
         </div>
       </div>
+
 
       <div className="grid grid-cols-4 items-start justify-center gap-x-2 sm:gap-x-4 text-center py-4 border-y">
         <div className="flex flex-col items-center" title="Reads">
