@@ -34,6 +34,7 @@ import {
   Baseline,
   RectangleHorizontal,
   RotateCcw,
+  Search,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -56,6 +57,8 @@ import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
@@ -91,35 +94,37 @@ export default function StoryReaderPage() {
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
   const [layoutWidth, setLayoutWidth] = useState<LayoutWidth>('normal');
   const [isNightPortalActive, setIsNightPortalActive] = useState(false);
+  
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<{ from: number; to: number; snippet: string }[]>([]);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const viewIncrementedRef = useRef(false);
 
   const editor = useEditor({
-    editable: true, 
+    editable: true,
     editorProps: {
-      attributes: {
-        class: 'focus:outline-none',
-      },
-      handleTextInput: () => true,
-      handlePaste: () => true,
-      handleDrop: () => true,
-      handleKeyDown: (view, event) => {
-        if (event.ctrlKey || event.metaKey) {
-          if (['c', 'a'].includes(event.key.toLowerCase())) {
-            return false;
-          }
-        }
-        return true;
-      },
+        attributes: {
+            class: 'prose dark:prose-invert focus:outline-none',
+        },
+        handleTextInput: () => true, // Allows typing, but transaction will prevent it
+        handlePaste: () => true,
+        handleDrop: () => true,
+    },
+    // This is the magic part: intercept any transaction that changes the document
+    handleTransaction: (tr) => {
+        // If the document has changed, we prevent the transaction.
+        // We allow transactions that only change the selection (e.g., highlighting text).
+        return !tr.docChanged;
     },
     content: '',
     extensions: [
-      StarterKit,
-      TiptapUnderline,
-      TiptapHighlight.configure({ multicolor: true }),
+        StarterKit,
+        TiptapUnderline,
+        TiptapHighlight.configure({ multicolor: true }),
     ],
-  });
+});
 
   // Load reading preferences from localStorage
   useEffect(() => {
@@ -256,7 +261,45 @@ export default function StoryReaderPage() {
   useEffect(() => {
     contentRef.current?.scrollTo(0, 0);
   }, [currentChapter]);
+  
+  // Search logic
+  useEffect(() => {
+    if (!editor || !searchTerm.trim()) {
+        setSearchResults([]);
+        return;
+    }
 
+    const results: { from: number; to: number; snippet: string }[] = [];
+    const { doc } = editor.state;
+    const query = searchTerm.toLowerCase();
+
+    doc.descendants((node, pos) => {
+        if (!node.isText) return;
+
+        const text = node.text?.toLowerCase() || '';
+        let index = text.indexOf(query);
+        while (index !== -1) {
+            const from = pos + index;
+            const to = from + query.length;
+            
+            const contextStart = Math.max(pos, from - 20);
+            const contextEnd = Math.min(pos + node.nodeSize, to + 20);
+            const snippet = doc.textBetween(contextStart, contextEnd, ' ');
+            
+            results.push({ from, to, snippet });
+            index = text.indexOf(query, index + 1);
+        }
+    });
+
+    setSearchResults(results);
+  }, [searchTerm, editor]);
+  
+  const handleGoToSearchResult = (from: number, to: number) => {
+      if (!editor) return;
+      editor.commands.setTextSelection({ from, to });
+      editor.view.dom.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      toggleMainControls();
+  };
 
   const toggleMainControls = () => {
     setControlsVisible(prev => !prev);
@@ -451,57 +494,91 @@ export default function StoryReaderPage() {
 
       <aside
         className={cn(
-          'fixed right-0 top-0 bottom-0 z-50 w-72 md:w-80 bg-card shadow-xl p-4 transform transition-transform duration-300 ease-in-out flex flex-col border-l',
+          'fixed right-0 top-0 bottom-0 z-50 w-72 md:w-80 bg-card shadow-xl transition-transform duration-300 ease-in-out flex flex-col border-l',
           tocVisible ? 'translate-x-0' : 'translate-x-full'
         )}
       >
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-headline text-lg text-primary">Contents</h3>
-          <Button variant="ghost" size="icon" onClick={() => setTocVisible(false)}>
-            <X className="h-5 w-5" />
-          </Button>
+        <div className="flex justify-between items-center mb-1 p-4 border-b">
+            <h3 className="font-headline text-lg text-primary truncate">{story.title}</h3>
+            <Button variant="ghost" size="icon" onClick={() => setTocVisible(false)}>
+                <X className="h-5 w-5" />
+            </Button>
         </div>
-        <div className="aspect-[2/3] w-full relative mb-3 rounded-md overflow-hidden shadow-md bg-muted">
-          <Image
-            src={story.coverImageUrl || `https://placehold.co/512x800.png`}
-            alt={story.title}
-            layout="fill"
-            objectFit="cover"
-            data-ai-hint={story.dataAiHint || "book cover"}
-          />
-        </div>
-        
-        <h4 className="font-semibold text-sm mt-2 mb-1 text-muted-foreground">Chapters</h4>
-        <ScrollArea className="flex-1 mb-3">
-          <ul className="space-y-1">
-            {visibleChapters.sort((a,b)=>a.order-b.order).map((chapter) => (
-              <li key={chapter.id}>
-                <Button
-                  variant={chapter.id === currentChapter.id ? 'secondary' : 'ghost'}
-                  className="w-full justify-start text-left h-auto py-1.5 px-2 text-sm"
-                  onClick={() => navigateToChapterById(chapter.id)}
-                >
-                  <span className={cn("truncate", chapter.id === currentChapter.id ? "font-semibold" : "")}>
-                    {chapter.order}. {chapter.title}
-                  </span>
-                   {chapter.accessType === 'premium' && <Sparkles className="h-3 w-3 text-yellow-500 ml-auto flex-shrink-0" />}
-                </Button>
-              </li>
-            ))}
-             {visibleChapters.length === 0 && <p className="text-xs text-muted-foreground p-2">No chapters yet.</p>}
-          </ul>
-        </ScrollArea>
-
-        {author && (
-            <Link href={`/profile/${author.id}`} className="mt-auto pt-2 border-t">
-                <div className="flex items-center gap-2 hover:bg-muted p-2 rounded-md">
-                <Avatar className="h-8 w-8">
-                    <AvatarImage src={author.avatarUrl} alt={author.username} data-ai-hint="profile person" />
-                    <AvatarFallback>{author.username.substring(0, 1).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium truncate">{author.displayName || author.username}</span>
+        <Tabs defaultValue="contents" className="w-full flex-1 flex flex-col">
+            <TabsList className="grid w-full grid-cols-2 mx-auto sticky top-0 px-4">
+                <TabsTrigger value="contents">Contents</TabsTrigger>
+                <TabsTrigger value="search">Search</TabsTrigger>
+            </TabsList>
+            <TabsContent value="contents" className="flex-1 overflow-hidden">
+                <ScrollArea className="h-full px-2">
+                    <ul className="space-y-1 p-2">
+                        {visibleChapters.sort((a,b)=>a.order-b.order).map((chapter) => (
+                        <li key={chapter.id}>
+                            <Button
+                            variant={chapter.id === currentChapter.id ? 'secondary' : 'ghost'}
+                            className="w-full justify-start text-left h-auto py-1.5 px-2 text-sm"
+                            onClick={() => navigateToChapterById(chapter.id)}
+                            >
+                            <span className={cn("truncate", chapter.id === currentChapter.id ? "font-semibold" : "")}>
+                                {chapter.order}. {chapter.title}
+                            </span>
+                            {chapter.accessType === 'premium' && <Sparkles className="h-3 w-3 text-yellow-500 ml-auto flex-shrink-0" />}
+                            </Button>
+                        </li>
+                        ))}
+                        {visibleChapters.length === 0 && <p className="text-xs text-muted-foreground p-2">No chapters yet.</p>}
+                    </ul>
+                </ScrollArea>
+            </TabsContent>
+            <TabsContent value="search" className="flex-1 flex flex-col overflow-hidden">
+                 <div className="p-4 border-b">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Search in chapter..." 
+                            className="pl-10" 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
                 </div>
-            </Link>
+                 <ScrollArea className="flex-1">
+                    <div className="p-4 space-y-2">
+                        {searchResults.length > 0 ? (
+                            searchResults.map((result, index) => (
+                                <div key={index} className="p-2 border-b">
+                                    <p 
+                                        className="text-xs text-muted-foreground line-clamp-2"
+                                        dangerouslySetInnerHTML={{
+                                            __html: result.snippet.replace(new RegExp(searchTerm, 'gi'), (match) => `<strong class="text-primary">${match}</strong>`)
+                                        }}
+                                    />
+                                    <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => handleGoToSearchResult(result.from, result.to)}>
+                                        Go to result
+                                    </Button>
+                                </div>
+                            ))
+                        ) : searchTerm ? (
+                            <p className="text-xs text-muted-foreground text-center">No results found.</p>
+                        ) : (
+                             <p className="text-xs text-muted-foreground text-center">Start typing to search.</p>
+                        )}
+                    </div>
+                </ScrollArea>
+            </TabsContent>
+        </Tabs>
+        {author && (
+            <div className="mt-auto p-2 border-t">
+                <Link href={`/profile/${author.id}`}>
+                    <div className="flex items-center gap-2 hover:bg-muted p-2 rounded-md">
+                    <Avatar className="h-8 w-8">
+                        <AvatarImage src={author.avatarUrl} alt={author.username} data-ai-hint="profile person" />
+                        <AvatarFallback>{author.username.substring(0, 1).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium truncate">{author.displayName || author.username}</span>
+                    </div>
+                </Link>
+            </div>
         )}
       </aside>
 
