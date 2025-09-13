@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil, RefreshCw } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil, RefreshCw, Sparkles } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -56,6 +56,7 @@ function ForYouTabContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
   const [storySpotlight, setStorySpotlight] = useState<Story | null>(null);
   const [featuredAuthors, setFeaturedAuthors] = useState<(UserSummary & { bio?: string, followersCount?: number })[]>([]);
+  const [communityPicks, setCommunityPicks] = useState<Story[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   useEffect(() => {
@@ -66,7 +67,7 @@ function ForYouTabContent() {
       storiesCol,
       where('visibility', '==', 'Public'),
       orderBy('lastUpdated', 'desc'),
-      firestoreLimit(8)
+      firestoreLimit(12)
     );
 
     const unsubscribeStories = onSnapshot(storiesQuery, (snapshot) => {
@@ -80,14 +81,16 @@ function ForYouTabContent() {
         } as Story;
       });
 
-      setTrendingStories(fetchedStories.filter(s => s.status !== 'Draft'));
+      const publicStories = fetchedStories.filter(s => s.status !== 'Draft');
+      setTrendingStories(publicStories.slice(0, 8));
+      setCommunityPicks(publicStories.slice().sort(() => 0.5 - Math.random()).slice(0, 8));
 
-      if (fetchedStories.length > 0) {
-        const availableForSpotlight = fetchedStories.filter(s => s.visibility === 'Public' && (s.status === 'Ongoing' || s.status === 'Completed'));
+      if (publicStories.length > 0) {
+        const availableForSpotlight = publicStories.filter(s => s.status === 'Ongoing' || s.status === 'Completed');
         if (availableForSpotlight.length > 0) {
           setStorySpotlight(availableForSpotlight[Math.floor(Math.random() * availableForSpotlight.length)]);
-        } else if (fetchedStories.length > 0) {
-          setStorySpotlight(fetchedStories.filter(s => s.status !== 'Draft')[0]);
+        } else if (publicStories.length > 0) {
+          setStorySpotlight(publicStories[0]);
         }
       }
     }, (error) => {
@@ -148,9 +151,8 @@ function ForYouTabContent() {
             <Image
               src={storySpotlight.coverImageUrl || `https://picsum.photos/seed/${storySpotlight.id}/1200/600`}
               alt={storySpotlight.title}
-              layout="fill"
-              objectFit="cover"
-              className="transition-transform duration-500 ease-in-out group-hover:scale-105"
+              fill
+              className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
               data-ai-hint={storySpotlight.dataAiHint || "book cover epic"}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/10"></div>
@@ -193,15 +195,33 @@ function ForYouTabContent() {
           </Link>
         </div>
         <div className="relative">
-            <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+            <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent -m-2 p-2">
             {trendingStories.map(story => (
                 <CompactStoryCard key={`trending-${story.id}`} story={story} />
             ))}
             {trendingStories.length === 0 && <p className="text-muted-foreground">No trending stories to display.</p>}
-            <div className="flex-shrink-0 w-px"></div>
             </div>
         </div>
       </section>
+
+      {/* Community Picks Section */}
+       {communityPicks.length > 0 && (
+          <section>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-headline font-bold text-accent flex items-center gap-2">
+                <Sparkles className="h-6 w-6"/>
+                Community Picks
+              </h2>
+            </div>
+             <div className="relative">
+                <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent -m-2 p-2">
+                {communityPicks.map(story => (
+                    <CompactStoryCard key={`community-${story.id}`} story={story} />
+                ))}
+                </div>
+            </div>
+          </section>
+        )}
       
       {/* Quick Dive Genre Teasers Section */}
       <section>
@@ -212,7 +232,7 @@ function ForYouTabContent() {
             return (
               <Card key={genre.name} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
                 <CardHeader className="p-0 relative aspect-[3/2] md:aspect-video">
-                  <Image src={genre.cover} alt={genre.name} layout="fill" objectFit="cover" data-ai-hint={genre.dataAiHint} className="group-hover:scale-105 transition-transform" />
+                  <Image src={genre.cover} alt={genre.name} fill objectFit="cover" data-ai-hint={genre.dataAiHint} className="group-hover:scale-105 transition-transform object-cover" />
                   <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-4 text-center">
                     <GenreIcon className="h-12 w-12 text-white mb-2 drop-shadow-lg" />
                     <CardTitle className="text-2xl font-headline text-white drop-shadow-lg">{genre.name}</CardTitle>
@@ -237,7 +257,7 @@ function ForYouTabContent() {
       <section>
         <h2 className="text-2xl font-headline font-bold text-accent mb-6">Featured Authors</h2>
          <div className="relative">
-            <div className="flex overflow-x-auto space-x-6 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent">
+            <div className="flex overflow-x-auto space-x-6 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent -m-2 p-2">
             {featuredAuthors.map(author => (
                 <Link href={`/profile/${author.id}`} key={`author-${author.id}`} passHref>
                 <div className="flex-shrink-0 w-52 group cursor-pointer">
@@ -252,7 +272,6 @@ function ForYouTabContent() {
                 </div>
                 </Link>
             ))}
-            <div className="flex-shrink-0 w-px"></div>
             </div>
         </div>
       </section>
@@ -326,7 +345,7 @@ export default function HomePage() {
         </section>
         
         <div className="mt-8">
-           <Tabs defaultValue="for-you" className="w-full max-w-2xl mx-auto">
+           <Tabs defaultValue="for-you" className="w-full max-w-4xl mx-auto">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="for-you">For You</TabsTrigger>
               <TabsTrigger value="bookshelf">Bookshelf</TabsTrigger>
