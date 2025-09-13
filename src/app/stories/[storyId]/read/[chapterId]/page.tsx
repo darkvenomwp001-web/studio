@@ -96,7 +96,21 @@ export default function StoryReaderPage() {
   const viewIncrementedRef = useRef(false);
 
   const editor = useEditor({
-    editable: false,
+    editable: true, // Set to true to allow bubble menu commands
+    editorProps: {
+      handleTextInput: () => true, // Prevent typing
+      handlePaste: () => true, // Prevent pasting
+      handleDrop: () => true, // Prevent dropping
+      handleKeyDown: (view, event) => {
+        // Allow selection and copy, but prevent all other input
+        if (event.ctrlKey || event.metaKey) {
+          if (['c', 'a'].includes(event.key.toLowerCase())) {
+            return false;
+          }
+        }
+        return true;
+      },
+    },
     content: '',
     extensions: [
       StarterKit,
@@ -173,7 +187,7 @@ export default function StoryReaderPage() {
         if (chapterData) {
             setCurrentChapter(chapterData);
             if (editor && chapterData.content) {
-              editor.commands.setContent(chapterData.content);
+              editor.commands.setContent(chapterData.content, false);
             }
             
             const visibleChapters = storyData.chapters.filter(c => c.status === 'Published' || c.accessType === 'premium');
