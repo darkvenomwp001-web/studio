@@ -112,20 +112,23 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
 
 
   return (
-    <div className="flex gap-3 py-4 border-b border-border/60 last:border-b-0">
-      <Avatar className="h-10 w-10">
-        <AvatarImage src={comment.user.avatarUrl} alt={comment.user.username} data-ai-hint="profile person" />
-        <AvatarFallback>{comment.user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-      </Avatar>
+    <div className="flex gap-3 py-4">
+      <Link href={`/profile/${comment.user.id}`}>
+        <Avatar className="h-10 w-10">
+            <AvatarImage src={comment.user.avatarUrl} alt={comment.user.username} data-ai-hint="profile person" />
+            <AvatarFallback>{comment.user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+        </Avatar>
+      </Link>
       <div className="flex-1">
-        <div className="flex items-center justify-between mb-1">
-          <span className="font-semibold text-sm text-foreground">{comment.user.displayName || comment.user.username}</span>
-           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {comment.timestamp instanceof Timestamp 
-                  ? formatDistanceToNow(comment.timestamp.toDate(), { addSuffix: true })
-                  : comment.timestamp ? formatDistanceToNow(new Date(comment.timestamp), { addSuffix: true }) : 'Just now'}
-            </span>
+        <div className="flex items-center justify-between">
+            <div>
+                <Link href={`/profile/${comment.user.id}`} className="font-semibold text-sm text-foreground hover:underline">{comment.user.displayName || comment.user.username}</Link>
+                <span className="text-xs text-muted-foreground ml-2">
+                    {comment.timestamp instanceof Timestamp 
+                        ? formatDistanceToNow(comment.timestamp.toDate(), { addSuffix: true })
+                        : comment.timestamp ? formatDistanceToNow(new Date(comment.timestamp), { addSuffix: true }) : 'Just now'}
+                </span>
+            </div>
              {isOwner && !isEditing && (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -147,16 +150,15 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
                     </DropdownMenuContent>
                 </DropdownMenu>
             )}
-           </div>
         </div>
         
         {isEditing ? (
-          <div className="space-y-2 mt-1">
+          <div className="space-y-2 mt-2">
             <Textarea 
               value={editedContent}
               onChange={(e) => setEditedContent(e.target.value)}
               rows={3}
-              className="text-sm bg-background focus:ring-primary"
+              className="text-sm bg-background focus-visible:ring-primary"
               disabled={isSavingEdit}
             />
             <div className="flex gap-2">
@@ -168,25 +170,20 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
             </div>
           </div>
         ) : (
-          <p className="text-sm text-foreground/90 mb-2 whitespace-pre-line">{comment.content}</p>
+          <p className="text-sm text-foreground/90 mt-1 whitespace-pre-line">{comment.content}</p>
         )}
 
         {!isEditing && (
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <button className="flex items-center gap-1 hover:text-primary transition-colors">
-                <ThumbsUp className="h-3.5 w-3.5" /> Like ({comment.likes || 0})
+            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+            <button className="flex items-center gap-1 hover:text-primary transition-colors font-medium">
+                <ThumbsUp className="h-4 w-4" /> ({comment.likes || 0})
             </button>
             {currentUser && onReply && (
                 <button 
                 onClick={() => onReply(comment.id, comment.user.displayName || comment.user.username)}
-                className="flex items-center gap-1 hover:text-primary transition-colors"
+                className="hover:text-primary transition-colors font-medium"
                 >
-                <MessageSquareIcon className="h-3.5 w-3.5" /> Reply
-                </button>
-            )}
-            {replies.length > 0 && (
-                <button onClick={handleToggleReplies} className="flex items-center gap-1 hover:text-primary transition-colors">
-                {showReplies ? 'Hide' : 'Show'} {replies.length} {replies.length === 1 ? 'Reply' : 'Replies'}
+                Reply
                 </button>
             )}
             </div>
@@ -217,8 +214,15 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
             </AlertDialogFooter>
         </AlertDialogContent>
 
-        {showReplies && replies.length > 0 && (
-          <div className="mt-3 pl-4 border-l-2 border-accent/30">
+        {replies.length > 0 && (
+            <button onClick={handleToggleReplies} className="text-xs font-semibold text-muted-foreground hover:text-primary mt-3 flex items-center gap-2">
+                <div className="w-6 border-t"></div>
+                {showReplies ? 'Hide' : `View ${replies.length}`} {replies.length === 1 ? 'reply' : 'replies'}
+            </button>
+        )}
+
+        {showReplies && (
+          <div className="mt-3">
             {replies.map(reply => (
               <Comment 
                 key={reply.id} 
@@ -340,33 +344,39 @@ export default function CommentSection({ storyId, chapterId }: CommentSectionPro
 
   return (
     <AlertDialog>
-        <section className="bg-card p-4 sm:p-6 rounded-lg shadow-md">
-        <h3 className="text-xl sm:text-2xl font-headline font-semibold mb-6 text-foreground">
+        <section>
+        <h3 className="text-xl sm:text-2xl font-headline font-semibold mb-4 text-foreground">
             Comments ({topLevelComments.length})
         </h3>
         
         {!authLoading && currentUser && (
-            <form onSubmit={handleSubmitComment} className="mb-6">
-            <Textarea
-                id="comment-textarea"
-                placeholder={replyingTo ? `Replying to ${replyingTo.username}...` : "Share your thoughts on this chapter..."}
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="min-h-[100px] bg-background focus:ring-primary"
-                rows={4}
-                disabled={isPostingComment}
-            />
-            <div className="mt-3 flex items-center justify-between">
-                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isPostingComment || !newComment.trim()}>
-                {isPostingComment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Post Comment
-                </Button>
-                {replyingTo && (
-                <Button variant="ghost" size="sm" onClick={() => setReplyingTo(null)} className="text-xs text-muted-foreground" disabled={isPostingComment}>
-                    Cancel Reply
-                </Button>
+            <form onSubmit={handleSubmitComment} className="flex items-start gap-3 mb-8">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} data-ai-hint="profile person" />
+                <AvatarFallback>{currentUser.username?.substring(0, 1).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <Textarea
+                    id="comment-textarea"
+                    placeholder={replyingTo ? `Replying to ${replyingTo.username}...` : "Add a comment..."}
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className="min-h-[40px] bg-background border-border focus-visible:ring-primary rounded-xl"
+                    rows={1}
+                    disabled={isPostingComment}
+                />
+                 {replyingTo && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Replying to {replyingTo.username}. <button type="button" className="text-primary hover:underline" onClick={() => setReplyingTo(null)}>Cancel</button>
+                    </p>
                 )}
-            </div>
+                 {newComment.length > 0 && (
+                    <Button type="submit" size="sm" className="mt-2" disabled={isPostingComment || !newComment.trim()}>
+                        {isPostingComment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Post
+                    </Button>
+                )}
+              </div>
             </form>
         )}
         {!authLoading && !currentUser && (
@@ -381,7 +391,7 @@ export default function CommentSection({ storyId, chapterId }: CommentSectionPro
             <p className="ml-3 text-muted-foreground">Loading comments...</p>
             </div>
         ) : (
-            <div className="space-y-0">
+            <div className="divide-y divide-border/60">
             {topLevelComments.length > 0 ? (
                 topLevelComments.map(comment => (
                 <Comment 
@@ -394,7 +404,7 @@ export default function CommentSection({ storyId, chapterId }: CommentSectionPro
                 />
                 ))
             ) : (
-                <p className="text-muted-foreground text-center py-4">No comments yet. Be the first to share your thoughts!</p>
+                <p className="text-muted-foreground text-center py-8">Be the first to share your thoughts!</p>
             )}
             </div>
         )}
