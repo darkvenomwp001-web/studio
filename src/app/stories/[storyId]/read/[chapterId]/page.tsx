@@ -40,6 +40,11 @@ import {
   Monitor,
   TextIcon,
   Highlighter,
+  Palette,
+  Type,
+  Baseline,
+  RectangleHorizontal,
+  RotateCcw,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -60,10 +65,16 @@ import { BubbleMenu, EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Highlight from '@tiptap/extension-highlight'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
 const fontSizes: FontSize[] = ['sm', 'base', 'lg', 'xl'];
+type FontFamily = 'sans' | 'serif';
+type LineHeight = 'tight' | 'normal' | 'loose';
+type LayoutWidth = 'normal' | 'wide';
+
 
 export default function StoryReaderPage() {
   const params = useParams();
@@ -85,7 +96,11 @@ export default function StoryReaderPage() {
   const [isAccessGranted, setIsAccessGranted] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
 
+  // Appearance Settings
   const [fontSize, setFontSize] = useState<FontSize>('base');
+  const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
+  const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
+  const [layoutWidth, setLayoutWidth] = useState<LayoutWidth>('normal');
   const [isNightPortalActive, setIsNightPortalActive] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
@@ -104,23 +119,42 @@ export default function StoryReaderPage() {
   // Load reading preferences from localStorage
   useEffect(() => {
     const savedFontSize = localStorage.getItem('reader-font-size') as FontSize;
+    const savedFontFamily = localStorage.getItem('reader-font-family') as FontFamily;
+    const savedLineHeight = localStorage.getItem('reader-line-height') as LineHeight;
+    const savedLayoutWidth = localStorage.getItem('reader-layout-width') as LayoutWidth;
     const savedNightPortal = localStorage.getItem('reader-night-portal') === 'true';
-    if (savedFontSize && fontSizes.includes(savedFontSize)) {
-      setFontSize(savedFontSize);
-    }
+
+    if (savedFontSize && fontSizes.includes(savedFontSize)) setFontSize(savedFontSize);
+    if (savedFontFamily) setFontFamily(savedFontFamily);
+    if (savedLineHeight) setLineHeight(savedLineHeight);
+    if (savedLayoutWidth) setLayoutWidth(savedLayoutWidth);
     setIsNightPortalActive(savedNightPortal);
   }, []);
 
+  // Save settings to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('reader-font-size', fontSize);
+    localStorage.setItem('reader-font-family', fontFamily);
+    localStorage.setItem('reader-line-height', lineHeight);
+    localStorage.setItem('reader-layout-width', layoutWidth);
+    localStorage.setItem('reader-night-portal', String(isNightPortalActive));
+  }, [fontSize, fontFamily, lineHeight, layoutWidth, isNightPortalActive]);
+  
   // Apply night portal class to body
   useEffect(() => {
     document.body.classList.toggle('night-portal', isNightPortalActive);
-    localStorage.setItem('reader-night-portal', String(isNightPortalActive));
   }, [isNightPortalActive]);
-  
-  // Save font size to localStorage
-  useEffect(() => {
-    localStorage.setItem('reader-font-size', fontSize);
-  }, [fontSize]);
+
+  const resetAppearanceSettings = () => {
+    setFontSize('base');
+    setFontFamily('sans');
+    setLineHeight('normal');
+    setLayoutWidth('normal');
+    setIsNightPortalActive(false);
+    setTheme('system');
+    toast({ title: "Appearance settings reset to default." });
+  };
+
 
   const incrementViewCount = useCallback(async () => {
     if (viewIncrementedRef.current || !storyId) return;
@@ -317,6 +351,17 @@ export default function StoryReaderPage() {
   const hasVoted = currentUser ? currentChapter?.voterIds?.includes(currentUser.id) : false;
   const isInLibrary = currentUser?.readingList?.some(item => item.id === story.id);
 
+  const articleClasses = cn(
+      "prose dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20",
+      {
+        'prose-sm': fontSize === 'sm', 'prose-base': fontSize === 'base', 'prose-lg': fontSize === 'lg', 'prose-xl': fontSize === 'xl',
+        'font-body': fontFamily === 'sans', 'font-serif': fontFamily === 'serif',
+        'prose-tight': lineHeight === 'tight', 'prose-normal': lineHeight === 'normal', 'prose-loose': lineHeight === 'loose',
+        'max-w-3xl mx-auto': layoutWidth === 'normal', 'max-w-5xl mx-auto': layoutWidth === 'wide',
+      }
+  );
+
+
   return (
     <>
     <div className={cn("relative min-h-screen bg-background text-foreground overflow-hidden", {'select-none': currentChapter.accessType === 'premium'})}>
@@ -340,38 +385,61 @@ export default function StoryReaderPage() {
         <div className="truncate text-center mx-2 flex-1">
             <h1 className="text-md sm:text-lg font-headline font-semibold text-primary truncate">{story.title}</h1>
         </div>
-        <div className="flex items-center">
-            <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+        <Popover>
+            <PopoverTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Appearance Settings">
-                <Settings2 className="h-5 w-5" />
+                    <Palette className="h-5 w-5" />
                 </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Appearance</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setIsNightPortalActive(!isNightPortalActive)}>
-                    <Moon className="mr-2 h-4 w-4" /> Night Reading Portal
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Font Size</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={fontSize} onValueChange={(v) => setFontSize(v as FontSize)}>
-                    {fontSizes.map(size => (
-                        <DropdownMenuRadioItem key={size} value={size} className="capitalize">
-                            <TextIcon className="mr-2 h-4 w-4" /> {size}
-                        </DropdownMenuRadioItem>
-                    ))}
-                </DropdownMenuRadioGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Theme</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
-                    <DropdownMenuRadioItem value="light"><Sun className="mr-2 h-4 w-4" />Light</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="dark"><Moon className="mr-2 h-4 w-4" />Dark</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="system"><Monitor className="mr-2 h-4 w-4" />System</DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-            </DropdownMenu>
-        </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+                <div className="grid gap-4">
+                    <div className="space-y-2">
+                        <h4 className="font-medium leading-none">Appearance</h4>
+                        <p className="text-sm text-muted-foreground">
+                            Customize the look of the reader.
+                        </p>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Theme</Label>
+                        <RadioGroup defaultValue={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
+                            <Label htmlFor="light" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="light" id="light" className="sr-only" /><Sun className="h-5 w-5" /></Label>
+                            <Label htmlFor="dark" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="dark" id="dark" className="sr-only" /><Moon className="h-5 w-5" /></Label>
+                            <Label htmlFor="system" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="system" id="system" className="sr-only" /><Monitor className="h-5 w-5" /></Label>
+                        </RadioGroup>
+                        <Button variant="outline" size="sm" onClick={() => setIsNightPortalActive(!isNightPortalActive)}><Moon className="mr-2 h-4 w-4" /> Night Portal</Button>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Font Size</Label>
+                        <RadioGroup defaultValue={fontSize} onValueChange={(v) => setFontSize(v as FontSize)} className="grid grid-cols-4 gap-2">
+                            {fontSizes.map(size => <Label key={size} htmlFor={`font-${size}`} className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer capitalize"><RadioGroupItem value={size} id={`font-${size}`} className="sr-only" /><TextIcon className="h-4 w-4" />{size}</Label>)}
+                        </RadioGroup>
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>Font Family</Label>
+                        <RadioGroup defaultValue={fontFamily} onValueChange={(v) => setFontFamily(v as FontFamily)} className="grid grid-cols-2 gap-2">
+                            <Label htmlFor="font-sans" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer font-sans"><RadioGroupItem value="sans" id="font-sans" className="sr-only" />Sans-Serif</Label>
+                            <Label htmlFor="font-serif" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer font-serif"><RadioGroupItem value="serif" id="font-serif" className="sr-only" />Serif</Label>
+                        </RadioGroup>
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>Line Height</Label>
+                        <RadioGroup defaultValue={lineHeight} onValueChange={(v) => setLineHeight(v as LineHeight)} className="grid grid-cols-3 gap-2">
+                            <Label htmlFor="lh-tight" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="tight" id="lh-tight" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                            <Label htmlFor="lh-normal" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="normal" id="lh-normal" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                            <Label htmlFor="lh-loose" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="loose" id="lh-loose" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                        </RadioGroup>
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>Layout Width</Label>
+                        <RadioGroup defaultValue={layoutWidth} onValueChange={(v) => setLayoutWidth(v as LayoutWidth)} className="grid grid-cols-2 gap-2">
+                           <Label htmlFor="lw-normal" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="normal" id="lw-normal" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
+                           <Label htmlFor="lw-wide" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="wide" id="lw-wide" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
+                        </RadioGroup>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={resetAppearanceSettings}><RotateCcw className="mr-2 h-4 w-4" /> Reset</Button>
+                </div>
+            </PopoverContent>
+        </Popover>
       </header>
 
       <aside
@@ -468,15 +536,7 @@ export default function StoryReaderPage() {
                     </div>
                 </BubbleMenu>
              )}
-             <article className={cn(
-              "prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20 prose-reading",
-              {
-                'prose-sm': fontSize === 'sm',
-                'prose-base': fontSize === 'base',
-                'prose-lg': fontSize === 'lg',
-                'prose-xl': fontSize === 'xl',
-              }
-            )}>
+             <article className={articleClasses}>
               <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4 text-center">{currentChapter.title}</h2>
               {isAccessGranted ? (
                 <EditorContent editor={editor} />
@@ -575,4 +635,5 @@ export default function StoryReaderPage() {
     
 
     
+
 
