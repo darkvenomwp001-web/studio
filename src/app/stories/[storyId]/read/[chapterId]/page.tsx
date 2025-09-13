@@ -216,26 +216,6 @@ export default function StoryReaderPage() {
         }
     }
   };
-  
-  const handleShare = async () => {
-    const shareData = {
-      title: `"${story?.title}" by ${story?.author.displayName || story?.author.username}`,
-      text: `Check out this chapter on LitVerse: ${currentChapter?.title}`,
-      url: window.location.href,
-    };
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-        toast({ title: 'Story Shared!', description: 'Thanks for spreading the word.' });
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        toast({ title: 'Link Copied!', description: `Link to "${story?.title} - ${currentChapter?.title}" copied to clipboard.` });
-      }
-    } catch (error) {
-      console.error("Share failed:", error);
-      toast({ title: 'Share Failed', description: 'Could not share at this time.', variant: 'destructive' });
-    }
-  };
 
   const handleVoteClick = async () => {
     if (!currentUser || !story || !currentChapter) {
@@ -512,8 +492,31 @@ export default function StoryReaderPage() {
                        {isInLibrary ? <BookmarkCheck className="h-5 w-5 text-primary" /> : <Bookmark className="h-5 w-5" />}
                     </Button>
                     <Separator orientation="vertical" className="h-6" />
-                    <Button variant="ghost" size="icon" onClick={handleShare} aria-label="Share this story">
-                        <Share2 className="h-5 w-5" />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={async () => {
+                        const shareData = {
+                          title: `"${story?.title}" by ${story?.author.displayName || story?.author.username}`,
+                          text: `Check out this chapter on D4RKV3NOM: ${currentChapter?.title}`,
+                          url: window.location.href,
+                        };
+                        try {
+                          if (navigator.share) {
+                            await navigator.share(shareData);
+                            toast({ title: 'Story Shared!', description: 'Thanks for spreading the word.' });
+                          } else {
+                            await navigator.clipboard.writeText(window.location.href);
+                            toast({ title: 'Link Copied!', description: `Link to "${story?.title} - ${currentChapter?.title}" copied to clipboard.` });
+                          }
+                        } catch (error) {
+                          console.error('Share failed:', error);
+                          toast({ title: 'Share Failed', description: 'Could not share at this time.', variant: 'destructive' });
+                        }
+                      }}
+                      aria-label="Share this story"
+                    >
+                      <Share2 className="h-5 w-5" />
                     </Button>
                 </div>
                 
@@ -533,3 +536,5 @@ export default function StoryReaderPage() {
     </>
   );
 }
+
+    
