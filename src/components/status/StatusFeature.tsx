@@ -48,7 +48,7 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
             <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
             </Avatar>
         </div>
-         {isNote && (
+        {isNote && (
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full w-max max-w-[150px] mb-2 z-[60]">
                 <div className="bg-muted px-2.5 py-1.5 rounded-lg shadow-md">
                     <p className="text-xs text-foreground truncate">{latestStatus.note}</p>
@@ -57,8 +57,11 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
                 <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-[5px] border-t-muted"></div>
             </div>
         )}
+         <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
+            <Plus className="h-4 w-4 text-primary-foreground" />
+        </div>
       </div>
-      <p className="text-xs mt-1 truncate">{user.displayName || user.username}</p>
+      <p className="text-xs mt-1 truncate">Your Status</p>
     </div>
   );
 }
@@ -458,7 +461,7 @@ export default function StatusFeature() {
         <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
       </DialogHeader>
       <Tabs defaultValue={uploaderDefaultTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
-        <TabsList className="grid w-full grid-cols-4 mx-auto sticky top-0 px-6">
+        <TabsList className="grid w-full grid-cols-4 mx-auto sticky top-0 px-6 bg-transparent p-0">
           <TabsTrigger value="note">Note</TabsTrigger>
           <TabsTrigger value="media">Media</TabsTrigger>
           <TabsTrigger value="song">Song</TabsTrigger>
@@ -714,7 +717,7 @@ export default function StatusFeature() {
       </ScrollArea>
 
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
-            <DialogContent className="p-0 m-0 bg-transparent border-0 w-screen h-screen max-w-full sm:max-w-md sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
+            <DialogContent className="p-0 m-0 border-0 w-screen h-screen max-w-full sm:max-w-md sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
                 {uploaderScreen === 'picker' ? renderPickerScreen() : renderEditorScreen()}
             </DialogContent>
         </Dialog>
