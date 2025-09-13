@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -530,7 +529,7 @@ function MessagesClient() {
                         <h3 className="font-semibold text-lg">{getOtherParticipant(activeConversation)?.displayName || getOtherParticipant(activeConversation)?.username || 'Unknown User'}</h3>
                     </header>
                     
-                    <ScrollArea className="flex-1 p-4 space-y-4 bg-[url('https://placehold.co/10x10/000000/000000.png')] bg-repeat">
+                    <ScrollArea className="flex-1 p-4 space-y-4 bg-[url('https://picsum.photos/seed/1/10/10')] bg-repeat">
                         {isLoadingMessages ? (
                         <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
                         ) : messages.length === 0 ? (
@@ -697,3 +696,5 @@ export default function UnifiedInboxPage() {
         </div>
     );
 }
+
+    
