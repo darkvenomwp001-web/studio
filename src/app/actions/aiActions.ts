@@ -44,7 +44,9 @@ export async function getStoryMood(input: MatchStoryMoodInput): Promise<MatchSto
 
 export async function getConversationStarters(input: GenerateConversationStartersInput): Promise<GenerateConversationStartersOutput | { error: string }> {
     try {
+        console.log("AI Action: Generating conversation starters...");
         const result = await generateConversationStartersFlow(input);
+        console.log("AI Action: Starters received:", result.starters.length);
         return result;
     } catch (error) {
         console.error("Error in getConversationStarters AI action:", error);

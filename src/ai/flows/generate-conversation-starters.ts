@@ -13,7 +13,6 @@ import {z} from 'genkit';
 const GenerateConversationStartersInputSchema = z.object({
   user1_bio: z.string().optional().describe("The bio of the first user in the conversation."),
   user2_bio: z.string().optional().describe("The bio of the second user in the conversation."),
-  commonInterests: z.array(z.string()).optional().describe("A list of common interests or story genres they both like."),
 });
 export type GenerateConversationStartersInput = z.infer<typeof GenerateConversationStartersInputSchema>;
 
@@ -34,7 +33,6 @@ const prompt = ai.definePrompt({
 
 User 1 Bio: {{{user1_bio}}}
 User 2 Bio: {{{user2_bio}}}
-Common Interests: {{#each commonInterests}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}
 
 Generate the conversation starters now.
 `,
