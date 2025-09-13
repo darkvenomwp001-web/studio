@@ -47,6 +47,9 @@ import {
 import { createPrompt, archivePrompt, updatePrompt } from '@/app/actions/promptActions';
 import { useRouter } from 'next/navigation';
 import placeholderImages from '@/app/lib/placeholder-images.json';
+import CreatePostForm from '@/components/feed/CreatePostForm';
+import HomeFeed from '@/components/feed/HomeFeed';
+
 
 function ForYouTabContent() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
@@ -256,102 +259,10 @@ function ForYouTabContent() {
   );
 }
 
-function PromptsTabContent() {
-    const { user } = useAuth();
-    const [prompts, setPrompts] = useState<Prompt[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const { toast } = useToast();
-    const isUserAuthenticated = user && !user.isAnonymous;
+function ThreadsTabContent() {
+    const { user, loading } = useAuth();
 
-    const [newPromptTitle, setNewPromptTitle] = useState('');
-    const [newPromptText, setNewPromptText] = useState('');
-    const [newPromptGenre, setNewPromptGenre] = useState('fantasy');
-
-    const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
-    const [editedPromptData, setEditedPromptData] = useState({ title: '', prompt: '', genre: '' });
-
-    useEffect(() => {
-        const q = query(collection(db, 'prompts'), where('isArchived', '==', false), orderBy('createdAt', 'desc'));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const promptsData = snapshot.docs
-              .map(doc => ({ id: doc.id, ...doc.data() } as Prompt));
-            setPrompts(promptsData);
-            setIsLoading(false);
-        }, (error) => {
-            console.error("Error fetching prompts: ", error);
-            setIsLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, []);
-    
-    const handlePromptSubmit = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!isUserAuthenticated) {
-            toast({title: "Please sign in", description: "You must be logged in to create a prompt.", variant: "destructive"});
-            return;
-        }
-        if (!newPromptTitle.trim() || !newPromptText.trim() || !newPromptGenre.trim()) {
-            toast({ title: 'All Fields Required', description: 'Please fill out all fields to create a prompt.', variant: 'destructive' });
-            return;
-        }
-        setIsSubmitting(true);
-        const authorSummary: UserSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
-        
-        const result = await createPrompt({
-            title: newPromptTitle,
-            prompt: newPromptText,
-            genre: newPromptGenre,
-            author: authorSummary,
-        });
-
-        if (result.success) {
-            toast({title: "Prompt Created!", description: "Your new prompt is now available for everyone."});
-            setNewPromptTitle('');
-            setNewPromptText('');
-            setNewPromptGenre('fantasy');
-        } else {
-            toast({ title: 'Error', description: result.error, variant: 'destructive' });
-        }
-        setIsSubmitting(false);
-    };
-
-    const handleEditPrompt = async () => {
-      if (!editingPrompt || !user) return;
-      setIsSubmitting(true);
-
-      const originalPrompts = prompts;
-      setPrompts(prompts.map(p => p.id === editingPrompt.id ? { ...p, ...editedPromptData } : p));
-      setEditingPrompt(null);
-      
-      const result = await updatePrompt(editingPrompt.id, editedPromptData, user.id);
-
-      if (result.success) {
-        toast({ title: 'Prompt Updated' });
-      } else {
-        toast({ title: 'Error', description: result.error, variant: 'destructive' });
-        setPrompts(originalPrompts);
-      }
-      setIsSubmitting(false);
-    };
-  
-    const handleArchivePrompt = async (promptToArchive: Prompt) => {
-      if (!user) return;
-      
-      const originalPrompts = prompts;
-      setPrompts(prompts.filter(p => p.id !== promptToArchive.id));
-
-      const result = await archivePrompt(promptToArchive.id, user.id);
-      if (result.success) {
-        toast({ title: 'Prompt Archived' });
-      } else {
-        toast({ title: 'Error', description: result.error, variant: 'destructive' });
-        setPrompts(originalPrompts);
-      }
-    };
-
-    if (isLoading) {
+    if (loading) {
         return (
             <div className="flex justify-center items-center py-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -359,153 +270,21 @@ function PromptsTabContent() {
         );
     }
     
-    return (
-        <>
-        <div className="py-8 max-w-3xl mx-auto space-y-8">
-             <Card>
-                <CardHeader>
-                    <CardTitle>Create a New Prompt</CardTitle>
-                    <CardDescription>Inspire the community with a new writing challenge.</CardDescription>
-                </CardHeader>
-                <form onSubmit={handlePromptSubmit}>
-                    <CardContent className="space-y-4">
-                         <div>
-                            <Label htmlFor="prompt-title">Title</Label>
-                            <Input id="prompt-title" value={newPromptTitle} onChange={e => setNewPromptTitle(e.target.value)} placeholder="e.g., The Last Sunrise" disabled={isSubmitting || !isUserAuthenticated} />
-                         </div>
-                          <div>
-                            <Label htmlFor="prompt-genre">Genre</Label>
-                            <Select value={newPromptGenre} onValueChange={(val) => setNewPromptGenre(val as string)} disabled={isSubmitting || !isUserAuthenticated}>
-                                <SelectTrigger id="prompt-genre"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="fantasy">Fantasy</SelectItem>
-                                    <SelectItem value="sci-fi">Sci-Fi</SelectItem>
-                                    <SelectItem value="romance">Romance</SelectItem>
-                                    <SelectItem value="thriller">Thriller</SelectItem>
-                                    <SelectItem value="mystery">Mystery</SelectItem>
-                                    <SelectItem value="other">Other</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                         <div>
-                            <Label htmlFor="prompt-text">Prompt</Label>
-                            <Textarea id="prompt-text" value={newPromptText} onChange={e => setNewPromptText(e.target.value)} placeholder="Describe the writing prompt..." disabled={isSubmitting || !isUserAuthenticated} rows={4}/>
-                         </div>
-                    </CardContent>
-                    <CardFooter>
-                        <Button type="submit" disabled={isSubmitting || !isUserAuthenticated || !newPromptTitle.trim() || !newPromptText.trim()}>
-                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlusCircle className="mr-2 h-4 w-4"/>}
-                            Create Prompt
-                        </Button>
-                    </CardFooter>
-                </form>
-             </Card>
-
-             <div className="space-y-6">
-                {prompts.length > 0 ? prompts.map((item) => (
-                    <Card key={item.id} className="shadow-sm hover:shadow-md transition-shadow relative">
-                         {user?.id === item.author.id && (
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-7 w-7">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader><DialogTitle>Prompt Options</DialogTitle></DialogHeader>
-                                <div className="grid gap-2">
-                                     <Button variant="ghost" className="justify-start" onClick={() => {
-                                        setEditingPrompt(item);
-                                        setEditedPromptData({ title: item.title, prompt: item.prompt, genre: item.genre });
-                                    }}>
-                                        <Edit className="mr-2 h-4 w-4" /> Edit
-                                    </Button>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" className="justify-start text-yellow-600 hover:text-yellow-700">
-                                            <Archive className="mr-2 h-4 w-4" /> Archive
-                                        </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Archive this prompt?</AlertDialogTitle>
-                                                <AlertDialogDescription>This will hide the prompt from the main feed. You can view and permanently delete it from your settings.</AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleArchivePrompt(item)} className="bg-yellow-500 hover:bg-yellow-500/90 text-background">Archive Prompt</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                            </DialogContent>
-                          </Dialog>
-                        )}
-                        <CardHeader>
-                            <div className="flex items-center gap-3">
-                               <Edit className="h-6 w-6 text-accent"/>
-                               <CardTitle className="font-headline">{item.title}</CardTitle>
-                            </div>
-                            <CardDescription>Genre: {item.genre} | By: <Link href={`/profile/${item.author.id}`} className="hover:underline">{item.author?.displayName || item.author?.username || 'Community'}</Link></CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-foreground/90">{item.prompt}</p>
-                        </CardContent>
-                        <CardFooter>
-                            <Link href={`/write/edit-details?prompt=${encodeURIComponent(item.prompt)}&title=${encodeURIComponent(item.title)}&genre=${encodeURIComponent(item.genre)}`} passHref>
-                                <Button>
-                                    <Edit className="mr-2 h-4 w-4"/>
-                                    Start Writing
-                                </Button>
-                            </Link>
-                        </CardFooter>
-                    </Card>
-                )) : (
-                    <p className="text-muted-foreground text-center py-10">No prompts available right now. Check back soon!</p>
-                )}
-             </div>
-        </div>
-        
-        {/* Edit Prompt Dialog */}
-        <Dialog open={!!editingPrompt} onOpenChange={(open) => !open && setEditingPrompt(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Prompt</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-prompt-title">Title</Label>
-                <Input id="edit-prompt-title" value={editedPromptData.title} onChange={e => setEditedPromptData(d => ({...d, title: e.target.value}))} />
-              </div>
-              <div>
-                <Label htmlFor="edit-prompt-genre">Genre</Label>
-                <Select value={editedPromptData.genre} onValueChange={(val) => setEditedPromptData(d => ({...d, genre: val}))}>
-                  <SelectTrigger id="edit-prompt-genre"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="fantasy">Fantasy</SelectItem>
-                      <SelectItem value="sci-fi">Sci-Fi</SelectItem>
-                      <SelectItem value="romance">Romance</SelectItem>
-                      <SelectItem value="thriller">Thriller</SelectItem>
-                      <SelectItem value="mystery">Mystery</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit-prompt-text">Prompt</Label>
-                <Textarea id="edit-prompt-text" value={editedPromptData.prompt} onChange={e => setEditedPromptData(d => ({...d, prompt: e.target.value}))} rows={5} />
-              </div>
+    if (!user) {
+        return (
+            <div className="text-center py-10">
+                <p className="text-muted-foreground">
+                    <Link href="/auth/signin" className="text-primary hover:underline">Sign in</Link> to see posts from authors you follow.
+                </p>
             </div>
-            <DialogFooter>
-              <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-              <Button onClick={handleEditPrompt} disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </>
+        )
+    }
+
+    return (
+        <div className="py-8 max-w-2xl mx-auto space-y-8">
+            <CreatePostForm user={user} />
+            <HomeFeed user={user} />
+        </div>
     );
 }
 
@@ -534,7 +313,7 @@ export default function HomePage() {
             <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto">
               <TabsTrigger value="for-you">For You</TabsTrigger>
               <TabsTrigger value="bookshelf">Bookshelf</TabsTrigger>
-              <TabsTrigger value="prompts">Prompts</TabsTrigger>
+              <TabsTrigger value="threads">Threads</TabsTrigger>
             </TabsList>
           </div>
           
@@ -544,8 +323,8 @@ export default function HomePage() {
           <TabsContent value="bookshelf" className="mt-6">
             <Bookshelf />
           </TabsContent>
-          <TabsContent value="prompts" className="mt-6">
-            <PromptsTabContent />
+          <TabsContent value="threads" className="mt-6">
+            <ThreadsTabContent />
           </TabsContent>
         </Tabs>
       </main>
