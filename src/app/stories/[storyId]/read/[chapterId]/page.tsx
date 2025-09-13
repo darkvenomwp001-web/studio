@@ -459,7 +459,7 @@ export default function StoryReaderPage() {
              {editor && (
                 <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
                     <div className="flex gap-1 bg-card border shadow-lg p-1 rounded-md">
-                        <Button variant="ghost" size="sm" onClick={() => editor.chain().focus().toggleHighlight().run()} className={editor.isActive('highlight') ? 'is-active' : ''}>
+                        <Button variant="ghost" size="sm" onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()} className={editor.isActive('highlight') ? 'is-active' : ''}>
                             <Highlighter className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => router.push(`/stories/${storyId}/read/${chapterIdParams}/comments`)}>
@@ -575,3 +575,4 @@ export default function StoryReaderPage() {
     
 
     
+

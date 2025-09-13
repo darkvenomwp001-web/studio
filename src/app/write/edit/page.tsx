@@ -1,11 +1,12 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Save, History, EyeOff, Brain, CheckCircle, AlertTriangle, Maximize, Minimize, Send, FileText, Settings, Loader2, Eye, Undo, Redo, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { Save, History, EyeOff, Brain, CheckCircle, AlertTriangle, Maximize, Minimize, Send, FileText, Settings, Loader2, Eye, Undo, Redo, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Highlighter } from 'lucide-react';
 import AiAssistantPanel from '@/components/writing/AiAssistantPanel';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { BubbleMenu, Editor, EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import TiptapUnderline from '@tiptap/extension-underline'
+import TiptapHighlight from '@tiptap/extension-highlight'
 
 const VersionHistoryManager = {
   getKey: (storyId: string, chapterId: string) => `versionHistory-${storyId}-${chapterId}`,
@@ -54,8 +59,23 @@ export default function WriteEditorPage() {
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
 
   const [chapterTitle, setChapterTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('left');
+  
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      TiptapUnderline,
+      TiptapHighlight.configure({ multicolor: true }),
+    ],
+    content: '',
+    editorProps: {
+        attributes: {
+            class: 'prose dark:prose-invert prose-sm sm:prose-base lg:prose-lg xl:prose-2xl m-5 focus:outline-none min-h-[400px] flex-grow p-4 text-base rounded-md shadow-sm resize-none bg-card',
+        },
+    },
+    onUpdate: ({ editor }) => {
+        setAutoSaveStatus('Typing');
+    },
+  });
 
   const [isDistractionFree, setIsDistractionFree] = useState(false);
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
@@ -102,20 +122,24 @@ export default function WriteEditorPage() {
           if (chapterToEdit) {
             setCurrentChapter(chapterToEdit);
             setChapterTitle(chapterToEdit.title);
-            setContent(chapterToEdit.content);
+            if(editor && !editor.isDestroyed) {
+                editor.commands.setContent(chapterToEdit.content, false);
+            }
           } else { 
             const newChapterOrder = storyData.chapters.length > 0 ? Math.max(...storyData.chapters.map(c => c.order)) + 1 : 1;
             const newChapterInstance: Chapter = {
               id: `chapter-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
               title: `Chapter ${newChapterOrder}`,
-              content: 'Start writing your amazing chapter here...',
+              content: '<p>Start writing your amazing chapter here...</p>',
               order: newChapterOrder,
               status: 'Draft',
               accessType: 'public'
             };
             setCurrentChapter(newChapterInstance);
             setChapterTitle(newChapterInstance.title);
-            setContent(newChapterInstance.content);
+             if(editor && !editor.isDestroyed) {
+                editor.commands.setContent(newChapterInstance.content, false);
+            }
           }
           setIsLoading(false);
         } else {
@@ -138,19 +162,25 @@ export default function WriteEditorPage() {
     return () => {
       if (unsubscribeStory) unsubscribeStory();
     };
-  }, [queryStoryId, queryChapterId, user, router, toast, authLoading]);
+  }, [queryStoryId, queryChapterId, user, router, toast, authLoading, editor]);
 
 
   useEffect(() => {
-    const words = content.trim().split(/\s+/).filter(Boolean).length;
-    setWordCount(words);
-  }, [content]);
+    if(!editor) return;
+    const { state } = editor;
+    const { from, to } = state.selection;
+    const text = state.doc.textBetween(from, to, ' ');
+    const words = text.trim().split(/\s+/).filter(Boolean).length;
+    
+    setWordCount(editor.storage.characterCount.words());
+  }, [editor?.state]);
 
   const handleSaveDraft = useCallback(async (showToast: boolean = true) => {
-    if (!storyDetails || !currentChapter || !user) {
+    if (!storyDetails || !currentChapter || !user || !editor) {
       if (showToast) toast({ title: "Error", description: "Cannot save draft. Story or chapter context missing.", variant: "destructive" });
       return;
     }
+    const content = editor.getHTML();
     setAutoSaveStatus('Saving...');
     VersionHistoryManager.addVersion(storyDetails.id, currentChapter.id, content, chapterTitle);
 
@@ -159,7 +189,7 @@ export default function WriteEditorPage() {
       title: chapterTitle,
       content: content,
       status: currentChapter.status === 'Published' ? 'Published' : 'Draft', 
-      wordCount: content.trim().split(/\s+/).filter(Boolean).length,
+      wordCount: editor.storage.characterCount.words(),
     };
 
     const chapterIndex = storyDetails.chapters.findIndex(ch => ch.id === updatedChapter.id);
@@ -188,31 +218,32 @@ export default function WriteEditorPage() {
       setAutoSaveStatus('Error');
       if (showToast) toast({ title: "Save Failed", description: "Could not save draft.", variant: "destructive" });
     }
-  }, [storyDetails, currentChapter, user, chapterTitle, content, toast]);
+  }, [storyDetails, currentChapter, user, chapterTitle, editor, toast]);
 
   useEffect(() => {
-    if (!storyDetails || !currentChapter || isLoading || authLoading) return;
+    if (!storyDetails || !currentChapter || isLoading || authLoading || !editor) return;
 
     const originalChapterInStory = storyDetails.chapters.find(c => c.id === currentChapter.id);
-    const contentChanged = content !== (originalChapterInStory?.content ?? currentChapter.content);
+    const contentChanged = editor.getHTML() !== (originalChapterInStory?.content ?? currentChapter.content);
     const titleChanged = chapterTitle !== (originalChapterInStory?.title ?? currentChapter.title);
 
-    if (content.length > 0 && (contentChanged || titleChanged)) {
-      setAutoSaveStatus('Saving...');
+    if (editor.getHTML().length > 0 && (contentChanged || titleChanged)) {
+      if(autoSaveStatus !== 'Typing' && autoSaveStatus !== 'Saving...') setAutoSaveStatus('Typing');
       const timer = setTimeout(() => {
         handleSaveDraft(false);
       }, 2500);
       return () => clearTimeout(timer);
     } else {
-      setAutoSaveStatus('Saved');
+      if (autoSaveStatus !== 'No Changes' && autoSaveStatus !== 'Saved') setAutoSaveStatus('Saved');
     }
-  }, [content, chapterTitle, storyDetails, currentChapter, isLoading, handleSaveDraft, authLoading]);
+  }, [editor?.state, chapterTitle, storyDetails, currentChapter, isLoading, handleSaveDraft, authLoading, autoSaveStatus, editor]);
 
   const handlePublishChapter = async () => {
-    if (!storyDetails || !currentChapter || !user) {
+    if (!storyDetails || !currentChapter || !user || !editor) {
         toast({title: "Error", description: "Cannot publish. Story or chapter context missing.", variant: "destructive"});
         return;
     }
+    const content = editor.getHTML();
     setAutoSaveStatus('Saving...');
 
     const updatedChapterData: Chapter = {
@@ -221,7 +252,7 @@ export default function WriteEditorPage() {
         content: content,
         publishedDate: new Date().toISOString(),
         status: 'Published',
-        wordCount: content.trim().split(/\s+/).filter(Boolean).length,
+        wordCount: editor.storage.characterCount.words(),
     };
 
     let chapterExists = false;
@@ -297,13 +328,8 @@ export default function WriteEditorPage() {
     if (!storyDetails?.id || !internalChapterId || internalChapterId.startsWith('temp-chapter-id')) return '';
     return `/write/history/${storyDetails.id}/${internalChapterId}`;
   }, [storyDetails, internalChapterId]);
-  
-  const handleFormat = (formatType: 'bold' | 'italic' | 'underline') => {
-    // This is a mock function. A real implementation would use a library like Slate.js or TipTap.
-    toast({ title: `${formatType.charAt(0).toUpperCase() + formatType.slice(1)} Formatting`, description: "Rich text formatting is coming soon!"});
-  };
 
-  if (isLoading || authLoading || (!storyDetails && queryStoryId) || (!currentChapter && queryStoryId)) {
+  if (isLoading || authLoading || (!storyDetails && queryStoryId) || (!currentChapter && queryStoryId) || !editor) {
       return (
         <div className="flex justify-center items-center min-h-[calc(100vh-10rem)]">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -324,15 +350,7 @@ export default function WriteEditorPage() {
   if (isDistractionFree) {
     return (
       <div className="fixed inset-0 bg-background z-[100] p-4 sm:p-8 flex flex-col items-center">
-        <Textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className={cn("w-full max-w-3xl h-full text-lg p-6 border-none focus-visible:ring-0 shadow-none resize-none bg-background", 
-            textAlign === 'center' && 'text-center',
-            textAlign === 'right' && 'text-right'
-          )}
-          placeholder="Let your story flow..."
-        />
+        <EditorContent editor={editor} className="w-full max-w-3xl h-full"/>
         <Button
           variant="ghost"
           size="sm"
@@ -358,11 +376,11 @@ export default function WriteEditorPage() {
                     Editing: <span className="text-primary font-semibold">{storyDetails.title}</span>
                 </h1>
                 <div className="flex items-center gap-2">
-                    <div className={cn("flex items-center gap-1 text-xs", autoSaveStatus === 'Saved' ? 'text-green-600' : autoSaveStatus === 'Saving...' ? 'text-yellow-600' :  autoSaveStatus === 'Error' ? 'text-red-600' : 'text-muted-foreground')}>
+                    <div className={cn("flex items-center gap-1 text-xs", autoSaveStatus === 'Saved' ? 'text-green-600' : autoSaveStatus === 'Saving...' || autoSaveStatus === 'Typing' ? 'text-yellow-600' :  autoSaveStatus === 'Error' ? 'text-red-600' : 'text-muted-foreground')}>
                         {autoSaveStatus === 'Saved' && <CheckCircle className="h-3 w-3" />}
-                        {autoSaveStatus === 'Saving...' && <Loader2 className="h-3 w-3 animate-spin" />}
+                        {(autoSaveStatus === 'Saving...' || autoSaveStatus === 'Typing') && <Loader2 className="h-3 w-3 animate-spin" />}
                         {autoSaveStatus === 'Error' && <AlertTriangle className="h-3 w-3" />}
-                        {autoSaveStatus !== 'Saving...' && autoSaveStatus !== 'Saved' && autoSaveStatus !== 'Error' && <FileText className="h-3 w-3" />}
+                        {autoSaveStatus !== 'Saving...' && autoSaveStatus !== 'Saved' && autoSaveStatus !== 'Error' && autoSaveStatus !== 'Typing' && <FileText className="h-3 w-3" />}
                         {autoSaveStatus}
                     </div>
                     <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
@@ -381,29 +399,30 @@ export default function WriteEditorPage() {
             />
              <div className="p-2 mt-2 bg-muted/50 rounded-md flex items-center justify-between">
                 <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" title="Undo (Coming Soon)"><Undo className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" title="Redo (Coming Soon)"><Redo className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" title="Undo" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}><Undo className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" title="Redo" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}><Redo className="h-4 w-4" /></Button>
                      <Popover>
                         <PopoverTrigger asChild>
                             <Button variant="ghost" size="icon" title="Format Text"><Bold className="h-4 w-4" /></Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-fit p-1">
                            <div className="flex items-center gap-1">
-                             <Button variant="ghost" size="icon" onClick={() => handleFormat('bold')}><Bold className="h-4 w-4" /></Button>
-                             <Button variant="ghost" size="icon" onClick={() => handleFormat('italic')}><Italic className="h-4 w-4" /></Button>
-                             <Button variant="ghost" size="icon" onClick={() => handleFormat('underline')}><Underline className="h-4 w-4" /></Button>
+                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="h-4 w-4" /></Button>
+                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="h-4 w-4" /></Button>
+                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleUnderline().run()}><Underline className="h-4 w-4" /></Button>
                            </div>
                         </PopoverContent>
                     </Popover>
                     <Popover>
                         <PopoverTrigger asChild>
-                             <Button variant="ghost" size="icon" title="Align Text"><AlignLeft className="h-4 w-4" /></Button>
+                             <Button variant="ghost" size="icon" title="Highlight Text"><Highlighter className="h-4 w-4" /></Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-fit p-1">
+                         <PopoverContent className="w-fit p-1">
                            <div className="flex items-center gap-1">
-                             <Button variant="ghost" size="icon" onClick={() => setTextAlign('left')}><AlignLeft className="h-4 w-4" /></Button>
-                             <Button variant="ghost" size="icon" onClick={() => setTextAlign('center')}><AlignCenter className="h-4 w-4" /></Button>
-                             <Button variant="ghost" size="icon" onClick={() => setTextAlign('right')}><AlignRight className="h-4 w-4" /></Button>
+                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()}><Highlighter className="h-4 w-4 text-yellow-400" /></Button>
+                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#6ee7b7' }).run()}><Highlighter className="h-4 w-4 text-emerald-400" /></Button>
+                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#f87171' }).run()}><Highlighter className="h-4 w-4 text-red-500" /></Button>
+                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().unsetHighlight().run()}>x</Button>
                            </div>
                         </PopoverContent>
                     </Popover>
@@ -423,17 +442,7 @@ export default function WriteEditorPage() {
             </div>
           </header>
 
-          <Textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Start writing your amazing chapter here..."
-            className={cn(
-              "flex-grow min-h-[400px] p-4 text-base rounded-md shadow-sm focus-visible:ring-2 focus-visible:ring-primary resize-none bg-card",
-              textAlign === 'center' && 'text-center',
-              textAlign === 'right' && 'text-right'
-            )}
-            aria-label="Chapter content editor"
-          />
+          <EditorContent editor={editor} />
 
           <footer className="mt-4 p-2 bg-card rounded-lg shadow-sm flex justify-between items-center text-sm">
             <div>{wordCount} words</div>
@@ -497,7 +506,7 @@ export default function WriteEditorPage() {
               </div>
           </div>
 
-          {isAiPanelOpen && <AiAssistantPanel initialText={content} onApplySuggestion={setContent} />}
+          {isAiPanelOpen && editor && <AiAssistantPanel initialText={editor.getText()} onApplySuggestion={(text) => editor.chain().focus().insertContent(text).run()} />}
 
         </aside>
 
@@ -508,10 +517,7 @@ export default function WriteEditorPage() {
                 <AlertDialogDescription>A preview of how your chapter will look to readers.</AlertDialogDescription>
             </AlertDialogHeader>
             <ScrollArea className="max-h-[60vh] my-4">
-                <div className="prose dark:prose-invert prose-reading p-2">
-                    {content.split('\n').map((paragraph, index) => (
-                      <p key={index}>{paragraph || '\u00A0'}</p>
-                    ))}
+                <div className="prose dark:prose-invert prose-reading p-2" dangerouslySetInnerHTML={{ __html: editor.getHTML() }}>
                 </div>
             </ScrollArea>
             <AlertDialogFooter>
