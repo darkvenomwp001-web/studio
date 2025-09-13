@@ -197,12 +197,13 @@ export default function StoryOverviewPage() {
   return (
     <div className="container mx-auto max-w-4xl py-8 px-4 space-y-8">
        <div className="flex flex-col items-center text-center space-y-4">
-        <div className="relative aspect-[2/3] w-full max-w-[240px] rounded-lg overflow-hidden shadow-2xl group">
+        <div className="relative w-full max-w-[240px] rounded-lg overflow-hidden shadow-2xl group">
           <Image
             src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
             alt={story.title}
-            layout="fill"
-            objectFit="cover"
+            width={512}
+            height={800}
+            className="w-full h-auto object-cover"
             data-ai-hint={story.dataAiHint || "book cover"}
             priority
           />
