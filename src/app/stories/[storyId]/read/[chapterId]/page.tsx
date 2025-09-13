@@ -39,6 +39,7 @@ import {
   Sun,
   Monitor,
   TextIcon,
+  Highlighter,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -455,6 +456,18 @@ export default function StoryReaderPage() {
                 toggleMainControls();
             }
         }}> 
+             {editor && (
+                <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
+                    <div className="flex gap-1 bg-card border shadow-lg p-1 rounded-md">
+                        <Button variant="ghost" size="sm" onClick={() => editor.chain().focus().toggleHighlight().run()} className={editor.isActive('highlight') ? 'is-active' : ''}>
+                            <Highlighter className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => router.push(`/stories/${storyId}/read/${chapterIdParams}/comments`)}>
+                            <MessageSquare className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </BubbleMenu>
+             )}
              <article className={cn(
               "prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20 prose-reading",
               {
@@ -531,7 +544,9 @@ export default function StoryReaderPage() {
                           }
                         } catch (error) {
                           console.error('Share failed:', error);
-                          toast({ title: 'Share Failed', description: 'Could not share at this time.', variant: 'destructive' });
+                          if ((error as Error).name !== 'AbortError') {
+                            toast({ title: 'Share Failed', description: 'Could not share at this time.', variant: 'destructive' });
+                          }
                         }
                       }}
                       aria-label="Share this story"
@@ -556,5 +571,7 @@ export default function StoryReaderPage() {
     </>
   );
 }
+
+    
 
     
