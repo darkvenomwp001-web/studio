@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil, RefreshCw, Sparkles } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil, RefreshCw, Sparkles, PenSquare, FileText } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -52,6 +52,7 @@ import placeholderImages from '@/app/lib/placeholder-images.json';
 import CreatePostForm from '@/components/feed/CreatePostForm';
 import HomeFeed from '@/components/feed/HomeFeed';
 import { cn } from '@/lib/utils';
+import PromptCard from '@/components/shared/PromptCard';
 
 
 function ForYouTabContent() {
@@ -59,75 +60,83 @@ function ForYouTabContent() {
   const [storySpotlight, setStorySpotlight] = useState<Story | null>(null);
   const [featuredAuthors, setFeaturedAuthors] = useState<(UserSummary & { bio?: string, followersCount?: number })[]>([]);
   const [communityPicks, setCommunityPicks] = useState<Story[]>([]);
+  const [prompts, setPrompts] = useState<Prompt[]>([]);
+  const [freshVoices, setFreshVoices] = useState<UserSummary[]>([]);
+  const [dystopianStories, setDystopianStories] = useState<Story[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   useEffect(() => {
     setIsDataLoading(true);
 
     const storiesCol = collection(db, 'stories');
+    const usersCol = collection(db, 'users');
+    const promptsCol = collection(db, 'prompts');
+
+    // Combined stories query
     const storiesQuery = query(
       storiesCol,
       where('visibility', '==', 'Public'),
       orderBy('lastUpdated', 'desc'),
-      firestoreLimit(12)
+      firestoreLimit(20)
     );
-
     const unsubscribeStories = onSnapshot(storiesQuery, (snapshot) => {
-      const fetchedStories = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return { 
-          id: doc.id, 
-          ...data,
-          author: data.author || { id: 'unknown', username: 'Unknown' },
-          lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
-        } as Story;
-      });
-
+      const fetchedStories = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        author: doc.data().author || { id: 'unknown', username: 'Unknown' },
+        lastUpdated: doc.data().lastUpdated?.toDate ? doc.data().lastUpdated.toDate().toISOString() : doc.data().lastUpdated,
+      } as Story));
+      
       const publicStories = fetchedStories.filter(s => s.status !== 'Draft');
       setTrendingStories(publicStories.slice(0, 8));
       setCommunityPicks(publicStories.slice().sort(() => 0.5 - Math.random()).slice(0, 8));
 
+      // Spotlight Logic
       if (publicStories.length > 0) {
         const availableForSpotlight = publicStories.filter(s => s.status === 'Ongoing' || s.status === 'Completed');
-        if (availableForSpotlight.length > 0) {
-          setStorySpotlight(availableForSpotlight[Math.floor(Math.random() * availableForSpotlight.length)]);
-        } else if (publicStories.length > 0) {
-          setStorySpotlight(publicStories[0]);
-        }
+        setStorySpotlight(availableForSpotlight.length > 0 
+          ? availableForSpotlight[Math.floor(Math.random() * availableForSpotlight.length)] 
+          : publicStories[0]);
       }
-    }, (error) => {
-      console.error("Error fetching stories in real-time:", error);
-    });
+    }, console.error);
 
-    const usersCol = collection(db, 'users');
-    const authorsQuery = query(
-      usersCol,
-      orderBy('followersCount', 'desc'),
-      firestoreLimit(6)
-    );
-
+    // Featured Authors Query
+    const authorsQuery = query(usersCol, orderBy('followersCount', 'desc'), firestoreLimit(6));
     const unsubscribeAuthors = onSnapshot(authorsQuery, (snapshot) => {
-      const fetchedAuthors = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          username: data.username,
-          displayName: data.displayName || data.username,
-          avatarUrl: data.avatarUrl,
-          bio: data.bio,
-          followersCount: data.followersCount,
-        } as UserSummary & { bio?: string, followersCount?: number };
-      });
-      setFeaturedAuthors(fetchedAuthors);
-      setIsDataLoading(false); 
-    }, (error) => {
-      console.error("Error fetching authors in real-time:", error);
-      setIsDataLoading(false);
-    });
+      setFeaturedAuthors(snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      } as UserSummary & { bio?: string, followersCount?: number })));
+    }, console.error);
+
+    // Prompts Query
+    const promptsQuery = query(promptsCol, where('isArchived', '==', false), orderBy('createdAt', 'desc'), firestoreLimit(5));
+    const unsubscribePrompts = onSnapshot(promptsQuery, (snapshot) => {
+      setPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
+    }, console.error);
+
+    // Fresh Voices Query
+    const freshVoicesQuery = query(usersCol, orderBy('createdAt', 'desc'), firestoreLimit(8));
+    const unsubscribeFreshVoices = onSnapshot(freshVoicesQuery, (snapshot) => {
+      setFreshVoices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserSummary)));
+    }, console.error);
+
+    // Dystopian Stories Query
+    const dystopianQuery = query(storiesCol, where('visibility', '==', 'Public'), where('genre', '==', 'Dystopian'), orderBy('views', 'desc'), firestoreLimit(4));
+    const unsubscribeDystopian = onSnapshot(dystopianQuery, (snapshot) => {
+      setDystopianStories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story)));
+    }, console.error);
+
+    // Set loading to false after a short delay to allow data to come in
+    const timer = setTimeout(() => setIsDataLoading(false), 1500);
 
     return () => {
+      clearTimeout(timer);
       unsubscribeStories();
       unsubscribeAuthors();
+      unsubscribePrompts();
+      unsubscribeFreshVoices();
+      unsubscribeDystopian();
     };
   }, []);
   
@@ -218,6 +227,77 @@ function ForYouTabContent() {
             </div>
           </section>
         )}
+      
+      {/* Community Prompts Section */}
+       {prompts.length > 0 && (
+        <section>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-headline font-bold text-primary flex items-center gap-2">
+              <PenSquare className="h-6 w-6" />
+              Community Prompts
+            </h2>
+          </div>
+           <div className="relative">
+              <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent -m-2 p-2">
+                {prompts.map(prompt => (
+                  <PromptCard key={prompt.id} prompt={prompt} />
+                ))}
+              </div>
+          </div>
+        </section>
+      )}
+
+      {/* Genre Deep Dive */}
+      {dystopianStories.length > 0 && (
+        <section>
+            <div className="relative p-8 md:p-12 rounded-2xl overflow-hidden group shadow-xl bg-muted/30">
+                <div className="absolute inset-0 z-0 opacity-20">
+                     <Image
+                        src="https://picsum.photos/seed/dystopian-banner/1200/400"
+                        alt="Dystopian city"
+                        layout="fill"
+                        objectFit="cover"
+                        className="group-hover:scale-105 transition-transform duration-500"
+                        data-ai-hint="dystopian city landscape"
+                    />
+                     <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent"></div>
+                </div>
+                <div className="relative z-10">
+                    <h2 className="text-2xl md:text-3xl font-headline font-bold text-primary mb-1">Genre Deep Dive</h2>
+                    <p className="text-4xl md:text-5xl font-headline font-extrabold text-foreground mb-6">Dystopian Futures</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {dystopianStories.map(story => (
+                            <CompactStoryCard key={`dystopian-${story.id}`} story={story} />
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </section>
+      )}
+
+       {/* Fresh Voices Section */}
+      {freshVoices.length > 0 && (
+        <section>
+          <h2 className="text-2xl font-headline font-bold text-accent mb-6">Fresh Voices to Discover</h2>
+          <div className="relative">
+              <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent -m-2 p-2">
+              {freshVoices.map(author => (
+                  <Link href={`/profile/${author.id}`} key={`fresh-${author.id}`} passHref>
+                    <div className="w-36 group cursor-pointer text-center">
+                       <Avatar className="w-24 h-24 mb-3 mx-auto border-4 border-card group-hover:border-accent transition-colors shadow-lg">
+                          <AvatarImage src={author.avatarUrl || `https://picsum.photos/seed/${author.id}/100/100`} alt={author.displayName || author.username} data-ai-hint="profile person" />
+                          <AvatarFallback className="text-2xl">{author.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <h3 className="text-md font-semibold font-headline truncate group-hover:text-accent transition-colors">{author.displayName || author.username}</h3>
+                      <p className="text-xs text-muted-foreground">Joined Recently</p>
+                    </div>
+                  </Link>
+              ))}
+              </div>
+          </div>
+        </section>
+      )}
+
 
       {/* Featured Authors Section */}
       {featuredAuthors.length > 0 && (
@@ -247,51 +327,6 @@ function ForYouTabContent() {
   );
 }
 
-function ThreadsTabContent() {
-    const { user, loading } = useAuth();
-    const [isRefreshing, startRefreshTransition] = useTransition();
-
-    const handleRefresh = () => {
-        startRefreshTransition(() => {
-            // In a real app, you'd re-fetch data here.
-            // For now, we just simulate a delay.
-            return new Promise(resolve => setTimeout(resolve, 500));
-        });
-    }
-
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        );
-    }
-    
-    if (!user) {
-        return (
-            <div className="text-center py-10">
-                <p className="text-muted-foreground">
-                    <Link href="/auth/signin" className="text-primary hover:underline">Sign in</Link> to see posts from authors you follow.
-                </p>
-            </div>
-        )
-    }
-
-    return (
-        <div className="py-8 max-w-2xl mx-auto space-y-8">
-            <CreatePostForm user={user} />
-            <div className="flex justify-center">
-                <Button onClick={handleRefresh} variant="outline" size="sm" disabled={isRefreshing}>
-                    <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    {isRefreshing ? 'Refreshing...' : 'Refresh Feed'}
-                </Button>
-            </div>
-            <HomeFeed user={user} />
-        </div>
-    );
-}
-
-
 export default function HomePage() {
   const { authLoading } = useAuth();
   
@@ -306,8 +341,8 @@ export default function HomePage() {
   return (
     <>
       <Header />
+      <StatusFeature />
       <main className="container mx-auto px-4 pb-24 md:pb-8">
-        <StatusFeature />
         <div className="my-6">
             <Tabs defaultValue="for-you" className="w-full">
             <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
