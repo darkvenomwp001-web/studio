@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -31,7 +32,8 @@ import SongSearch from './SongSearch';
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
 function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, statuses: StatusUpdate[], onSelect: (user: User) => void, latestStatus: StatusUpdate | null }) {
-  const isNote = latestStatus && (latestStatus.note || latestStatus.spotifyUrl);
+  const isOwn = useAuth().user?.id === user.id;
+  const isNoteWithSong = latestStatus && (latestStatus.spotifyUrl);
 
   return (
     <div
@@ -41,27 +43,27 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
       <div className="relative w-16 h-16 mx-auto group-hover:scale-110 transition-transform duration-200">
          <div className={cn(
             "w-16 h-16 p-0.5 rounded-full",
-            !isNote && "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500"
+            !isNoteWithSong && "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500"
         )}>
             <Avatar className="w-full h-full border-2 border-background">
             <AvatarImage src={user.avatarUrl} data-ai-hint="profile person" />
             <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
             </Avatar>
         </div>
-        {isNote && (
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full w-max max-w-[150px] mb-2 z-[60]">
-                <div className="bg-muted px-2.5 py-1.5 rounded-lg shadow-md">
-                    <p className="text-xs text-foreground truncate">{latestStatus.note}</p>
-                    {latestStatus.spotifyUrl && <Music className="h-3 w-3 text-muted-foreground mx-auto mt-0.5" />}
-                </div>
-                <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-[5px] border-t-muted"></div>
+        
+        {isNoteWithSong && (
+           <div className="absolute -top-1 -right-1 z-10 w-6 h-6 bg-card border-2 border-background rounded-full flex items-center justify-center shadow-md">
+              <Music className="h-3 w-3 text-muted-foreground" />
+           </div>
+        )}
+
+        {isOwn && (
+             <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background-2 shadow-md">
+                <Plus className="h-4 w-4 text-primary-foreground" />
             </div>
         )}
-         <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
-            <Plus className="h-4 w-4 text-primary-foreground" />
-        </div>
       </div>
-      <p className="text-xs mt-1 truncate">Your Status</p>
+      <p className="text-xs mt-1 truncate">{isOwn ? 'Your Status' : user.displayName}</p>
     </div>
   );
 }
@@ -187,8 +189,14 @@ export default function StatusFeature() {
 
 
   const handleSelectUser = (user: User) => {
-    setSelectedUserForViewing(user);
-    setIsViewerOpen(true);
+    const userHasStatuses = groupedStatuses.has(user.id) && groupedStatuses.get(user.id)!.statuses.length > 0;
+    if (userHasStatuses) {
+      setSelectedUserForViewing(user);
+      setIsViewerOpen(true);
+    } else {
+      // User is the current user with no statuses, so open uploader.
+      handleOpenUploader('media');
+    }
   }
 
   const handleNextUser = () => {
@@ -461,7 +469,7 @@ export default function StatusFeature() {
         <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
       </DialogHeader>
       <Tabs defaultValue={uploaderDefaultTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
-        <TabsList className="grid w-full grid-cols-4 mx-auto sticky top-0 px-6 bg-transparent p-0">
+        <TabsList className="grid w-full grid-cols-4 mx-auto sticky top-0 bg-transparent p-0">
           <TabsTrigger value="note">Note</TabsTrigger>
           <TabsTrigger value="media">Media</TabsTrigger>
           <TabsTrigger value="song">Song</TabsTrigger>
@@ -679,14 +687,14 @@ export default function StatusFeature() {
   return (
     <div className='py-4'>
       <ScrollArea className="w-full whitespace-nowrap">
-        <div className="flex items-start space-x-4 px-4">
+        <div className="flex items-start space-x-4">
            <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={() => handleOpenUploader('media')}>
              <div className="relative w-16 h-16 mx-auto">
                 <Avatar className="w-full h-full border-2 border-border group-hover:border-primary/50 transition-colors">
                     <AvatarImage src={user.avatarUrl} />
                     <AvatarFallback>{user.username?.substring(0,1).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
+                <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-md">
                     <Plus className="h-4 w-4 text-primary-foreground" />
                 </div>
              </div>

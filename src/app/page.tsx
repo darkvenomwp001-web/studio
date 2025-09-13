@@ -1,4 +1,5 @@
 
+
 'use client'; 
 
 import Link from 'next/link';
@@ -340,18 +341,15 @@ export default function HomePage() {
   return (
     <>
       <Header />
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-0 sm:px-4">
         <StatusFeature />
-      </div>
-      <main className="flex-1 container mx-auto px-4 pb-24 md:pb-8">
-        <div className="mt-4">
-           <Tabs defaultValue="for-you" className="w-full max-w-4xl mx-auto">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="for-you">For You</TabsTrigger>
-              <TabsTrigger value="bookshelf">Bookshelf</TabsTrigger>
-              <TabsTrigger value="threads">Threads</TabsTrigger>
+        <div className="my-6">
+            <Tabs defaultValue="for-you" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
+                <TabsTrigger value="for-you">For You</TabsTrigger>
+                <TabsTrigger value="bookshelf">Bookshelf</TabsTrigger>
+                <TabsTrigger value="threads">Threads</TabsTrigger>
             </TabsList>
-            
             <TabsContent value="for-you" className="mt-6">
                 <ForYouTabContent />
             </TabsContent>
@@ -361,8 +359,13 @@ export default function HomePage() {
             <TabsContent value="threads" className="mt-6">
                 <ThreadsTabContent />
             </TabsContent>
-          </Tabs>
+            </Tabs>
         </div>
+       </div>
+
+
+      <main className="flex-1 container mx-auto px-4 pb-24 md:pb-8">
+        
 
 
       </main>
