@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Paperclip, Smile, Sparkles, HelpCircle, Vote, Award, MoreHorizontal } from 'lucide-react';
+import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Paperclip, Smile, Sparkles, HelpCircle, Vote, Award, MoreHorizontal, ArrowLeft } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dialog";
 import { getConversationStarters } from '@/app/actions/aiActions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import StatusFeature from '@/components/status/StatusFeature';
 
 // Debounce function
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -231,6 +232,8 @@ function MessagesClient() {
   const [isGeneratingStarters, startStarterTransition] = useTransition();
   const [conversationStarters, setConversationStarters] = useState<string[]>([]);
 
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -303,6 +306,7 @@ function MessagesClient() {
   const handleSelectConversation = (conversation: Conversation) => {
     setActiveConversation(conversation);
     setConversationStarters([]);
+    setMobileView('chat');
   };
 
   const handleSendMessage = async () => {
@@ -398,7 +402,7 @@ function MessagesClient() {
 
       if (!existingConvSnapshot.empty) {
         const existingConv = { id: existingConvSnapshot.docs[0].id, ...existingConvSnapshot.docs[0].data() } as Conversation;
-        setActiveConversation(existingConv);
+        handleSelectConversation(existingConv);
         setIsNewConversationDialogOpen(false);
         setSearchUsername(''); 
         setSearchedUsers([]);
@@ -416,7 +420,7 @@ function MessagesClient() {
         };
         await setDoc(newConversationRef, newConversationData);
         const newConvSnap = await getDoc(newConversationRef);
-        if (newConvSnap.exists()) setActiveConversation({id: newConvSnap.id, ...newConvSnap.data()} as Conversation);
+        if (newConvSnap.exists()) handleSelectConversation({id: newConvSnap.id, ...newConvSnap.data()} as Conversation);
         setIsNewConversationDialogOpen(false);
         setSearchUsername('');
         setSearchedUsers([]);
@@ -454,7 +458,7 @@ function MessagesClient() {
       setIsQueryHandled(true);
       const existingConversation = conversations.find(c => c.participantIds.includes(startConversationWithId));
       if (existingConversation) {
-        if (activeConversation?.id !== existingConversation.id) setActiveConversation(existingConversation);
+        if (activeConversation?.id !== existingConversation.id) handleSelectConversation(existingConversation);
         return;
       }
       const fetchAndStart = async () => {
@@ -472,6 +476,12 @@ function MessagesClient() {
       fetchAndStart();
     }
   }, [searchParams, currentUser, isLoadingConversations, conversations, handleStartNewConversation, toast, isQueryHandled, activeConversation?.id]);
+  
+    useEffect(() => {
+        if (!activeConversation) {
+            setMobileView('list');
+        }
+    }, [activeConversation]);
 
     return (
         <Dialog open={isNewConversationDialogOpen} onOpenChange={(isOpen) => {
@@ -479,8 +489,11 @@ function MessagesClient() {
             if (!isOpen) { setSearchUsername(''); setSearchedUsers([]); }
         }}>
         <TooltipProvider>
-        <div className="flex flex-col md:flex-row h-[calc(100vh-12rem)] border bg-card rounded-lg shadow-xl overflow-hidden">
-            <aside className="w-full md:w-[320px] lg:w-[380px] border-r flex flex-col bg-background/50">
+        <div className="flex flex-col md:flex-row h-[calc(100vh-12rem)] md:h-auto md:min-h-[600px] border bg-card rounded-lg shadow-xl overflow-hidden">
+            <aside className={cn(
+                "w-full md:w-[320px] lg:w-[380px] border-r flex flex-col bg-background/50 transition-all duration-300",
+                mobileView === 'chat' ? 'hidden md:flex' : 'flex'
+            )}>
                 <div className="p-4 border-b">
                     <div className="flex justify-between items-center mb-3">
                         <h2 className="text-2xl font-headline font-bold">{currentUser?.displayName || 'Messages'}</h2>
@@ -495,6 +508,9 @@ function MessagesClient() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input placeholder="Search messages..." className="pl-10 h-9 rounded-full bg-muted border-none" />
                     </div>
+                </div>
+                 <div className="p-2 border-b">
+                   <StatusFeature />
                 </div>
                 <ScrollArea className="flex-1">
                     {isLoadingConversations ? (
@@ -557,11 +573,17 @@ function MessagesClient() {
                 </ScrollArea>
             </aside>
 
-            <main className="flex-1 flex flex-col bg-background">
+            <main className={cn(
+                "flex-1 flex-col bg-background",
+                mobileView === 'chat' ? 'flex' : 'hidden md:flex'
+            )}>
                 {activeConversation ? (
                     <>
                     <header className="p-3 border-b bg-card flex items-center justify-between gap-3 shadow-sm">
                         <div className="flex items-center gap-3">
+                             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileView('list')}>
+                                <ArrowLeft className="h-5 w-5" />
+                            </Button>
                             {getOtherParticipant(activeConversation) && (
                                 <Avatar>
                                     <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
@@ -604,7 +626,7 @@ function MessagesClient() {
                             const isCurrentUserSender = msg.senderId === currentUser?.id;
                             
                             return (
-                            <div key={msg.id} className={cn("flex items-end gap-2 max-w-[80%] sm:max-w-[70%]", isCurrentUserSender && "self-end flex-row-reverse")}>
+                            <div key={msg.id} className={cn("flex items-end gap-2 max-w-[80%] sm:max-w-[70%]", isCurrentUserSender ? "self-end flex-row-reverse" : "self-start")}>
                                 {!isCurrentUserSender && senderInfo && (
                                     <Avatar className="h-8 w-8 self-end">
                                         <AvatarImage src={senderInfo?.avatarUrl} data-ai-hint="profile person" />
@@ -735,3 +757,4 @@ export default function UnifiedInboxPage() {
         </div>
     );
 }
+
