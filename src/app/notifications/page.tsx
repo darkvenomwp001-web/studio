@@ -7,8 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, MessageSquare, Loader2, CheckCircle, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Paperclip, Smile, Sparkles, HelpCircle, Vote, Award } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Paperclip, Smile, Sparkles, HelpCircle, Vote, Award, MoreHorizontal } from 'lucide-react';
+import { formatDistanceToNow, isToday, isThisWeek } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -89,26 +89,41 @@ function NotificationsList() {
 
     const getNotificationIcon = (type: NotificationType['type']) => {
         switch (type) {
-            case 'new_follower':
-                return <UserPlus className="h-5 w-5 text-blue-500" />;
+            case 'new_follower': return <UserPlus className="h-5 w-5 text-blue-500" />;
             case 'new_chapter':
-            case 'story_update':
-                return <BookOpenText className="h-5 w-5 text-green-500" />;
+            case 'story_update': return <BookOpenText className="h-5 w-5 text-green-500" />;
             case 'comment_reply':
-            case 'mention':
-                return <CheckCircle className="h-5 w-5 text-purple-500" />; 
-            case 'new_letter':
-                return <Mail className="h-5 w-5 text-cyan-500" />;
-            case 'letter_response':
-                return <MailCheck className="h-5 w-5 text-teal-500" />;
-            case 'achievement_unlocked':
-                return <Award className="h-5 w-5 text-yellow-500" />;
-            case 'announcement':
-                return <Bell className="h-5 w-5 text-orange-500" />;
-            default:
-                return <Bell className="h-5 w-5 text-muted-foreground" />;
+            case 'mention': return <MessageSquare className="h-5 w-5 text-purple-500" />; 
+            case 'new_letter': return <Mail className="h-5 w-5 text-cyan-500" />;
+            case 'letter_response': return <MailCheck className="h-5 w-5 text-teal-500" />;
+            case 'achievement_unlocked': return <Award className="h-5 w-5 text-yellow-500" />;
+            case 'announcement': return <Bell className="h-5 w-5 text-orange-500" />;
+            default: return <Bell className="h-5 w-5 text-muted-foreground" />;
         }
     };
+    
+    const groupNotifications = (notifs: NotificationType[]) => {
+        const groups: { [key: string]: NotificationType[] } = {
+            Today: [],
+            "This Week": [],
+            "Earlier": [],
+        };
+
+        notifs.forEach(notif => {
+            const date = (notif.timestamp as any)?.toDate ? (notif.timestamp as any).toDate() : new Date(notif.timestamp);
+            if (isToday(date)) {
+                groups.Today.push(notif);
+            } else if (isThisWeek(date)) {
+                groups["This Week"].push(notif);
+            } else {
+                groups.Earlier.push(notif);
+            }
+        });
+
+        return groups;
+    };
+
+    const groupedNotifications = groupNotifications(notifications);
 
     if (authLoading && notifications.length === 0) {
         return (
@@ -120,57 +135,72 @@ function NotificationsList() {
     }
     
     return (
-        <Card className="shadow-lg bg-transparent border-0">
-            <CardHeader className="flex flex-row justify-between items-center">
-                <CardTitle className="text-lg">All Notifications</CardTitle>
-                {notifications.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={handleMarkAllRead} disabled={authLoading || notifications.every(n => n.isRead)}>
-                    {authLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Mark all as read
+        <Card className="shadow-lg bg-transparent border-0 max-w-3xl mx-auto">
+            <CardHeader className="flex flex-row justify-between items-center px-4 pt-4 pb-2 md:px-6">
+                <CardTitle className="text-2xl font-headline">Activity</CardTitle>
+                {notifications.some(n => !n.isRead) && (
+                    <Button variant="link" size="sm" onClick={handleMarkAllRead} disabled={authLoading}>
+                        Mark all as read
                     </Button>
                 )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
                 {notifications.length > 0 ? (
-                    <ul className="space-y-3">
-                    {notifications.map((notif) => (
-                        <li
-                        key={notif.id}
-                        onClick={() => handleNotificationClick(notif)}
-                        className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
-                            notif.isRead ? 'bg-background/50 opacity-70' : 'bg-card hover:bg-muted/30'
-                        } flex items-start gap-4`}
-                        >
-                        <div className="flex-shrink-0 pt-1">
-                            {notif.actor?.avatarUrl ? (
-                            <Avatar className="h-10 w-10">
-                                <AvatarImage src={notif.actor.avatarUrl} alt={notif.actor.username} data-ai-hint="profile person"/>
-                                <AvatarFallback>{notif.actor.username.substring(0, 1).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            ) : (
-                            <div className="h-10 w-10 bg-muted rounded-full flex items-center justify-center">
-                                {getNotificationIcon(notif.type)}
+                    <div className="space-y-4">
+                        {Object.entries(groupedNotifications).map(([group, notifs]) => 
+                         notifs.length > 0 && (
+                            <div key={group}>
+                                <h3 className="font-semibold text-sm text-muted-foreground px-4 md:px-6 mb-2">{group}</h3>
+                                <ul className="space-y-0.5">
+                                    {notifs.map((notif) => (
+                                        <li
+                                            key={notif.id}
+                                            onClick={() => handleNotificationClick(notif)}
+                                            className={cn(
+                                                `p-3 mx-2 rounded-lg cursor-pointer transition-all hover:bg-muted/60 flex items-center gap-4`,
+                                                !notif.isRead && 'bg-primary/10'
+                                            )}
+                                        >
+                                        <div className="relative flex-shrink-0">
+                                            {notif.actor?.avatarUrl ? (
+                                                <Avatar className="h-10 w-10">
+                                                    <AvatarImage src={notif.actor.avatarUrl} alt={notif.actor.username} data-ai-hint="profile person"/>
+                                                    <AvatarFallback>{notif.actor.username.substring(0, 1).toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                            ) : (
+                                                <div className="h-10 w-10 bg-muted rounded-full flex items-center justify-center">
+                                                    {getNotificationIcon(notif.type)}
+                                                </div>
+                                            )}
+                                             <div className="absolute -bottom-1 -right-1 bg-card p-0.5 rounded-full">
+                                                {getNotificationIcon(notif.type)}
+                                            </div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm leading-snug text-foreground/90">
+                                                <span className="font-semibold">{notif.actor.displayName || notif.actor.username}</span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                            {notif.timestamp ? formatDistanceToNow(new Date(notif.timestamp), { addSuffix: true }) : 'A while ago'}
+                                            </p>
+                                        </div>
+                                        {!notif.isRead && (
+                                            <div className="flex-shrink-0 self-center ml-auto">
+                                                <div className="w-2 h-2 bg-primary rounded-full" title="Unread"></div>
+                                            </div>
+                                        )}
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
-                            )}
-                        </div>
-                        <div className="flex-1">
-                            <p className={`text-sm leading-snug ${!notif.isRead ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-                            {notif.message}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                            {notif.timestamp ? formatDistanceToNow(new Date(notif.timestamp), { addSuffix: true }) : 'A while ago'}
-                            </p>
-                        </div>
-                        {!notif.isRead && (
-                            <div className="flex-shrink-0 self-center ml-auto">
-                            <div className="w-2.5 h-2.5 bg-primary rounded-full" title="Unread"></div>
-                            </div>
+                         )
                         )}
-                        </li>
-                    ))}
-                    </ul>
+                    </div>
                 ) : (
-                    <p className="text-muted-foreground text-center py-6">No notifications yet.</p>
+                    <div className="text-center py-16 text-muted-foreground space-y-3">
+                        <Bell className="h-12 w-12 mx-auto" />
+                        <p>No notifications yet.</p>
+                    </div>
                 )}
             </CardContent>
         </Card>
@@ -449,37 +479,42 @@ function MessagesClient() {
             if (!isOpen) { setSearchUsername(''); setSearchedUsers([]); }
         }}>
         <TooltipProvider>
-        <div className="flex flex-col md:flex-row h-[calc(100vh-16rem)] border bg-background/50 rounded-lg shadow-xl overflow-hidden">
-            <aside className="w-full md:w-1/3 lg:w-1/4 border-r flex flex-col bg-card/60">
+        <div className="flex flex-col md:flex-row h-[calc(100vh-12rem)] border bg-card rounded-lg shadow-xl overflow-hidden">
+            <aside className="w-full md:w-[320px] lg:w-[380px] border-r flex flex-col bg-background/50">
                 <div className="p-4 border-b">
-                    <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-xl font-headline font-semibold">Messages</h2>
-                    <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-primary">
-                        <UserPlus className="h-5 w-5" />
-                        <span className="sr-only">New Message</span>
-                        </Button>
-                    </DialogTrigger>
+                    <div className="flex justify-between items-center mb-3">
+                        <h2 className="text-2xl font-headline font-bold">{currentUser?.displayName || 'Messages'}</h2>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <UserPlus className="h-5 w-5" />
+                                <span className="sr-only">New Message</span>
+                            </Button>
+                        </DialogTrigger>
                     </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search messages..." className="pl-10 h-9" />
+                        <Input placeholder="Search messages..." className="pl-10 h-9 rounded-full bg-muted border-none" />
                     </div>
                 </div>
                 <ScrollArea className="flex-1">
                     {isLoadingConversations ? (
-                    <div className="p-4 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading...</div>
+                        <div className="p-4 text-center text-muted-foreground flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading...</div>
                     ) : conversations.length === 0 ? (
-                    <p className="p-4 text-center text-muted-foreground">No conversations yet.</p>
+                        <div className="p-8 text-center text-muted-foreground space-y-3">
+                            <MessageSquare className="h-10 w-10 mx-auto"/>
+                            <h3 className="font-semibold text-foreground">No conversations yet</h3>
+                            <p className="text-sm">Start a new message to begin a conversation.</p>
+                        </div>
                     ) : (
                     conversations.map(conv => {
                         const otherParticipant = getOtherParticipant(conv);
                         const lastMessageTimestampServer = conv.lastMessage?.timestamp as any; 
-                        let lastMessageDisplayTime = '...';
+                        let lastMessageDisplayTime = '';
                         if (lastMessageTimestampServer && typeof lastMessageTimestampServer.toDate === 'function') {
-                        lastMessageDisplayTime = formatDistanceToNow(lastMessageTimestampServer.toDate(), { addSuffix: true });
+                            lastMessageDisplayTime = formatDistanceToNow(lastMessageTimestampServer.toDate(), { addSuffix: true });
                         }
                         const isActive = activeConversation?.id === conv.id;
+                        const isUnread = conv.lastMessage?.senderId !== currentUser?.id && !conv.lastMessage?.isRead;
 
                         return (
                         <div 
@@ -489,25 +524,31 @@ function MessagesClient() {
                             )}
                             onClick={() => handleSelectConversation(conv)}
                         >
-                            {otherParticipant && (
-                                <Avatar className="h-12 w-12 border-2 border-background shadow">
-                                <AvatarImage src={otherParticipant.avatarUrl} alt={otherParticipant.username} data-ai-hint="profile person" />
-                                <AvatarFallback>{otherParticipant.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                                </Avatar>
-                            )}
-                            <div className="flex-1 overflow-hidden">
-                            <div className="flex justify-between items-center">
-                                <h3 className={cn(`font-semibold truncate`, isActive ? 'text-primary' : 'text-foreground')}>
-                                    {otherParticipant?.displayName || otherParticipant?.username || 'Unknown User'}
-                                </h3>
-                                <span className={cn(`text-xs whitespace-nowrap`, isActive ? 'text-primary/80' : 'text-muted-foreground')}>
-                                {lastMessageDisplayTime}
-                                </span>
+                            <div className="relative">
+                                {otherParticipant && (
+                                    <Avatar className="h-14 w-14 border-2 border-background shadow-sm">
+                                    <AvatarImage src={otherParticipant.avatarUrl} alt={otherParticipant.username} data-ai-hint="profile person" />
+                                    <AvatarFallback>{otherParticipant.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+                                    </Avatar>
+                                )}
+                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background"></div>
                             </div>
-                            <p className={cn(`text-sm truncate`, isActive ? 'text-foreground/90 font-medium' : 'text-muted-foreground')}>
-                                {conv.lastMessage?.senderId === currentUser?.id && conv.lastMessage?.content && "You: "}
-                                {conv.lastMessage?.content || 'No messages yet.'}
-                            </p>
+                            <div className="flex-1 overflow-hidden">
+                                <div className="flex justify-between items-center">
+                                    <h3 className={cn(`font-semibold truncate`, isActive ? 'text-primary' : 'text-foreground')}>
+                                        {otherParticipant?.displayName || otherParticipant?.username || 'Unknown User'}
+                                    </h3>
+                                    <span className={cn(`text-xs whitespace-nowrap`, isUnread ? 'text-primary font-bold' : 'text-muted-foreground')}>
+                                        {lastMessageDisplayTime}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <p className={cn(`text-sm truncate`, isUnread ? 'text-foreground font-semibold' : 'text-muted-foreground')}>
+                                        {conv.lastMessage?.senderId === currentUser?.id && conv.lastMessage?.content && "You: "}
+                                        {conv.lastMessage?.content || 'No messages yet.'}
+                                    </p>
+                                    {isUnread && <div className="w-2.5 h-2.5 bg-primary rounded-full flex-shrink-0 ml-2"></div>}
+                                </div>
                             </div>
                         </div>
                         );
@@ -519,19 +560,27 @@ function MessagesClient() {
             <main className="flex-1 flex flex-col bg-background">
                 {activeConversation ? (
                     <>
-                    <header className="p-3 border-b bg-card flex items-center gap-3 shadow-sm">
-                        {getOtherParticipant(activeConversation) && (
-                            <Avatar>
-                            <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
-                            <AvatarFallback>{getOtherParticipant(activeConversation)!.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                            </Avatar>
-                        )}
-                        <h3 className="font-semibold text-lg">{getOtherParticipant(activeConversation)?.displayName || getOtherParticipant(activeConversation)?.username || 'Unknown User'}</h3>
+                    <header className="p-3 border-b bg-card flex items-center justify-between gap-3 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            {getOtherParticipant(activeConversation) && (
+                                <Avatar>
+                                    <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
+                                    <AvatarFallback>{getOtherParticipant(activeConversation)!.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                                </Avatar>
+                            )}
+                            <div>
+                                <h3 className="font-semibold text-lg">{getOtherParticipant(activeConversation)?.displayName || getOtherParticipant(activeConversation)?.username || 'Unknown User'}</h3>
+                                <p className="text-xs text-green-500 font-medium">Online</p>
+                            </div>
+                        </div>
+                        <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-5 w-5" />
+                        </Button>
                     </header>
                     
-                    <ScrollArea className="flex-1 p-4 space-y-4 bg-[url('https://picsum.photos/seed/1/10/10')] bg-repeat">
+                    <ScrollArea className="flex-1 p-4 space-y-4">
                         {isLoadingMessages ? (
-                        <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+                            <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
                         ) : messages.length === 0 ? (
                             <div className="text-center py-10 flex flex-col items-center gap-4 text-muted-foreground">
                                 <MessageSquare className="w-16 h-16"/>
@@ -555,51 +604,41 @@ function MessagesClient() {
                             const isCurrentUserSender = msg.senderId === currentUser?.id;
                             
                             return (
-                            <div key={msg.id} className={cn("flex items-end gap-2", isCurrentUserSender && "justify-end")}>
+                            <div key={msg.id} className={cn("flex items-end gap-2 max-w-[80%] sm:max-w-[70%]", isCurrentUserSender && "self-end flex-row-reverse")}>
                                 {!isCurrentUserSender && senderInfo && (
                                     <Avatar className="h-8 w-8 self-end">
                                         <AvatarImage src={senderInfo?.avatarUrl} data-ai-hint="profile person" />
                                         <AvatarFallback>{senderInfo?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
                                     </Avatar>
                                 )}
-                                <div className={cn("max-w-xs md:max-w-md p-3 rounded-2xl shadow-md", isCurrentUserSender ? "rounded-br-none bg-primary text-primary-foreground" : "rounded-bl-none bg-card text-foreground")}>
+                                <div className={cn("p-3 rounded-2xl shadow-sm", isCurrentUserSender ? "rounded-br-none bg-primary text-primary-foreground" : "rounded-bl-none bg-card text-foreground")}>
                                 <p className="text-sm whitespace-pre-line">{msg.content}</p>
                                 </div>
                             </div>
                             );
                         })
                         )}
+                        {/* Typing indicator could go here */}
                         <div ref={messagesEndRef} />
                     </ScrollArea>
 
                     <footer className="p-2 border-t bg-card">
-                        <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center gap-2">
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                            <Button type="button" variant="ghost" size="icon" disabled><Paperclip className="h-5 w-5 text-muted-foreground" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent><p>Attach File (Coming Soon)</p></TooltipContent>
-                        </Tooltip>
-                         <Tooltip>
-                            <TooltipTrigger asChild>
-                            <Button type="button" variant="ghost" size="icon" disabled><Vote className="h-5 w-5 text-muted-foreground" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent><p>Create a Poll (Coming Soon)</p></TooltipContent>
-                        </Tooltip>
-                         <Tooltip>
-                            <TooltipTrigger asChild>
-                            <Button type="button" variant="ghost" size="icon" disabled><HelpCircle className="h-5 w-5 text-muted-foreground" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent><p>Ask a Question (Coming Soon)</p></TooltipContent>
-                        </Tooltip>
-                        <div className="relative flex-1">
-                            <Input type="text" placeholder="Type a message..." className="flex-1 bg-background focus-visible:ring-primary rounded-full px-4" value={newMessageContent} onChange={(e) => setNewMessageContent(e.target.value)} disabled={isSendingMessage} />
-                            <Button type="button" variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => toast({title: "Emoji picker coming soon!"})}><Smile className="h-5 w-5 text-muted-foreground" /></Button>
+                        <div className="flex items-center gap-2">
+                           {/* AI Suggestions Button */}
+                           <Tooltip>
+                              <TooltipTrigger asChild>
+                                 <Button type="button" variant="ghost" size="icon"><Sparkles className="h-5 w-5 text-muted-foreground" /></Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p>AI Reply Suggestions</p></TooltipContent>
+                           </Tooltip>
+                           <div className="relative flex-1">
+                              <Input type="text" placeholder="Type a message..." className="flex-1 bg-background focus-visible:ring-primary rounded-full px-4 pr-10" value={newMessageContent} onChange={(e) => setNewMessageContent(e.target.value)} disabled={isSendingMessage} onKeyDown={(e) => e.key === 'Enter' && !isSendingMessage && handleSendMessage()} />
+                              <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => toast({title: "Emoji picker coming soon!"})}><Smile className="h-5 w-5 text-muted-foreground" /></Button>
+                           </div>
+                           <Button type="button" size="icon" className="bg-primary hover:bg-primary/90 rounded-full flex-shrink-0" disabled={isSendingMessage || !newMessageContent.trim()} onClick={handleSendMessage}>
+                              {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                           </Button>
                         </div>
-                        <Button type="submit" size="icon" className="bg-primary hover:bg-primary/90 rounded-full flex-shrink-0" disabled={isSendingMessage || !newMessageContent.trim()}>
-                            {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-                        </Button>
-                        </form>
                     </footer>
                     </>
                 ) : (
@@ -684,7 +723,7 @@ export default function UnifiedInboxPage() {
              <Tabs defaultValue={defaultTab} className="w-full" onValueChange={handleTabChange}>
                 <TabsList className="grid w-full grid-cols-2 max-w-lg mx-auto">
                     <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" /> Messages</TabsTrigger>
-                    <TabsTrigger value="notifications"><Bell className="mr-2 h-4 w-4" /> Notifications</TabsTrigger>
+                    <TabsTrigger value="notifications"><Bell className="mr-2 h-4 w-4" /> Activity</TabsTrigger>
                 </TabsList>
                 <TabsContent value="notifications" className="mt-4">
                     <NotificationsList />
@@ -696,5 +735,3 @@ export default function UnifiedInboxPage() {
         </div>
     );
 }
-
-    
