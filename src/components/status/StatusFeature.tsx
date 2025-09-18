@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { restoreStatusUpdate, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
+import { restoreStatusUpdate, permanentlyDeleteStatusUpdate, trashStatusUpdate } from '@/app/actions/statusActions';
 import { getStatusCaptions } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
@@ -620,28 +620,6 @@ export default function StatusFeature() {
                     )) : (
                     <div className="py-10 text-center text-muted-foreground space-y-3">
                       <p>No drafts or trashed items.</p>
-                      <div className="flex justify-center items-center gap-4">
-                        <Link href="/settings/archive" className="block">
-                          <Card className="hover:bg-muted/50 transition-colors">
-                              <CardHeader>
-                                  <CardTitle className="text-base flex items-center justify-between">
-                                      <Archive className="mr-2 h-5 w-5" />
-                                      <span>Archive</span>
-                                  </CardTitle>
-                              </CardHeader>
-                          </Card>
-                        </Link>
-                         <Link href="/settings/trash" className="block">
-                             <Card className="hover:bg-muted/50 transition-colors">
-                                <CardHeader>
-                                    <CardTitle className="text-base flex items-center justify-between">
-                                        <Trash2 className="mr-2 h-5 w-5" />
-                                        <span>Trash</span>
-                                    </CardTitle>
-                                </CardHeader>
-                            </Card>
-                        </Link>
-                      </div>
                     </div>
                     )}
                 </div>
@@ -807,3 +785,4 @@ export default function StatusFeature() {
 }
 
     
+
