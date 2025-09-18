@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -12,13 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent } from "@/components/ui/alert-dialog";
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { restoreStatusUpdate, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 import { getStatusCaptions } from '@/app/actions/aiActions';
@@ -27,6 +26,7 @@ import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import StatusViewer from './StatusViewer';
 import { Textarea } from '../ui/textarea';
 import SongSearch from './SongSearch';
+import Link from 'next/link';
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
@@ -119,6 +119,7 @@ export default function StatusFeature() {
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   
   const [uploaderDefaultTab, setUploaderDefaultTab] = useState('media');
+  const [editingDraft, setEditingDraft] = useState<StatusUpdate | null>(null);
 
   const { toast } = useToast();
 
@@ -233,6 +234,7 @@ export default function StatusFeature() {
     setSuggestedCaptions([]);
     setSelectedFilter('filter-none');
     setExpiryDuration('24');
+    setEditingDraft(null);
   }
   
   const handleTabChange = (value: string) => {
@@ -284,7 +286,8 @@ export default function StatusFeature() {
     return {
         authorId: user.id,
         authorInfo: authorInfo,
-        createdAt: serverTimestamp(),
+        createdAt: editingDraft?.createdAt || serverTimestamp(),
+        updatedAt: serverTimestamp(),
         isArchived: false,
         isTrashed: false,
         status,
@@ -300,8 +303,13 @@ export default function StatusFeature() {
     const statusData = { ...baseStatus, ...data };
     
     try {
-        await addDoc(collection(db, 'statusUpdates'), statusData);
-        toast({ title: `Status ${status === 'published' ? 'Published!' : 'Saved as Draft!'}` });
+        if(editingDraft) {
+            await updateDoc(doc(db, "statusUpdates", editingDraft.id), statusData);
+            toast({ title: `Draft updated and ${status}!` });
+        } else {
+            await addDoc(collection(db, 'statusUpdates'), statusData);
+            toast({ title: `Status ${status === 'published' ? 'Published!' : 'Saved as Draft!'}` });
+        }
         setIsUploaderOpen(false);
         resetUploader();
     } catch (error) {
@@ -336,37 +344,43 @@ export default function StatusFeature() {
   }
 
   const handleMediaSubmit = async (status: 'published' | 'draft') => {
-    if (!mediaFile) return;
+    if (!mediaFile && !editingDraft?.mediaUrl) {
+      toast({title: "No Media", description: "Please select a file to submit.", variant: "destructive"});
+      return;
+    }
 
     setIsSubmitting(true);
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-    if (!cloudName || !uploadPreset) {
-        toast({ title: 'Configuration Error', description: 'Cloudinary environment variables are not set.', variant: 'destructive' });
-        setIsSubmitting(false);
-        return;
-    }
-    
-    let mediaUrl = '';
-    try {
-        const formData = new FormData();
-        formData.append('file', mediaFile);
-        formData.append('upload_preset', uploadPreset);
-        formData.append('resource_type', 'auto');
-        
-        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'video' ? 'video' : 'image'}/upload`;
-        const response = await fetch(uploadUrl, { method: 'POST', body: formData });
-        const data = await response.json();
-        if (data.secure_url) {
-            mediaUrl = data.secure_url;
-        } else {
-            throw new Error(data.error?.message || 'Unknown Cloudinary error');
+    let mediaUrl = editingDraft?.mediaUrl || '';
+
+    if (mediaFile) {
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+        if (!cloudName || !uploadPreset) {
+            toast({ title: 'Configuration Error', description: 'Cloudinary environment variables are not set.', variant: 'destructive' });
+            setIsSubmitting(false);
+            return;
         }
-    } catch (error) {
-        console.error("Error uploading to Cloudinary: ", error);
-        toast({ title: 'Media Upload Failed', variant: 'destructive' });
-        setIsSubmitting(false);
-        return;
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', mediaFile);
+            formData.append('upload_preset', uploadPreset);
+            formData.append('resource_type', 'auto');
+            
+            const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${mediaType === 'video' ? 'video' : 'image'}/upload`;
+            const response = await fetch(uploadUrl, { method: 'POST', body: formData });
+            const data = await response.json();
+            if (data.secure_url) {
+                mediaUrl = data.secure_url;
+            } else {
+                throw new Error(data.error?.message || 'Unknown Cloudinary error');
+            }
+        } catch (error) {
+            console.error("Error uploading to Cloudinary: ", error);
+            toast({ title: 'Media Upload Failed', variant: 'destructive' });
+            setIsSubmitting(false);
+            return;
+        }
     }
 
     const statusData: { [key: string]: any } = {
@@ -392,19 +406,39 @@ export default function StatusFeature() {
   };
 
 
-  const handlePublishDraft = async (draftId: string) => {
+  const handlePublishDraft = async (draft: StatusUpdate) => {
     const expiresAt = Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000);
-    await updateDoc(doc(db, "statusUpdates", draftId), {
+    await updateDoc(doc(db, "statusUpdates", draft.id), {
         status: 'published',
         expiresAt: expiresAt,
-        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
     });
     toast({title: "Draft Published!"});
   }
 
   const handleDeleteDraft = async (draftId: string) => {
-    await deleteDoc(doc(db, "statusUpdates", draftId));
-    toast({title: "Draft Deleted"});
+    if (!user) return;
+    const result = await trashStatusUpdate(draftId, user.id);
+    if(result.success) toast({title: "Draft moved to trash."});
+    else toast({title: "Error", description: result.error, variant: 'destructive'});
+  }
+
+  const handleEditDraft = (draft: StatusUpdate) => {
+    setEditingDraft(draft);
+    if(draft.mediaUrl) {
+        setUploaderDefaultTab('media');
+        setMediaPreview(draft.mediaUrl);
+        setMediaType(draft.mediaType || 'image');
+        setTextOverlay(draft.textOverlay || '');
+        setUploaderScreen('editor');
+    } else if (draft.spotifyUrl) {
+        setUploaderDefaultTab('song');
+        // This is tricky, would need to fetch song details. For now, just set note.
+        setNoteContent(draft.note || '');
+    } else {
+        setUploaderDefaultTab('note');
+        setNoteContent(draft.note || '');
+    }
   }
   
   const handleRestoreFromTrash = async (statusId: string) => {
@@ -470,10 +504,10 @@ export default function StatusFeature() {
       </DialogHeader>
       <Tabs defaultValue={uploaderDefaultTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
         <TabsList className="grid w-full grid-cols-4 mx-auto sticky top-0 bg-transparent p-0">
-          <TabsTrigger value="note">Note</TabsTrigger>
-          <TabsTrigger value="media">Media</TabsTrigger>
-          <TabsTrigger value="song">Song</TabsTrigger>
-          <TabsTrigger value="manage">Manage</TabsTrigger>
+          <TabsTrigger value="note" className="rounded-none shadow-none data-[state=active]:shadow-bottom">Note</TabsTrigger>
+          <TabsTrigger value="media" className="rounded-none shadow-none data-[state=active]:shadow-bottom">Media</TabsTrigger>
+          <TabsTrigger value="song" className="rounded-none shadow-none data-[state=active]:shadow-bottom">Song</TabsTrigger>
+          <TabsTrigger value="manage" className="rounded-none shadow-none data-[state=active]:shadow-bottom">Manage</TabsTrigger>
         </TabsList>
         <TabsContent value="note" className="flex-grow flex flex-col px-6 pb-6">
             <div className="py-4 space-y-4 flex-grow">
@@ -549,16 +583,18 @@ export default function StatusFeature() {
         </TabsContent>
         <TabsContent value="manage" className="px-6 pb-6">
              <ScrollArea className="h-96">
-                <div className="space-y-2 p-1">
+                <div className="space-y-4 p-1">
                     {managedStatuses.length > 0 ? managedStatuses.map(item => (
-                        <Card key={item.id} className={cn("flex items-center p-2", item.isTrashed && "opacity-60")}>
+                        <Card key={item.id} className={cn("flex items-center p-3", item.isTrashed && "opacity-60")}>
                             {item.mediaUrl ? (
                                  <Image src={item.mediaUrl} alt="Status item" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
                             ): (
-                                <div className="w-[60px] h-[60px] flex items-center justify-center bg-muted rounded-md mr-3 text-2xl">📝</div>
+                                <div className="w-[60px] h-[60px] flex items-center justify-center bg-muted rounded-md mr-3 text-2xl">
+                                    {item.spotifyUrl ? <Music className="h-6 w-6"/> : <Feather className="h-6 w-6"/>}
+                                </div>
                             )}
                             <div className="flex-1">
-                                <p className="text-sm truncate">{item.textOverlay || item.note || "No caption"}</p>
+                                <p className="text-sm truncate">{item.textOverlay || item.note || item.songLyricSnippet || "No caption"}</p>
                                 <p className="text-xs font-semibold text-destructive">{item.isTrashed ? "In Trash" : "Draft"}</p>
                             </div>
                             <div className="flex gap-1">
@@ -575,13 +611,39 @@ export default function StatusFeature() {
                                     </>
                                 ) : (
                                     <>
-                                        <Button size="sm" variant="outline" onClick={() => handlePublishDraft(item.id)}>Publish</Button>
+                                        <Button size="sm" variant="outline" onClick={() => handlePublishDraft(item)}>Publish</Button>
                                         <Button size="sm" variant="destructive" onClick={() => handleDeleteDraft(item.id)}><Trash2 className="h-4 w-4" /></Button>
                                     </>
                                 )}
                             </div>
                         </Card>
-                    )) : <p className="text-center text-muted-foreground py-10">No drafts or trashed items.</p>}
+                    )) : (
+                    <div className="py-10 text-center text-muted-foreground space-y-3">
+                      <p>No drafts or trashed items.</p>
+                      <div className="flex justify-center items-center gap-4">
+                        <Link href="/settings/archive" className="block">
+                          <Card className="hover:bg-muted/50 transition-colors">
+                              <CardHeader>
+                                  <CardTitle className="text-base flex items-center justify-between">
+                                      <Archive className="mr-2 h-5 w-5" />
+                                      <span>Archive</span>
+                                  </CardTitle>
+                              </CardHeader>
+                          </Card>
+                        </Link>
+                         <Link href="/settings/trash" className="block">
+                             <Card className="hover:bg-muted/50 transition-colors">
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center justify-between">
+                                        <Trash2 className="mr-2 h-5 w-5" />
+                                        <span>Trash</span>
+                                    </CardTitle>
+                                </CardHeader>
+                            </Card>
+                        </Link>
+                      </div>
+                    </div>
+                    )}
                 </div>
             </ScrollArea>
         </TabsContent>
@@ -595,7 +657,7 @@ export default function StatusFeature() {
             <div className="flex justify-between items-center">
                 <Button variant="ghost" size="icon" onClick={() => setUploaderScreen('picker')}><X className="h-5 w-5" /></Button>
                 <DialogTitle className="sr-only">Edit Status</DialogTitle>
-                <Button onClick={() => handleMediaSubmit('published')} disabled={!mediaFile || isSubmitting}>
+                <Button onClick={() => handleMediaSubmit('published')} disabled={!mediaFile && !editingDraft || isSubmitting}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                     Post
                 </Button>
@@ -679,7 +741,7 @@ export default function StatusFeature() {
             </div>
         </ScrollArea>
          <DialogFooter className="p-4 border-t">
-            <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={!mediaFile || isSubmitting}>Save as Draft</Button>
+            <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={!mediaFile && !editingDraft || isSubmitting}>Save as Draft</Button>
         </DialogFooter>
     </div>
   );
@@ -743,3 +805,5 @@ export default function StatusFeature() {
     </div>
   );
 }
+
+    
