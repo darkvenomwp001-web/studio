@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpenText, Home, Edit3, Brain } from 'lucide-react';
+import { BookOpenText, Home, Edit3, Brain, Library, Search, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -50,9 +50,10 @@ export default function Header() {
         <nav className="flex items-center gap-1 md:gap-2">
           <div className="hidden md:flex items-center gap-1">
             <NavLink href="/"><Home className="h-5 w-5" /> Home</NavLink>
-            <NavLink href="/stories"><BookOpenText className="h-5 w-5" /> Stories</NavLink>
+            <NavLink href="/library"><Library className="h-5 w-5" /> Library</NavLink>
+            <NavLink href="/search"><Search className="h-5 w-5" /> Search</NavLink>
             <NavLink href="/write"><Edit3 className="h-5 w-5" /> Write</NavLink>
-            <NavLink href="/ai-assistant"><Brain className="h-5 w-5" /> AI Assistant</NavLink>
+            <NavLink href="/notifications"><Bell className="h-5 w-5" /> Inbox</NavLink>
           </div>
           
           {loading ? (
