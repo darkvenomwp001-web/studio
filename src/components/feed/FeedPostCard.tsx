@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState } from 'react';
-import type { FeedPost, User } from '@/types';
+import type { ThreadPost, User } from '@/types';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -12,7 +11,7 @@ import { Heart, MessageCircle, MoreHorizontal, Trash2, Loader2 } from 'lucide-re
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { toggleLikePost, deletePost } from '@/app/actions/feedActions';
+import { toggleLikeThreadPost, deleteThreadPost } from '@/app/actions/threadActions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 interface FeedPostCardProps {
-  post: FeedPost;
+  post: ThreadPost;
   currentUser: User;
 }
 
@@ -47,7 +46,7 @@ export default function FeedPostCard({ post, currentUser }: FeedPostCardProps) {
     setIsLiked(!isLiked);
     setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
 
-    const result = await toggleLikePost(post.id, currentUser.id);
+    const result = await toggleLikeThreadPost(post.id, currentUser.id);
     if (!result.success) {
       // Revert UI on failure
       setIsLiked(isLiked);
@@ -58,7 +57,7 @@ export default function FeedPostCard({ post, currentUser }: FeedPostCardProps) {
 
   const handleDeletePost = async () => {
     setIsDeleting(true);
-    const result = await deletePost(post.id, currentUser.id);
+    const result = await deleteThreadPost(post.id, currentUser.id);
     if (!result.success) {
       toast({ title: 'Error', description: result.error, variant: 'destructive' });
       setIsDeleting(false);

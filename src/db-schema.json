@@ -96,7 +96,7 @@
           }
         }
       },
-      "feedPosts": {
+      "Threadpost": {
         "description": "Posts that appear on the main feed, created by users.",
         "fields": {
           "authorId": { "type": "string", "description": "ID of the post author.", "reference": "users" },

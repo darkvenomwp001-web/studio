@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, ChangeEvent } from 'react';
@@ -9,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Loader2, Send, X, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { createPost } from '@/app/actions/feedActions';
+import { createThreadPost } from '@/app/actions/threadActions';
 import type { User, UserSummary } from '@/types';
 import Image from 'next/image';
 
@@ -88,7 +87,7 @@ export default function CreatePostForm({ user, onSuccess }: { user: User, onSucc
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
     };
-    const result = await createPost(
+    const result = await createThreadPost(
       authorSummary, 
       content, 
       imageUrl

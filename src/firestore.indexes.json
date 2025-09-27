@@ -198,7 +198,7 @@
       ]
     },
     {
-      "collectionGroup": "feedPosts",
+      "collectionGroup": "Threadpost",
       "queryScope": "COLLECTION",
       "fields": [
         {

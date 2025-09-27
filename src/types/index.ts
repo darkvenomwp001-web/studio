@@ -152,6 +152,7 @@ export interface Conversation {
         content: string;
         senderId: string;
         timestamp: any;
+        isRead?: boolean;
     };
     isGroup: boolean;
     groupName?: string;
@@ -173,7 +174,7 @@ export interface Poll {
     options: { id: string; text: string; votes: string[] }[];
 }
 
-export interface FeedPost {
+export interface ThreadPost {
     id: string;
     author: UserSummary;
     authorId: string;

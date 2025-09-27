@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { User, FeedPost } from '@/types';
+import type { User, ThreadPost } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { Loader2, Users, AlertCircle } from 'lucide-react';
@@ -11,21 +11,20 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function HomeFeed({ user }: { user: User }) {
-  const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
+  const [feedPosts, setFeedPosts] = useState<ThreadPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [feedError, setFeedError] = useState<Error | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // New, simpler query for a global public feed
     const q = query(
-      collection(db, 'feedPosts'),
+      collection(db, 'Threadpost'),
       orderBy('timestamp', 'desc'),
       limit(50) // Limit to the 50 most recent posts
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FeedPost));
+      const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ThreadPost));
       setFeedPosts(posts);
       setFeedError(null);
       setIsLoading(false);

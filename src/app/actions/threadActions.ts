@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -16,7 +15,7 @@ import {
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
 
-export async function createPost(
+export async function createThreadPost(
   author: UserSummary,
   content: string,
   imageUrl?: string
@@ -43,7 +42,7 @@ export async function createPost(
         postData.imageUrl = imageUrl;
     }
 
-    await addDoc(collection(db, 'feedPosts'), postData);
+    await addDoc(collection(db, 'Threadpost'), postData);
     revalidatePath('/'); // Revalidate the homepage feed
     return { success: true };
   } catch (error) {
@@ -52,7 +51,7 @@ export async function createPost(
   }
 }
 
-export async function toggleLikePost(
+export async function toggleLikeThreadPost(
   postId: string,
   userId: string,
 ): Promise<{ success: boolean; error?: string }> {
@@ -61,7 +60,7 @@ export async function toggleLikePost(
   }
 
   try {
-    const postRef = doc(db, 'feedPosts', postId);
+    const postRef = doc(db, 'Threadpost', postId);
     const postSnap = await getDoc(postRef);
 
     if (!postSnap.exists()) {
@@ -97,12 +96,12 @@ export async function toggleLikePost(
 }
 
 
-export async function deletePost(postId: string, userId: string): Promise<{ success: boolean, error?: string }> {
+export async function deleteThreadPost(postId: string, userId: string): Promise<{ success: boolean, error?: string }> {
   if (!userId) {
     return { success: false, error: "User not authenticated." };
   }
 
-  const postRef = doc(db, 'feedPosts', postId);
+  const postRef = doc(db, 'Threadpost', postId);
 
   try {
     const postSnap = await getDoc(postRef);
