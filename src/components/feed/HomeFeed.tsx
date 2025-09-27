@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -18,20 +17,11 @@ export default function HomeFeed({ user }: { user: User }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // If the user isn't following anyone, there's nothing to query.
-    // We still include the current user's posts in the feed.
-    const authorIdsToQuery = Array.from(new Set([user.id, ...(user.followingIds || [])])).slice(0, 30);
-    
-    if (authorIdsToQuery.length === 0) {
-        setIsLoading(false);
-        return;
-    }
-
+    // New, simpler query for a global public feed
     const q = query(
       collection(db, 'feedPosts'),
-      where('authorId', 'in', authorIdsToQuery),
       orderBy('timestamp', 'desc'),
-      limit(25)
+      limit(50) // Limit to the 50 most recent posts
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -40,20 +30,20 @@ export default function HomeFeed({ user }: { user: User }) {
       setFeedError(null);
       setIsLoading(false);
     }, (error) => {
-      console.error("Error fetching feed:", error);
+      console.error("Error fetching global feed:", error);
       setFeedError(error);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
 
-  }, [user.id, user.followingIds]);
+  }, []);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-10 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        <span>Loading your feed...</span>
+        <span>Loading the feed...</span>
       </div>
     );
   }
@@ -75,13 +65,9 @@ export default function HomeFeed({ user }: { user: User }) {
     return (
       <div className="text-center py-16 bg-card rounded-lg shadow-sm">
         <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-        <h2 className="text-xl font-headline font-semibold mb-2">Your Feed is Quiet</h2>
+        <h2 className="text-xl font-headline font-semibold mb-2">The Feed is Empty</h2>
         <p className="text-muted-foreground">
-          Follow some authors to see their updates and posts here.
-          <br/>
-          <Link href="/stories" passHref>
-             <span className='text-primary hover:underline cursor-pointer'>Explore stories and find authors to follow.</span>
-          </Link>
+          Be the first one to post something!
         </p>
       </div>
     );
