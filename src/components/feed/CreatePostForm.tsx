@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, ChangeEvent } from 'react';
@@ -6,20 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, Paperclip, X, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Send, X, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createPost } from '@/app/actions/feedActions';
-import type { User, UserSummary, Story } from '@/types';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog"
-import { ScrollArea } from '../ui/scroll-area';
+import type { User, UserSummary } from '@/types';
 import Image from 'next/image';
 
 const MAX_IMAGE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
@@ -27,7 +18,6 @@ const MAX_IMAGE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
 export default function CreatePostForm({ user, onSuccess }: { user: User, onSuccess?: () => void }) {
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [attachedStory, setAttachedStory] = useState<Story | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +37,6 @@ export default function CreatePostForm({ user, onSuccess }: { user: User, onSucc
 
   const clearAttachments = () => {
     setContent('');
-    setAttachedStory(null);
     setImageFile(null);
     setImagePreview(null);
     if (imageInputRef.current) {
@@ -102,9 +91,6 @@ export default function CreatePostForm({ user, onSuccess }: { user: User, onSucc
     const result = await createPost(
       authorSummary, 
       content, 
-      attachedStory?.id,
-      attachedStory?.title,
-      attachedStory?.coverImageUrl,
       imageUrl
     );
 
@@ -118,8 +104,6 @@ export default function CreatePostForm({ user, onSuccess }: { user: User, onSucc
     setIsSubmitting(false);
   };
   
-  const publishedStories = user.writtenStories?.filter(s => s.status === 'Ongoing' || s.status === 'Completed') || [];
-
   return (
     <Card className="w-full shadow-md border-border/50">
       <CardHeader className="p-4">
@@ -145,24 +129,6 @@ export default function CreatePostForm({ user, onSuccess }: { user: User, onSucc
                     </Button>
                 </div>
             )}
-            {attachedStory && (
-              <div className="mt-2 border rounded-lg flex items-center gap-2 p-2 bg-muted/50 w-fit">
-                <Image
-                  src={attachedStory.coverImageUrl || 'https://placehold.co/512x800.png'}
-                  alt={attachedStory.title}
-                  width={30}
-                  height={45}
-                  className="rounded-sm aspect-[2/3] object-cover bg-muted"
-                />
-                <div className="flex-1">
-                  <p className="text-xs font-semibold leading-tight">{attachedStory.title}</p>
-                  <p className="text-xs text-muted-foreground">Story attached</p>
-                </div>
-                 <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setAttachedStory(null)}>
-                    <X className="h-4 w-4" />
-                 </Button>
-              </div>
-            )}
           </div>
         </div>
       </CardHeader>
@@ -172,40 +138,6 @@ export default function CreatePostForm({ user, onSuccess }: { user: User, onSucc
             <Button variant="ghost" size="icon" title="Attach an image" onClick={() => imageInputRef.current?.click()} disabled={!!imageFile}>
                 <ImageIcon className="h-5 w-5" />
             </Button>
-            <Dialog>
-                <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" title="Attach a story" disabled={publishedStories.length === 0}>
-                        <Paperclip className="h-5 w-5" />
-                    </Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                    <DialogTitle>Attach a story</DialogTitle>
-                    <DialogDescription>Select one of your published stories to attach to this post.</DialogDescription>
-                    </DialogHeader>
-                    <ScrollArea className="max-h-96 -mx-6">
-                        <div className="px-6 space-y-2">
-                        {publishedStories.map(story => (
-                            <DialogClose asChild key={story.id}>
-                                <div 
-                                    className="border rounded-md p-2 flex items-center gap-3 cursor-pointer hover:bg-muted"
-                                    onClick={() => setAttachedStory(story)}
-                                >
-                                <Image
-                                    src={story.coverImageUrl || 'https://placehold.co/512x800.png'}
-                                    alt={story.title}
-                                    width={40}
-                                    height={60}
-                                    className="rounded aspect-[2/3] object-cover bg-muted"
-                                />
-                                <p className="font-semibold">{story.title}</p>
-                                </div>
-                            </DialogClose>
-                        ))}
-                        </div>
-                    </ScrollArea>
-                </DialogContent>
-            </Dialog>
         </div>
 
         <Button onClick={handleSubmit} disabled={isSubmitting || (content.trim().length === 0 && !imageFile)}>

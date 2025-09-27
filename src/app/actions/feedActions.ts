@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -10,6 +11,7 @@ import {
   arrayUnion,
   arrayRemove,
   getDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
@@ -17,24 +19,19 @@ import { revalidatePath } from 'next/cache';
 export async function createPost(
   author: UserSummary,
   content: string,
-  storyId?: string,
-  storyTitle?: string,
-  storyCoverUrl?: string,
-  imageUrl?: string,
-  songUrl?: string,
-  songLyricSnippet?: string
+  imageUrl?: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!author) {
+  if (!author || !author.id) {
     return { success: false, error: 'User is not authenticated.' };
   }
-  if (content.trim().length === 0 && !imageUrl && !songUrl) {
+  if (content.trim().length === 0 && !imageUrl) {
     return { success: false, error: 'Post content cannot be empty.' };
   }
 
   try {
     const postData: any = {
       author,
-      authorId: author.id, // Ensure authorId is always set for consistency
+      authorId: author.id,
       content,
       timestamp: serverTimestamp(),
       likesCount: 0,
@@ -42,21 +39,8 @@ export async function createPost(
       likedBy: [],
     };
 
-    if (storyId && storyTitle) {
-      postData.storyId = storyId;
-      postData.storyTitle = storyTitle;
-      postData.storyCoverUrl = storyCoverUrl || '';
-    }
-
     if (imageUrl) {
         postData.imageUrl = imageUrl;
-    }
-
-    if (songUrl) {
-        postData.songUrl = songUrl;
-        if (songLyricSnippet) {
-            postData.songLyricSnippet = songLyricSnippet;
-        }
     }
 
     await addDoc(collection(db, 'feedPosts'), postData);
@@ -109,5 +93,34 @@ export async function toggleLikePost(
       success: false,
       error: 'Could not update like status. Please try again.',
     };
+  }
+}
+
+
+export async function deletePost(postId: string, userId: string): Promise<{ success: boolean, error?: string }> {
+  if (!userId) {
+    return { success: false, error: "User not authenticated." };
+  }
+
+  const postRef = doc(db, 'feedPosts', postId);
+
+  try {
+    const postSnap = await getDoc(postRef);
+    if (!postSnap.exists()) {
+      return { success: false, error: "Post not found." };
+    }
+
+    const postData = postSnap.data();
+    if (postData.author.id !== userId) {
+      return { success: false, error: "You do not have permission to delete this post." };
+    }
+
+    await deleteDoc(postRef);
+    revalidatePath('/'); // Revalidate the feed
+    return { success: true };
+
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    return { success: false, error: "Could not delete post. Please try again." };
   }
 }

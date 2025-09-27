@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -7,12 +8,28 @@ import Image from 'next/image';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, Music } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Trash2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { toggleLikePost } from '@/app/actions/feedActions';
-import SpotifyPlayer from '../shared/SpotifyPlayer';
+import { toggleLikePost, deletePost } from '@/app/actions/feedActions';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface FeedPostCardProps {
   post: FeedPost;
@@ -22,6 +39,7 @@ interface FeedPostCardProps {
 export default function FeedPostCard({ post, currentUser }: FeedPostCardProps) {
   const [isLiked, setIsLiked] = useState(post.likedBy.includes(currentUser.id));
   const [likesCount, setLikesCount] = useState(post.likesCount);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const handleLikeClick = async () => {
@@ -38,78 +56,96 @@ export default function FeedPostCard({ post, currentUser }: FeedPostCardProps) {
     }
   };
 
+  const handleDeletePost = async () => {
+    setIsDeleting(true);
+    const result = await deletePost(post.id, currentUser.id);
+    if (!result.success) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      setIsDeleting(false);
+    } else {
+      toast({ title: 'Post Deleted' });
+      // The post will be removed from the feed by the real-time listener in HomeFeed.
+    }
+  };
+
+  const isOwner = post.author.id === currentUser.id;
+
   return (
-    <Card className="w-full">
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <Link href={`/profile/${post.author.id}`}>
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={post.author.avatarUrl} alt={post.author.displayName} data-ai-hint="profile person" />
-              <AvatarFallback>{post.author.username?.substring(0, 1).toUpperCase()}</AvatarFallback>
-            </Avatar>
-          </Link>
-          <div className="flex-1">
-            <Link href={`/profile/${post.author.id}`} className="font-semibold hover:underline">
-              {post.author.displayName}
+    <AlertDialog>
+      <Card className="w-full">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <Link href={`/profile/${post.author.id}`}>
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={post.author.avatarUrl} alt={post.author.displayName} data-ai-hint="profile person" />
+                <AvatarFallback>{post.author.username?.substring(0, 1).toUpperCase()}</AvatarFallback>
+              </Avatar>
             </Link>
-            <p className="text-xs text-muted-foreground">
-              {post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'Just now'}
-            </p>
-          </div>
-        </div>
-
-        {post.content && (
-            <p className="text-foreground/90 whitespace-pre-line">
-            {post.content}
-            </p>
-        )}
-
-        {post.imageUrl && (
-            <div className="rounded-lg overflow-hidden border">
-                <Image src={post.imageUrl} alt="Post image" width={500} height={500} className="w-full h-auto object-contain" />
+            <div className="flex-1">
+              <Link href={`/profile/${post.author.id}`} className="font-semibold hover:underline">
+                {post.author.displayName}
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                {post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'Just now'}
+              </p>
             </div>
-        )}
-        
-        {post.songUrl && (
-          <div className="space-y-2">
-            {post.songLyricSnippet && (
-              <blockquote className="border-l-2 pl-3 italic text-sm text-muted-foreground">
-                "{post.songLyricSnippet}"
-              </blockquote>
+            {isOwner && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem className="text-destructive focus:text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete Post
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                  </DropdownMenuContent>
+                </DropdownMenu>
             )}
-            <SpotifyPlayer trackUrl={post.songUrl} />
           </div>
-        )}
 
-        {post.storyId && post.storyTitle && (
-          <Link href={`/stories/${post.storyId}`} className="block">
-            <div className="border rounded-lg flex items-center gap-3 p-2 hover:bg-muted/50 transition-colors">
-              <Image
-                src={post.storyCoverUrl || 'https://placehold.co/512x800.png'}
-                alt={post.storyTitle}
-                width={40}
-                height={60}
-                className="rounded aspect-[2/3] object-cover bg-muted"
-                data-ai-hint="book cover"
-              />
-              <div className="flex-1">
-                <p className="text-sm font-semibold leading-tight">{post.storyTitle}</p>
-                <p className="text-xs text-muted-foreground">Attached Story</p>
+          {post.content && (
+              <p className="text-foreground/90 whitespace-pre-line">
+              {post.content}
+              </p>
+          )}
+
+          {post.imageUrl && (
+              <div className="rounded-lg overflow-hidden border">
+                  <Image src={post.imageUrl} alt="Post image" width={500} height={500} className="w-full h-auto object-contain" />
               </div>
-            </div>
-          </Link>
-        )}
-      </CardContent>
-      <CardFooter className="p-2 border-t flex items-center gap-2">
-        <Button variant="ghost" size="sm" className="flex items-center gap-1.5" onClick={handleLikeClick}>
-          <Heart className={cn("h-4 w-4", isLiked && "fill-red-500 text-red-500")} />
-          <span className="text-sm">{likesCount}</span>
-        </Button>
-        <Button variant="ghost" size="sm" className="flex items-center gap-1.5" onClick={() => toast({ title: 'Coming Soon!', description: 'Commenting on posts will be available in a future update.'})}>
-          <MessageCircle className="h-4 w-4" />
-          <span className="text-sm">{post.commentsCount}</span>
-        </Button>
-      </CardFooter>
-    </Card>
+          )}
+        </CardContent>
+        <CardFooter className="p-2 border-t flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="flex items-center gap-1.5" onClick={handleLikeClick}>
+            <Heart className={cn("h-4 w-4", isLiked && "fill-red-500 text-red-500")} />
+            <span className="text-sm">{likesCount}</span>
+          </Button>
+          <Button variant="ghost" size="sm" className="flex items-center gap-1.5" onClick={() => toast({ title: 'Coming Soon!', description: 'Commenting on posts will be available in a future update.'})}>
+            <MessageCircle className="h-4 w-4" />
+            <span className="text-sm">{post.commentsCount}</span>
+          </Button>
+        </CardFooter>
+      </Card>
+      
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete your post.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeletePost} disabled={isDeleting}>
+            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

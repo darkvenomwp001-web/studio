@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -18,18 +19,17 @@ export default function HomeFeed({ user }: { user: User }) {
 
   useEffect(() => {
     // If the user isn't following anyone, there's nothing to query.
-    if (!user.followingIds || user.followingIds.length === 0) {
-      setIsLoading(false);
-      return;
-    }
+    // We still include the current user's posts in the feed.
+    const authorIdsToQuery = Array.from(new Set([user.id, ...(user.followingIds || [])])).slice(0, 30);
     
-    // Note: Firestore 'in' queries are limited to 30 items in the array.
-    // For this app's scope, we'll slice to the most recent 30 follows if necessary.
-    const followedAuthors = user.followingIds.slice(0, 30);
+    if (authorIdsToQuery.length === 0) {
+        setIsLoading(false);
+        return;
+    }
 
     const q = query(
       collection(db, 'feedPosts'),
-      where('authorId', 'in', followedAuthors),
+      where('authorId', 'in', authorIdsToQuery),
       orderBy('timestamp', 'desc'),
       limit(25)
     );
@@ -47,7 +47,7 @@ export default function HomeFeed({ user }: { user: User }) {
 
     return () => unsubscribe();
 
-  }, [user.followingIds, toast]);
+  }, [user.id, user.followingIds]);
 
   if (isLoading) {
     return (

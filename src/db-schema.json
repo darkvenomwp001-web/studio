@@ -1,3 +1,4 @@
+
 {
   "firestore": {
     "collections": {
@@ -17,8 +18,6 @@
           "level": { "type": "number", "description": "User's current level based on XP." },
           "xp": { "type": "number", "description": "User's experience points, earned through engagement." },
           "achievements": { "type": "array", "description": "Array of achievement objects the user has unlocked." },
-          "profileSongUrl": { "type": "string", "description": "A link to the user's featured profile song on Spotify." },
-          "profileSongNote": { "type": "string", "description": "A short note about the user's profile song." },
           "createdAt": { "type": "timestamp", "description": "When the user account was created." },
           "updatedAt": { "type": "timestamp", "description": "When the user profile was last updated." },
           "isAnonymous": { "type": "boolean", "description": "Flag for guest users." }
@@ -50,8 +49,7 @@
               "status": { "type": "string", "description": "'Published' or 'Draft'." },
               "accessType": { "type": "string", "description": "'public' or 'premium'." },
               "allowedUsers": { "type": "array", "description": "List of users with access to premium chapters." },
-              "votes": { "type": "number", "description": "Number of votes for the chapter." },
-              "voterIds": { "type": "array", "description": "List of user IDs who have voted for the chapter." }
+              "votes": { "type": "number", "description": "Number of votes for the chapter." }
             }
           }
         }
@@ -102,34 +100,25 @@
         "description": "Posts that appear on the main feed, created by users.",
         "fields": {
           "authorId": { "type": "string", "description": "ID of the post author.", "reference": "users" },
+          "author": { "type": "map", "description": "Summary object of the post's author." },
           "content": { "type": "string", "description": "Text content of the post." },
           "imageUrl": { "type": "string", "description": "URL of an image attached to the post." },
-          "storyId": { "type": "string", "description": "ID of a story attached to the post.", "reference": "stories" },
-          "songUrl": { "type": "string", "description": "A URL to a song (e.g., Spotify)." },
-          "songLyricSnippet": { "type": "string", "description": "A selected snippet of lyrics from the shared song." },
           "likesCount": { "type": "number", "description": "Total number of likes." },
           "likedBy": { "type": "array", "description": "Array of user IDs who liked the post." },
+          "commentsCount": { "type": "number", "description": "Total number of comments on the post." },
           "timestamp": { "type": "timestamp", "description": "When the post was created." }
         }
       },
       "statusUpdates": {
-        "description": "Temporary, 24-hour status updates from users. Can be a media post or a text-based Note.",
+        "description": "Temporary, 24-hour status updates from users.",
         "fields": {
           "authorId": { "type": "string", "description": "ID of the status author.", "reference": "users" },
           "mediaUrl": { "type": "string", "description": "URL of the image or video for the status." },
-          "mediaType": { "type": "string", "description": "'image' or 'video'." },
-          "note": { "type": "string", "description": "A short text note, an alternative to media." },
-          "spotifyUrl": { "type": "string", "description": "A link to a Spotify track." },
-          "songLyricSnippet": { "type": "string", "description": "A selected snippet of lyrics from the shared song." },
-          "textOverlay": { "type": "string", "description": "A caption displayed on top of media." },
-          "poll": { "type": "map", "description": "A poll attached to the status." },
           "status": { "type": "string", "description": "'published' or 'draft'." },
           "isArchived": { "type": "boolean", "description": "True if the status is archived after expiring." },
           "isTrashed": { "type": "boolean", "description": "True if the user moved the status to trash." },
           "createdAt": { "type": "timestamp", "description": "When the status was created." },
-          "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." },
-          "archivedAt": { "type": "timestamp", "description": "When the status was archived." },
-          "trashedAt": { "type": "timestamp", "description": "When the status was moved to trash." }
+          "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." }
         }
       },
       "prompts": {
