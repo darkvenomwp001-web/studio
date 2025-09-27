@@ -196,6 +196,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "feedPosts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "authorId",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
