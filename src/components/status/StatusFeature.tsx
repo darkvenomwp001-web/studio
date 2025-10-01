@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { restoreStatusUpdate, permanentlyDeleteStatusUpdate, trashStatusUpdate } from '@/app/actions/statusActions';
+import { restoreStatusUpdate, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 import { getStatusCaptions } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
@@ -418,30 +418,12 @@ export default function StatusFeature() {
   }
 
   const handleDeleteDraft = async (draftId: string) => {
-    if (!user) return;
-    const result = await trashStatusUpdate(draftId, user.id);
-    if(result.success) toast({title: "Draft moved to trash."});
-    else toast({title: "Error", description: result.error, variant: 'destructive'});
+     if (!user) return;
+     const result = await permanentlyDeleteStatusUpdate(draftId, user.id);
+     if(result.success) toast({title: "Draft Permanently Deleted."});
+     else toast({title: "Error", description: result.error, variant: 'destructive'});
   }
 
-  const handleEditDraft = (draft: StatusUpdate) => {
-    setEditingDraft(draft);
-    if(draft.mediaUrl) {
-        setUploaderDefaultTab('media');
-        setMediaPreview(draft.mediaUrl);
-        setMediaType(draft.mediaType || 'image');
-        setTextOverlay(draft.textOverlay || '');
-        setUploaderScreen('editor');
-    } else if (draft.spotifyUrl) {
-        setUploaderDefaultTab('song');
-        // This is tricky, would need to fetch song details. For now, just set note.
-        setNoteContent(draft.note || '');
-    } else {
-        setUploaderDefaultTab('note');
-        setNoteContent(draft.note || '');
-    }
-  }
-  
   const handleRestoreFromTrash = async (statusId: string) => {
     if (!user) return;
     const result = await restoreStatusUpdate(statusId, user.id);
@@ -498,7 +480,7 @@ export default function StatusFeature() {
   }
   
   const renderPickerScreen = () => (
-    <>
+    <AlertDialog>
       <DialogHeader className="sr-only">
         <DialogTitle>Create Status</DialogTitle>
         <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
@@ -602,21 +584,25 @@ export default function StatusFeature() {
                                 {item.isTrashed ? (
                                     <>
                                         <Button size="sm" variant="outline" onClick={() => handleRestoreFromTrash(item.id)}><RotateCcw className="h-4 w-4"/></Button>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader><AlertDialogTitleComponent>Delete Forever?</AlertDialogTitleComponent><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                                                <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromTrash(item.id)}>Delete</AlertDialogAction></AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
+                                        <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                                     </>
                                 ) : (
                                     <>
                                         <Button size="sm" variant="outline" onClick={() => handlePublishDraft(item)}>Publish</Button>
-                                        <Button size="sm" variant="destructive" onClick={() => handleDeleteDraft(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                                        <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                                     </>
                                 )}
                             </div>
+                             <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitleComponent>Delete Forever?</AlertDialogTitleComponent>
+                                    <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteDraft(item.id)}>Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
                         </Card>
                     )) : (
                     <div className="py-10 text-center text-muted-foreground space-y-3">
@@ -627,7 +613,7 @@ export default function StatusFeature() {
             </ScrollArea>
         </TabsContent>
       </Tabs>
-    </>
+    </AlertDialog>
   );
 
   const renderEditorScreen = () => (
