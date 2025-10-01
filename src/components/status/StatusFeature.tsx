@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
+import { moveStatusToDrafts, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 import { getStatusCaptions } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
@@ -118,7 +118,7 @@ export default function StatusFeature() {
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(true);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   
-  const [uploaderDefaultTab, setUploaderDefaultTab] = useState('media');
+  const [activeUploaderTab, setActiveUploaderTab] = useState('media');
   const [editingDraft, setEditingDraft] = useState<StatusUpdate | null>(null);
 
   const { toast } = useToast();
@@ -428,7 +428,7 @@ export default function StatusFeature() {
   };
   
   const handleOpenUploader = (defaultTab: string) => {
-    setUploaderDefaultTab(defaultTab);
+    setActiveUploaderTab(defaultTab);
     setIsUploaderOpen(true);
   };
 
@@ -447,19 +447,20 @@ export default function StatusFeature() {
         <DialogTitle>Create Status</DialogTitle>
         <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
       </DialogHeader>
-      <Tabs defaultValue={uploaderDefaultTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
-        <TabsList className="relative mx-6 bg-muted rounded-full p-1 h-auto">
+      <Tabs defaultValue={activeUploaderTab} onValueChange={setActiveUploaderTab} className="w-full flex-grow flex flex-col pt-6">
+        <TabsList className="relative grid grid-cols-3 mx-6 bg-muted rounded-full p-1 h-auto">
           <div
-            className="absolute h-[calc(100%-0.5rem)] w-1/3 bg-background rounded-full shadow-md transition-all duration-300 ease-in-out"
-            style={{
-              left: uploaderDefaultTab === 'note' ? '0.25rem' :
-                    uploaderDefaultTab === 'media' ? 'calc(33.33% + 0.25rem)' :
-                    'calc(66.66% + 0.25rem)'
+            className="absolute h-full p-1 top-0 left-0 transition-transform duration-300 ease-in-out"
+            style={{ 
+                width: `calc(100% / 3)`,
+                transform: `translateX(${activeUploaderTab === 'note' ? '0%' : activeUploaderTab === 'media' ? '100%' : '200%'})`
             }}
-          />
-          <TabsTrigger value="note" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary">Note</TabsTrigger>
-          <TabsTrigger value="media" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary">Media</TabsTrigger>
-          <TabsTrigger value="song" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary">Song</TabsTrigger>
+          >
+            <div className="w-full h-full bg-background rounded-full shadow-md"></div>
+          </div>
+          <TabsTrigger value="note" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary data-[state=active]:font-semibold">Note</TabsTrigger>
+          <TabsTrigger value="media" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary data-[state=active]:font-semibold">Media</TabsTrigger>
+          <TabsTrigger value="song" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary data-[state=active]:font-semibold">Song</TabsTrigger>
         </TabsList>
         <TabsContent value="note" className="flex-grow flex flex-col px-6 pb-6">
             <div className="py-4 space-y-4 flex-grow">
@@ -693,3 +694,5 @@ export default function StatusFeature() {
     </div>
   );
 }
+
+    
