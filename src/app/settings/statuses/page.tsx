@@ -37,19 +37,19 @@ export default function ManageStatusesPage() {
     }
 
     setIsLoading(true);
-    const now = new Date();
+    // Correctly query for live, non-trashed statuses.
     const statusesQuery = query(
         collection(db, 'statusUpdates'), 
         where('authorId', '==', user.id), 
         where('status', '==', 'published'),
-        where('isTrashed', '==', false),
+        where('expiresAt', '>', Timestamp.now()),
         orderBy('expiresAt', 'asc')
     );
     
     const unsubscribe = onSnapshot(statusesQuery, (snapshot) => {
       const allLive = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
-      // Manual filter for expiration, as Firestore doesn't allow inequality filters on different fields.
-      setLiveStatuses(allLive.filter(s => s.expiresAt && (s.expiresAt as Timestamp).toMillis() > now.getTime()));
+      // Additional client-side filter to be absolutely sure no trashed items slip through
+      setLiveStatuses(allLive.filter(s => !s.isTrashed));
       setIsLoading(false);
     }, (error) => {
         console.error("Error fetching live statuses:", error);

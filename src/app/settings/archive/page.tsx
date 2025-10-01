@@ -54,17 +54,16 @@ export default function ArchivePage() {
     });
 
     setIsLoadingStatuses(true);
-    // This single query now handles all archived statuses correctly.
+    // Correct query for archived, non-trashed statuses.
     const statusesQuery = query(
         collection(db, 'statusUpdates'), 
         where('authorId', '==', user.id), 
         where('isArchived', '==', true),
-        where('isTrashed', '==', false),
         orderBy('archivedAt', 'desc')
     );
     
     const unsubStatuses = onSnapshot(statusesQuery, (snapshot) => {
-        const statuses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
+        const statuses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)).filter(s => !s.isTrashed);
         setAllArchivedStatuses(statuses);
         setFilteredStatuses(statuses);
 

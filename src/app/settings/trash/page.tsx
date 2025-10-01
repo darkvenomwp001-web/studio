@@ -33,7 +33,7 @@ export default function TrashPage() {
     }
 
     setIsLoading(true);
-    // Query for status updates that belong to the user and are marked as trashed
+    // Correct query for items that are specifically marked as trashed.
     const statusesQuery = query(
         collection(db, 'statusUpdates'), 
         where('authorId', '==', user.id), 

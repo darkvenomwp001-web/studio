@@ -53,6 +53,7 @@ export async function moveStatusToDrafts(
     });
 
     revalidatePath('/'); // Revalidate home page feed
+    revalidatePath('/settings/statuses');
     return { success: true };
   } catch (error) {
     console.error('Error moving status to drafts:', error);
@@ -87,6 +88,7 @@ export async function archiveStatusUpdate(
         archivedAt: serverTimestamp()
     });
     revalidatePath('/'); 
+    revalidatePath('/settings/statuses');
     revalidatePath('/settings/archive');
     return { success: true };
   } catch (error) {
@@ -121,6 +123,7 @@ export async function trashStatusUpdate(
             trashedAt: serverTimestamp()
         });
         revalidatePath('/');
+        revalidatePath('/settings/statuses');
         revalidatePath('/settings/archive');
         revalidatePath('/settings/trash');
         return { success: true };
