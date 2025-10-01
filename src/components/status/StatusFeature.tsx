@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -28,12 +28,14 @@ import { Textarea } from '../ui/textarea';
 import SongSearch from './SongSearch';
 import Link from 'next/link';
 import { Switch } from '@/components/ui/switch';
+import { useRouter } from 'next/navigation';
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
 function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, statuses: StatusUpdate[], onSelect: (user: User) => void, latestStatus: StatusUpdate | null }) {
-  const isOwn = useAuth().user?.id === user.id;
+  const { user: authUser } = useAuth();
+  const isOwn = authUser?.id === user.id;
   const isNoteWithSong = latestStatus && (latestStatus.spotifyUrl);
 
   return (
@@ -122,6 +124,7 @@ export default function StatusFeature() {
   const [editingDraft, setEditingDraft] = useState<StatusUpdate | null>(null);
 
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     if (!user) {
@@ -233,7 +236,7 @@ export default function StatusFeature() {
   }
   
   const handleTabChange = (value: string) => {
-    resetUploader();
+    setActiveUploaderTab(value);
   };
 
   const handleMediaSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -253,6 +256,7 @@ export default function StatusFeature() {
         setMediaPreview(event.target?.result as string);
       };
       reader.readAsDataURL(file);
+      setUploaderScreen('editor');
     }
   };
   
@@ -447,9 +451,9 @@ export default function StatusFeature() {
         <DialogTitle>Create Status</DialogTitle>
         <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
       </DialogHeader>
-      <Tabs defaultValue={activeUploaderTab} onValueChange={setActiveUploaderTab} className="w-full flex-grow flex flex-col pt-6">
+      <Tabs defaultValue={activeUploaderTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
         <TabsList className="relative grid grid-cols-3 mx-6 bg-muted rounded-full p-1 h-auto">
-          <div
+           <div
             className="absolute h-full p-1 top-0 left-0 transition-transform duration-300 ease-in-out"
             style={{ 
                 width: `calc(100% / 3)`,
@@ -506,11 +510,6 @@ export default function StatusFeature() {
                     </div>
                 </div>
             </div>
-            <DialogFooter className="p-6 pt-0 mt-auto">
-                <Button onClick={() => setUploaderScreen('editor')} disabled={!mediaFile}>
-                    Next <ArrowRight className="ml-2 h-4 w-4"/>
-                </Button>
-            </DialogFooter>
         </TabsContent>
         <TabsContent value="song" className="px-6 pb-6">
             <div className="py-4 space-y-4">
@@ -689,10 +688,7 @@ export default function StatusFeature() {
         onNext={handleNextUser}
         onPrev={handlePrevUser}
         onStatusArchived={onStatusArchived}
-        onOpenUploader={handleOpenUploader}
       />
     </div>
   );
 }
-
-    
