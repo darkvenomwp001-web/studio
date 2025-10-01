@@ -105,55 +105,57 @@ export default function ManageStatusesPage() {
       
       <div className="space-y-4">
         {draftStatuses.length > 0 ? draftStatuses.map(item => (
-          <Card key={item.id}>
-            <CardContent className="p-4 flex items-center gap-4">
-                 <div className="w-24 h-24 sm:w-32 sm:h-32 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
-                    {item.mediaUrl ? (
-                      <Image src={item.mediaUrl} alt="Status media" layout="fill" objectFit="cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-muted text-2xl">
-                        {item.spotifyUrl ? <Music className="h-8 w-8"/> : <Feather className="h-8 w-8"/>}
+          <AlertDialog key={item.id}>
+            <Card>
+              <CardContent className="p-4 flex items-center gap-4">
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
+                      {item.mediaUrl ? (
+                        <Image src={item.mediaUrl} alt="Status media" layout="fill" objectFit="cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-muted text-2xl">
+                          {item.spotifyUrl ? <Music className="h-8 w-8"/> : <Feather className="h-8 w-8"/>}
+                        </div>
+                      )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                      <p className="text-sm text-foreground line-clamp-2">{item.textOverlay || item.note || item.songLyricSnippet || "No caption"}</p>
+                      <div className="text-xs text-muted-foreground">
+                          Saved: {formatDate(item.createdAt)}
                       </div>
-                    )}
-                </div>
-                <div className="flex-1 space-y-2">
-                    <p className="text-sm text-foreground line-clamp-2">{item.textOverlay || item.note || item.songLyricSnippet || "No caption"}</p>
-                    <div className="text-xs text-muted-foreground">
-                        Saved: {formatDate(item.createdAt)}
-                    </div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                     <Button size="sm" variant="outline" onClick={() => handlePublishDraft(item.id)} disabled={isProcessingId === item.id}>
-                        {isProcessingId === item.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}
-                        <span className="hidden sm:inline ml-2">Publish</span>
-                    </Button>
-                    <Button size="sm" variant="outline" disabled={isProcessingId === item.id} onClick={() => toast({title: "Coming soon!"})}>
-                        <Edit className="h-4 w-4"/>
-                        <span className="hidden sm:inline ml-2">Edit</span>
-                    </Button>
-                     <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="destructive" disabled={isProcessingId === item.id}>
-                            <Trash2 className="h-4 w-4"/>
-                        </Button>
-                    </AlertDialogTrigger>
-                     <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Draft Forever?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This action is permanent and cannot be undone.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteDraft(item.id)}>
-                                {isProcessingId === item.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </div>
-            </CardContent>
-          </Card>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                      <Button size="sm" variant="outline" onClick={() => handlePublishDraft(item.id)} disabled={isProcessingId === item.id}>
+                          {isProcessingId === item.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}
+                          <span className="hidden sm:inline ml-2">Publish</span>
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={isProcessingId === item.id} onClick={() => toast({title: "Coming soon!"})}>
+                          <Edit className="h-4 w-4"/>
+                          <span className="hidden sm:inline ml-2">Edit</span>
+                      </Button>
+                      <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="destructive" disabled={isProcessingId === item.id}>
+                              <Trash2 className="h-4 w-4"/>
+                          </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                          <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Draft Forever?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                  This action is permanent and cannot be undone.
+                              </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteDraft(item.id)}>
+                                  {isProcessingId === item.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                                  Delete
+                              </AlertDialogAction>
+                          </AlertDialogFooter>
+                      </AlertDialogContent>
+                  </div>
+              </CardContent>
+            </Card>
+          </AlertDialog>
         )) : (
           <Card className="text-center py-10">
             <CardHeader>
