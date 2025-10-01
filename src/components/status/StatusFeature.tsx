@@ -27,6 +27,7 @@ import StatusViewer from './StatusViewer';
 import { Textarea } from '../ui/textarea';
 import SongSearch from './SongSearch';
 import Link from 'next/link';
+import { Switch } from '@/components/ui/switch';
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
@@ -783,6 +784,3 @@ export default function StatusFeature() {
     </div>
   );
 }
-
-    
-
