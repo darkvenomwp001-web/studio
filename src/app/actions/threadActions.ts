@@ -6,121 +6,37 @@ import {
   addDoc,
   collection,
   serverTimestamp,
-  doc,
-  updateDoc,
-  arrayUnion,
-  arrayRemove,
-  getDoc,
-  deleteDoc,
 } from 'firebase/firestore';
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
 
-export async function createThreadPost(
+export async function sendGlobalChatMessage(
   author: UserSummary,
   content: string,
-  imageUrl?: string
 ): Promise<{ success: boolean; error?: string }> {
   if (!author || !author.id) {
     return { success: false, error: 'User is not authenticated.' };
   }
-  if (content.trim().length === 0 && !imageUrl) {
-    return { success: false, error: 'Post content cannot be empty.' };
+  if (content.trim().length === 0) {
+    return { success: false, error: 'Message content cannot be empty.' };
   }
 
   try {
-    const postData: any = {
+    const messageData = {
       author,
-      authorId: author.id,
       content,
       timestamp: serverTimestamp(),
-      likesCount: 0,
-      commentsCount: 0,
-      likedBy: [],
     };
 
-    if (imageUrl) {
-        postData.imageUrl = imageUrl;
-    }
+    await addDoc(collection(db, 'globalChatMessages'), messageData);
+    
+    // While this is a real-time chat, revalidating can help in some edge cases
+    // if we ever build a non-realtime view of this. It's a good practice.
+    revalidatePath('/'); 
 
-    await addDoc(collection(db, 'Threadpost'), postData);
-    revalidatePath('/'); // Revalidate the homepage feed
     return { success: true };
   } catch (error) {
-    console.error('Error creating post:', error);
-    return { success: false, error: 'Could not create post. Please try again.' };
-  }
-}
-
-export async function toggleLikeThreadPost(
-  postId: string,
-  userId: string,
-): Promise<{ success: boolean; error?: string }> {
-  if (!userId) {
-    return { success: false, error: 'User is not authenticated.' };
-  }
-
-  try {
-    const postRef = doc(db, 'Threadpost', postId);
-    const postSnap = await getDoc(postRef);
-
-    if (!postSnap.exists()) {
-      return { success: false, error: 'Post not found.' };
-    }
-
-    const postData = postSnap.data();
-    const isLiked = postData.likedBy.includes(userId);
-
-    if (isLiked) {
-      // Unlike
-      await updateDoc(postRef, {
-        likedBy: arrayRemove(userId),
-        likesCount: postData.likesCount - 1,
-      });
-    } else {
-      // Like
-      await updateDoc(postRef, {
-        likedBy: arrayUnion(userId),
-        likesCount: postData.likesCount + 1,
-      });
-    }
-
-    revalidatePath('/'); // Revalidate to show updated like count
-    return { success: true };
-  } catch (error) {
-    console.error('Error toggling like:', error);
-    return {
-      success: false,
-      error: 'Could not update like status. Please try again.',
-    };
-  }
-}
-
-
-export async function deleteThreadPost(postId: string, userId: string): Promise<{ success: boolean, error?: string }> {
-  if (!userId) {
-    return { success: false, error: "User not authenticated." };
-  }
-
-  const postRef = doc(db, 'Threadpost', postId);
-
-  try {
-    const postSnap = await getDoc(postRef);
-    if (!postSnap.exists()) {
-      return { success: false, error: "Post not found." };
-    }
-
-    const postData = postSnap.data();
-    if (postData.author.id !== userId) {
-      return { success: false, error: "You do not have permission to delete this post." };
-    }
-
-    await deleteDoc(postRef);
-    revalidatePath('/'); // Revalidate the feed
-    return { success: true };
-
-  } catch (error) {
-    console.error("Error deleting post:", error);
-    return { success: false, error: "Could not delete post. Please try again." };
+    console.error('Error sending global chat message:', error);
+    return { success: false, error: 'Could not send message. Please try again.' };
   }
 }

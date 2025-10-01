@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface Achievement {
@@ -167,6 +168,13 @@ export interface Message {
     type?: 'text' | 'poll' | 'question';
     poll?: Poll;
     question?: Question;
+}
+
+export interface GlobalChatMessage {
+    id: string;
+    author: UserSummary;
+    content: string;
+    timestamp: any; // Can be serverTimestamp or Timestamp
 }
 
 export interface Poll {

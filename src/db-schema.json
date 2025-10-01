@@ -96,17 +96,12 @@
           }
         }
       },
-      "Threadpost": {
-        "description": "Posts that appear on the main feed, created by users.",
+      "globalChatMessages": {
+        "description": "Stores all messages for the public real-time chat room.",
         "fields": {
-          "authorId": { "type": "string", "description": "ID of the post author.", "reference": "users" },
-          "author": { "type": "map", "description": "Summary object of the post's author." },
-          "content": { "type": "string", "description": "Text content of the post." },
-          "imageUrl": { "type": "string", "description": "URL of an image attached to the post." },
-          "likesCount": { "type": "number", "description": "Total number of likes." },
-          "likedBy": { "type": "array", "description": "Array of user IDs who liked the post." },
-          "commentsCount": { "type": "number", "description": "Total number of comments on the post." },
-          "timestamp": { "type": "timestamp", "description": "When the post was created." }
+          "author": { "type": "map", "description": "Summary object of the message author." },
+          "content": { "type": "string", "description": "Text content of the message." },
+          "timestamp": { "type": "timestamp", "description": "When the message was sent." }
         }
       },
       "statusUpdates": {

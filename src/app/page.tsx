@@ -1,3 +1,4 @@
+
 'use client'; 
 
 import Link from 'next/link';
@@ -47,10 +48,9 @@ import {
 import { createPrompt, archivePrompt, updatePrompt } from '@/app/actions/promptActions';
 import { useRouter } from 'next/navigation';
 import placeholderImages from '@/app/lib/placeholder-images.json';
-import CreatePostForm from '@/components/feed/CreatePostForm';
-import HomeFeed from '@/components/feed/HomeFeed';
 import { cn } from '@/lib/utils';
 import PromptCard from '@/components/shared/PromptCard';
+import GlobalChatRoom from '@/components/chat/GlobalChatRoom';
 
 
 function ForYouTabContent() {
@@ -325,54 +325,6 @@ function ForYouTabContent() {
   );
 }
 
-function ThreadsTabContent() {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-10">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <Card className="text-center py-16">
-        <CardHeader>
-          <CardTitle>Join the Conversation</CardTitle>
-          <CardDescription>Sign in to post updates and see what authors you follow are talking about.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link href="/auth/signin" passHref>
-            <Button>Sign In</Button>
-          </Link>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-      <div className="md:col-span-2 space-y-6">
-        <CreatePostForm user={user} />
-        <HomeFeed user={user} />
-      </div>
-      <aside className="hidden md:block space-y-6">
-        {/* Placeholder for potential sidebar content like trending tags or suggested users */}
-        <Card>
-          <CardHeader>
-            <CardTitle>What's Happening</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Trending topics will appear here soon.</p>
-          </CardContent>
-        </Card>
-      </aside>
-    </div>
-  );
-}
-
 
 export default function HomePage() {
   const { authLoading } = useAuth();
@@ -404,7 +356,7 @@ export default function HomePage() {
                 <Bookshelf />
             </TabsContent>
             <TabsContent value="threads" className="mt-6">
-                <ThreadsTabContent />
+                <GlobalChatRoom />
             </TabsContent>
             </Tabs>
         </div>

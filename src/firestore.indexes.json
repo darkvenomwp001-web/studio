@@ -198,7 +198,7 @@
       ]
     },
     {
-      "collectionGroup": "Threadpost",
+      "collectionGroup": "globalChatMessages",
       "queryScope": "COLLECTION",
       "fields": [
         {
