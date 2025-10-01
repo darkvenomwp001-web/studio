@@ -59,7 +59,7 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
         )}
 
         {isOwn && (
-             <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background-2 shadow-md">
+             <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-md">
                 <Plus className="h-4 w-4 text-primary-foreground" />
             </div>
         )}
@@ -486,11 +486,20 @@ export default function StatusFeature() {
         <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
       </DialogHeader>
       <Tabs defaultValue={uploaderDefaultTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
-        <TabsList className="grid w-full grid-cols-4 mx-auto sticky top-0 bg-transparent p-0">
-          <TabsTrigger value="note" className="rounded-none shadow-none data-[state=active]:shadow-bottom">Note</TabsTrigger>
-          <TabsTrigger value="media" className="rounded-none shadow-none data-[state=active]:shadow-bottom">Media</TabsTrigger>
-          <TabsTrigger value="song" className="rounded-none shadow-none data-[state=active]:shadow-bottom">Song</TabsTrigger>
-          <TabsTrigger value="manage" className="rounded-none shadow-none data-[state=active]:shadow-bottom">Manage</TabsTrigger>
+        <TabsList className="relative mx-6 bg-muted rounded-full p-1 h-auto">
+          <div
+            className="absolute h-[calc(100%-0.5rem)] w-1/4 bg-background rounded-full shadow-md transition-all duration-300 ease-in-out"
+            style={{
+              left: uploaderDefaultTab === 'note' ? '0.25rem' :
+                    uploaderDefaultTab === 'media' ? 'calc(25% + 0.25rem)' :
+                    uploaderDefaultTab === 'song' ? 'calc(50% + 0.25rem)' :
+                    'calc(75% + 0.25rem)'
+            }}
+          />
+          <TabsTrigger value="note" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary">Note</TabsTrigger>
+          <TabsTrigger value="media" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary">Media</TabsTrigger>
+          <TabsTrigger value="song" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary">Song</TabsTrigger>
+          <TabsTrigger value="manage" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary">Manage</TabsTrigger>
         </TabsList>
         <TabsContent value="note" className="flex-grow flex flex-col px-6 pb-6">
             <div className="py-4 space-y-4 flex-grow">
@@ -589,7 +598,7 @@ export default function StatusFeature() {
                                 ) : (
                                     <>
                                         <Button size="sm" variant="outline" onClick={() => handlePublishDraft(item)}>Publish</Button>
-                                        <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                        <AlertDialogTrigger asChild><Button size="sm" variant="destructive" onClick={() => permanentlyDeleteStatusUpdate(item.id, user.id)}><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                                     </>
                                 )}
                             </div>
