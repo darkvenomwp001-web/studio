@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { restoreStatusUpdate, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
+import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 import { getStatusCaptions } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
@@ -82,7 +82,6 @@ const photoFilters = [
 export default function StatusFeature() {
   const { user, loading: authLoading } = useAuth();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
-  const [managedStatuses, setManagedStatuses] = useState<StatusUpdate[]>([]);
   const [groupedStatuses, setGroupedStatuses] = useState<Map<string, {user: User, statuses: StatusUpdate[]}>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   
@@ -132,7 +131,8 @@ export default function StatusFeature() {
 
     const statusesQuery = query(
       collection(db, 'statusUpdates'),
-      where('isArchived', '==', false),
+      where('status', '==', 'published'),
+      where('expiresAt', '>', Timestamp.now())
     );
     
     const unsubStatuses = onSnapshot(statusesQuery, (snapshot) => {
@@ -140,9 +140,7 @@ export default function StatusFeature() {
         const allFetchedStatuses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
 
         const liveAndRelevant = allFetchedStatuses.filter(s => {
-            const isPublishedAndLive = s.status === 'published' && s.expiresAt && (s.expiresAt as Timestamp).toMillis() > now;
-            const isOwnDraft = s.status === 'draft' && s.authorId === user.id;
-            return isPublishedAndLive || isOwnDraft;
+            return s.status === 'published' && s.expiresAt && (s.expiresAt as Timestamp).toMillis() > now;
         });
 
         const sortedStatuses = liveAndRelevant.sort((a, b) => {
@@ -151,9 +149,6 @@ export default function StatusFeature() {
             return timeB - timeA;
         });
         setAllStatuses(sortedStatuses);
-
-        const manageable = allFetchedStatuses.filter(s => s.authorId === user.id && (s.status === 'draft' || s.isTrashed));
-        setManagedStatuses(manageable.sort((a,b) => ((b.trashedAt || b.createdAt) as Timestamp)?.toMillis() - ((a.trashedAt || a.createdAt) as Timestamp)?.toMillis()));
         setIsLoading(false);
     });
 
@@ -196,7 +191,6 @@ export default function StatusFeature() {
       setSelectedUserForViewing(user);
       setIsViewerOpen(true);
     } else {
-      // User is the current user with no statuses, so open uploader.
       handleOpenUploader('media');
     }
   }
@@ -406,38 +400,6 @@ export default function StatusFeature() {
     await handleSubmit(status, statusData);
   };
 
-
-  const handlePublishDraft = async (draft: StatusUpdate) => {
-    const expiresAt = Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000);
-    await updateDoc(doc(db, "statusUpdates", draft.id), {
-        status: 'published',
-        expiresAt: expiresAt,
-        updatedAt: serverTimestamp(),
-    });
-    toast({title: "Draft Published!"});
-  }
-
-  const handleDeleteDraft = async (draftId: string) => {
-     if (!user) return;
-     const result = await permanentlyDeleteStatusUpdate(draftId, user.id);
-     if(result.success) toast({title: "Draft Permanently Deleted."});
-     else toast({title: "Error", description: result.error, variant: 'destructive'});
-  }
-
-  const handleRestoreFromTrash = async (statusId: string) => {
-    if (!user) return;
-    const result = await restoreStatusUpdate(statusId, user.id);
-    if(result.success) toast({title: "Status Restored"});
-    else toast({title: "Error", description: result.error, variant: 'destructive'});
-  }
-
-  const handleDeleteFromTrash = async (statusId: string) => {
-     if (!user) return;
-     const result = await permanentlyDeleteStatusUpdate(statusId, user.id);
-     if(result.success) toast({title: "Status Permanently Deleted"});
-     else toast({title: "Error", description: result.error, variant: 'destructive'});
-  }
-  
   const handleGenerateCaptions = () => {
     if (!mediaPreview) return;
     startCaptionTransition(async () => {
@@ -480,7 +442,7 @@ export default function StatusFeature() {
   }
   
   const renderPickerScreen = () => (
-    <AlertDialog>
+    <>
       <DialogHeader className="sr-only">
         <DialogTitle>Create Status</DialogTitle>
         <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
@@ -488,18 +450,16 @@ export default function StatusFeature() {
       <Tabs defaultValue={uploaderDefaultTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
         <TabsList className="relative mx-6 bg-muted rounded-full p-1 h-auto">
           <div
-            className="absolute h-[calc(100%-0.5rem)] w-1/4 bg-background rounded-full shadow-md transition-all duration-300 ease-in-out"
+            className="absolute h-[calc(100%-0.5rem)] w-1/3 bg-background rounded-full shadow-md transition-all duration-300 ease-in-out"
             style={{
               left: uploaderDefaultTab === 'note' ? '0.25rem' :
-                    uploaderDefaultTab === 'media' ? 'calc(25% + 0.25rem)' :
-                    uploaderDefaultTab === 'song' ? 'calc(50% + 0.25rem)' :
-                    'calc(75% + 0.25rem)'
+                    uploaderDefaultTab === 'media' ? 'calc(33.33% + 0.25rem)' :
+                    'calc(66.66% + 0.25rem)'
             }}
           />
           <TabsTrigger value="note" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary">Note</TabsTrigger>
           <TabsTrigger value="media" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary">Media</TabsTrigger>
           <TabsTrigger value="song" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary">Song</TabsTrigger>
-          <TabsTrigger value="manage" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary">Manage</TabsTrigger>
         </TabsList>
         <TabsContent value="note" className="flex-grow flex flex-col px-6 pb-6">
             <div className="py-4 space-y-4 flex-grow">
@@ -573,56 +533,8 @@ export default function StatusFeature() {
                 </Button>
             </DialogFooter>
         </TabsContent>
-        <TabsContent value="manage" className="px-6 pb-6">
-             <ScrollArea className="h-96">
-                <div className="space-y-4 p-1">
-                    {managedStatuses.length > 0 ? managedStatuses.map(item => (
-                        <Card key={item.id} className={cn("flex items-center p-3", item.isTrashed && "opacity-60")}>
-                            {item.mediaUrl ? (
-                                 <Image src={item.mediaUrl} alt="Status item" width={60} height={60} className="rounded-md object-cover mr-3 aspect-square" />
-                            ): (
-                                <div className="w-[60px] h-[60px] flex items-center justify-center bg-muted rounded-md mr-3 text-2xl">
-                                    {item.spotifyUrl ? <Music className="h-6 w-6"/> : <Feather className="h-6 w-6"/>}
-                                </div>
-                            )}
-                            <div className="flex-1">
-                                <p className="text-sm truncate">{item.textOverlay || item.note || item.songLyricSnippet || "No caption"}</p>
-                                <p className="text-xs font-semibold text-destructive">{item.isTrashed ? "In Trash" : "Draft"}</p>
-                            </div>
-                            <div className="flex gap-1">
-                                {item.isTrashed ? (
-                                    <>
-                                        <Button size="sm" variant="outline" onClick={() => handleRestoreFromTrash(item.id)}><RotateCcw className="h-4 w-4"/></Button>
-                                        <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Button size="sm" variant="outline" onClick={() => handlePublishDraft(item)}>Publish</Button>
-                                        <AlertDialogTrigger asChild><Button size="sm" variant="destructive" onClick={() => permanentlyDeleteStatusUpdate(item.id, user.id)}><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                    </>
-                                )}
-                            </div>
-                             <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitleComponent>Delete Forever?</AlertDialogTitleComponent>
-                                    <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteDraft(item.id)}>Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </Card>
-                    )) : (
-                    <div className="py-10 text-center text-muted-foreground space-y-3">
-                      <p>No drafts or trashed items.</p>
-                    </div>
-                    )}
-                </div>
-            </ScrollArea>
-        </TabsContent>
       </Tabs>
-    </AlertDialog>
+    </>
   );
 
   const renderEditorScreen = () => (
@@ -715,7 +627,9 @@ export default function StatusFeature() {
             </div>
         </ScrollArea>
          <DialogFooter className="p-4 border-t">
-            <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={!mediaFile && !editingDraft || isSubmitting}>Save as Draft</Button>
+            <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={!mediaFile && !editingDraft || isSubmitting}>
+                <Save className="mr-2 h-4 w-4" /> Save as Draft
+            </Button>
         </DialogFooter>
     </div>
   );

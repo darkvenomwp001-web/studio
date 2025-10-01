@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -7,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, Pause, Play, Feather } from 'lucide-react';
+import { Loader2, X, Pause, Play, Feather, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Timestamp } from 'firebase/firestore';
@@ -15,17 +14,6 @@ import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { moveStatusToDrafts } from '@/app/actions/statusActions';
 
 
@@ -130,17 +118,14 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     const isMediaStatus = !!currentStatus.mediaUrl;
     const isNoteStatus = !!currentStatus.note || !!currentStatus.spotifyUrl;
     
-    const handleMoveToDraftsClick = async () => {
+    const handleSaveAsDraftClick = async () => {
         if (!isOwnStatus || !currentStatus) return;
         setIsProcessing(true);
         const result = await moveStatusToDrafts(currentStatus.id, currentUser!.id);
         if (result.success) {
             onOpenChange(false);
             onStatusArchived(currentUser!.id, currentStatus.id);
-            toast({ title: "Status Moved to Drafts", description: "You can now edit it from the 'Manage' tab in the status creator."});
-            if (onOpenUploader) {
-                onOpenUploader('manage');
-            }
+            toast({ title: "Status Saved as Draft", description: "You can now edit it from the 'Manage Statuses' settings page."});
         } else {
             toast({ title: "Error", description: result.error, variant: "destructive" });
         }
@@ -149,7 +134,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-          <AlertDialog>
             <DialogContent className="p-0 m-0 bg-black border-0 max-w-md h-screen sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
                 <DialogHeader className="sr-only">
                     <DialogTitle>Status update from {selectedUser.displayName}</DialogTitle>
@@ -166,8 +150,8 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     </div>
                      <div className="flex items-center gap-1">
                         {isOwnStatus && (
-                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" title="Move to Drafts" onClick={handleMoveToDraftsClick} disabled={isProcessing}>
-                                {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Feather className="h-5 w-5" />}
+                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" title="Save as Draft" onClick={handleSaveAsDraftClick} disabled={isProcessing}>
+                                {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                             </Button>
                         )}
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={() => onOpenChange(false)}>
@@ -245,7 +229,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                 <button onClick={handlePrev} className="absolute left-0 top-1/3 bottom-1/3 w-1/2 text-white flex items-center justify-start"></button>
                 <button onClick={handleNext} className="absolute right-0 top-1/3 bottom-1/3 w-1/2 text-white flex items-center justify-end"></button>
             </DialogContent>
-            </AlertDialog>
         </Dialog>
     )
 }

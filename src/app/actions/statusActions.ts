@@ -61,111 +61,6 @@ export async function moveStatusToDrafts(
   }
 }
 
-
-export async function archiveStatusUpdate(
-  statusId: string,
-  userId: string
-): Promise<{ success: boolean; error?: string }> {
-  if (!userId) {
-    return { success: false, error: 'User not authenticated.' };
-  }
-  try {
-    const statusRef = doc(db, 'statusUpdates', statusId);
-    const statusSnap = await getDoc(statusRef);
-
-    if (!statusSnap.exists()) {
-      return { success: false, error: 'Status not found.' };
-    }
-
-    const statusData = statusSnap.data();
-    if (!isOwner(userId, statusData)) {
-      return { success: false, error: 'You do not have permission to archive this status.' };
-    }
-    
-    await updateDoc(statusRef, {
-        isArchived: true,
-        isTrashed: false, // Explicitly set isTrashed to false
-        archivedAt: serverTimestamp()
-    });
-    revalidatePath('/'); 
-    revalidatePath('/settings/statuses');
-    revalidatePath('/settings/archive');
-    return { success: true };
-  } catch (error) {
-    console.error('Error archiving status update:', error);
-    return { success: false, error: 'Could not archive status.' };
-  }
-}
-
-export async function trashStatusUpdate(
-    statusId: string,
-    userId: string
-): Promise<{ success: boolean; error?: string }> {
-    if (!userId) {
-        return { success: false, error: 'User not authenticated.' };
-    }
-    try {
-        const statusRef = doc(db, 'statusUpdates', statusId);
-        const statusSnap = await getDoc(statusRef);
-
-        if (!statusSnap.exists()) {
-            return { success: false, error: 'Status not found.' };
-        }
-
-        const statusData = statusSnap.data();
-        if (!isOwner(userId, statusData)) {
-          return { success: false, error: 'You do not have permission to move this status to trash.' };
-        }
-
-        await updateDoc(statusRef, {
-            isTrashed: true,
-            isArchived: false,
-            trashedAt: serverTimestamp()
-        });
-        revalidatePath('/');
-        revalidatePath('/settings/statuses');
-        revalidatePath('/settings/archive');
-        revalidatePath('/settings/trash');
-        return { success: true };
-    } catch (error) {
-        console.error('Error trashing status update:', error);
-        return { success: false, error: 'Could not move status to trash.' };
-    }
-}
-
-export async function restoreStatusUpdate(
-    statusId: string,
-    userId: string
-): Promise<{ success: boolean; error?: string }> {
-    if (!userId) {
-        return { success: false, error: 'User not authenticated.' };
-    }
-    try {
-        const statusRef = doc(db, 'statusUpdates', statusId);
-        const statusSnap = await getDoc(statusRef);
-        if (!statusSnap.exists()) {
-            return { success: false, error: 'Status not found.' };
-        }
-
-        if (!isOwner(userId, statusSnap.data())) {
-          return { success: false, error: 'You do not have permission to restore this status.' };
-        }
-
-        await updateDoc(statusRef, {
-            isTrashed: false,
-            trashedAt: null,
-        });
-        revalidatePath('/settings/trash');
-        revalidatePath('/settings/archive');
-        revalidatePath('/');
-        return { success: true };
-    } catch (error) {
-        console.error('Error restoring status:', error);
-        return { success: false, error: 'Could not restore status.' };
-    }
-}
-
-
 export async function permanentlyDeleteStatusUpdate(
   statusId: string,
   userId: string
@@ -186,9 +81,6 @@ export async function permanentlyDeleteStatusUpdate(
         }
 
         await deleteDoc(statusRef);
-        revalidatePath('/'); // Revalidate home page feed
-        revalidatePath('/settings/archive');
-        revalidatePath('/settings/trash');
         revalidatePath('/settings/statuses');
         return { success: true };
     } catch (error) {
