@@ -489,7 +489,7 @@ function MessagesClient() {
             if (!isOpen) { setSearchUsername(''); setSearchedUsers([]); }
         }}>
         <TooltipProvider>
-        <div className="flex flex-col md:flex-row h-[calc(100vh-12rem)] md:h-auto md:min-h-[600px] border bg-card rounded-lg shadow-xl overflow-hidden">
+        <div className="flex h-[calc(100vh-12rem)] md:h-auto md:min-h-[600px] border bg-card rounded-lg shadow-xl overflow-hidden">
             <aside className={cn(
                 "w-full md:w-[320px] lg:w-[380px] border-r flex flex-col bg-background/50 transition-all duration-300",
                 mobileView === 'chat' ? 'hidden md:flex' : 'flex'
@@ -757,4 +757,3 @@ export default function UnifiedInboxPage() {
         </div>
     );
 }
-
