@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil, RefreshCw, Sparkles, PenSquare, FileText, TrendingUp, LibrarySquare } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil, RefreshCw, Sparkles, PenSquare, FileText, TrendingUp, LibrarySquare, MessageCircle, Quote } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,7 +18,6 @@ import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit 
 import { AnimatedTabs, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
-import Bookshelf from '@/components/shared/Bookshelf';
 import StatusFeature from '@/components/status/StatusFeature';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -51,10 +50,11 @@ import { useRouter } from 'next/navigation';
 import placeholderImages from '@/app/lib/placeholder-images.json';
 import { cn } from '@/lib/utils';
 import PromptCard from '@/components/shared/PromptCard';
-import GlobalChatRoom from '@/components/chat/GlobalChatRoom';
 import YourStoryCard from '@/components/shared/YourStoryCard';
 import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
 import Autoplay from "embla-carousel-autoplay";
+import AnnotationFeed from '@/components/annotations/AnnotationFeed';
+import ThreadsFeed from '@/components/threads/ThreadsFeed';
 
 
 function ForYouTabContent() {
@@ -301,8 +301,8 @@ export default function HomePage() {
 
   const TABS = [
     { value: 'for-you', label: 'For You' },
-    { value: 'bookshelf', label: 'Reading Nook' },
-    { value: 'threads', label: 'Threads' },
+    { value: 'annotations', label: 'Annotations', icon: <Quote className="mr-2 h-4 w-4" /> },
+    { value: 'threads', label: 'Threads', icon: <MessageCircle className="mr-2 h-4 w-4" /> },
   ];
   
   if (authLoading) {
@@ -325,11 +325,11 @@ export default function HomePage() {
               <TabsContent value="for-you" className="mt-6">
                 <ForYouTabContent />
               </TabsContent>
-              <TabsContent value="bookshelf" className="mt-6">
-                <Bookshelf />
+              <TabsContent value="annotations" className="mt-6">
+                <AnnotationFeed />
               </TabsContent>
               <TabsContent value="threads" className="mt-6">
-                <GlobalChatRoom />
+                <ThreadsFeed />
               </TabsContent>
             </Tabs>
            </div>

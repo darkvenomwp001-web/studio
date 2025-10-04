@@ -21,6 +21,8 @@ export interface User {
   followingIds?: string[];
   writtenStories?: Story[]; // Changed to hold full story objects for attach feature
   readingList?: ReadingListItem[];
+  readChapters?: { [storyId: string]: string[] }; // Track read chapters per story
+  shelves?: Shelf[]; // For custom bookshelves
   level?: number;
   xp?: number;
   achievements?: Achievement[];
@@ -104,6 +106,26 @@ export interface ReadingListItem {
   status?: 'Ongoing' | 'Completed' | 'Draft';
 }
 
+export interface Shelf {
+    id: string;
+    name: string;
+    storyIds: string[];
+    createdAt: any;
+}
+
+export interface Annotation {
+    id: string;
+    userId: string;
+    storyId: string;
+    chapterId: string;
+    storyTitle: string; // denormalized for easy display
+    chapterTitle: string; // denormalized for easy display
+    highlightedText: string;
+    highlightColor: string;
+    note?: string;
+    timestamp: any;
+}
+
 export interface NotificationType {
     id: string;
     userId: string;
@@ -185,7 +207,6 @@ export interface Poll {
 export interface ThreadPost {
     id: string;
     author: UserSummary;
-    authorId: string;
     content: string;
     storyId?: string;
     storyTitle?: string;
@@ -229,4 +250,15 @@ export interface StatusUpdate {
     isTrashed: boolean;
     trashedAt?: any;
     status: 'published' | 'draft';
+}
+
+export interface Song {
+    id: string;
+    title: string;
+    artist: string;
+    cover: string;
+    lyrics: {
+        time: number;
+        text: string;
+    }[];
 }
