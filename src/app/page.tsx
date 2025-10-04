@@ -346,7 +346,7 @@ export default function HomePage() {
             <Tabs defaultValue="for-you" className="w-full">
             <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
                 <TabsTrigger value="for-you">For You</TabsTrigger>
-                <TabsTrigger value="bookshelf">Bookshelf</TabsTrigger>
+                <TabsTrigger value="bookshelf">Reading Nook</TabsTrigger>
                 <TabsTrigger value="threads">Threads</TabsTrigger>
             </TabsList>
             <TabsContent value="for-you" className="mt-6">
@@ -365,3 +365,4 @@ export default function HomePage() {
     </>
   );
 }
+

@@ -7,15 +7,16 @@ import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { BookMarked, Users, Wand2, Star } from 'lucide-react';
+import { BookMarked, Users, Wand2, Star, Flame, Calendar, TrendingUp, BookHeart } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
-import type { Story, UserSummary } from '@/types';
+import type { Story, UserSummary, ReadingListItem } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 
-function BookshelfSkeleton() {
+function ReadingNookSkeleton() {
     return (
         <Card className="bg-muted/30 p-6">
             <div className="space-y-8">
@@ -43,62 +44,52 @@ function BookshelfSkeleton() {
 export default function Bookshelf() {
     const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
-    const [themedStories, setThemedStories] = useState<Story[]>([]);
-    const [friendsPick, setFriendsPick] = useState<Story | null>(null);
-    const [mockFriend, setMockFriend] = useState<UserSummary | null>(null);
+    const [friendsActivity, setFriendsActivity] = useState<{user: UserSummary, story: ReadingListItem}[]>([]);
+    const [readingGoal, setReadingGoal] = useState(30); // Default 30 mins
+    const [readingStreak, setReadingStreak] = useState(0); // Mock
+    const [todayProgress, setTodayProgress] = useState(0); // Mock
 
     useEffect(() => {
-        const storiesCol = collection(db, 'stories');
+        // Mock friends activity
+        const mockActivity: {user: UserSummary, story: ReadingListItem}[] = user?.readingList?.slice(0, 3).map(story => ({
+             user: {
+                id: 'mock_friend_id',
+                username: 'a_fellow_reader',
+                displayName: 'A Fellow Reader',
+                avatarUrl: `https://picsum.photos/seed/friend/100/100`
+            },
+            story: story
+        })) || [];
+        setFriendsActivity(mockActivity);
 
-        // Listener for themed stories ("Shelf of the Day")
-        const themedQuery = query(
-            storiesCol,
-            where('visibility', '==', 'Public'),
-            where('genre', '==', 'Fantasy'), // Theme: Fantasy
-            orderBy('lastUpdated', 'desc'),
-            limit(10)
-        );
-        const unsubscribeThemed = onSnapshot(themedQuery, (snapshot) => {
-            const themedList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
-            setThemedStories(themedList);
-            setIsLoading(false); // Set loading to false on first data fetch
-        }, (error) => {
-            console.error("Error fetching themed stories:", error);
-            setIsLoading(false);
-        });
-
-        // Listener for "Friend's Pick" - pick the most viewed highly-rated story
-        const friendsPickQuery = query(
-            storiesCol,
-            where('visibility', '==', 'Public'),
-            where('rating', '>=', 4),
-            orderBy('rating', 'desc'),
-            orderBy('views', 'desc'),
-            limit(1)
-        );
-        const unsubscribeFriendsPick = onSnapshot(friendsPickQuery, (snapshot) => {
-            if (!snapshot.empty) {
-                const pick = { id: snapshot.docs[0].id, ...snapshot.docs[0].data()} as Story;
-                setFriendsPick(pick);
-                setMockFriend({
-                    id: 'mock_friend_id',
-                    username: 'a_fellow_reader',
-                    displayName: 'A Fellow Reader',
-                    avatarUrl: `https://picsum.photos/seed/friend/100/100`
-                });
-            }
-        }, (error) => {
-            console.error("Error fetching friend's pick:", error);
-        });
-
-        return () => {
-            unsubscribeThemed();
-            unsubscribeFriendsPick();
-        };
-    }, []);
+        // Mock reading streak and progress
+        setReadingStreak(Math.floor(Math.random() * 20));
+        setTodayProgress(Math.floor(Math.random() * readingGoal));
+        
+        setIsLoading(false);
+    }, [user, readingGoal]);
+    
+    if (!user) {
+        return (
+            <Card className="bg-card p-4 md:p-6 shadow-inner border-border/50 text-center">
+                <CardHeader>
+                    <CardTitle className="text-3xl font-headline font-bold text-primary flex items-center justify-center gap-3">
+                        <BookMarked className="h-8 w-8" />
+                        Your Reading Nook
+                    </CardTitle>
+                    <CardDescription>Log in to track your reading and see what your friends are up to.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Link href="/auth/signin">
+                        <Button>Sign In to Your Nook</Button>
+                    </Link>
+                </CardContent>
+            </Card>
+        )
+    }
 
     if (isLoading) {
-        return <BookshelfSkeleton />;
+        return <ReadingNookSkeleton />;
     }
 
     return (
@@ -106,77 +97,88 @@ export default function Bookshelf() {
             <CardHeader className="p-2 text-center">
                  <CardTitle className="text-3xl font-headline font-bold text-primary flex items-center justify-center gap-3">
                     <BookMarked className="h-8 w-8" />
-                    The Community Bookshelf
+                    Your Reading Nook
                 </CardTitle>
-                <CardDescription>Discover stories curated by the community and our AI.</CardDescription>
+                <CardDescription>Your personal corner for reading stats and community updates.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-12 mt-4">
-                {/* Feature 1: Shelf of the Day */}
                 <section>
-                    <div className="flex items-center gap-2 mb-4">
-                        <Wand2 className="h-6 w-6 text-accent"/>
-                        <h3 className="text-2xl font-headline font-semibold">Today's Shelf: Epic Fantasy</h3>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card>
+                             <CardHeader>
+                                <CardTitle className="flex items-center gap-2"><Calendar className="h-5 w-5 text-accent"/>Daily Reading Goal</CardTitle>
+                             </CardHeader>
+                             <CardContent className="space-y-3">
+                                <Progress value={(todayProgress / readingGoal) * 100} className="w-full" />
+                                <p className="text-sm text-muted-foreground">You've read <span className="font-bold text-primary">{todayProgress}</span> of your <span className="font-bold">{readingGoal}</span> minute goal today.</p>
+                             </CardContent>
+                        </Card>
+                         <Card>
+                             <CardHeader>
+                                <CardTitle className="flex items-center gap-2"><Flame className="h-5 w-5 text-accent"/>Reading Streak</CardTitle>
+                             </CardHeader>
+                             <CardContent className="flex items-center gap-4">
+                                <Flame className="h-10 w-10 text-orange-500" />
+                                <div>
+                                    <p className="text-2xl font-bold">{readingStreak} Days</p>
+                                    <p className="text-sm text-muted-foreground">Keep the fire going!</p>
+                                </div>
+                             </CardContent>
+                        </Card>
                     </div>
-                    {themedStories.length > 0 ? (
+                </section>
+               
+                <section>
+                     <div className="flex items-center gap-2 mb-4">
+                        <TrendingUp className="h-6 w-6 text-accent"/>
+                        <h3 className="text-2xl font-headline font-semibold">Continue Reading</h3>
+                    </div>
+                     {user.readingList && user.readingList.length > 0 ? (
                         <ScrollArea className="w-full whitespace-nowrap rounded-md">
                             <div className="flex space-x-4 pb-4">
-                                {themedStories.map(story => (
-                                    <CompactStoryCard key={`themed-${story.id}`} story={story} />
+                                {user.readingList.map(story => (
+                                    <CompactStoryCard key={`continue-${story.id}`} story={story} />
                                 ))}
                             </div>
                             <ScrollBar orientation="horizontal" />
                         </ScrollArea>
                     ) : (
-                        <p className="text-muted-foreground text-sm">Today's shelf is empty. Check back soon!</p>
+                         <div className="text-center p-8 bg-muted/50 rounded-lg">
+                            <p className="text-muted-foreground">You haven't added any stories to your library yet.</p>
+                            <Link href="/stories"><Button variant="link">Explore Stories</Button></Link>
+                         </div>
                     )}
                 </section>
 
-                 {/* Feature 2: Friend's Picks */}
-                 {friendsPick && mockFriend && (
-                    <section>
+                 <section>
                          <div className="flex items-center gap-2 mb-4">
                             <Users className="h-6 w-6 text-accent"/>
-                            <h3 className="text-2xl font-headline font-semibold">Spotted on a Friend's Shelf</h3>
+                            <h3 className="text-2xl font-headline font-semibold">Friend Activity</h3>
                         </div>
-                        <Card className="w-full overflow-hidden shadow-lg hover:shadow-primary/20 transition-all duration-300 group bg-muted/30">
-                            <div className="md:flex">
-                                <div className="md:flex-shrink-0 md:w-1/3 relative aspect-[2/3]">
-                                    <Image
-                                    src={friendsPick.coverImageUrl || `https://picsum.photos/seed/${friendsPick.id}/512/800`}
-                                    alt={friendsPick.title}
-                                    layout="fill"
-                                    objectFit="cover"
-                                    className="group-hover:scale-105 transition-transform duration-500"
-                                    data-ai-hint={friendsPick.dataAiHint || "book cover adventure"}
-                                    />
-                                </div>
-                                <div className="p-6 md:p-8 flex flex-col justify-between flex-1">
-                                    <div>
-                                        <CardDescription className="text-sm text-muted-foreground mb-3">
-                                            <span className="font-medium">{mockFriend.displayName}</span> just added this to their library!
-                                        </CardDescription>
-                                        <CardTitle className="text-2xl font-headline group-hover:text-primary transition-colors">{friendsPick.title}</CardTitle>
-                                        <p className="text-sm text-muted-foreground mt-1">
-                                            By <Link href={`/profile/${friendsPick.author.id}`} className="hover:underline font-medium">{friendsPick.author.displayName || friendsPick.author.username}</Link>
-                                        </p>
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <Badge variant="secondary" className="bg-accent text-accent-foreground">{friendsPick.genre}</Badge>
-                                            <div className="flex items-center gap-1 text-sm text-muted-foreground" title="Rating">
-                                                <Star className="w-4 h-4 text-yellow-500" />
-                                                <span>{friendsPick.rating?.toFixed(1) || 'N/A'}</span>
-                                            </div>
+                         {friendsActivity.length > 0 ? (
+                            <div className="space-y-3">
+                            {friendsActivity.map((activity, index) => (
+                                <Card key={index} className="p-3">
+                                    <div className="flex items-center gap-3">
+                                        <Image src={activity.story.coverImageUrl || ''} alt={activity.story.title} width={40} height={60} className="rounded-sm object-cover aspect-[2/3]" />
+                                        <div className="flex-1">
+                                            <p className="text-sm text-muted-foreground">
+                                                <span className="font-semibold text-foreground">{activity.user.displayName}</span> just added <span className="font-semibold text-foreground">"{activity.story.title}"</span> to their library.
+                                            </p>
                                         </div>
+                                         <Link href={`/stories/${activity.story.id}`} passHref>
+                                            <Button variant="ghost" size="sm">View</Button>
+                                         </Link>
                                     </div>
-                                    <CardFooter className="p-0 mt-4">
-                                        <Link href={`/stories/${friendsPick.id}`} passHref className="w-full sm:w-auto">
-                                            <Button className="w-full sm:w-auto">Check it out</Button>
-                                        </Link>
-                                    </CardFooter>
-                                </div>
+                                </Card>
+                            ))}
                             </div>
-                        </Card>
-                    </section>
-                 )}
+                         ) : (
+                             <div className="text-center p-8 bg-muted/50 rounded-lg">
+                                <p className="text-muted-foreground">No friend activity to show right now.</p>
+                             </div>
+                         )}
+                 </section>
 
             </CardContent>
         </Card>
