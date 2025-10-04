@@ -29,6 +29,7 @@ import { BubbleMenu, Editor, EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
+import CharacterCount from '@tiptap/extension-character-count'
 
 const VersionHistoryManager = {
   getKey: (storyId: string, chapterId: string) => `versionHistory-${storyId}-${chapterId}`,
@@ -65,6 +66,7 @@ export default function WriteEditorPage() {
       StarterKit,
       TiptapUnderline,
       TiptapHighlight.configure({ multicolor: true }),
+      CharacterCount,
     ],
     content: '',
     editorProps: {
@@ -166,14 +168,9 @@ export default function WriteEditorPage() {
 
 
   useEffect(() => {
-    if(!editor) return;
-    const { state } = editor;
-    const { from, to } = state.selection;
-    const text = state.doc.textBetween(from, to, ' ');
-    const words = text.trim().split(/\s+/).filter(Boolean).length;
-    
+    if(!editor || !editor.storage.characterCount) return;
     setWordCount(editor.storage.characterCount.words());
-  }, [editor?.state]);
+  }, [editor?.state, editor?.storage.characterCount]);
 
   const handleSaveDraft = useCallback(async (showToast: boolean = true) => {
     if (!storyDetails || !currentChapter || !user || !editor) {
@@ -528,3 +525,5 @@ export default function WriteEditorPage() {
     </AlertDialog>
   );
 }
+
+    
