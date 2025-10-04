@@ -58,17 +58,14 @@ TabsContent.displayName = TabsPrimitive.Content.displayName
 // New Animated Tabs
 interface AnimatedTabsProps {
   tabs: { value: string; label: string }[];
-  defaultValue: string;
-  onValueChange?: (value: string) => void;
+  activeTab: string;
   className?: string;
-  children: React.ReactNode;
 }
 
-const AnimatedTabs: React.FC<AnimatedTabsProps> = ({ tabs, defaultValue, onValueChange, className, children }) => {
-  const [activeTab, setActiveTab] = useState(defaultValue);
+const AnimatedTabs: React.FC<AnimatedTabsProps> = ({ tabs, activeTab, className }) => {
   const [indicatorStyle, setIndicatorStyle] = useState({});
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
-
+  
   useEffect(() => {
     const activeTabIndex = tabs.findIndex(tab => tab.value === activeTab);
     const activeTabElement = tabsRef.current[activeTabIndex];
@@ -80,35 +77,23 @@ const AnimatedTabs: React.FC<AnimatedTabsProps> = ({ tabs, defaultValue, onValue
     }
   }, [activeTab, tabs]);
 
-  const handleTabClick = (value: string) => {
-    setActiveTab(value);
-    if (onValueChange) {
-      onValueChange(value);
-    }
-  };
-
   return (
-    <TabsPrimitive.Root value={activeTab} onValueChange={handleTabClick} defaultValue={defaultValue}>
-      <TabsPrimitive.List className={cn("relative inline-flex items-center justify-center rounded-full bg-muted p-1 text-muted-foreground", className)}>
-        {tabs.map((tab, i) => (
-          <TabsPrimitive.Trigger
-            key={tab.value}
-            ref={el => tabsRef.current[i] = el}
-            value={tab.value}
-            className="relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground"
-          >
-            {tab.label}
-          </TabsPrimitive.Trigger>
-        ))}
-         <div
-          className="absolute left-0 h-[calc(100%-8px)] rounded-full bg-background shadow-md transition-all duration-300 ease-in-out"
-          style={indicatorStyle}
-        />
-      </TabsPrimitive.List>
-      {React.Children.map(children, child =>
-        React.isValidElement(child) ? React.cloneElement(child as React.ReactElement<any>) : child
-      )}
-    </TabsPrimitive.Root>
+    <TabsList className={cn("relative inline-flex items-center justify-center rounded-full bg-muted p-1 text-muted-foreground", className)}>
+      {tabs.map((tab, i) => (
+        <TabsTrigger
+          key={tab.value}
+          ref={el => tabsRef.current[i] = el}
+          value={tab.value}
+          className="relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground"
+        >
+          {tab.label}
+        </TabsTrigger>
+      ))}
+       <div
+        className="absolute left-0 h-[calc(100%-8px)] rounded-full bg-background shadow-md transition-all duration-300 ease-in-out"
+        style={indicatorStyle}
+      />
+    </TabsList>
   );
 };
 

@@ -14,7 +14,7 @@ import type { Story, UserSummary, Prompt } from '@/types';
 import { useEffect, useState, FormEvent, useRef, useTransition } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
-import { AnimatedTabs, TabsContent } from '@/components/ui/tabs';
+import { AnimatedTabs, Tabs, TabsContent } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Bookshelf from '@/components/shared/Bookshelf';
@@ -328,6 +328,7 @@ function ForYouTabContent() {
 
 export default function HomePage() {
   const { authLoading } = useAuth();
+  const [activeTab, setActiveTab] = useState('for-you');
 
   const TABS = [
     { value: 'for-you', label: 'For You' },
@@ -350,17 +351,18 @@ export default function HomePage() {
         <StatusFeature />
         <div className="my-6">
            <div className="flex justify-center">
-             <AnimatedTabs defaultValue="for-you" tabs={TABS}>
-                <TabsContent value="for-you" className="mt-6">
-                    <ForYouTabContent />
-                </TabsContent>
-                <TabsContent value="bookshelf" className="mt-6">
-                    <Bookshelf />
-                </TabsContent>
-                <TabsContent value="threads" className="mt-6">
-                    <GlobalChatRoom />
-                </TabsContent>
-            </AnimatedTabs>
+            <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+              <AnimatedTabs tabs={TABS} activeTab={activeTab} />
+              <TabsContent value="for-you" className="mt-6">
+                <ForYouTabContent />
+              </TabsContent>
+              <TabsContent value="bookshelf" className="mt-6">
+                <Bookshelf />
+              </TabsContent>
+              <TabsContent value="threads" className="mt-6">
+                <GlobalChatRoom />
+              </TabsContent>
+            </Tabs>
            </div>
         </div>
       </main>
