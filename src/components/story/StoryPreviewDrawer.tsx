@@ -184,7 +184,7 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
   const totalVotes = story.chapters?.reduce((acc, chapter) => acc + (chapter.votes || 0), 0) || 0;
 
   return (
-    <div className="container mx-auto max-w-4xl py-8 px-4 space-y-8">
+    <div className="space-y-6">
       <div className="flex items-start gap-4">
         <div className="relative w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-xl group">
           <Image
@@ -357,18 +357,20 @@ export default function StoryPreviewDrawer() {
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent>
         <div className="mx-auto w-full max-w-sm" role="dialog" aria-modal="true">
-            <DrawerHeader className="sr-only">
-              <DrawerTitle>Story Preview</DrawerTitle>
-              <DrawerDescription>An overview of the selected story.</DrawerDescription>
-            </DrawerHeader>
-            <div className="p-4 pb-0 h-[85vh]">
-              <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-muted-foreground mb-4" />
-              <ScrollArea className="h-full">
-                {storyId && <StoryPreviewContent storyId={storyId} />}
-              </ScrollArea>
+            <div className="mx-auto mt-2 w-12 h-1.5 flex-shrink-0 rounded-full bg-muted-foreground" />
+             <div className="h-[85vh] p-4">
+                <DrawerHeader className="sr-only">
+                    <DrawerTitle>Story Preview</DrawerTitle>
+                    <DrawerDescription>An overview of the selected story.</DrawerDescription>
+                </DrawerHeader>
+                <ScrollArea className="h-full">
+                    {storyId && <StoryPreviewContent storyId={storyId} />}
+                </ScrollArea>
             </div>
         </div>
       </DrawerContent>
     </Drawer>
   )
 }
+
+    
