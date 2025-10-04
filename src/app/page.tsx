@@ -1,4 +1,5 @@
 
+
 'use client'; 
 
 import Link from 'next/link';
@@ -11,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import type { Story, UserSummary, Prompt, ReadingListItem } from '@/types';
-import { useEffect, useState, FormEvent, useRef } from 'react';
+import { useEffect, useState, FormEvent, useRef, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { AnimatedTabs, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -73,12 +74,19 @@ function ForYouTabContent() {
       firestoreLimit(40) // Fetch more stories for variety
     );
     const unsubscribeStories = onSnapshot(storiesQuery, (snapshot) => {
-      const fetchedStories = snapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data(),
-        author: doc.data().author || { id: 'unknown', username: 'Unknown' },
-        lastUpdated: doc.data().lastUpdated?.toDate ? doc.data().lastUpdated.toDate().toISOString() : doc.data().lastUpdated,
-      } as Story));
+      const fetchedStories = snapshot.docs.map(doc => {
+        const data = doc.data();
+        const author = data.author || { id: 'unknown', username: 'Unknown' };
+        return { 
+          id: doc.id, 
+          ...data,
+          author: {
+              ...author,
+              displayName: author.displayName || author.username
+          },
+          lastUpdated: data.lastUpdated?.toDate ? data.lastUpdated.toDate().toISOString() : data.lastUpdated,
+        } as Story
+      });
       
       const publicStories = fetchedStories.filter(s => s.status !== 'Draft');
       setAllStories(publicStories);
