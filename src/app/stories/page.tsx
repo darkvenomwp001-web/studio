@@ -15,7 +15,7 @@ import type { Story, ReadingListItem } from '@/types';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { useAuth } from '@/hooks/useAuth'; 
 import { useToast } from '@/hooks/use-toast';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import StoryCard from '@/components/shared/StoryCard';
