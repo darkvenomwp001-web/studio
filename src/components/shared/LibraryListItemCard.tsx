@@ -10,12 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { BookOpen, Clock } from 'lucide-react';
 import { formatDate } from '@/lib/placeholder-data';
 import { cn } from '@/lib/utils';
+import { useStoryPreview } from '@/context/StoryPreviewProvider';
 
 interface LibraryListItemCardProps {
   story: ReadingListItem;
 }
 
 export default function LibraryListItemCard({ story }: LibraryListItemCardProps) {
+  const { onOpen } = useStoryPreview();
   const publishedChapters = story.chapters?.filter(ch => ch.status === 'Published') || [];
   const firstChapterId = publishedChapters[0]?.id;
 
@@ -33,7 +35,7 @@ export default function LibraryListItemCard({ story }: LibraryListItemCardProps)
   return (
     <Card className="w-full overflow-hidden shadow-lg hover:shadow-primary/10 transition-shadow">
       <div className="flex">
-        <Link href={`/stories/${story.id}`} passHref className="block flex-shrink-0">
+        <div onClick={() => onOpen(story.id)} className="block flex-shrink-0 cursor-pointer">
           <div className="relative w-28 h-40 sm:w-32 sm:h-48">
             <Image
               src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
@@ -44,13 +46,13 @@ export default function LibraryListItemCard({ story }: LibraryListItemCardProps)
               className="hover:scale-105 transition-transform"
             />
           </div>
-        </Link>
+        </div>
         <CardContent className="p-4 flex flex-col justify-between flex-grow">
           <div>
             <div className="flex justify-between items-start">
-               <Link href={`/stories/${story.id}`} passHref>
+               <div onClick={() => onOpen(story.id)} className="cursor-pointer">
                 <h3 className="font-headline text-lg sm:text-xl font-bold hover:underline line-clamp-1">{story.title}</h3>
-              </Link>
+              </div>
               {story.status && <Badge variant="outline" className={cn("text-xs capitalize", getStatusBadgeClasses(story.status))}>{story.status}</Badge>}
             </div>
             {story.author && <p className="text-sm text-muted-foreground mb-2">by {story.author.displayName || story.author.username}</p>}
@@ -74,9 +76,7 @@ export default function LibraryListItemCard({ story }: LibraryListItemCardProps)
                     <Button size="sm">Continue Reading</Button>
                 </Link>
              ) : (
-                <Link href={`/stories/${story.id}`} passHref>
-                    <Button size="sm">View Story</Button>
-                </Link>
+                <Button size="sm" onClick={() => onOpen(story.id)}>View Story</Button>
              )}
           </div>
         </CardContent>

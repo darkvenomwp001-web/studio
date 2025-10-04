@@ -9,6 +9,9 @@ import { SplashWrapper } from '@/components/layout/SplashWrapper';
 import PasswordSetupDialog from '@/components/auth/PasswordSetupDialog';
 import { ScrollToTop } from '@/components/layout/ScrollToTop';
 import { ThemeProvider } from '@/components/theme-provider';
+import { StoryPreviewProvider } from '@/context/StoryPreviewProvider';
+import StoryPreviewDrawer from '@/components/story/StoryPreviewDrawer';
+
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
@@ -46,12 +49,15 @@ export default function RootLayout({
           >
           <SplashWrapper>
             <AuthProvider>
-              <ScrollToTop />
-              <div className="relative flex min-h-screen flex-col">
-                {children}
-              </div>
-              <Toaster />
-              <PasswordSetupDialog />
+              <StoryPreviewProvider>
+                <ScrollToTop />
+                <div className="relative flex min-h-screen flex-col">
+                  {children}
+                </div>
+                <Toaster />
+                <PasswordSetupDialog />
+                <StoryPreviewDrawer />
+              </StoryPreviewProvider>
             </AuthProvider>
           </SplashWrapper>
         </ThemeProvider>

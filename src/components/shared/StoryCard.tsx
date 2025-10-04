@@ -1,4 +1,6 @@
 
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Story } from '@/types';
@@ -7,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Eye, Star, Sparkles, MessageSquare } from 'lucide-react'; // Added Sparkles
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useStoryPreview } from '@/context/StoryPreviewProvider';
 
 interface StoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'author' | 'coverImageUrl' | 'dataAiHint' | 'status' | 'summary' | 'tags' | 'rating' | 'views'>;
@@ -14,6 +17,7 @@ interface StoryCardProps {
 
 export default function StoryCard({ story }: StoryCardProps) {
   const { toast } = useToast();
+  const { onOpen } = useStoryPreview();
 
   const getStatusBadgeClasses = (status?: 'Ongoing' | 'Completed' | 'Draft') => {
     switch (status) {
@@ -38,7 +42,7 @@ export default function StoryCard({ story }: StoryCardProps) {
   };
 
   return (
-    <Link href={`/stories/${story.id}`} passHref>
+    <div onClick={() => onOpen(story.id)}>
       <Card className="h-full flex flex-col overflow-hidden hover:shadow-xl transition-shadow duration-300 ease-in-out cursor-pointer group bg-card">
         <CardHeader className="p-0 relative aspect-[2/3] overflow-hidden">
           <Image
@@ -98,6 +102,6 @@ export default function StoryCard({ story }: StoryCardProps) {
           </div>
         </CardFooter>
       </Card>
-    </Link>
+    </div>
   );
 }
