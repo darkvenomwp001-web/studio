@@ -48,16 +48,16 @@ export default function LibraryListItemCard({ story }: LibraryListItemCardProps)
           </div>
         </div>
         <CardContent className="p-4 flex flex-col justify-between flex-grow">
-          <div>
-            <div className="flex justify-between items-start">
-               <div onClick={() => onOpen(story.id)} className="cursor-pointer">
+          <div className="flex-1">
+            <div className="flex justify-between items-start mb-1">
+               <div className="flex-grow cursor-pointer" onClick={() => onOpen(story.id)}>
                 <h3 className="font-headline text-lg sm:text-xl font-bold hover:underline line-clamp-1">{story.title}</h3>
               </div>
-              {story.status && <Badge variant="outline" className={cn("text-xs capitalize", getStatusBadgeClasses(story.status))}>{story.status}</Badge>}
+              {story.status && <Badge variant="outline" className={cn("text-xs capitalize ml-2 flex-shrink-0", getStatusBadgeClasses(story.status))}>{story.status}</Badge>}
             </div>
-            {story.author && <p className="text-sm text-muted-foreground mb-2">by {story.author.displayName || story.author.username}</p>}
+            {story.author && <p className="text-sm text-muted-foreground mb-3">by {story.author.displayName || story.author.username}</p>}
             
-            <div className="flex items-center text-xs text-muted-foreground mb-4 gap-4">
+            <div className="flex items-center text-xs text-muted-foreground gap-4">
               <div className="flex items-center gap-1.5">
                   <BookOpen className="h-3.5 w-3.5" />
                   <span>{publishedChapters.length} Parts</span>
@@ -70,7 +70,7 @@ export default function LibraryListItemCard({ story }: LibraryListItemCardProps)
               }
             </div>
           </div>
-          <div className="flex items-center gap-2 mt-auto">
+          <div className="flex items-center gap-2 mt-4">
              {firstChapterId ? (
                 <Link href={`/stories/${story.id}/read/${firstChapterId}`} passHref>
                     <Button size="sm">Continue Reading</Button>
