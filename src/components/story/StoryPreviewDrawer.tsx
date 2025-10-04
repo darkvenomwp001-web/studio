@@ -356,9 +356,9 @@ export default function StoryPreviewDrawer() {
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent>
-        <div className="mx-auto w-full max-w-sm" role="dialog" aria-modal="true" aria-labelledby="story-preview-title">
+        <div className="mx-auto w-full max-w-sm" role="dialog" aria-modal="true">
             <DrawerHeader className="sr-only">
-              <DrawerTitle id="story-preview-title">Story Preview</DrawerTitle>
+              <DrawerTitle>Story Preview</DrawerTitle>
               <DrawerDescription>An overview of the selected story.</DrawerDescription>
             </DrawerHeader>
             <div className="p-4 pb-0 h-[85vh]">
@@ -372,5 +372,3 @@ export default function StoryPreviewDrawer() {
     </Drawer>
   )
 }
-
-    
