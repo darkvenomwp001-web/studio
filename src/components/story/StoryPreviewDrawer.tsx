@@ -184,7 +184,7 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
   const totalVotes = story.chapters?.reduce((acc, chapter) => acc + (chapter.votes || 0), 0) || 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 pt-0">
       <div className="flex items-start gap-4">
         <div className="relative w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-xl group">
           <Image
@@ -357,8 +357,8 @@ export default function StoryPreviewDrawer() {
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent>
         <div className="mx-auto w-full max-w-sm" role="dialog" aria-modal="true">
-            <div className="mx-auto mt-2 w-12 h-1.5 flex-shrink-0 rounded-full bg-muted-foreground" />
-             <div className="h-[85vh] p-4">
+             <div className="mx-auto mt-2 w-12 h-1.5 flex-shrink-0 rounded-full bg-muted-foreground" />
+            <div className="h-[85vh]">
                 <DrawerHeader className="sr-only">
                     <DrawerTitle>Story Preview</DrawerTitle>
                     <DrawerDescription>An overview of the selected story.</DrawerDescription>
@@ -372,5 +372,3 @@ export default function StoryPreviewDrawer() {
     </Drawer>
   )
 }
-
-    

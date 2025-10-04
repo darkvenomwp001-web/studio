@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -71,7 +72,7 @@ export default function SearchResultsPage() {
       const storiesFound = storySnapshot.docs.map(doc => {
         const data = doc.data();
         const authorSummary = data.author 
-        ? { id: data.author.id || 'unknown', username: data.author.username || 'Unknown Author', displayName: data.author.displayName, avatarUrl: data.author.avatarUrl }
+        ? { id: data.author.id || 'unknown', username: data.author.username || 'Unknown Author', displayName: data.author.displayName || data.author.username, avatarUrl: data.author.avatarUrl }
         : { id: 'unknown', username: 'Unknown Author', displayName: 'Unknown Author' };
 
         return { 
