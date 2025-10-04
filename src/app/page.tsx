@@ -14,7 +14,7 @@ import type { Story, UserSummary, Prompt } from '@/types';
 import { useEffect, useState, FormEvent, useRef, useTransition } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AnimatedTabs, TabsContent } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Bookshelf from '@/components/shared/Bookshelf';
@@ -328,6 +328,12 @@ function ForYouTabContent() {
 
 export default function HomePage() {
   const { authLoading } = useAuth();
+
+  const TABS = [
+    { value: 'for-you', label: 'For You' },
+    { value: 'bookshelf', label: 'Reading Nook' },
+    { value: 'threads', label: 'Threads' },
+  ];
   
   if (authLoading) {
     return (
@@ -343,26 +349,22 @@ export default function HomePage() {
       <main className="container mx-auto px-4 pb-24 md:pb-8">
         <StatusFeature />
         <div className="my-6">
-            <Tabs defaultValue="for-you" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
-                <TabsTrigger value="for-you">For You</TabsTrigger>
-                <TabsTrigger value="bookshelf">Reading Nook</TabsTrigger>
-                <TabsTrigger value="threads">Threads</TabsTrigger>
-            </TabsList>
-            <TabsContent value="for-you" className="mt-6">
-                <ForYouTabContent />
-            </TabsContent>
-            <TabsContent value="bookshelf" className="mt-6">
-                <Bookshelf />
-            </TabsContent>
-            <TabsContent value="threads" className="mt-6">
-                <GlobalChatRoom />
-            </TabsContent>
-            </Tabs>
+           <div className="flex justify-center">
+             <AnimatedTabs defaultValue="for-you" tabs={TABS}>
+                <TabsContent value="for-you" className="mt-6">
+                    <ForYouTabContent />
+                </TabsContent>
+                <TabsContent value="bookshelf" className="mt-6">
+                    <Bookshelf />
+                </TabsContent>
+                <TabsContent value="threads" className="mt-6">
+                    <GlobalChatRoom />
+                </TabsContent>
+            </AnimatedTabs>
+           </div>
         </div>
       </main>
       <BottomNavigationBar />
     </>
   );
 }
-
