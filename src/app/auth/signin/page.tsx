@@ -65,9 +65,9 @@ export default function SignInPage() {
 
   return (
     <AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
-      <Card className="w-full max-w-sm shadow-2xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-headline text-primary">Welcome Back!</CardTitle>
+      <Card className="w-full max-w-sm shadow-2xl bg-card/80 backdrop-blur-sm border-border/20">
+        <CardHeader className="text-center space-y-1">
+          <CardTitle className="text-3xl font-headline text-primary">Welcome Back</CardTitle>
           <CardDescription>Sign in to continue your journey on D4RKV3NOM.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -87,6 +87,7 @@ export default function SignInPage() {
                   }
                 }}
                 disabled={isAnyLoading}
+                className="bg-background/70"
               />
             </div>
             <div className="space-y-2">
@@ -110,15 +111,16 @@ export default function SignInPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isAnyLoading}
+                className="bg-background/70"
               />
             </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6" disabled={isAnyLoading}>
-              {authLoading && !initialAuthLoading && !emailOrUsername && !password ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><LogIn className="mr-2 h-5 w-5" /> Sign In</>}
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6 shadow-lg shadow-primary/30" disabled={isAnyLoading}>
+              {authLoading && !initialAuthLoading && (emailOrUsername || password) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><LogIn className="mr-2 h-5 w-5" /> Sign In</>}
             </Button>
 
-            <div className="relative my-4">
+            <div className="relative my-2">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+                <span className="w-full border-t border-border/50" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-card px-2 text-muted-foreground">
@@ -127,12 +129,12 @@ export default function SignInPage() {
               </div>
             </div>
             <Button variant="outline" className="w-full" type="button" onClick={handleGoogleSignIn} disabled={isAnyLoading}>
-              {authLoading && !initialAuthLoading && (emailOrUsername || password) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign in with Google"}
+              {authLoading && !initialAuthLoading && !(emailOrUsername || password) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign in with Google"}
             </Button>
           </CardContent>
         </form>
-        <CardFooter className="text-center text-sm">
-          <p className="text-muted-foreground w-full">
+        <CardFooter className="justify-center text-sm">
+          <p className="text-muted-foreground">
             New to D4RKV3NOM?{' '}
             <Link href="/auth/signup" className={`font-semibold text-primary hover:underline ${isAnyLoading ? 'pointer-events-none text-muted-foreground' : ''}`}>
               Sign Up

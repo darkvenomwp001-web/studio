@@ -127,7 +127,7 @@ export default function StatusFeature() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!user) {
+    if (!user || user.isAnonymous) {
         setIsLoading(false);
         return;
     }
@@ -166,7 +166,7 @@ export default function StatusFeature() {
 
     const liveStatuses = allStatuses.filter(s => s.status === 'published');
     
-    if (user) {
+    if (user && !user.isAnonymous) {
         const currentUserLive = liveStatuses.filter(s => s.authorId === user.id);
         if (currentUserLive.length > 0) {
             groups.set(user.id, { user: user as User, statuses: currentUserLive });
@@ -189,6 +189,10 @@ export default function StatusFeature() {
 
 
   const handleSelectUser = (user: User) => {
+    if (!currentUser || currentUser.isAnonymous) {
+        router.push('/auth/signin');
+        return;
+    }
     const userHasStatuses = groupedStatuses.has(user.id) && groupedStatuses.get(user.id)!.statuses.length > 0;
     if (userHasStatuses) {
       setSelectedUserForViewing(user);
@@ -646,18 +650,20 @@ export default function StatusFeature() {
     <div className='py-4'>
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-start space-x-4">
-           <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={() => handleOpenUploader('media')}>
-             <div className="relative w-16 h-16 mx-auto">
-                <Avatar className="w-full h-full border-2 border-border group-hover:border-primary/50 transition-colors">
-                    <AvatarImage src={user.avatarUrl} />
-                    <AvatarFallback>{user.username?.substring(0,1).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-md">
-                    <Plus className="h-4 w-4 text-primary-foreground" />
+            {user && !user.isAnonymous && (
+               <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={() => handleSelectUser(user as User)}>
+                <div className="relative w-16 h-16 mx-auto">
+                    <Avatar className="w-full h-full border-2 border-border group-hover:border-primary/50 transition-colors">
+                        <AvatarImage src={user.avatarUrl} />
+                        <AvatarFallback>{user.username?.substring(0,1).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-md">
+                        <Plus className="h-4 w-4 text-primary-foreground" />
+                    </div>
                 </div>
-             </div>
-             <p className="text-xs mt-1 truncate">Your Status</p>
-           </div>
+                <p className="text-xs mt-1 truncate">Your Status</p>
+                </div>
+            )}
 
             {isLoading ? (
                 [...Array(4)].map((_, i) => (

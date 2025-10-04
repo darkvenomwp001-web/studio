@@ -9,12 +9,12 @@ export default function AuthLayout({
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
       <div className="absolute top-8 left-8">
-        <Link href="/" className="flex items-center gap-2">
-          <BookOpenText className="h-8 w-8 text-primary" />
+        <Link href="/" className="flex items-center gap-2 group">
+          <BookOpenText className="h-8 w-8 text-primary group-hover:animate-pulse" />
           <span className="text-2xl font-headline font-bold text-foreground">D4RKV3NOM</span>
         </Link>
       </div>
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-sm">
         {children}
       </div>
     </div>
