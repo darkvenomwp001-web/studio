@@ -3,18 +3,18 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil, RefreshCw, Sparkles, PenSquare, FileText } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil, RefreshCw, Sparkles, PenSquare, FileText, TrendingUp, LibrarySquare } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import type { Story, UserSummary, Prompt } from '@/types';
-import { useEffect, useState, FormEvent, useRef, useTransition } from 'react';
+import type { Story, UserSummary, Prompt, ReadingListItem } from '@/types';
+import { useEffect, useState, FormEvent, useRef } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
-import { AnimatedTabs, Tabs, TabsContent } from '@/components/ui/tabs';
+import { AnimatedTabs, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import Bookshelf from '@/components/shared/Bookshelf';
@@ -51,31 +51,26 @@ import placeholderImages from '@/app/lib/placeholder-images.json';
 import { cn } from '@/lib/utils';
 import PromptCard from '@/components/shared/PromptCard';
 import GlobalChatRoom from '@/components/chat/GlobalChatRoom';
+import YourStoryCard from '@/components/shared/YourStoryCard';
+import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
+import Autoplay from "embla-carousel-autoplay";
 
 
 function ForYouTabContent() {
-  const [trendingStories, setTrendingStories] = useState<Story[]>([]);
-  const [storySpotlight, setStorySpotlight] = useState<Story | null>(null);
-  const [featuredAuthors, setFeaturedAuthors] = useState<(UserSummary & { bio?: string, followersCount?: number })[]>([]);
-  const [communityPicks, setCommunityPicks] = useState<Story[]>([]);
+  const { user, loading: authLoading } = useAuth();
+  const [allStories, setAllStories] = useState<Story[]>([]);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [freshVoices, setFreshVoices] = useState<UserSummary[]>([]);
-  const [dystopianStories, setDystopianStories] = useState<Story[]>([]);
+  const [featuredAuthors, setFeaturedAuthors] = useState<(UserSummary & { bio?: string, followersCount?: number })[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   useEffect(() => {
     setIsDataLoading(true);
 
-    const storiesCol = collection(db, 'stories');
-    const usersCol = collection(db, 'users');
-    const promptsCol = collection(db, 'prompts');
-
-    // Combined stories query
     const storiesQuery = query(
-      storiesCol,
+      collection(db, 'stories'),
       where('visibility', '==', 'Public'),
       orderBy('lastUpdated', 'desc'),
-      firestoreLimit(20)
+      firestoreLimit(40) // Fetch more stories for variety
     );
     const unsubscribeStories = onSnapshot(storiesQuery, (snapshot) => {
       const fetchedStories = snapshot.docs.map(doc => ({ 
@@ -86,20 +81,15 @@ function ForYouTabContent() {
       } as Story));
       
       const publicStories = fetchedStories.filter(s => s.status !== 'Draft');
-      setTrendingStories(publicStories.slice(0, 8));
-      setCommunityPicks(publicStories.slice().sort(() => 0.5 - Math.random()).slice(0, 8));
-
-      // Spotlight Logic
-      if (publicStories.length > 0) {
-        const availableForSpotlight = publicStories.filter(s => s.status === 'Ongoing' || s.status === 'Completed');
-        setStorySpotlight(availableForSpotlight.length > 0 
-          ? availableForSpotlight[Math.floor(Math.random() * availableForSpotlight.length)] 
-          : publicStories[0]);
-      }
+      setAllStories(publicStories);
     }, console.error);
 
-    // Featured Authors Query
-    const authorsQuery = query(usersCol, orderBy('followersCount', 'desc'), firestoreLimit(6));
+    const promptsQuery = query(collection(db, 'prompts'), where('isArchived', '==', false), orderBy('createdAt', 'desc'), firestoreLimit(5));
+    const unsubscribePrompts = onSnapshot(promptsQuery, (snapshot) => {
+      setPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
+    }, console.error);
+    
+    const authorsQuery = query(collection(db, 'users'), orderBy('followersCount', 'desc'), firestoreLimit(6));
     const unsubscribeAuthors = onSnapshot(authorsQuery, (snapshot) => {
       setFeaturedAuthors(snapshot.docs.map(doc => ({
         id: doc.id,
@@ -107,36 +97,21 @@ function ForYouTabContent() {
       } as UserSummary & { bio?: string, followersCount?: number })));
     }, console.error);
 
-    // Prompts Query
-    const promptsQuery = query(promptsCol, where('isArchived', '==', false), orderBy('createdAt', 'desc'), firestoreLimit(5));
-    const unsubscribePrompts = onSnapshot(promptsQuery, (snapshot) => {
-      setPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
-    }, console.error);
-
-    // Fresh Voices Query
-    const freshVoicesQuery = query(usersCol, orderBy('createdAt', 'desc'), firestoreLimit(8));
-    const unsubscribeFreshVoices = onSnapshot(freshVoicesQuery, (snapshot) => {
-      setFreshVoices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserSummary)));
-    }, console.error);
-
-    // Dystopian Stories Query
-    const dystopianQuery = query(storiesCol, where('visibility', '==', 'Public'), where('genre', '==', 'Dystopian'), orderBy('views', 'desc'), firestoreLimit(4));
-    const unsubscribeDystopian = onSnapshot(dystopianQuery, (snapshot) => {
-      setDystopianStories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story)));
-    }, console.error);
-
-    // Set loading to false after a short delay to allow data to come in
     const timer = setTimeout(() => setIsDataLoading(false), 1500);
 
     return () => {
       clearTimeout(timer);
       unsubscribeStories();
-      unsubscribeAuthors();
       unsubscribePrompts();
-      unsubscribeFreshVoices();
-      unsubscribeDystopian();
+      unsubscribeAuthors();
     };
   }, []);
+
+  const featuredStoriesForCarousel = allStories.slice(0, 5);
+  const popularStories = [...allStories].sort((a,b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
+  const newReleases = [...allStories].sort((a,b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()).slice(0, 10);
+  const communityPicks = [...allStories].sort(() => 0.5 - Math.random()).slice(0, 10);
+  const userReadingList: ReadingListItem[] = user?.readingList || [];
   
   if (isDataLoading) {
     return (
@@ -147,90 +122,129 @@ function ForYouTabContent() {
   }
 
   return (
-    <div className="space-y-16 md:space-y-24 py-8">
-      {storySpotlight && (
-        <section className="relative w-full h-[60vh] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl group flex items-center justify-center text-white">
-          <div className="absolute inset-0 z-0">
-            <Image
-              src={storySpotlight.coverImageUrl || `https://picsum.photos/seed/${storySpotlight.id}/1200/600`}
-              alt={storySpotlight.title}
-              fill
-              className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
-              data-ai-hint={storySpotlight.dataAiHint || "book cover epic"}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/10"></div>
-          </div>
-          <div className="relative z-10 p-8 md:p-12 text-center animate-fade-in">
-            <Badge 
-                variant="secondary" 
-                className="mb-4 bg-white/20 text-white backdrop-blur-sm animate-fade-in [animation-delay:200ms] opacity-0"
+    <div className="space-y-12 md:space-y-16">
+        <section>
+            <Carousel
+            plugins={[
+                Autoplay({
+                delay: 5000, 
+                stopOnInteraction: true,
+                }),
+            ]}
+            opts={{
+                align: "start",
+                loop: true,
+            }}
+            className="w-full shadow-xl rounded-lg overflow-hidden -mt-4"
             >
-                <Award className="h-4 w-4 mr-2"/>
-                Story Spotlight
-            </Badge>
-            <h2 
-                className="text-3xl md:text-5xl font-headline font-bold text-shadow-lg animate-fade-in [animation-delay:400ms] opacity-0"
-                style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}
-            >
-                {storySpotlight.title}
+            <CarouselContent>
+                {featuredStoriesForCarousel.map((story, index) => (
+                <CarouselItem key={story.id}>
+                    <Link
+                    href={`/stories/${story.id}`}
+                    className="block overflow-hidden group relative rounded-lg aspect-[12/5] cursor-pointer bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    aria-label={`View story: ${story.title}`}
+                    >
+                    <Image
+                        src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}-banner/1200/500`} 
+                        alt={story.title}
+                        layout="fill"
+                        objectFit="cover"
+                        className="group-hover:scale-105 transition-transform duration-500 ease-in-out"
+                        data-ai-hint={story.dataAiHint || "story banner"}
+                        priority={index === 0}
+                    />
+                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent flex flex-col justify-end p-6 md:p-8">
+                        <h2 className="text-2xl md:text-4xl font-headline font-bold text-white text-shadow-lg">{story.title}</h2>
+                        <p className="text-sm md:text-md text-white/90">by {story.author.displayName || story.author.username}</p>
+                    </div>
+                    </Link>
+                </CarouselItem>
+                ))}
+                {featuredStoriesForCarousel.length === 0 && (
+                    <CarouselItem>
+                        <div className="aspect-[12/5] bg-muted rounded-lg flex items-center justify-center">
+                            <p className="text-muted-foreground">No featured stories available.</p>
+                        </div>
+                    </CarouselItem>
+                )}
+            </CarouselContent>
+            </Carousel>
+      </section>
+
+      {!authLoading && user && userReadingList.length > 0 && (
+        <section>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+              <BookHeart className="text-accent h-6 w-6" /> Continue Reading
             </h2>
-            <p className="mt-2 text-md md:text-lg animate-fade-in [animation-delay:600ms] opacity-0">
-              by <Link href={`/profile/${storySpotlight.author.id}`} className="hover:underline font-semibold">{storySpotlight.author.displayName || storySpotlight.author.username}</Link>
-            </p>
-             <p className="mt-4 max-w-xl mx-auto text-sm md:text-base text-white/90 line-clamp-3 animate-fade-in [animation-delay:800ms] opacity-0">
-                {storySpotlight.summary}
-            </p>
-            <Link href={`/stories/${storySpotlight.id}`} passHref>
-                <Button size="lg" className="mt-6 bg-white text-black hover:bg-white/90 animate-fade-in [animation-delay:1000ms] opacity-0">
-                  <BookHeart className="mr-2 h-5 w-5" /> Read Now
-                </Button>
+             <Link href="/library" passHref>
+                <Button variant="outline" className="text-sm">My Library<ArrowRight className="ml-2 h-4 w-4" /></Button>
             </Link>
+          </div>
+          <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+            {userReadingList.slice(0, 10).map(story => ( 
+                <YourStoryCard key={`yourstory-${story.id}`} story={story} />
+            ))}
           </div>
         </section>
       )}
 
-      {/* Trending Stories Section */}
       <section>
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-headline font-bold text-primary">Trending Stories</h2>
-          <Link href="/stories" passHref>
-            <Button variant="outline" className="text-sm">View All <ArrowRight className="ml-2 h-4 w-4" /></Button>
-          </Link>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+            <TrendingUp className="text-accent h-6 w-6" /> Popular Stories
+          </h2>
         </div>
-        <div className="relative">
-            <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent -m-2 p-2">
-            {trendingStories.map(story => (
-                <CompactStoryCard key={`trending-${story.id}`} story={story} />
-            ))}
-            {trendingStories.length === 0 && <p className="text-muted-foreground">No trending stories to display.</p>}
-            </div>
+        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+          {popularStories.length > 0 ? (
+            popularStories.map(story => (
+              <CompactStoryCard key={`popular-${story.id}`} story={story} />
+            ))
+          ) : (
+            <p className="text-muted-foreground">No popular stories to display.</p>
+          )}
         </div>
       </section>
 
-      {/* Community Picks Section */}
-       {communityPicks.length > 0 && (
-          <section>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-headline font-bold text-accent flex items-center gap-2">
-                <Sparkles className="h-6 w-6"/>
-                Community Picks
-              </h2>
-            </div>
-             <div className="relative">
-                <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent -m-2 p-2">
-                {communityPicks.map(story => (
-                    <CompactStoryCard key={`community-${story.id}`} story={story} />
-                ))}
-                </div>
-            </div>
-          </section>
-        )}
+      <section>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+             <Sparkles className="text-accent h-6 w-6" /> New Releases
+          </h2>
+        </div>
+        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+          {newReleases.length > 0 ? (
+            newReleases.map(story => (
+              <CompactStoryCard key={`new-${story.id}`} story={story} />
+            ))
+          ) : (
+            <p className="text-muted-foreground">No new releases to display.</p>
+          )}
+        </div>
+      </section>
       
-      {/* Community Prompts Section */}
+      <section>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+             <Users className="text-accent h-6 w-6" /> Community Picks
+          </h2>
+        </div>
+        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+          {communityPicks.length > 0 ? (
+            communityPicks.map(story => (
+              <CompactStoryCard key={`community-${story.id}`} story={story} />
+            ))
+          ) : (
+             <p className="text-muted-foreground">No community picks to display.</p>
+          )}
+        </div>
+      </section>
+
        {prompts.length > 0 && (
         <section>
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-headline font-bold text-primary flex items-center gap-2">
+            <h2 className="text-2xl font-headline font-bold text-primary flex items-center gap-2  animate-fade-in">
               <PenSquare className="h-6 w-6" />
               Community Prompts
             </h2>
@@ -245,62 +259,9 @@ function ForYouTabContent() {
         </section>
       )}
 
-      {/* Genre Deep Dive */}
-      {dystopianStories.length > 0 && (
-        <section>
-            <div className="relative p-8 md:p-12 rounded-2xl overflow-hidden group shadow-xl bg-muted/30">
-                <div className="absolute inset-0 z-0 opacity-20">
-                     <Image
-                        src="https://picsum.photos/seed/dystopian-banner/1200/400"
-                        alt="Dystopian city"
-                        layout="fill"
-                        objectFit="cover"
-                        className="group-hover:scale-105 transition-transform duration-500"
-                        data-ai-hint="dystopian city landscape"
-                    />
-                     <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent"></div>
-                </div>
-                <div className="relative z-10">
-                    <h2 className="text-2xl md:text-3xl font-headline font-bold text-primary mb-1">Genre Deep Dive</h2>
-                    <p className="text-4xl md:text-5xl font-headline font-extrabold text-foreground mb-6">Dystopian Futures</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {dystopianStories.map(story => (
-                            <CompactStoryCard key={`dystopian-${story.id}`} story={story} />
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </section>
-      )}
-
-       {/* Fresh Voices Section */}
-      {freshVoices.length > 0 && (
-        <section>
-          <h2 className="text-2xl font-headline font-bold text-accent mb-6">Fresh Voices to Discover</h2>
-          <div className="relative">
-              <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent -m-2 p-2">
-              {freshVoices.map(author => (
-                  <Link href={`/profile/${author.id}`} key={`fresh-${author.id}`} passHref>
-                    <div className="w-36 group cursor-pointer text-center">
-                       <Avatar className="w-24 h-24 mb-3 mx-auto border-4 border-card group-hover:border-accent transition-colors shadow-lg">
-                          <AvatarImage src={author.avatarUrl || `https://picsum.photos/seed/${author.id}/100/100`} alt={author.displayName || author.username} data-ai-hint="profile person" />
-                          <AvatarFallback className="text-2xl">{author.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <h3 className="text-md font-semibold font-headline truncate group-hover:text-accent transition-colors">{author.displayName || author.username}</h3>
-                      <p className="text-xs text-muted-foreground">Joined Recently</p>
-                    </div>
-                  </Link>
-              ))}
-              </div>
-          </div>
-        </section>
-      )}
-
-
-      {/* Featured Authors Section */}
       {featuredAuthors.length > 0 && (
       <section>
-        <h2 className="text-2xl font-headline font-bold text-accent mb-6">Featured Authors</h2>
+        <h2 className="text-2xl font-headline font-bold text-accent mb-6  animate-fade-in">Featured Authors</h2>
          <div className="relative">
             <div className="flex overflow-x-auto space-x-6 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent -m-2 p-2">
             {featuredAuthors.map(author => (
@@ -370,3 +331,4 @@ export default function HomePage() {
     </>
   );
 }
+

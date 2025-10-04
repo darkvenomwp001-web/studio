@@ -10,21 +10,28 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
-import { ArrowRight, BookOpen, LibrarySquare, TrendingUp, Sparkles, Users, Bookmark, Loader2 } from 'lucide-react';
+import { ArrowRight, BookOpen, LibrarySquare, TrendingUp, Sparkles, Users, Bookmark, Loader2, Search } from 'lucide-react';
 import type { Story, ReadingListItem } from '@/types';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
-import YourStoryCard from '@/components/shared/YourStoryCard'; 
 import { useAuth } from '@/hooks/useAuth'; 
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
-
+import StoryCard from '@/components/shared/StoryCard';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function StoriesPage() {
   const { user, loading: authLoading } = useAuth();
   const [allStories, setAllStories] = useState<Story[]>([]);
+  const [filteredStories, setFilteredStories] = useState<Story[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterGenre, setFilterGenre] = useState('all');
+  const [sortBy, setSortBy] = useState('trending');
+
 
   useEffect(() => {
     setIsLoading(true);
@@ -32,9 +39,7 @@ export default function StoriesPage() {
     const q = query(
       storiesCol, 
       where('visibility', '==', 'Public'),
-      where('status', '!=', 'Draft'),
-      orderBy('status'),
-      orderBy('lastUpdated', 'desc')
+      where('status', '!=', 'Draft')
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -64,22 +69,45 @@ export default function StoriesPage() {
     return () => unsubscribe();
   }, []);
 
-  const featuredStoriesForCarousel = allStories.slice(0, 5);
-  const popularStories = [...allStories].sort((a,b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
-  const newReleases = [...allStories].sort((a,b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()).slice(0, 10);
-  const communityPicks = [...allStories].sort(() => 0.5 - Math.random()).slice(0, 10);
+  const uniqueGenres = useMemo(() => {
+    const genres = new Set(allStories.map(s => s.genre).filter(Boolean));
+    return ['all', ...Array.from(genres)];
+  }, [allStories]);
 
-  const getUniqueGenres = (stories: Story[]): string[] => {
-    const allGenres = stories.flatMap(story => (story.genre || '').toLowerCase()); 
-    return Array.from(new Set(allGenres)).filter(g => g).map(genre => genre.charAt(0).toUpperCase() + genre.slice(1));
-  };
-  const uniqueGenres = getUniqueGenres(allStories);
+  useEffect(() => {
+    let stories = [...allStories];
 
-  const getStoriesByGenre = (genre: string, limit: number = 10): Story[] => {
-    return allStories.filter(story => (story.genre || '').toLowerCase() === genre.toLowerCase()).slice(0, limit);
-  };
+    // Filter by genre
+    if (filterGenre !== 'all') {
+      stories = stories.filter(s => s.genre === filterGenre);
+    }
 
-  const userReadingList: ReadingListItem[] = user?.readingList || [];
+    // Filter by search term
+    if (searchTerm) {
+      stories = stories.filter(s => 
+        s.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        s.author.username.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        s.author.displayName?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Sort
+    switch (sortBy) {
+      case 'new':
+        stories.sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
+        break;
+      case 'popular':
+        stories.sort((a, b) => (b.views || 0) - (a.views || 0));
+        break;
+      case 'trending':
+      default:
+        stories.sort((a,b) => ((b.views || 0) + (b.rating || 0) * 100) - ((a.views || 0) + (a.rating || 0) * 100));
+        break;
+    }
+
+    setFilteredStories(stories);
+  }, [allStories, searchTerm, filterGenre, sortBy]);
+
 
   if (isLoading) {
     return (
@@ -91,140 +119,61 @@ export default function StoriesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground space-y-12 -mt-8">
-      {/* Hero Carousel Section */}
-      <section>
-        <Carousel
-          plugins={[
-            Autoplay({
-              delay: 5000, 
-              stopOnInteraction: true,
-            }),
-          ]}
-          opts={{
-            align: "start",
-            loop: true,
-          }}
-          className="w-full shadow-xl rounded-lg overflow-hidden max-w-7xl mx-auto"
-        >
-          <CarouselContent>
-            {featuredStoriesForCarousel.map((story, index) => (
-              <CarouselItem key={story.id}>
-                <Link
-                  href={`/stories/${story.id}`}
-                  className="block overflow-hidden group relative rounded-lg aspect-[12/5] cursor-pointer bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                  aria-label={`View story: ${story.title}`}
-                >
-                  <Image
-                    src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}-banner/1200/500`} 
-                    alt={story.title}
-                    layout="fill"
-                    objectFit="cover"
-                    className="group-hover:scale-105 transition-transform duration-500 ease-in-out"
-                    data-ai-hint={story.dataAiHint || "story banner"}
-                    priority={index === 0}
-                  />
-                </Link>
-              </CarouselItem>
-            ))}
-             {featuredStoriesForCarousel.length === 0 && (
-                <CarouselItem>
-                    <div className="aspect-[12/5] bg-muted rounded-lg flex items-center justify-center">
-                        <p className="text-muted-foreground">No featured stories available.</p>
-                    </div>
-                </CarouselItem>
-             )}
-          </CarouselContent>
-        </Carousel>
-      </section>
-
-      {/* Your Stories Section (Conditional) */}
-      {!authLoading && user && userReadingList.length > 0 && (
-        <section className="container mx-auto px-4">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground">
-              <Bookmark className="text-accent h-6 w-6" /> Your Stories
-            </h2>
+    <div className="min-h-screen bg-background text-foreground space-y-8">
+      <header className="container mx-auto px-4 pt-8">
+        <h1 className="text-4xl font-headline font-bold text-primary mb-2">Explore All Stories</h1>
+        <p className="text-muted-foreground">Find your next favorite book from our entire collection.</p>
+        
+        <div className="mt-6 flex flex-col sm:flex-row gap-2 bg-card p-2 rounded-lg border">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+                placeholder="Search by title, author..." 
+                className="pl-10"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+            />
           </div>
-          <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
-            {userReadingList.slice(0, 10).map(story => ( 
-                <YourStoryCard key={`yourstory-${story.id}`} story={story} />
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Select value={filterGenre} onValueChange={setFilterGenre}>
+              <SelectTrigger className="w-full sm:w-[150px]">
+                <SelectValue placeholder="Genre" />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueGenres.map(genre => (
+                  <SelectItem key={genre} value={genre} className="capitalize">{genre}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-full sm:w-[150px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="trending">Trending</SelectItem>
+                <SelectItem value="popular">Popular</SelectItem>
+                <SelectItem value="new">Newest</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4">
+        {filteredStories.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {filteredStories.map(story => (
+              <StoryCard key={story.id} story={story} />
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <div className="text-center py-16 bg-card rounded-lg shadow-sm">
+              <h2 className="text-xl font-headline font-semibold mb-2">No Stories Found</h2>
+              <p className="text-muted-foreground">Try adjusting your search or filters.</p>
+          </div>
+        )}
+      </main>
 
-      {/* Popular Stories Section */}
-      <section className="container mx-auto px-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground">
-            <TrendingUp className="text-accent h-6 w-6" /> Popular Stories
-          </h2>
-        </div>
-        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
-          {popularStories.length > 0 ? (
-            popularStories.map(story => (
-              <CompactStoryCard key={`popular-${story.id}`} story={story} />
-            ))
-          ) : (
-            <p className="text-muted-foreground">No popular stories to display.</p>
-          )}
-        </div>
-      </section>
-
-      {/* New Releases Section */}
-      <section className="container mx-auto px-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground">
-             <Sparkles className="text-accent h-6 w-6" /> New Releases
-          </h2>
-        </div>
-        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
-          {newReleases.length > 0 ? (
-            newReleases.map(story => (
-              <CompactStoryCard key={`new-${story.id}`} story={story} />
-            ))
-          ) : (
-            <p className="text-muted-foreground">No new releases to display.</p>
-          )}
-        </div>
-      </section>
-      
-      {/* Community Picks Section */}
-      <section className="container mx-auto px-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground">
-             <Users className="text-accent h-6 w-6" /> Community Picks
-          </h2>
-        </div>
-        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
-          {communityPicks.length > 0 ? (
-            communityPicks.map(story => (
-              <CompactStoryCard key={`community-${story.id}`} story={story} />
-            ))
-          ) : (
-             <p className="text-muted-foreground">No community picks to display.</p>
-          )}
-        </div>
-      </section>
-
-      {/* Genre Sections */}
-      {uniqueGenres.map(genre => {
-        const genreStories = getStoriesByGenre(genre, 10);
-        if (genreStories.length === 0) return null; 
-        return (
-          <section key={genre} className="container mx-auto px-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-headline font-semibold text-foreground">{genre}</h2>
-            </div>
-            <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
-              {genreStories.map(story => (
-                  <CompactStoryCard key={`${genre}-${story.id}`} story={story} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
     </div>
   );
 }
