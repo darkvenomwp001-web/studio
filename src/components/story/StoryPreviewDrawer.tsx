@@ -32,7 +32,7 @@ import { db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { getStoryMood } from '@/app/actions/aiActions';
 import { useStoryPreview } from '@/context/StoryPreviewProvider';
-import { Drawer, DrawerContent } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { useRouter } from 'next/navigation';
 
 function StoryPreviewContent({ storyId }: { storyId: string }) {
@@ -356,15 +356,21 @@ export default function StoryPreviewDrawer() {
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent>
-        <div className="mx-auto w-full max-w-sm">
-          <div className="p-4 pb-0 h-[85vh]">
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-muted-foreground mb-4" />
-            <ScrollArea className="h-full">
-              {storyId && <StoryPreviewContent storyId={storyId} />}
-            </ScrollArea>
-          </div>
+        <div className="mx-auto w-full max-w-sm" role="dialog" aria-modal="true" aria-labelledby="story-preview-title">
+            <DrawerHeader className="sr-only">
+              <DrawerTitle id="story-preview-title">Story Preview</DrawerTitle>
+              <DrawerDescription>An overview of the selected story.</DrawerDescription>
+            </DrawerHeader>
+            <div className="p-4 pb-0 h-[85vh]">
+              <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-muted-foreground mb-4" />
+              <ScrollArea className="h-full">
+                {storyId && <StoryPreviewContent storyId={storyId} />}
+              </ScrollArea>
+            </div>
         </div>
       </DrawerContent>
     </Drawer>
   )
 }
+
+    
