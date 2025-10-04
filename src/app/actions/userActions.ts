@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs } from 'firebase/firestore';
 import type { Achievement } from '@/types';
 import { addNotification } from './notificationActions';
 
@@ -99,21 +99,33 @@ export async function unlockAchievement(userId: string, achievementKey: keyof ty
 
 
 export async function updateUserRole(adminId: string, targetUserId: string, newRole: 'reader' | 'writer'): Promise<{ success: boolean; error?: string }> {
-    if (adminId !== 'P8ZpP6x2hXZc3e4a2O7g2f3h6i5' || !['reader', 'writer'].includes(newRole)) {
-        return { success: false, error: 'Unauthorized operation.' };
-    }
-
-    if (!targetUserId) {
-        return { success: false, error: 'Target user ID is required.' };
-    }
-    
     try {
+        // Find the admin user by username to get their actual ID
+        const adminQuery = query(collection(db, 'users'), where('username', '==', 'authorrafaelnv'));
+        const adminSnapshot = await getDocs(adminQuery);
+        if (adminSnapshot.empty) {
+            return { success: false, error: 'Admin account not found.' };
+        }
+        const realAdminId = adminSnapshot.docs[0].id;
+
+        // Check if the person making the request is the real admin
+        if (adminId !== realAdminId || !['reader', 'writer'].includes(newRole)) {
+            return { success: false, error: 'Unauthorized operation.' };
+        }
+
+        if (!targetUserId) {
+            return { success: false, error: 'Target user ID is required.' };
+        }
+        
         const targetUserRef = doc(db, 'users', targetUserId);
         await updateDoc(targetUserRef, { role: newRole });
         return { success: true };
+
     } catch (error) {
         console.error('Error updating user role:', error);
         return { success: false, error: 'Could not update user role.' };
     }
 }
+
+
 
