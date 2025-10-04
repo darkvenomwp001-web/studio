@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpenText, Home, Edit3, Brain, Library, Search, Bell } from 'lucide-react';
+import { BookOpenText, Home, Edit3, Brain, Library, Search, Bell, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -52,8 +52,9 @@ export default function Header() {
             <NavLink href="/"><Home className="h-5 w-5" /> Home</NavLink>
             <NavLink href="/library"><Library className="h-5 w-5" /> Library</NavLink>
             <NavLink href="/search"><Search className="h-5 w-5" /> Search</NavLink>
-            <NavLink href="/write"><Edit3 className="h-5 w-5" /> Write</NavLink>
+            {user?.role === 'writer' && <NavLink href="/write"><Edit3 className="h-5 w-5" /> Write</NavLink>}
             <NavLink href="/notifications"><Bell className="h-5 w-5" /> Inbox</NavLink>
+            {user?.username === 'authorrafaelnv' && <NavLink href="/admin"><Shield className="h-5 w-5" /> Admin</NavLink>}
           </div>
           
           {loading ? (

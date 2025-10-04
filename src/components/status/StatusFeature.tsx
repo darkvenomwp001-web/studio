@@ -194,7 +194,15 @@ export default function StatusFeature() {
       setSelectedUserForViewing(user);
       setIsViewerOpen(true);
     } else {
-      handleOpenUploader('media');
+      if (user.role === 'writer') {
+        handleOpenUploader('media');
+      } else {
+        toast({
+          title: "Reader Role",
+          description: "Only users with a 'Writer' role can post a status update.",
+          variant: 'destructive',
+        });
+      }
     }
   }
 
@@ -454,7 +462,7 @@ export default function StatusFeature() {
       <Tabs defaultValue={activeUploaderTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
         <TabsList className="relative grid grid-cols-3 mx-6 bg-muted rounded-full p-1 h-auto">
            <div
-            className="absolute h-full p-1 top-0 left-0 transition-transform duration-300 ease-in-out"
+            className="absolute h-[calc(100%-8px)] p-1 top-1 left-0 transition-transform duration-300 ease-in-out"
             style={{ 
                 width: `calc(100% / 3)`,
                 transform: `translateX(${activeUploaderTab === 'note' ? '0%' : activeUploaderTab === 'media' ? '100%' : '200%'})`

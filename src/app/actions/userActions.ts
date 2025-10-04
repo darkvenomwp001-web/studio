@@ -96,3 +96,24 @@ export async function unlockAchievement(userId: string, achievementKey: keyof ty
         console.error(`Failed to unlock achievement ${achievement.id} for user ${userId}:`, error);
     }
 }
+
+
+export async function updateUserRole(adminId: string, targetUserId: string, newRole: 'reader' | 'writer'): Promise<{ success: boolean; error?: string }> {
+    if (adminId !== 'P8ZpP6x2hXZc3e4a2O7g2f3h6i5' || !['reader', 'writer'].includes(newRole)) {
+        return { success: false, error: 'Unauthorized operation.' };
+    }
+
+    if (!targetUserId) {
+        return { success: false, error: 'Target user ID is required.' };
+    }
+    
+    try {
+        const targetUserRef = doc(db, 'users', targetUserId);
+        await updateDoc(targetUserRef, { role: newRole });
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating user role:', error);
+        return { success: false, error: 'Could not update user role.' };
+    }
+}
+

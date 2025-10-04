@@ -88,7 +88,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
-const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search', '/profile/', '/write/history', '/settings', '/library'];
+const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search', '/profile/', '/write/history', '/settings', '/library', '/admin'];
 const DEFAULT_REDIRECT_AUTHENTICATED = '/';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
@@ -194,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: firebaseUser.email || '',
               avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`,
               bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse! Ready to explore.',
-              role: 'reader',
+              role: 'reader', // Default role for all new users
               level: 1,
               xp: 0,
               achievements: [],
@@ -407,7 +407,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: email,
           avatarUrl: `https://placehold.co/100x100.png?text=${username.charAt(0).toUpperCase()}`,
           bio: 'New to LitVerse! Ready to explore.',
-          role: 'reader',
+          role: 'reader', // Default role for all new users
           level: 1,
           xp: 0,
           achievements: [],

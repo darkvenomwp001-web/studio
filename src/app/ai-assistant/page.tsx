@@ -1,16 +1,20 @@
+
 'use client';
 
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brain, ShieldCheck, Loader2, AlertTriangle, Wand2, CheckCircle } from 'lucide-react';
+import { Brain, ShieldCheck, Loader2, AlertTriangle, Wand2, CheckCircle, ShieldAlert } from 'lucide-react';
 import { getWritingSuggestions, checkPlagiarism } from '@/app/actions/aiActions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/hooks/useAuth';
+import Link from 'next/link';
 
 export default function AiAssistantPage() {
+  const { user, loading } = useAuth();
   const [inputText, setInputText] = useState('');
   const [suggestionResult, setSuggestionResult] = useState<{ improvedText: string; feedback: string } | null>(null);
   const [plagiarismResult, setPlagiarismResult] = useState<{ isPlagiarized: boolean; source?: string; explanation?: string } | null>(null);
@@ -50,6 +54,25 @@ export default function AiAssistantPage() {
       }
     });
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-[calc(100vh-10rem)]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+      </div>
+    );
+  }
+
+  if (user?.role !== 'writer') {
+    return (
+      <div className="space-y-8 text-center py-10 max-w-3xl mx-auto">
+        <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
+        <h1 className="text-3xl font-headline font-bold text-foreground">Writer Access Required</h1>
+        <p className="text-muted-foreground max-w-md mx-auto">The AI Assistant is a tool for authors. The site administrator can grant you writer access if you wish to use this feature.</p>
+        {user?.username === 'authorrafaelnv' && <Link href="/admin"><Button>Go to Admin Dashboard</Button></Link>}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
