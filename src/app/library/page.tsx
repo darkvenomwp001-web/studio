@@ -86,50 +86,48 @@ export default function LibraryPage() {
     }
     
     return (
-        <div>
-            <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-sm -mx-4 px-4 py-3 border-b mb-6">
-                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                    <div className="relative flex-grow">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            placeholder="Filter by title or author..."
-                            className="pl-10"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <div className="flex gap-2">
-                        <Select value={sortBy} onValueChange={setSortBy}>
-                            <SelectTrigger className="w-full sm:w-[160px]">
-                                <SelectValue placeholder="Sort by" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="updated-desc">Recently Updated</SelectItem>
-                                <SelectItem value="added-desc">Recently Added</SelectItem>
-                                <SelectItem value="title-asc">A-Z</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Select value={filterStatus} onValueChange={setFilterStatus}>
-                            <SelectTrigger className="w-full sm:w-[140px]">
-                                <SelectValue placeholder="Filter status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Statuses</SelectItem>
-                                <SelectItem value="Ongoing">Ongoing</SelectItem>
-                                <SelectItem value="Completed">Completed</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <div className="flex items-center rounded-md border bg-card p-0.5">
-                            <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')}>
-                                <Grid className="h-5 w-5"/>
-                            </Button>
-                            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')}>
-                                <List className="h-5 w-5" />
-                            </Button>
-                        </div>
+        <div className="space-y-6">
+            <header className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                <div className="relative flex-grow">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Filter by title or author..."
+                        className="pl-10"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="flex gap-2">
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger className="w-full sm:w-[160px]">
+                            <SelectValue placeholder="Sort by" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="updated-desc">Recently Updated</SelectItem>
+                            <SelectItem value="added-desc">Recently Added</SelectItem>
+                            <SelectItem value="title-asc">A-Z</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger className="w-full sm:w-[140px]">
+                            <SelectValue placeholder="Filter status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="Ongoing">Ongoing</SelectItem>
+                            <SelectItem value="Completed">Completed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <div className="flex items-center rounded-md border bg-card p-0.5">
+                        <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} aria-label="Grid View">
+                            <Grid className="h-5 w-5"/>
+                        </Button>
+                        <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')} aria-label="List View">
+                            <List className="h-5 w-5" />
+                        </Button>
                     </div>
                 </div>
-            </div>
+            </header>
 
             {readingList.length > 0 ? (
                 filteredAndSortedList.length > 0 ? (

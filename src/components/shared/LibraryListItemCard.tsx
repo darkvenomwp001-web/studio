@@ -33,10 +33,10 @@ export default function LibraryListItemCard({ story }: LibraryListItemCardProps)
   };
 
   return (
-    <Card className="w-full overflow-hidden shadow-lg hover:shadow-primary/10 transition-shadow">
+    <Card className="w-full overflow-hidden shadow-sm hover:shadow-primary/10 transition-shadow">
       <div className="flex">
         <div onClick={() => onOpen(story.id)} className="block flex-shrink-0 cursor-pointer">
-          <div className="relative w-28 h-40 sm:w-32 sm:h-48">
+          <div className="relative w-28 h-40 sm:w-32 sm:h-48 bg-muted">
             <Image
               src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
               alt={story.title}
