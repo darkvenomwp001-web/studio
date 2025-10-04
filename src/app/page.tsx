@@ -183,8 +183,8 @@ function ForYouTabContent() {
       {!authLoading && user && userReadingList.length > 0 && (
         <section>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
-              <BookHeart className="text-accent h-6 w-6" /> Continue Reading
+            <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+              <BookHeart className="text-accent h-5 w-5" /> Continue Reading
             </h2>
              <Link href="/library" passHref>
                 <Button variant="outline" className="text-sm">My Library<ArrowRight className="ml-2 h-4 w-4" /></Button>
@@ -200,8 +200,8 @@ function ForYouTabContent() {
 
       <section>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
-            <TrendingUp className="text-accent h-6 w-6" /> Popular Stories
+          <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+            <TrendingUp className="text-accent h-5 w-5" /> Popular Stories
           </h2>
         </div>
         <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
@@ -217,8 +217,8 @@ function ForYouTabContent() {
 
       <section>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
-             <Sparkles className="text-accent h-6 w-6" /> New Releases
+          <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+             <Sparkles className="text-accent h-5 w-5" /> New Releases
           </h2>
         </div>
         <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
@@ -234,8 +234,8 @@ function ForYouTabContent() {
       
       <section>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
-             <Users className="text-accent h-6 w-6" /> Community Picks
+          <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+             <Users className="text-accent h-5 w-5" /> Community Picks
           </h2>
         </div>
         <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
@@ -252,8 +252,8 @@ function ForYouTabContent() {
        {prompts.length > 0 && (
         <section>
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-headline font-bold text-primary flex items-center gap-2  animate-fade-in">
-              <PenSquare className="h-6 w-6" />
+            <h2 className="text-xl font-headline font-bold text-primary flex items-center gap-2  animate-fade-in">
+              <PenSquare className="h-5 w-5" />
               Community Prompts
             </h2>
           </div>
@@ -269,7 +269,7 @@ function ForYouTabContent() {
 
       {featuredAuthors.length > 0 && (
       <section>
-        <h2 className="text-2xl font-headline font-bold text-accent mb-6  animate-fade-in">Featured Authors</h2>
+        <h2 className="text-xl font-headline font-bold text-accent mb-6  animate-fade-in">Featured Authors</h2>
          <div className="relative">
             <div className="flex overflow-x-auto space-x-6 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent -m-2 p-2">
             {featuredAuthors.map(author => (
@@ -339,4 +339,3 @@ export default function HomePage() {
     </>
   );
 }
-
