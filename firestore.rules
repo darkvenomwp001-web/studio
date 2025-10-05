@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -39,11 +40,12 @@ service cloud.firestore {
      * @returns {boolean} True if story is public/unlisted, or user is author/collaborator
      */
     function canReadStory() {
-      return resource.data.visibility == 'Public' 
-          || resource.data.visibility == 'Unlisted'
-          || isOwner(resource.data.author.id)
-          || (resource.data.collaboratorIds != null && 
-              request.auth.uid in resource.data.collaboratorIds);
+      let storyData = get(/databases/$(database)/documents/stories/$(storyId)).data;
+      return storyData.visibility == 'Public' 
+          || storyData.visibility == 'Unlisted'
+          || isOwner(storyData.author.id)
+          || (storyData.collaboratorIds != null && 
+              request.auth.uid in storyData.collaboratorIds);
     }
     
     /**
@@ -51,10 +53,11 @@ service cloud.firestore {
      * @returns {boolean} True if user is the author or a collaborator
      */
     function canWriteStory() {
+      let storyData = get(/databases/$(database)/documents/stories/$(storyId)).data;
       return isNotGuest() && 
-             (isOwner(resource.data.author.id) || 
-              (resource.data.collaboratorIds != null && 
-               request.auth.uid in resource.data.collaboratorIds));
+             (isOwner(storyData.author.id) || 
+              (storyData.collaboratorIds != null && 
+               request.auth.uid in storyData.collaboratorIds));
     }
     
     /**
@@ -90,14 +93,21 @@ service cloud.firestore {
     
     match /stories/{storyId} {
       // Read access based on visibility and ownership
-      allow read: if canReadStory();
+      allow read: if resource.data.visibility == 'Public' 
+          || resource.data.visibility == 'Unlisted'
+          || isOwner(resource.data.author.id)
+          || (resource.data.collaboratorIds != null && 
+              request.auth.uid in resource.data.collaboratorIds);
       
       // Only authenticated users can create stories with themselves as author
       allow create: if isNotGuest() && 
                       request.auth.uid == request.resource.data.author.id;
       
       // Authors and collaborators can update stories
-      allow update: if canWriteStory();
+      allow update: if isNotGuest() && 
+             (isOwner(resource.data.author.id) || 
+              (resource.data.collaboratorIds != null && 
+               request.auth.uid in resource.data.collaboratorIds));
       
       // Only the author can delete their story
       allow delete: if isNotGuest() && isOwner(resource.data.author.id);
@@ -268,54 +278,42 @@ service cloud.firestore {
     // ============================================================================
 
     match /feedPosts/{postId} {
-      // Public read access for all threads
       allow read: if true;
       
-      // Any authenticated non-guest user can create a thread
       allow create: if isNotGuest() && 
                       request.auth.uid == request.resource.data.author.id;
       
-      // Allow updates in two scenarios:
-      // 1. Post author can update their own post (edit content, etc.)
-      // 2. Any authenticated user can update the reactionsCount
-      allow update: if isNotGuest() &&
-                      ( (request.auth.uid == resource.data.author.id && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'updatedAt'])) ||
-                        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionsCount']))
-                      );
-
+      allow update: if isNotGuest() && 
+                      // Author can update their own post content
+                      (request.auth.uid == resource.data.author.id ||
+                      // Any user can update the reactionsCount
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['reactionsCount']));
       
-      // Only the post author can delete their thread
       allow delete: if isNotGuest() && 
                       request.auth.uid == resource.data.author.id;
       
       // --------------------------------------------------------------------------
-      // COMMENTS SUBCOLLECTION (Thread Comments)
+      // COMMENTS SUBCOLLECTION
       // --------------------------------------------------------------------------
       
       match /comments/{commentId} {
         allow read: if true;
+        
         allow create: if isNotGuest() && 
                         request.auth.uid == request.resource.data.user.id;
-        allow update: if isNotGuest() && 
-                        request.auth.uid == resource.data.user.id;
-        allow delete: if isNotGuest() && 
-                        request.auth.uid == resource.data.user.id;
         
-        // Comment reactions subcollection (for future emoji reactions)
-        match /reactions/{reactionId} {
-          allow read: if true;
-          allow write: if isNotGuest() && request.auth.uid == reactionId;
-        }
+        allow update, delete: if isNotGuest() && 
+                                request.auth.uid == resource.data.user.id;
       }
       
       // --------------------------------------------------------------------------
-      // POST REACTIONS SUBCOLLECTION (for future emoji reactions)
+      // POST REACTIONS SUBCOLLECTION
       // --------------------------------------------------------------------------
       
       match /reactions/{reactionId} {
-        // Users can read, create, update, and delete their own reaction
-        // The reactionId must be the user's UID to ensure one reaction per user.
         allow read: if true;
+        // User can create, update, or delete their own reaction document
         allow write: if isNotGuest() && request.auth.uid == reactionId;
       }
     }

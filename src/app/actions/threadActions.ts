@@ -122,33 +122,23 @@ export async function toggleReaction(postId: string, user: UserSummary, reaction
             const reactionDoc = await transaction.get(reactionRef);
             
             if (reactionDoc.exists()) {
-                if (reactionDoc.data().type === reactionType) {
-                    // User is clicking the same reaction again, so un-react
-                    transaction.delete(reactionRef);
-                    transaction.update(postRef, { reactionsCount: increment(-1) });
-                } else {
-                    // User is changing their reaction
-                    transaction.update(reactionRef, { type: reactionType, timestamp: serverTimestamp() });
-                    // No change in reactionsCount
-                }
+                // User is removing their reaction or changing it
+                // For a simple heart toggle, we just delete it.
+                transaction.delete(reactionRef);
+                transaction.update(postRef, { reactionsCount: increment(-1) });
             } else {
                 // User has no existing reaction, so add a new one
                 transaction.set(reactionRef, { 
                     userId: user.id, 
-                    type: reactionType, 
+                    type: reactionType, // Will be 'love'
                     timestamp: serverTimestamp(),
-                    user: {
-                        id: user.id,
-                        username: user.username,
-                        displayName: user.displayName,
-                        avatarUrl: user.avatarUrl
-                    }
+                    user: user // Storing summary for easy display of reactors
                 });
                 transaction.update(postRef, { reactionsCount: increment(1) });
             }
         });
 
-        revalidatePath('/');
+        revalidatePath('/'); // Revalidate the feed to show updated counts
         return { success: true };
     } catch (error) {
         console.error("Error toggling reaction:", error);
