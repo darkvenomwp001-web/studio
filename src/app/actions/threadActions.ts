@@ -12,7 +12,7 @@ import {
   deleteDoc,
   runTransaction,
   increment,
-  setDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import type { UserSummary, ThreadPost, ReactionType } from '@/types';
 import { revalidatePath } from 'next/cache';
@@ -109,36 +109,40 @@ export async function deleteThreadPost(postId: string, userId: string): Promise<
     }
 }
 
-export async function toggleReaction(postId: string, user: UserSummary): Promise<{ success: boolean; error?: string }> {
+export async function toggleReaction(postId: string, user: UserSummary, reactionType: ReactionType): Promise<{ success: boolean; error?: string }> {
     if (!user || !user.id) {
         return { success: false, error: 'You must be signed in to react.' };
     }
     
     const postRef = doc(db, 'feedPosts', postId);
     const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
-    const reactionType: ReactionType = 'love'; // Hardcode to 'love' for the heart reaction
 
     try {
         await runTransaction(db, async (transaction) => {
             const reactionDoc = await transaction.get(reactionRef);
             
             if (reactionDoc.exists()) {
-                // User has an existing reaction, so remove it (un-react)
-                transaction.delete(reactionRef);
-                transaction.update(postRef, { reactionsCount: increment(-1) });
+                if (reactionDoc.data().type === reactionType) {
+                    // User is clicking the same reaction again, so un-react
+                    transaction.delete(reactionRef);
+                    transaction.update(postRef, { reactionsCount: increment(-1) });
+                } else {
+                    // User is changing their reaction
+                    transaction.update(reactionRef, { type: reactionType, timestamp: serverTimestamp() });
+                    // No change in reactionsCount
+                }
             } else {
                 // User has no existing reaction, so add a new one
-                const userSummary: UserSummary = {
-                    id: user.id,
-                    username: user.username,
-                    displayName: user.displayName,
-                    avatarUrl: user.avatarUrl
-                };
                 transaction.set(reactionRef, { 
                     userId: user.id, 
                     type: reactionType, 
                     timestamp: serverTimestamp(),
-                    user: userSummary // Store user summary for displaying reactors list
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        displayName: user.displayName,
+                        avatarUrl: user.avatarUrl
+                    }
                 });
                 transaction.update(postRef, { reactionsCount: increment(1) });
             }

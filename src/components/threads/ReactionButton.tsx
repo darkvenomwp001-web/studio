@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Heart } from 'lucide-react';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { loveAnimation } from './reactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -23,6 +24,13 @@ interface ReactionButtonProps {
     initialReactionsCount: number;
 }
 
+const reactionConfig = {
+    love: {
+        animation: loveAnimation,
+        label: 'Love'
+    }
+};
+
 function ReactorsList({ postId }: { postId: string }) {
     const [reactors, setReactors] = useState<UserSummary[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -33,8 +41,6 @@ function ReactorsList({ postId }: { postId: string }) {
             const users: UserSummary[] = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
-                // Assuming the reaction doc contains user info or a ref
-                // For this example, let's assume it has a 'user' field
                 if(data.user) {
                     users.push(data.user);
                 }
@@ -71,10 +77,11 @@ function ReactorsList({ postId }: { postId: string }) {
     );
 }
 
+
 export default function ReactionButton({ postId, initialReactionsCount }: ReactionButtonProps) {
     const { user } = useAuth();
     const { toast } = useToast();
-    const [hasReacted, setHasReacted] = useState(false);
+    const [userReaction, setUserReaction] = useState<ReactionType | null>(null);
     const [reactionsCount, setReactionsCount] = useState(initialReactionsCount);
     const [isProcessing, startTransition] = useTransition();
 
@@ -82,7 +89,11 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
         if (!user || !postId) return;
         const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
         const unsubscribe = onSnapshot(reactionRef, (doc) => {
-            setHasReacted(doc.exists());
+            if (doc.exists()) {
+                setUserReaction(doc.data().type as ReactionType);
+            } else {
+                setUserReaction(null);
+            }
         });
         return () => unsubscribe();
     }, [postId, user]);
@@ -98,25 +109,30 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
         return () => unsubscribe();
     }, [postId]);
 
-    const handleReaction = () => {
+    const handleReaction = (reactionType: ReactionType) => {
         if (!user || user.isAnonymous) {
             toast({ title: 'Please sign in to react.' });
             return;
         }
         
         startTransition(async () => {
-            const oldHasReacted = hasReacted;
-            const oldReactionsCount = reactionsCount;
+            const oldReaction = userReaction;
             
             // Optimistic UI updates
-            setHasReacted(!oldHasReacted);
-            setReactionsCount(prev => oldHasReacted ? Math.max(0, prev - 1) : prev + 1);
+            setUserReaction(oldReaction === reactionType ? null : reactionType);
 
-            const result = await toggleReaction(postId, user);
+            const plainUser: UserSummary = {
+                id: user.id,
+                username: user.username,
+                displayName: user.displayName,
+                avatarUrl: user.avatarUrl,
+            };
+
+            const result = await toggleReaction(postId, plainUser, reactionType);
 
             if (!result.success) {
-                setHasReacted(oldHasReacted);
-                setReactionsCount(oldReactionsCount);
+                // Revert on failure
+                setUserReaction(oldReaction);
                 toast({ title: 'Error', description: result.error, variant: 'destructive' });
             }
         });
@@ -142,12 +158,12 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
                 size="sm"
                 className="group"
                 disabled={isProcessing}
-                onClick={handleReaction}
+                onClick={() => handleReaction('love')}
             >
                 {isProcessing ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                    <Heart className={cn("w-5 h-5 transition-all", hasReacted ? "text-red-500 fill-red-500" : "text-muted-foreground group-hover:text-red-500")} />
+                    <Heart className={cn("w-5 h-5 transition-all", userReaction === 'love' ? "text-red-500 fill-red-500" : "text-muted-foreground group-hover:text-red-500")} />
                 )}
             </Button>
         </div>
