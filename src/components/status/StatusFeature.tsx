@@ -88,7 +88,6 @@ export default function StatusFeature() {
   const [isLoading, setIsLoading] = useState(true);
   
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
-  const [uploaderScreen, setUploaderScreen] = useState<'picker' | 'editor'>('picker');
   
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
@@ -187,25 +186,32 @@ export default function StatusFeature() {
   }, [allStatuses, user]);
 
 
-  const handleSelectUser = (user: User) => {
+  const handleSelectUser = (selectedUser: User) => {
     if (!user || user.isAnonymous) {
         router.push('/auth/signin');
         return;
     }
-    const userHasStatuses = groupedStatuses.has(user.id) && groupedStatuses.get(user.id)!.statuses.length > 0;
+
+    if (selectedUser.id === user.id) {
+        // Always open the creator for the current user
+        if (user.role === 'writer') {
+            handleOpenUploader('text');
+        } else {
+            toast({
+              title: "Reader Role",
+              description: "Only users with a 'Writer' role can post a status update.",
+              variant: 'destructive',
+            });
+        }
+        return;
+    }
+
+    const userHasStatuses = groupedStatuses.has(selectedUser.id) && groupedStatuses.get(selectedUser.id)!.statuses.length > 0;
     if (userHasStatuses) {
-      setSelectedUserForViewing(user);
+      setSelectedUserForViewing(selectedUser);
       setIsViewerOpen(true);
     } else {
-      if (user.role === 'writer') {
-        handleOpenUploader('text');
-      } else {
-        toast({
-          title: "Reader Role",
-          description: "Only users with a 'Writer' role can post a status update.",
-          variant: 'destructive',
-        });
-      }
+       toast({ title: "No Status", description: `${selectedUser.displayName} hasn't posted a status update yet.` });
     }
   }
 
@@ -229,7 +235,6 @@ export default function StatusFeature() {
   }
 
   const resetUploader = () => {
-    setUploaderScreen('picker');
     setMediaFile(null);
     setMediaPreview(null);
     setTextOverlay('');
@@ -640,7 +645,5 @@ export default function StatusFeature() {
     </div>
   );
 }
-
-    
 
     
