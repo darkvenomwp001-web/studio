@@ -321,7 +321,9 @@ export default function HomePage() {
         <div className="my-6">
            <div className="flex justify-center">
             <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-              <AnimatedTabs tabs={TABS} activeTab={activeTab} />
+               <div className="flex justify-center">
+                    <AnimatedTabs tabs={TABS} activeTab={activeTab} />
+                </div>
               <TabsContent value="for-you" className="mt-6">
                 <ForYouTabContent />
               </TabsContent>
