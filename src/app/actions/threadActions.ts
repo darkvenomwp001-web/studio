@@ -10,8 +10,9 @@ import {
   updateDoc,
   getDoc,
   deleteDoc,
+  runTransaction,
 } from 'firebase/firestore';
-import type { UserSummary, ThreadPost } from '@/types';
+import type { UserSummary, ThreadPost, ReactionType } from '@/types';
 import { revalidatePath } from 'next/cache';
 
 export async function sendGlobalChatMessage(
@@ -52,6 +53,7 @@ export async function createThreadPost(postData: Omit<ThreadPost, 'id' | 'timest
       likesCount: 0,
       commentsCount: 0,
       likedBy: [],
+      reactions: {},
       timestamp: serverTimestamp()
     });
     revalidatePath('/'); // Revalidate the main feed
@@ -104,5 +106,45 @@ export async function deleteThreadPost(postId: string, userId: string): Promise<
     } catch (error) {
         console.error("Error deleting post:", error);
         return { success: false, error: "Could not delete post." };
+    }
+}
+
+export async function toggleReaction(postId: string, reactionType: ReactionType): Promise<{ success: boolean; error?: string }> {
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (!user || user.isAnonymous) {
+        return { success: false, error: 'You must be signed in to react.' };
+    }
+    
+    const postRef = doc(db, 'feedPosts', postId);
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const postDoc = await transaction.get(postRef);
+            if (!postDoc.exists()) {
+                throw "Post not found";
+            }
+            
+            const postData = postDoc.data();
+            const reactions = postData.reactions || {};
+            const currentReaction = reactions[user.uid];
+
+            if (currentReaction === reactionType) {
+                // User is removing their reaction
+                delete reactions[user.uid];
+            } else {
+                // User is adding or changing their reaction
+                reactions[user.uid] = reactionType;
+            }
+
+            transaction.update(postRef, { reactions });
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error("Error toggling reaction:", error);
+        return { success: false, error: 'Could not save reaction.' };
     }
 }

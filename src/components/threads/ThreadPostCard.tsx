@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import type { ThreadPost } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, MoreHorizontal, EyeOff, Edit, Trash2 } from 'lucide-react';
+import { MessageCircle, MoreHorizontal, EyeOff, Edit, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -21,47 +21,29 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ThreadPostComments from './ThreadPostComments';
+import ReactionButton from './ReactionButton';
+import { deleteThreadPost } from '@/app/actions/threadActions';
 
 export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onHide: (postId: string) => void }) {
   const { user } = useAuth();
   const { toast } = useToast();
-  
-  const [isLiked, setIsLiked] = useState(user && post.likedBy?.includes(user.id));
-  const [likesCount, setLikesCount] = useState(post.likesCount || 0);
+  const [isDeleting, startDeleteTransition] = useTransition();
 
-  // This effect ensures the like status is updated if the post prop changes (e.g., from a real-time listener in the parent).
-  useEffect(() => {
-    setIsLiked(user && post.likedBy?.includes(user.id));
-    setLikesCount(post.likesCount || 0);
-  }, [post.likedBy, post.likesCount, user]);
-
-
-  const handleLike = async () => {
-    if (!user || user.isAnonymous) return;
-    const postRef = doc(db, 'feedPosts', post.id);
-    
-    // Optimistic update
-    const newLikedState = !isLiked;
-    const newLikesCount = newLikedState ? likesCount + 1 : likesCount - 1;
-    setIsLiked(newLikedState);
-    setLikesCount(newLikesCount);
-
-    try {
-        if (newLikedState) {
-            await updateDoc(postRef, { likedBy: arrayUnion(user.id), likesCount: newLikesCount });
-        } else {
-            await updateDoc(postRef, { likedBy: arrayRemove(user.id), likesCount: newLikesCount });
-        }
-    } catch (error) {
-        // Revert on error
-        setIsLiked(!newLikedState);
-        setLikesCount(likesCount);
-        console.error("Error updating like:", error);
-        toast({ title: 'Error', description: 'Could not update like status.', variant: 'destructive'});
-    }
-  };
-  
   const isOwner = user?.id === post.author.id;
+
+  const handleDelete = () => {
+    if (!isOwner || !user) return;
+    startDeleteTransition(async () => {
+      const result = await deleteThreadPost(post.id, user.id);
+      if (result.success) {
+        toast({ title: 'Post Deleted' });
+        // The onHide function will visually remove it from the feed.
+        onHide(post.id);
+      } else {
+        toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      }
+    });
+  }
   
   return (
     <AlertDialog>
@@ -87,18 +69,27 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        {isOwner && (
-                            <DropdownMenuItem asChild>
+                        <DropdownMenuItem onClick={() => onHide(post.id)}>
+                            <EyeOff className="mr-2 h-4 w-4" />
+                            Hide Post
+                        </DropdownMenuItem>
+                         {isOwner && (
+                            <>
+                             <DropdownMenuSeparator />
+                             <DropdownMenuItem asChild>
                                 <Link href={`/threads/edit/${post.id}`}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Edit Post
                                 </Link>
                             </DropdownMenuItem>
+                            <AlertDialogTrigger asChild>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete Post
+                                </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                           </>
                         )}
-                        <DropdownMenuItem onClick={() => onHide(post.id)}>
-                            <EyeOff className="mr-2 h-4 w-4" />
-                            Hide Post
-                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </CardHeader>
@@ -134,9 +125,7 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
 
             </CardContent>
             <CardFooter className="p-2 border-t flex gap-2">
-                <Button variant="ghost" size="sm" onClick={handleLike} className={cn(isLiked && 'text-red-500')}>
-                <Heart className={cn("mr-2 h-4 w-4", isLiked && "fill-current")} /> {likesCount}
-                </Button>
+                <ReactionButton postId={post.id} reactions={post.reactions || {}} />
                 <DialogTrigger asChild>
                     <Button variant="ghost" size="sm">
                         <MessageCircle className="mr-2 h-4 w-4" /> {post.commentsCount || 0}
@@ -144,6 +133,25 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
                 </DialogTrigger>
             </CardFooter>
             </Card>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your post.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                         {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+
+            {/* Comments Dialog */}
             <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Comments</DialogTitle>

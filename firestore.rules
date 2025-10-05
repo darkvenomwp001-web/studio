@@ -1,108 +1,99 @@
-
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+  
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
     }
-
-    function isAuthorOrCollaborator(story) {
-      return isOwner(story.author.id) || request.auth.uid in story.collaboratorIds;
-    }
-
-    function isStoryPublic(story) {
-      return story.visibility == 'Public';
-    }
-
+    
     // USERS
+    // Public read for profiles, but only the owner can write.
     match /users/{userId} {
       allow read: if true;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) && !(request.resource.data.role != resource.data.role); // Prevent users from changing their own role
-      allow delete: if request.auth.token.email == 'admin@example.com'; // Example admin-only delete
+      allow write: if request.auth.uid == userId;
     }
-
+    
     // STORIES
+    // Public stories are readable by all. Only author/collaborators can write.
     match /stories/{storyId} {
-      allow read: if isStoryPublic(resource.data) || isAuthorOrCollaborator(resource.data);
-      allow create: if isOwner(request.resource.data.author.id);
-      allow update: if isAuthorOrCollaborator(resource.data);
-      allow delete: if isOwner(resource.data.author.id); // Only original author can delete
+      // Allow reads if public, or if user is author/collaborator
+      allow read: if resource.data.visibility == 'Public' 
+                  || resource.data.visibility == 'Unlisted'
+                  || (request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds));
+      
+      // Allow writes only for author or collaborators
+      allow write: if request.auth != null && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
     }
-
+    
     // COMMENTS
+    // Users can create comments. Only owners can delete/edit their own comments.
     match /comments/{commentId} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if isOwner(resource.data.user.id);
-      allow delete: if isOwner(resource.data.user.id);
+        allow create: if request.auth != null;
+        allow read: if true;
+        allow update, delete: if request.auth.uid == resource.data.user.id;
     }
     
     // NOTIFICATIONS
+    // Users can only read and write to their own notifications.
     match /notifications/{notificationId} {
-        allow read, update: if isOwner(resource.data.userId);
-        allow create: if request.auth != null;
+        allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // CONVERSATIONS
+    // Participants can read/write to conversations they are a part of.
+    match /conversations/{conversationId} {
+        allow read, write: if request.auth != null && request.auth.uid in resource.data.participantIds;
+    }
+    match /conversations/{conversationId}/messages/{messageId} {
+         allow read, write: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
     }
 
-    // CONVERSATIONS
-    match /conversations/{conversationId} {
-      allow read, create: if request.auth.uid in resource.data.participantIds;
-      allow update: if request.auth.uid in resource.data.participantIds;
-      
-      match /messages/{messageId} {
-          allow read, create: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-      }
+    // FEED POSTS
+    match /feedPosts/{postId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow update: if request.auth != null && request.auth.uid == resource.data.author.id;
+        allow delete: if request.auth != null && request.auth.uid == resource.data.author.id;
+
+        match /comments/{commentId} {
+          allow read: if true;
+          allow create: if request.auth != null;
+          allow update, delete: if request.auth != null && request.auth.uid == resource.data.user.id;
+        }
     }
     
     // GLOBAL CHAT
     match /globalChatMessages/{messageId} {
         allow read: if true;
-        allow create: if request.auth != null;
-    }
-
-    // STATUS UPDATES
-    match /statusUpdates/{statusId} {
-        allow read: if true;
-        allow create: if isOwner(request.resource.data.authorId);
-        allow update, delete: if isOwner(resource.data.authorId);
-    }
-
-    // PROMPTS
-    match /prompts/{promptId} {
-        allow read: if true;
-        allow create: if isOwner(request.resource.data.author.id);
-        allow update, delete: if isOwner(resource.data.author.id);
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.author.id;
     }
     
     // LETTERS
     match /letters/{letterId} {
-        allow read: if isOwner(resource.data.reader.id) || isOwner(resource.data.authorId);
-        allow create: if isOwner(request.resource.data.reader.id);
-        allow update: if isOwner(resource.data.authorId); // Only author can pin/respond
-        allow delete: if isOwner(resource.data.reader.id); // Only reader can delete their letter
+        allow read: if resource.data.visibility == 'public' 
+                    || (request.auth != null && (request.auth.uid == resource.data.reader.id || request.auth.uid == resource.data.authorId));
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.reader.id;
+        allow update: if request.auth != null && request.auth.uid == resource.data.authorId; // Only author can pin/respond
+        allow delete: if request.auth != null && request.auth.uid == resource.data.reader.id; // Only reader can delete
+    }
+
+    // STATUS UPDATES
+    match /statusUpdates/{statusId} {
+        allow read: if resource.data.status == 'published' && resource.data.expiresAt > request.time;
+        allow create, update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
     }
 
     // ANNOTATIONS
-    match /annotations/{annotationId} {
-        allow read, create, update, delete: if isOwner(resource.data.userId);
+     match /annotations/{annotationId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
-    // FEED POSTS
-    match /feedPosts/{postId} {
-      allow read: if true;
+    // PROMPTS
+     match /prompts/{promptId} {
+      allow read: if resource.data.isArchived == false;
       allow create: if request.auth != null;
-      allow update: if request.auth.uid == resource.data.author.id;
-      allow delete: if request.auth.uid == resource.data.author.id;
-
-      match /comments/{commentId} {
-        allow read: if true;
-        allow create: if request.auth != null;
-        allow update, delete: if request.auth.uid == resource.data.user.id;
-      }
+      allow update, delete: if request.auth.uid == resource.data.author.id;
     }
-
   }
 }
