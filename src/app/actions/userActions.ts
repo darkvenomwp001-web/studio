@@ -98,7 +98,7 @@ export async function unlockAchievement(userId: string, achievementKey: keyof ty
 }
 
 
-export async function updateUserRole(adminId: string, targetUserId: string, newRole: 'reader' | 'writer'): Promise<{ success: boolean; error?: string }> {
+export async function updateUserRole(adminId: string, targetUserId: string, newRole: 'reader' | 'writer' | 'moderator'): Promise<{ success: boolean; error?: string }> {
     try {
         // First, check if the user trying to perform the action is an admin.
         const adminUserDoc = await getDoc(doc(db, 'users', adminId));
@@ -106,7 +106,7 @@ export async function updateUserRole(adminId: string, targetUserId: string, newR
             return { success: false, error: 'Unauthorized operation. You are not an administrator.' };
         }
         
-        if (!['reader', 'writer'].includes(newRole)) {
+        if (!['reader', 'writer', 'moderator'].includes(newRole)) {
              return { success: false, error: 'Invalid role specified.' };
         }
 
@@ -121,6 +121,28 @@ export async function updateUserRole(adminId: string, targetUserId: string, newR
     } catch (error) {
         console.error('Error updating user role:', error);
         return { success: false, error: 'Could not update user role.' };
+    }
+}
+
+export async function banUser(adminId: string, targetUserId: string, banStatus: boolean): Promise<{ success: boolean; error?: string }> {
+    try {
+        const adminUserDoc = await getDoc(doc(db, 'users', adminId));
+        if (!adminUserDoc.exists() || adminUserDoc.data().username !== 'authorrafaelnv') {
+            return { success: false, error: 'Unauthorized operation.' };
+        }
+        if (!targetUserId) {
+            return { success: false, error: 'Target user ID is required.' };
+        }
+        if (targetUserId === adminId) {
+            return { success: false, error: 'The main admin account cannot be banned.' };
+        }
+
+        const targetUserRef = doc(db, 'users', targetUserId);
+        await updateDoc(targetUserRef, { isBanned: banStatus });
+        return { success: true };
+    } catch (error) {
+        console.error(`Error ${banStatus ? 'banning' : 'unbanning'} user:`, error);
+        return { success: false, error: `Could not ${banStatus ? 'ban' : 'unban'} user.` };
     }
 }
 
@@ -155,3 +177,5 @@ export async function deleteUserPermanently(adminId: string, targetUserId: strin
     return { success: false, error: 'Could not delete user.' };
   }
 }
+
+    

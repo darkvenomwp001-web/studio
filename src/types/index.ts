@@ -15,7 +15,7 @@ export interface User {
   bio?: string;
   avatarUrl?: string; // Sticking with avatarUrl for consistency with app code
   displayName?: string;
-  role?: 'reader' | 'writer';
+  role?: 'reader' | 'writer' | 'moderator';
   followersCount?: number;
   followingCount?: number;
   followingIds?: string[];
@@ -32,6 +32,7 @@ export interface User {
   updatedAt?: any;
   dataAiHint?: string; // Added for AI image hints
   isAnonymous?: boolean;
+  isBanned?: boolean; // For user restrictions
 }
 
 export interface UserSummary {
@@ -262,3 +263,5 @@ export interface Song {
         text: string;
     }[];
 }
+
+    
