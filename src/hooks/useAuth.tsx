@@ -146,6 +146,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const oldAchievements = user?.achievements || [];
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
+
+            if (firestoreUserData.username === 'authorrafaelnv' && firestoreUserData.role !== 'writer') {
+                await updateDoc(userRef, { role: 'writer' });
+                firestoreUserData.role = 'writer';
+            }
+            
             // Fetch the user's written stories to populate the `writtenStories` field
             const storiesQuery = query(collection(db, "stories"), where("author.id", "==", firebaseUser.uid));
             const storiesSnapshot = await getDocs(storiesQuery);
@@ -186,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 ? `Guest${firebaseUser.uid.substring(0, 6)}`
                 : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.substring(0, 5)}`;
             const displayName = isAnonymous ? 'A Mysterious Guest' : (firebaseUser.displayName || username);
+            const isOwner = username === 'authorrafaelnv';
 
             const newUserProfile: AppUser = {
               id: firebaseUser.uid,
@@ -194,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: firebaseUser.email || '',
               avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`,
               bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse! Ready to explore.',
-              role: 'reader', // Default role for all new users
+              role: isOwner ? 'writer' : 'reader', // Default role for all new users
               level: 1,
               xp: 0,
               achievements: [],

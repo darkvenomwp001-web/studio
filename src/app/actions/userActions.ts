@@ -100,7 +100,6 @@ export async function unlockAchievement(userId: string, achievementKey: keyof ty
 
 export async function updateUserRole(adminId: string, targetUserId: string, newRole: 'reader' | 'writer' | 'moderator'): Promise<{ success: boolean; error?: string }> {
     try {
-        // First, check if the user trying to perform the action is an admin.
         const adminUserDoc = await getDoc(doc(db, 'users', adminId));
         if (!adminUserDoc.exists() || adminUserDoc.data().username !== 'authorrafaelnv') {
             return { success: false, error: 'Unauthorized operation. You are not an administrator.' };
