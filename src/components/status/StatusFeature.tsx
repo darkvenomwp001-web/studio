@@ -189,7 +189,7 @@ export default function StatusFeature() {
 
 
   const handleSelectUser = (user: User) => {
-    if (!currentUser || currentUser.isAnonymous) {
+    if (!user || user.isAnonymous) {
         router.push('/auth/signin');
         return;
     }

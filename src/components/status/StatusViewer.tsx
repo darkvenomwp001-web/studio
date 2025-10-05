@@ -18,7 +18,7 @@ import { moveStatusToDrafts } from '@/app/actions/statusActions';
 
 
 export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived, onOpenUploader }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void, onOpenUploader?: (defaultTab: string) => void; }) {
-    const { user: currentUser } = useAuth();
+    const { user } = useAuth();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
@@ -113,18 +113,18 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         return null;
     }
     
-    const isOwnStatus = currentUser?.id === selectedUser.id;
+    const isOwnStatus = user?.id === selectedUser.id;
     
     const isMediaStatus = !!currentStatus.mediaUrl;
     const isNoteStatus = !!currentStatus.note || !!currentStatus.spotifyUrl;
     
     const handleSaveAsDraftClick = async () => {
-        if (!isOwnStatus || !currentStatus) return;
+        if (!isOwnStatus || !currentStatus || !user) return;
         setIsProcessing(true);
-        const result = await moveStatusToDrafts(currentStatus.id, currentUser!.id);
+        const result = await moveStatusToDrafts(currentStatus.id, user.id);
         if (result.success) {
             onOpenChange(false);
-            onStatusArchived(currentUser!.id, currentStatus.id);
+            onStatusArchived(user.id, currentStatus.id);
             toast({ title: "Status Saved as Draft", description: "You can now edit it from the 'Manage Statuses' settings page."});
         } else {
             toast({ title: "Error", description: result.error, variant: "destructive" });
