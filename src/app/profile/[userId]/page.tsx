@@ -246,12 +246,8 @@ export default function UserProfilePage() {
   return (
     <>
     <div className="space-y-10 pb-10">
-      <header className="relative mb-16">
-          <div className="h-48 md:h-64 bg-gradient-to-br from-primary/30 to-accent/30 -z-10 overflow-hidden">
-             <Image src={placeholderImages.profile.banner} alt="Profile banner" fill objectFit="cover" className="opacity-50" data-ai-hint="abstract landscape" priority />
-          </div>
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-20">
+      <header className="container mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
               <div 
                   className={cn(
                       "relative p-1.5 rounded-full bg-background/80 backdrop-blur-sm shadow-xl",
@@ -299,7 +295,6 @@ export default function UserProfilePage() {
               <span><strong className="text-foreground">{liveFollowersCount ?? '...'}</strong> Followers</span>
               <span><strong className="text-foreground">{profileUser.followingCount || 0}</strong> Following</span>
             </div>
-        </div>
       </header>
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8">
