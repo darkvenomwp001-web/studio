@@ -124,24 +124,27 @@ export async function toggleReaction(postId: string, reactionType: ReactionType,
             }
             
             const postData = postDoc.data();
-            const reactions = postData.reactions || {};
-            const currentReaction = reactions[userId];
+            // Using a new variable for the reactions map is safer inside transactions
+            const newReactions = postData.reactions ? { ...postData.reactions } : {};
+            const currentReaction = newReactions[userId];
 
             if (currentReaction === reactionType) {
                 // User is removing their reaction
-                delete reactions[userId];
+                delete newReactions[userId];
             } else {
                 // User is adding or changing their reaction
-                reactions[userId] = reactionType;
+                newReactions[userId] = reactionType;
             }
 
-            transaction.update(postRef, { reactions });
+            transaction.update(postRef, { reactions: newReactions });
         });
 
         revalidatePath('/');
         return { success: true };
     } catch (error) {
         console.error("Error toggling reaction:", error);
-        return { success: false, error: 'Could not save reaction.' };
+        // Provide a more specific error if possible, otherwise generic.
+        const errorMessage = error instanceof Error ? error.message : 'Could not save reaction.';
+        return { success: false, error: errorMessage };
     }
 }
