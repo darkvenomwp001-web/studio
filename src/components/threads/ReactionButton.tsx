@@ -57,11 +57,10 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
         setIsProcessing(true);
         setIsPopoverOpen(false);
 
-        // Optimistic update
         const oldReactions = { ...reactions };
         const newReactions = { ...reactions };
         if (newReactions[user.id] === reactionType) {
-            delete newReactions[user.id]; // User is un-reacting
+            delete newReactions[user.id];
         } else {
             newReactions[user.id] = reactionType;
         }
@@ -69,12 +68,20 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
 
         const result = await toggleReaction(postId, reactionType);
         if (!result.success) {
-            // Revert on error
             setReactions(oldReactions);
             toast({ title: 'Error', description: result.error, variant: 'destructive' });
         }
         setIsProcessing(false);
     };
+
+    const handleButtonClick = () => {
+        if (currentUserReaction) {
+            handleReaction(currentUserReaction);
+        } else {
+            // If no reaction, clicking opens the popover, which is the default PopoverTrigger behavior.
+            // No extra logic needed here, but we prevent the handleReaction from being called.
+        }
+    }
     
     const DefaultIcon = () => (
         <Lottie
@@ -100,7 +107,7 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
     return (
         <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
             <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="group" disabled={isProcessing}>
+                <Button variant="ghost" size="sm" className="group" disabled={isProcessing} onClick={handleButtonClick}>
                     {isProcessing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
@@ -113,7 +120,7 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
                                 currentUserReaction === 'love' && 'text-red-500',
                                 currentUserReaction === 'like' && 'text-blue-500',
                                 (currentUserReaction === 'haha' || currentUserReaction === 'wow') && 'text-yellow-500',
-                                currentUserReaction === 'sad' && 'text-yellow-500',
+                                currentUserReaction === 'sad' && 'text-blue-300',
                              )}>
                                {currentUserReaction ? reactionLabels[currentUserReaction] : 'React'}
                              </span>
