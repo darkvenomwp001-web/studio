@@ -205,7 +205,7 @@ export interface Poll {
     options: { id: string; text: string; votes: string[] }[];
 }
 
-export type ReactionType = 'like' | 'love' | 'haha' | 'wow' | 'sad';
+export type ReactionType = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
 
 export interface ThreadPost {
     id: string;
@@ -265,5 +265,3 @@ export interface Song {
         text: string;
     }[];
 }
-
-    

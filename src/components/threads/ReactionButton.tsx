@@ -11,20 +11,21 @@ import type { ReactionType } from '@/types';
 import { toggleReaction } from '@/app/actions/threadActions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ThumbsUp } from 'lucide-react';
-import { likeAnimation, loveAnimation, hahaAnimation, wowAnimation, sadAnimation } from './reactions';
+import { likeAnimation, loveAnimation, hahaAnimation, wowAnimation, sadAnimation, angryAnimation } from './reactions';
 
 interface ReactionButtonProps {
     postId: string;
     reactions: { [key: string]: ReactionType };
 }
 
-const reactionTypes: ReactionType[] = ['like', 'love', 'haha', 'wow', 'sad'];
+const reactionTypes: ReactionType[] = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
 const reactionAnimations: { [key in ReactionType]: any } = {
     like: likeAnimation,
     love: loveAnimation,
     haha: hahaAnimation,
     wow: wowAnimation,
     sad: sadAnimation,
+    angry: angryAnimation,
 };
 const reactionLabels: { [key in ReactionType]: string } = {
     like: 'Like',
@@ -32,6 +33,7 @@ const reactionLabels: { [key in ReactionType]: string } = {
     haha: 'Haha',
     wow: 'Wow',
     sad: 'Sad',
+    angry: 'Angry',
 };
 
 export default function ReactionButton({ postId, reactions: initialReactions }: ReactionButtonProps) {
@@ -75,15 +77,15 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
     };
 
     const handleButtonClick = () => {
+        if (!user || user.isAnonymous) {
+            toast({ title: 'Please sign in to react.' });
+            return;
+        }
         // If user already reacted, clicking the button will remove the reaction
         if (currentUserReaction) {
             handleReaction(currentUserReaction);
         } else {
             // If user has not reacted, clicking will toggle the popover.
-             if (!user || user.isAnonymous) {
-                toast({ title: 'Please sign in to react.' });
-                return;
-            }
             setIsPopoverOpen(true);
         }
     }
@@ -122,6 +124,7 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
                                 currentUserReaction === 'haha' ? 'text-yellow-500' :
                                 currentUserReaction === 'wow' ? 'text-amber-500' :
                                 currentUserReaction === 'sad' ? 'text-blue-400' :
+                                currentUserReaction === 'angry' ? 'text-orange-600' :
                                 'text-muted-foreground group-hover:text-primary'
                              )}>
                                {currentUserReaction ? reactionLabels[currentUserReaction] : 'Like'}
@@ -138,6 +141,7 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
                             key={type}
                             onClick={() => handleReaction(type)}
                             className="p-1 rounded-full hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring transition-transform hover:scale-110"
+                            aria-label={reactionLabels[type]}
                         >
                             <Lottie
                                 animationData={reactionAnimations[type]}
