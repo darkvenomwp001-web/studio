@@ -7,36 +7,25 @@ import Lottie from 'lottie-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { Reaction, ReactionType } from '@/types';
+import { Reaction, ReactionType } from '@/types';
 import { toggleReaction } from '@/app/actions/threadActions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ThumbsUp } from 'lucide-react';
-import { likeAnimation, loveAnimation, hahaAnimation, wowAnimation, sadAnimation, angryAnimation } from './reactions';
-import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { likeAnimation, loveAnimation } from './reactions';
 
 interface ReactionButtonProps {
     postId: string;
     initialReactionsCount: number;
 }
 
-const reactionTypes: ReactionType[] = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
-const reactionAnimations: { [key in ReactionType]: any } = {
-    like: likeAnimation,
-    love: loveAnimation,
-    haha: hahaAnimation,
-    wow: wowAnimation,
-    sad: sadAnimation,
-    angry: angryAnimation,
+const reactionConfig: Record<'like' | 'love', { animation: any, label: string }> = {
+    like: { animation: likeAnimation, label: 'Like' },
+    love: { animation: loveAnimation, label: 'Love' },
 };
-const reactionLabels: { [key in ReactionType]: string } = {
-    like: 'Like',
-    love: 'Love',
-    haha: 'Haha',
-    wow: 'Wow',
-    sad: 'Sad',
-    angry: 'Angry',
-};
+
+const reactionTypes: ('like' | 'love')[] = ['like', 'love'];
 
 export default function ReactionButton({ postId, initialReactionsCount }: ReactionButtonProps) {
     const { user } = useAuth();
@@ -113,8 +102,8 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
     );
 
     const CurrentReactionIcon = () => {
-        if (!currentUserReaction) return <DefaultIcon />;
-        const animation = reactionAnimations[currentUserReaction];
+        if (!currentUserReaction || (currentUserReaction !== 'like' && currentUserReaction !== 'love')) return <DefaultIcon />;
+        const animation = reactionConfig[currentUserReaction].animation;
         if (!animation) return <DefaultIcon />;
         return (
             <Lottie
@@ -157,13 +146,9 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
                                 "font-semibold text-sm",
                                 currentUserReaction === 'love' ? 'text-red-500' :
                                 currentUserReaction === 'like' ? 'text-blue-500' :
-                                currentUserReaction === 'haha' ? 'text-yellow-500' :
-                                currentUserReaction === 'wow' ? 'text-amber-500' :
-                                currentUserReaction === 'sad' ? 'text-blue-400' :
-                                currentUserReaction === 'angry' ? 'text-orange-600' :
                                 'text-muted-foreground group-hover:text-primary'
                              )}>
-                               {currentUserReaction ? reactionLabels[currentUserReaction] : 'Like'}
+                               {currentUserReaction ? reactionConfig[currentUserReaction as 'like' | 'love'].label : 'Like'}
                              </span>
                              {reactionsCount > 0 && <span className="text-sm text-muted-foreground font-medium">{reactionsCount}</span>}
                         </div>
@@ -177,10 +162,10 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
                             key={type}
                             onClick={() => handleReaction(type)}
                             className="p-1 rounded-full hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring transition-transform hover:scale-110"
-                            aria-label={reactionLabels[type]}
+                            aria-label={reactionConfig[type].label}
                         >
                             <Lottie
-                                animationData={reactionAnimations[type]}
+                                animationData={reactionConfig[type].animation}
                                 loop={true}
                                 autoplay={true}
                                 className="w-8 h-8"

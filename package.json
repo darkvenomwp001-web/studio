@@ -49,6 +49,7 @@
     "embla-carousel-react": "^8.0.0",
     "emoji-picker-react": "^4.11.0",
     "firebase": "^11.9.1",
+    "firebase-admin": "^12.2.0",
     "genkit": "^1.8.0",
     "lottie-react": "^2.4.0",
     "lucide-react": "^0.418.0",
