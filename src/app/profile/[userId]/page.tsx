@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, FormEvent, useMemo } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -162,6 +162,12 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
     }
   };
 
+  const getFormattedTimestamp = (timestamp: any) => {
+    if (!timestamp) return 'now';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return formatDistanceToNow(date, { addSuffix: true });
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {isOwnProfile && (
@@ -204,7 +210,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
                     <p className="font-semibold">{post.author.displayName}</p>
-                    <p className="text-xs text-muted-foreground">{post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'now'}</p>
+                    <p className="text-xs text-muted-foreground">{getFormattedTimestamp(post.timestamp)}</p>
                   </div>
                   <p className="whitespace-pre-line mt-2">{post.content}</p>
                 </div>
