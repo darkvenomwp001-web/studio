@@ -1,16 +1,16 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Music, PenSquare, Quote } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Music, PenSquare, Quote, Annoyed, Send } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Story, User as AppUser, StatusUpdate, ThreadPost } from '@/types';
+import type { Story, User as AppUser, Announcement } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -24,15 +24,20 @@ import {
   limit,
   type Unsubscribe,
   getDoc,
-  Timestamp
+  Timestamp,
+  addDoc,
+  serverTimestamp,
+  getDocs
 } from 'firebase/firestore';
 import FollowerUserCard from '@/components/shared/FollowerUserCard';
 import placeholderImages from '@/app/lib/placeholder-images.json';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import StatusViewer from '@/components/status/StatusViewer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import ThreadPostCard from '@/components/threads/ThreadPostCard';
+import { Textarea } from '@/components/ui/textarea';
+import { formatDistanceToNow } from 'date-fns';
+import { addNotification } from '@/app/actions/notificationActions';
 
 interface ProfileStoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>;
@@ -88,24 +93,151 @@ function ProfileSong({ user }: { user: AppUser }) {
     );
 }
 
+function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [newAnnouncement, setNewAnnouncement] = useState('');
+  const [isPosting, setIsPosting] = useState(false);
+
+  useEffect(() => {
+    setIsLoading(true);
+    const q = query(
+      collection(db, 'announcements'),
+      where('author.id', '==', profileUser.id),
+      orderBy('timestamp', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement)));
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching announcements:", error);
+      toast({ title: 'Error loading announcements', variant: 'destructive' });
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
+  }, [profileUser.id, toast]);
+  
+  const handlePostAnnouncement = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!user || !newAnnouncement.trim()) return;
+
+    setIsPosting(true);
+    try {
+      const authorSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
+      
+      // Add announcement to the database
+      await addDoc(collection(db, 'announcements'), {
+        author: authorSummary,
+        content: newAnnouncement.trim(),
+        timestamp: serverTimestamp()
+      });
+
+      // Fetch followers to send notifications
+      const followersQuery = query(collection(db, 'users'), where('followingIds', 'array-contains', user.id));
+      const followersSnapshot = await getDocs(followersQuery);
+      
+      const batch = [];
+      for (const followerDoc of followersSnapshot.docs) {
+          const notification = {
+            userId: followerDoc.id,
+            type: 'author_announcement',
+            message: `posted a new announcement.`,
+            link: `/profile/${user.id}?tab=announcements`,
+            actor: authorSummary
+          };
+          batch.push(addNotification(notification));
+      }
+      
+      await Promise.all(batch);
+
+      setNewAnnouncement('');
+      toast({ title: 'Announcement posted!' });
+    } catch (error) {
+      console.error("Error posting announcement:", error);
+      toast({ title: 'Could not post announcement', variant: 'destructive' });
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      {isOwnProfile && (
+        <form onSubmit={handlePostAnnouncement}>
+          <Card>
+            <CardContent className="p-4 flex gap-4">
+              <Avatar className="hidden sm:block">
+                <AvatarImage src={user?.avatarUrl} />
+                <AvatarFallback>{user?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 space-y-2">
+                <Textarea
+                  value={newAnnouncement}
+                  onChange={(e) => setNewAnnouncement(e.target.value)}
+                  placeholder="Post an update for your followers..."
+                  className="bg-transparent border-0 focus-visible:ring-0 shadow-none resize-none p-0"
+                  disabled={isPosting}
+                />
+                 <Button disabled={isPosting || !newAnnouncement.trim()}>
+                    {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
+                    Post
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+      )}
+
+      {isLoading ? (
+        <div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+      ) : announcements.length > 0 ? (
+        announcements.map(post => (
+          <Card key={post.id}>
+            <CardContent className="p-4">
+              <div className="flex gap-3">
+                 <Avatar className="h-8 w-8">
+                    <AvatarImage src={post.author.avatarUrl} />
+                    <AvatarFallback>{post.author.username?.charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                <div className="flex-1">
+                  <div className="flex justify-between items-center">
+                    <p className="font-semibold">{post.author.displayName}</p>
+                    <p className="text-xs text-muted-foreground">{post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'now'}</p>
+                  </div>
+                  <p className="whitespace-pre-line mt-2">{post.content}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      ) : (
+        <div className="text-center py-16 text-muted-foreground bg-card rounded-lg">
+          <p>{isOwnProfile ? "You haven't" : `${profileUser.displayName} hasn't`} posted any announcements yet.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function UserProfilePage() {
   const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading, signOutFirebase } = useAuth();
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const userId = Array.isArray(params.userId) ? params.userId[0] : params.userId;
   const { toast } = useToast();
 
   const [profileUser, setProfileUser] = useState<AppUser | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [liveFollowersCount, setLiveFollowersCount] = useState<number | null>(null);
+  const defaultTab = searchParams.get('tab') === 'announcements' ? 'announcements' : 'works';
 
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
   const [privateWorks, setPrivateWorks] = useState<Story[]>([]); 
-  const [userThreads, setUserThreads] = useState<ThreadPost[]>([]);
 
-  const [userActiveStatuses, setUserActiveStatuses] = useState<StatusUpdate[]>([]);
-  const [isStatusViewerOpen, setIsStatusViewerOpen] = useState(false);
-  
   const isOwnProfile = currentUser?.id === userId;
 
   useEffect(() => {
@@ -118,9 +250,7 @@ export default function UserProfilePage() {
     setProfileUser(null);
     setPublishedWorks([]);
     setPrivateWorks([]);
-    setUserThreads([]);
     setLiveFollowersCount(null);
-    setUserActiveStatuses([]);
     setIsLoadingData(true);
 
     const userDocRef = doc(db, 'users', userId);
@@ -143,22 +273,10 @@ export default function UserProfilePage() {
       setLiveFollowersCount(snapshot.size);
     }, console.error);
 
-    const activeStatusesQuery = query(
-      collection(db, 'statusUpdates'), 
-      where('authorId', '==', userId), 
-      where('status', '==', 'published'),
-      where('expiresAt', '>', new Date()),
-      orderBy('expiresAt', 'desc')
-    );
-    const unsubscribeStatuses = onSnapshot(activeStatusesQuery, (snapshot) => {
-        const statuses = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as StatusUpdate));
-        setUserActiveStatuses(statuses);
-    });
 
     return () => {
       unsubscribeUser();
       unsubscribeFollowersCount();
-      unsubscribeStatuses();
     };
   }, [userId, router, toast]);
 
@@ -166,7 +284,6 @@ export default function UserProfilePage() {
     if (!profileUser) {
         setPublishedWorks([]);
         setPrivateWorks([]);
-        setUserThreads([]);
         return;
     }
 
@@ -189,14 +306,8 @@ export default function UserProfilePage() {
         toast({ title: "Error", description: "Could not load stories.", variant: "destructive" });
     });
 
-    const threadsQuery = query(collection(db, 'feedPosts'), where('author.id', '==', profileUser.id), orderBy('timestamp', 'desc'));
-    const unsubThreads = onSnapshot(threadsQuery, (snapshot) => {
-        setUserThreads(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ThreadPost)));
-    }, console.error);
-
     return () => {
         unsubStories();
-        unsubThreads();
     };
   }, [profileUser, isOwnProfile, toast]);
 
@@ -213,10 +324,6 @@ export default function UserProfilePage() {
     } else {
       await followUser(profileUser.id);
     }
-  };
-
-  const onStatusArchived = (archivedUserId: string, statusId: string) => {
-        setUserActiveStatuses(prev => prev.filter(s => s.id !== statusId));
   };
 
 
@@ -241,25 +348,16 @@ export default function UserProfilePage() {
 
   const isFollowing = currentUser?.followingIds?.includes(profileUser.id) || false;
   const displayName = profileUser.displayName || profileUser.username;
-  const hasActiveStatus = userActiveStatuses.length > 0;
 
   return (
     <>
     <div className="space-y-10 pb-10">
       <header className="container mx-auto px-4 sm:px-6 lg:px-8 mt-8">
           <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
-              <div 
-                  className={cn(
-                      "relative p-1.5 rounded-full bg-background/80 backdrop-blur-sm shadow-xl",
-                      hasActiveStatus && "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 cursor-pointer"
-                  )}
-                  onClick={() => hasActiveStatus && setIsStatusViewerOpen(true)}
-              >
-                  <Avatar className="h-32 w-32 md:h-40 md:w-40 border-4 border-background">
-                      <AvatarImage src={profileUser.avatarUrl || 'https://placehold.co/160x160.png'} alt={displayName} data-ai-hint="profile person" />
-                      <AvatarFallback className="text-4xl">{displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-              </div>
+              <Avatar className="h-32 w-32 md:h-40 md:w-40 border-4 border-background shadow-xl">
+                  <AvatarImage src={profileUser.avatarUrl || 'https://placehold.co/160x160.png'} alt={displayName} data-ai-hint="profile person" />
+                  <AvatarFallback className="text-4xl">{displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
+              </Avatar>
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">{displayName}</h1>
               <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
@@ -298,10 +396,10 @@ export default function UserProfilePage() {
       </header>
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <Tabs defaultValue="works" className="w-full">
+        <Tabs defaultValue={defaultTab} className="w-full">
           <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
             <TabsTrigger value="works"><PenSquare className="mr-2 h-4 w-4" />Works</TabsTrigger>
-            <TabsTrigger value="threads"><Quote className="mr-2 h-4 w-4" />Threads</TabsTrigger>
+            <TabsTrigger value="announcements"><Annoyed className="mr-2 h-4 w-4" />Announcements</TabsTrigger>
           </TabsList>
           
           <TabsContent value="works" className="mt-6">
@@ -337,32 +435,12 @@ export default function UserProfilePage() {
             )}
           </TabsContent>
 
-          <TabsContent value="threads" className="mt-6">
-             <div className="max-w-2xl mx-auto space-y-6">
-                {userThreads.length > 0 ? (
-                    userThreads.map(post => <ThreadPostCard key={post.id} post={post} onHide={() => {}} />)
-                ) : (
-                    <div className="text-center py-16 text-muted-foreground bg-card rounded-lg">
-                        <p>{isOwnProfile ? "You haven't" : `${displayName} hasn't`} posted anything yet.</p>
-                    </div>
-                )}
-             </div>
+          <TabsContent value="announcements" className="mt-6">
+             <AnnouncementsTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
           </TabsContent>
         </Tabs>
       </main>
     </div>
-    
-    <StatusViewer
-        isOpen={isStatusViewerOpen}
-        onOpenChange={setIsStatusViewerOpen}
-        selectedUser={profileUser}
-        userStatuses={userActiveStatuses}
-        onNext={() => setIsStatusViewerOpen(false)} // No next user on this page
-        onPrev={() => setIsStatusViewerOpen(false)} // No prev user on this page
-        onStatusArchived={onStatusArchived}
-    />
     </>
   );
 }
-
-    

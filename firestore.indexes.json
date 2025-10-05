@@ -66,24 +66,6 @@
       ]
     },
     {
-      "collectionGroup": "statusUpdates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "authorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isTrashed",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "trashedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "prompts",
       "queryScope": "COLLECTION",
       "fields": [
@@ -101,58 +83,9 @@
       "collectionGroup": "statusUpdates",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "isArchived",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isTrashed",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "archivedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "statusUpdates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "authorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isArchived",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isTrashed",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "archivedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "statusUpdates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "authorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "expiresAt",
-          "order": "ASCENDING"
-        }
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "isHidden", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
       ]
     },
     {
@@ -208,21 +141,11 @@
       ]
     },
     {
-      "collectionGroup": "statusUpdates",
+      "collectionGroup": "announcements",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "isTrashed",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "expiresAt",
-          "order": "ASCENDING"
-        }
+        { "fieldPath": "author.id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     }
   ],

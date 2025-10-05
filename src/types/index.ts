@@ -130,7 +130,7 @@ export interface Annotation {
 export interface NotificationType {
     id: string;
     userId: string;
-    type: 'new_follower' | 'new_chapter' | 'story_update' | 'comment_reply' | 'mention' | 'announcement' | 'new_letter' | 'letter_response' | 'premium_access' | 'achievement_unlocked';
+    type: 'new_follower' | 'new_chapter' | 'story_update' | 'comment_reply' | 'mention' | 'announcement' | 'new_letter' | 'letter_response' | 'premium_access' | 'achievement_unlocked' | 'author_announcement';
     message: string;
     link: string;
     isRead: boolean;
@@ -267,4 +267,11 @@ export interface Song {
         time: number;
         text: string;
     }[];
+}
+
+export interface Announcement {
+    id: string;
+    author: UserSummary;
+    content: string;
+    timestamp: any;
 }

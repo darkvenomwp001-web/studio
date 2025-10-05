@@ -15,6 +15,8 @@
           "followingCount": { "type": "number", "description": "Total number of users they follow." },
           "followingIds": { "type": "array", "description": "An array of user IDs that this user follows." },
           "readingList": { "type": "array", "description": "Array of story objects the user has saved." },
+          "readChapters": { "type": "array", "description": "Array of chapter IDs the user has read." },
+          "shelves": { "type": "array", "description": "Array of custom bookshelves." },
           "level": { "type": "number", "description": "User's current level based on XP." },
           "xp": { "type": "number", "description": "User's experience points, earned through engagement." },
           "achievements": { "type": "array", "description": "Array of achievement objects the user has unlocked." },
@@ -96,16 +98,12 @@
           }
         }
       },
-      "feedPosts": {
-        "description": "Posts that appear on the main feed, created by users.",
+      "globalChatMessages": {
+        "description": "Stores all messages for the public real-time chat room.",
         "fields": {
-          "authorId": { "type": "string", "description": "ID of the post author.", "reference": "users" },
-          "content": { "type": "string", "description": "Text content of the post." },
-          "imageUrl": { "type": "string", "description": "URL of an image attached to the post." },
-          "storyId": { "type": "string", "description": "ID of a story attached to the post.", "reference": "stories" },
-          "likesCount": { "type": "number", "description": "Total number of likes." },
-          "likedBy": { "type": "array", "description": "Array of user IDs who liked the post." },
-          "timestamp": { "type": "timestamp", "description": "When the post was created." }
+          "author": { "type": "map", "description": "Summary object of the message author." },
+          "content": { "type": "string", "description": "Text content of the message." },
+          "timestamp": { "type": "timestamp", "description": "When the message was sent." }
         }
       },
       "statusUpdates": {
@@ -114,10 +112,9 @@
           "authorId": { "type": "string", "description": "ID of the status author.", "reference": "users" },
           "mediaUrl": { "type": "string", "description": "URL of the image or video for the status." },
           "status": { "type": "string", "description": "'published' or 'draft'." },
-          "isArchived": { "type": "boolean", "description": "True if the status is archived after expiring." },
-          "isTrashed": { "type": "boolean", "description": "True if the user moved the status to trash." },
           "createdAt": { "type": "timestamp", "description": "When the status was created." },
-          "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." }
+          "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." },
+          "isHidden": { "type": "boolean", "description": "True if the user hid the status." }
         }
       },
       "prompts": {
@@ -144,6 +141,59 @@
           "isReadByAuthor": { "type": "boolean", "description": "If the author has opened/read the letter." },
           "authorResponse": { "type": "string", "description": "An optional response from the author." },
           "timestamp": { "type": "timestamp", "description": "When the letter was sent." }
+        }
+      },
+      "annotations": {
+        "description": "Stores user highlights and notes on story content.",
+        "fields": {
+          "userId": { "type": "string", "description": "The user who created the annotation.", "reference": "users" },
+          "storyId": { "type": "string", "description": "ID of the story being annotated.", "reference": "stories" },
+          "chapterId": { "type": "string", "description": "ID of the chapter being annotated." },
+          "highlightedText": { "type": "string", "description": "The text that was highlighted by the user." },
+          "highlightColor": { "type": "string", "description": "The color used for the highlight (e.g., hex code)." },
+          "note": { "type": "string", "description": "A private note or comment from the user about the highlight." },
+          "timestamp": { "type": "timestamp", "description": "When the annotation was created." }
+        }
+      },
+      "feedPosts": {
+        "description": "Posts that appear on the main feed, created by users.",
+        "fields": {
+          "author": { "type": "map", "description": "Summary object of the post author." },
+          "content": { "type": "string", "description": "Text content of the post." },
+          "imageUrl": { "type": "string", "description": "URL of an image attached to the post." },
+          "storyId": { "type": "string", "description": "ID of a story attached to the post.", "reference": "stories" },
+          "songUrl": { "type": "string", "description": "URL of a song attached to the post." },
+          "songLyricSnippet": { "type": "string", "description": "A snippet of lyrics from the attached song." },
+          "reactionsCount": { "type": "number", "description": "Total number of reactions." },
+          "commentsCount": { "type": "number", "description": "Total number of comments." },
+          "timestamp": { "type": "timestamp", "description": "When the post was created." }
+        },
+        "subcollections": {
+            "comments": {
+                "description": "Comments on a feed post.",
+                "fields": {
+                    "user": { "type": "map", "description": "Summary object of the commenter." },
+                    "content": { "type": "string", "description": "The text of the comment." },
+                    "timestamp": { "type": "timestamp", "description": "When the comment was posted." }
+                }
+            },
+            "reactions": {
+                "description": "Reactions to a feed post. The document ID is the user ID.",
+                "fields": {
+                    "type": { "type": "string", "description": "The type of reaction (e.g., love)." },
+                    "userId": { "type": "string", "description": "The ID of the user who reacted." },
+                    "timestamp": { "type": "timestamp", "description": "When the reaction was made." },
+                    "user": { "type": "map", "description": "Summary object of the user who reacted." }
+                }
+            }
+        }
+      },
+      "announcements": {
+        "description": "Author announcements to their followers.",
+        "fields": {
+          "author": { "type": "map", "description": "Summary object of the announcement author." },
+          "content": { "type": "string", "description": "Text content of the announcement." },
+          "timestamp": { "type": "timestamp", "description": "When the announcement was posted." }
         }
       }
     }
