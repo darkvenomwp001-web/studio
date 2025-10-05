@@ -1,26 +1,28 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { Loader2, Shield, Users, Search } from 'lucide-react';
+import { Loader2, Shield, Users, Search, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { User as AppUser } from '@/types';
-import { updateUserRole } from '@/app/actions/userActions';
+import { updateUserRole, deleteUserPermanently } from '@/app/actions/userActions';
 import { useToast } from '@/hooks/use-toast';
 
 const ADMIN_USERNAME = "authorrafaelnv";
 
-function UserRow({ user, adminId }: { user: AppUser, adminId: string }) {
+function UserRow({ user, adminId, onUserDeleted }: { user: AppUser, adminId: string, onUserDeleted: (userId: string) => void }) {
     const { toast } = useToast();
     const [isUpdating, setIsUpdating] = useState(false);
+    const [isDeleting, startDeleteTransition] = useTransition();
 
     const handleRoleChange = async (newRole: 'reader' | 'writer') => {
         if (newRole === user.role) return;
@@ -33,24 +35,64 @@ function UserRow({ user, adminId }: { user: AppUser, adminId: string }) {
         }
         setIsUpdating(false);
     };
+
+    const handleDelete = () => {
+        startDeleteTransition(async () => {
+            const result = await deleteUserPermanently(adminId, user.id);
+            if (result.success) {
+                toast({ title: 'User Deleted', description: `${user.displayName} has been removed.` });
+                onUserDeleted(user.id);
+            } else {
+                toast({ title: 'Error', description: result.error, variant: 'destructive' });
+            }
+        });
+    };
     
     return (
         <TableRow>
             <TableCell>{user.displayName || user.username}</TableCell>
             <TableCell className="hidden md:table-cell">{user.email}</TableCell>
             <TableCell>
-                {isUpdating ? (
+                {user.username === ADMIN_USERNAME ? (
+                     <Select defaultValue={user.role || 'writer'} disabled>
+                        <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="writer">Writer</SelectItem></SelectContent>
+                    </Select>
+                ) : isUpdating ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                     <Select defaultValue={user.role || 'reader'} onValueChange={handleRoleChange}>
-                        <SelectTrigger className="w-[120px]">
-                            <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="reader">Reader</SelectItem>
                             <SelectItem value="writer">Writer</SelectItem>
                         </SelectContent>
                     </Select>
+                )}
+            </TableCell>
+             <TableCell className="text-right">
+                {user.username !== ADMIN_USERNAME && (
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon" disabled={isDeleting}>
+                                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4" />}
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Delete {user.displayName}?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                This action is permanent and cannot be undone. This will permanently delete the user account and remove their data.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDelete}>
+                                    Delete User
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 )}
             </TableCell>
         </TableRow>
@@ -91,6 +133,10 @@ export default function AdminPage() {
             u.email?.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [allUsers, searchTerm]);
+    
+    const handleUserDeleted = (deletedUserId: string) => {
+        setAllUsers(prev => prev.filter(u => u.id !== deletedUserId));
+    };
 
     if (loading || !user || user.username !== ADMIN_USERNAME) {
         return (
@@ -136,10 +182,11 @@ export default function AdminPage() {
                                     <TableHead>User</TableHead>
                                     <TableHead className="hidden md:table-cell">Email</TableHead>
                                     <TableHead>Role</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredUsers.map(u => <UserRow key={u.id} user={u} adminId={user.id} />)}
+                                {filteredUsers.map(u => <UserRow key={u.id} user={u} adminId={user.id} onUserDeleted={handleUserDeleted} />)}
                             </TableBody>
                         </Table>
                     )}

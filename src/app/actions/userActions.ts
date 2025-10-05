@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import type { Achievement } from '@/types';
 import { addNotification } from './notificationActions';
 
@@ -100,17 +100,14 @@ export async function unlockAchievement(userId: string, achievementKey: keyof ty
 
 export async function updateUserRole(adminId: string, targetUserId: string, newRole: 'reader' | 'writer'): Promise<{ success: boolean; error?: string }> {
     try {
-        // Find the admin user by username to get their actual ID
-        const adminQuery = query(collection(db, 'users'), where('username', '==', 'authorrafaelnv'));
-        const adminSnapshot = await getDocs(adminQuery);
-        if (adminSnapshot.empty) {
-            return { success: false, error: 'Admin account not found.' };
+        // First, check if the user trying to perform the action is an admin.
+        const adminUserDoc = await getDoc(doc(db, 'users', adminId));
+        if (!adminUserDoc.exists() || adminUserDoc.data().username !== 'authorrafaelnv') {
+            return { success: false, error: 'Unauthorized operation. You are not an administrator.' };
         }
-        const realAdminId = adminSnapshot.docs[0].id;
-
-        // Check if the person making the request is the real admin
-        if (adminId !== realAdminId || !['reader', 'writer'].includes(newRole)) {
-            return { success: false, error: 'Unauthorized operation.' };
+        
+        if (!['reader', 'writer'].includes(newRole)) {
+             return { success: false, error: 'Invalid role specified.' };
         }
 
         if (!targetUserId) {
@@ -128,4 +125,33 @@ export async function updateUserRole(adminId: string, targetUserId: string, newR
 }
 
 
+export async function deleteUserPermanently(adminId: string, targetUserId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const adminUserDoc = await getDoc(doc(db, 'users', adminId));
+    if (!adminUserDoc.exists() || adminUserDoc.data().username !== 'authorrafaelnv') {
+        return { success: false, error: 'Unauthorized operation.' };
+    }
+    
+    if (!targetUserId) {
+      return { success: false, error: 'Target user ID is required.' };
+    }
+    
+    // You cannot delete the main admin account
+    if (targetUserId === adminId) {
+        return { success: false, error: 'The main admin account cannot be deleted.' };
+    }
 
+    const targetUserRef = doc(db, 'users', targetUserId);
+    await deleteDoc(targetUserRef);
+    
+    // Here you would also add logic to delete the user from Firebase Auth
+    // and clean up their content (stories, comments, etc.). 
+    // This part is complex and should be handled with care in a real app.
+    // For now, we just delete the Firestore user document.
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return { success: false, error: 'Could not delete user.' };
+  }
+}
