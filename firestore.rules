@@ -5,138 +5,137 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Helper functions
-    function isAuthenticated() {
-      return request.auth != null && request.auth.uid != null;
-    }
-    
-    function isNotGuest() {
-      return request.auth.token.firebase.sign_in_provider != 'anonymous';
+    function isSignedIn() {
+      return request.auth != null;
     }
 
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-
-    function isAuthor() {
-      // Check if user has 'writer' role
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'writer';
+    
+    function getRole(userId) {
+        return get(/databases/$(database)/documents/users/$(userId)).data.role;
     }
     
-    function isStoryPublic() {
-        return resource.data.visibility == 'Public';
+    function isWriter() {
+        return isSignedIn() && getRole(request.auth.uid) == 'writer';
     }
     
-    function isStoryOwner(storyId) {
-        let story = get(/databases/$(database)/documents/stories/$(storyId));
-        return story.data.author.id == request.auth.uid;
+    function isAdmin() {
+        return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == 'authorrafaelnv';
     }
     
-    function isStoryCollaborator(storyId) {
-        let story = get(/databases/$(database)/documents/stories/$(storyId));
-        return request.auth.uid in story.data.collaboratorIds;
-    }
-
     // Users Collection
     match /users/{userId} {
-      allow read;
-      allow create: if isAuthenticated() && isOwner(userId);
-      allow update: if isAuthenticated() && isOwner(userId) && 
-                    !('role' in request.resource.data) &&
-                    !('isBanned' in request.resource.data) &&
-                    !('followersCount' in request.resource.data) &&
-                    !('followingCount' in request.resource.data);
-      allow delete: if false; // Users shouldn't delete their own accounts directly
+      allow read: if true;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isAdmin(); // Only admin can delete users
     }
 
     // Stories Collection
     match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public' || 
-                   (resource.data.visibility == 'Unlisted' && isAuthenticated()) ||
-                   (isAuthenticated() && (isStoryOwner(storyId) || isStoryCollaborator(storyId)));
-      allow create: if isAuthenticated() && isNotGuest() && isAuthor() && isOwner(request.resource.data.author.id);
-      allow update: if isAuthenticated() && (isStoryOwner(storyId) || isStoryCollaborator(storyId));
-      allow delete: if isAuthenticated() && isStoryOwner(storyId);
-    }
-    
-    // Comments Collection
-    match /comments/{commentId} {
-        allow read;
-        allow create: if isAuthenticated() && isNotGuest();
-        allow update: if isAuthenticated() && isOwner(resource.data.user.id);
-        allow delete: if isAuthenticated() && isOwner(resource.data.user.id);
+      allow read: if resource.data.visibility == 'Public' 
+                    || (resource.data.visibility == 'Unlisted' && isSignedIn())
+                    || (isSignedIn() && request.auth.uid == resource.data.author.id)
+                    || (isSignedIn() && request.auth.uid in resource.data.collaboratorIds);
+
+      allow create: if isWriter();
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.author.id;
     }
 
+    // Comments Collection on Chapters
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.user.id;
+    }
+    
     // Notifications Collection
     match /notifications/{notificationId} {
-        allow read: if isAuthenticated() && isOwner(resource.data.userId);
-        allow create: if isAuthenticated(); // Server-side or trusted client actions create notifications
-        allow update: if isAuthenticated() && isOwner(resource.data.userId);
-        allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn(); // Can be created by server-side logic or trusted client actions
     }
 
     // Conversations & Messages
     match /conversations/{conversationId} {
-        allow read, update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
-        allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participantIds;
-        
-        match /messages/{messageId} {
-            allow read, create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        }
+      allow read, create: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+
+      match /messages/{messageId} {
+        allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow update, delete: if false; // Messages are immutable
+      }
     }
     
     // Global Chat
     match /globalChatMessages/{messageId} {
-        allow read;
-        allow create: if isAuthenticated() && isNotGuest();
+      allow read: if true;
+      allow create: if isSignedIn() && !request.auth.token.isAnonymous;
+      allow update, delete: if false;
     }
 
     // Status Updates
     match /statusUpdates/{statusId} {
-        allow read;
-        allow create: if isAuthenticated() && isAuthor() && isOwner(request.resource.data.authorId);
-        allow update: if isAuthenticated() && isOwner(resource.data.authorId);
-        allow delete: if isAuthenticated() && isNotGuest();
-    }
-    
-    // Prompts
-    match /prompts/{promptId} {
-        allow read: if resource.data.isArchived == false;
-        allow create: if isAuthenticated() && isAuthor() && isOwner(request.resource.data.author.id);
-        allow update, delete: if isAuthenticated() && isOwner(resource.data.author.id);
+      allow read: if resource.data.status == 'published' && resource.data.expiresAt > request.time;
+      allow create: if isWriter() && request.auth.uid == request.resource.data.authorId;
+      allow update: if isSignedIn() && isOwner(resource.data.authorId); // For hiding
+      allow delete: if isSignedIn() && isOwner(resource.data.authorId);
     }
 
+    // Prompts
+    match /prompts/{promptId} {
+      allow read: if resource.data.isArchived == false;
+      allow create: if isWriter();
+      allow update, delete: if isSignedIn() && isOwner(resource.data.author.id);
+    }
+    
     // Letters
     match /letters/{letterId} {
-        allow read: if (resource.data.visibility == 'public') || 
-                     (isAuthenticated() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId)));
-        allow create: if isAuthenticated() && isNotGuest() && isOwner(request.resource.data.reader.id);
-        allow update: if isAuthenticated() && isOwner(resource.data.authorId); // Only author can pin/respond
-        allow delete: if isAuthenticated() && isOwner(resource.data.reader.id); // Only reader can delete
+       allow read: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
+       allow create: if isSignedIn();
+       allow update: if isSignedIn() && isOwner(resource.data.authorId); // Only author can pin/respond
+       allow delete: if isSignedIn() && isOwner(resource.data.reader.id); // Only reader can delete
     }
 
     // Annotations
     match /annotations/{annotationId} {
-        allow read, write: if isAuthenticated() && isOwner(resource.data.userId);
+      allow read, create, update, delete: if isSignedIn() && isOwner(resource.data.userId);
     }
 
+    // Announcements by authors
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow create: if isWriter() && isOwner(request.resource.data.author.id);
+      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
+    }
+    
     // Feed Posts
     match /feedPosts/{postId} {
-        allow read;
-        allow create: if isAuthenticated() && isNotGuest() && isOwner(request.resource.data.author.id);
-        allow update: if isAuthenticated() && isOwner(resource.data.author.id);
-        allow delete: if isAuthenticated() && isNotGuest();
+      allow read: if true;
+      allow create: if isSignedIn() && !request.auth.token.isAnonymous;
+      
+      // Only author can update content, but anyone can update reactionsCount
+      allow update: if isSignedIn() && 
+                    ( (isOwner(resource.data.author.id) && request.resource.data.content != resource.data.content)
+                      || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionsCount'])) );
+                      
+      allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAdmin());
 
-        match /comments/{commentId} {
-            allow read;
-            allow create: if isAuthenticated() && isNotGuest();
-            allow update, delete: if isAuthenticated() && isOwner(resource.data.user.id);
-        }
-
-        match /reactions/{userId} {
-            allow read;
-            allow write: if isAuthenticated() && isOwner(userId);
-        }
+      // Feed Post Comments Subcollection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && !request.auth.token.isAnonymous;
+        allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
+      }
+      
+      // Feed Post Reactions Subcollection
+      match /reactions/{userId} {
+        allow read: if true;
+        allow create, delete: if isSignedIn() && isOwner(userId);
+        allow update: if false; // No updates allowed, only create/delete
+      }
     }
-
   }
 }
