@@ -614,9 +614,6 @@ export default function StatusFeature() {
           <DialogContent className="p-0 m-0 border-0 w-screen h-[80vh] max-h-[600px] max-w-full sm:max-w-md flex flex-col gap-0 rounded-lg">
             <DialogHeader className="p-4 flex-row items-center justify-between border-b">
                 <DialogTitle>Create Status</DialogTitle>
-                <DialogClose asChild>
-                  <Button variant="ghost" size="icon"><X className="h-5 w-5" /></Button>
-                </DialogClose>
             </DialogHeader>
             <div className="flex-grow flex flex-col overflow-hidden px-6 pb-6">
               {uploaderContent()}
@@ -642,5 +639,3 @@ export default function StatusFeature() {
     </div>
   );
 }
-
-    
