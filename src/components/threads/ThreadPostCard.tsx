@@ -16,14 +16,13 @@ import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firest
 import { db } from '@/lib/firebase';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '../shared/SpotifyPlayer';
-import { deleteThreadPost, updateThreadPost } from '@/app/actions/threadActions';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ThreadPostComments from './ThreadPostComments';
 
-export default function ThreadPostCard({ post }: { post: ThreadPost }) {
+export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onHide: (postId: string) => void }) {
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -63,21 +62,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   };
   
   const isOwner = user?.id === post.author.id;
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const handleDelete = async () => {
-    if (!isOwner || !user) return;
-    setIsDeleting(true);
-    const result = await deleteThreadPost(post.id, user.id);
-    if(result.success) {
-        toast({ title: "Post Deleted" });
-        // The post will disappear from the feed due to the real-time listener in the parent.
-    } else {
-        toast({ title: "Error", description: result.error, variant: 'destructive'});
-    }
-    setIsDeleting(false);
-  }
-
+  
   return (
     <AlertDialog>
         <Dialog>
@@ -103,21 +88,17 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         {isOwner && (
-                        <>
                             <DropdownMenuItem asChild>
                                 <Link href={`/threads/edit/${post.id}`}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Edit Post
                                 </Link>
                             </DropdownMenuItem>
-                            <AlertDialogTrigger asChild>
-                                <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete Post
-                                </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                        </>
                         )}
+                        <DropdownMenuItem onClick={() => onHide(post.id)}>
+                            <EyeOff className="mr-2 h-4 w-4" />
+                            Hide Post
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </CardHeader>
@@ -163,21 +144,6 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                 </DialogTrigger>
             </CardFooter>
             </Card>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete your post.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-                    {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Delete
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
             <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Comments</DialogTitle>
