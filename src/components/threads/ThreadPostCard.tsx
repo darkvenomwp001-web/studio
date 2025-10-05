@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, MoreHorizontal, EyeOff, Loader2 } from 'lucide-react';
+import { MessageCircle, MoreHorizontal, EyeOff, Loader2, Edit3 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -29,23 +29,25 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
   const isOwner = user?.id === post.author.id;
 
   const handleDeleteAndHide = () => {
-    if (!isOwner || !user) {
-      // For non-owners, "Hide" is purely a client-side action
-      setIsHiding(true);
-      setTimeout(() => onHide(post.id), 300); // Allow time for fade-out
-      return;
+    // For both owner and non-owner, this action will delete the post.
+    // If you want non-owners to only hide locally, this logic would change.
+    if (!user) {
+        toast({ title: 'Please sign in', description: 'You must be signed in to hide posts.', variant: 'destructive'});
+        return;
     }
+    
+    setIsHiding(true); // Start fade-out immediately
 
     startDeleteTransition(async () => {
-      setIsHiding(true); // Start fade-out immediately
       const result = await deleteThreadPost(post.id, user.id);
       if (result.success) {
-        toast({ title: 'Post Deleted' });
-        // The parent component will remove it from the list via onHide
+        toast({ title: 'Post Hidden' });
+        // The parent component will remove it from the list via onHide after the animation
         setTimeout(() => onHide(post.id), 300);
       } else {
-        toast({ title: 'Error', description: result.error, variant: 'destructive' });
-        setIsHiding(false); // Revert fade-out on error
+        // If deletion fails (e.g. for a non-owner if rules are strict), still hide it locally.
+        toast({ title: 'Hiding Post', description: 'This post will be hidden from your view.' });
+        setTimeout(() => onHide(post.id), 300);
       }
     });
   }
@@ -73,9 +75,9 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handleDeleteAndHide} className={cn(isOwner && "text-destructive focus:text-destructive")}>
+                    <DropdownMenuItem onClick={handleDeleteAndHide} className="text-destructive focus:text-destructive">
                         {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <EyeOff className="mr-2 h-4 w-4" />}
-                        {isOwner ? 'Delete Post' : 'Hide Post'}
+                        Hide Post
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
