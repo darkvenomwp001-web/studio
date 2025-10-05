@@ -6,8 +6,12 @@ import {
   addDoc,
   collection,
   serverTimestamp,
+  doc,
+  updateDoc,
+  getDoc,
+  deleteDoc,
 } from 'firebase/firestore';
-import type { UserSummary } from '@/types';
+import type { UserSummary, ThreadPost } from '@/types';
 import { revalidatePath } from 'next/cache';
 
 export async function sendGlobalChatMessage(
@@ -38,5 +42,45 @@ export async function sendGlobalChatMessage(
   } catch (error) {
     console.error('Error sending global chat message:', error);
     return { success: false, error: 'Could not send message. Please try again.' };
+  }
+}
+
+export async function createThreadPost(postData: Omit<ThreadPost, 'id' | 'timestamp' | 'likesCount' | 'commentsCount' | 'likedBy'>): Promise<{ success: boolean; error?: string }> {
+  try {
+    await addDoc(collection(db, 'feedPosts'), {
+      ...postData,
+      likesCount: 0,
+      commentsCount: 0,
+      likedBy: [],
+      timestamp: serverTimestamp()
+    });
+    revalidatePath('/'); // Revalidate the main feed
+    return { success: true };
+  } catch (error) {
+    console.error("Error creating thread post:", error);
+    return { success: false, error: "Could not create post." };
+  }
+}
+
+export async function updateThreadPost(postId: string, newContent: string, userId: string): Promise<{ success: boolean; error?: string }> {
+  if (!userId) {
+    return { success: false, error: 'User not authenticated.' };
+  }
+  const postRef = doc(db, 'feedPosts', postId);
+  try {
+    const postSnap = await getDoc(postRef);
+    if (!postSnap.exists() || postSnap.data().author.id !== userId) {
+      return { success: false, error: 'You do not have permission to edit this post.' };
+    }
+    await updateDoc(postRef, {
+      content: newContent,
+      updatedAt: serverTimestamp(),
+    });
+    revalidatePath('/');
+    revalidatePath(`/threads/edit/${postId}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating post:", error);
+    return { success: false, error: 'Could not update post.' };
   }
 }

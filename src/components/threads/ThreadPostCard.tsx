@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, MoreHorizontal, EyeOff } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, EyeOff, Edit } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -33,9 +33,9 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
 
     try {
         if (isLiked) {
-            await updateDoc(postRef, { likedBy: arrayRemove(user.id), likesCount: arrayRemove(1) });
+            await updateDoc(postRef, { likedBy: arrayRemove(user.id), likesCount: likesCount - 1 });
         } else {
-            await updateDoc(postRef, { likedBy: arrayUnion(user.id), likesCount: arrayUnion(1) });
+            await updateDoc(postRef, { likedBy: arrayUnion(user.id), likesCount: likesCount + 1 });
         }
     } catch (error) {
         // Revert on error
@@ -44,6 +44,8 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
         console.error("Error updating like:", error);
     }
   };
+  
+  const isOwner = user?.id === post.author.id;
 
   return (
     <Card>
@@ -67,6 +69,14 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+                {isOwner && (
+                  <Link href={`/threads/edit/${post.id}`}>
+                    <DropdownMenuItem>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit Post
+                    </DropdownMenuItem>
+                  </Link>
+                )}
                 <DropdownMenuItem onClick={() => onHide(post.id)}>
                     <EyeOff className="mr-2 h-4 w-4" />
                     Hide Post
