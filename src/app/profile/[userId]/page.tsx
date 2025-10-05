@@ -251,7 +251,7 @@ export default function UserProfilePage() {
              <Image src={placeholderImages.profile.banner} alt="Profile banner" fill objectFit="cover" className="opacity-50" data-ai-hint="abstract landscape" priority />
           </div>
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-24">
+            <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-20">
               <div 
                   className={cn(
                       "relative p-1.5 rounded-full bg-background/80 backdrop-blur-sm shadow-xl",
@@ -369,3 +369,5 @@ export default function UserProfilePage() {
     </>
   );
 }
+
+    
