@@ -19,7 +19,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { moveStatusToDrafts, permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
 import { getStatusCaptions } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
@@ -127,8 +126,7 @@ export default function StatusFeature() {
     const statusesQuery = query(
       collection(db, 'statusUpdates'),
       where('status', '==', 'published'),
-      where('expiresAt', '>', Timestamp.now()),
-      where('isTrashed', '==', false)
+      where('expiresAt', '>', Timestamp.now())
     );
     
     const unsubStatuses = onSnapshot(statusesQuery, (snapshot) => {
@@ -309,8 +307,6 @@ export default function StatusFeature() {
         authorInfo: authorInfo,
         createdAt: editingDraft?.createdAt || serverTimestamp(),
         updatedAt: serverTimestamp(),
-        isArchived: false,
-        isTrashed: false,
         status,
         expiresAt: expiryTime,
     };
@@ -444,20 +440,6 @@ export default function StatusFeature() {
     });
   }
 
-  const onStatusArchived = (archivedUserId: string, statusId: string) => {
-        setAllStatuses(prev => prev.filter(s => s.id !== statusId));
-        const userGroups = new Map(groupedStatuses);
-        const userGroup = userGroups.get(archivedUserId);
-        if (userGroup) {
-            userGroup.statuses = userGroup.statuses.filter(s => s.id !== statusId);
-            if (userGroup.statuses.length === 0) {
-                userGroups.delete(archivedUserId);
-                setStatusOrder(prev => prev.filter(id => id !== archivedUserId));
-            }
-        }
-        setGroupedStatuses(userGroups);
-  };
-  
   const handleOpenUploader = (defaultTab: string) => {
     setActiveUploaderTab(defaultTab);
     setIsUploaderOpen(true);
@@ -599,6 +581,19 @@ export default function StatusFeature() {
                 <p className="text-xs mt-1 truncate">Your Status</p>
                 </div>
             )}
+            
+            {user && groupedStatuses.has(user.id) && (
+                <StatusBubble
+                    user={user as User}
+                    statuses={groupedStatuses.get(user.id)!.statuses}
+                    onSelect={handleSelectUser}
+                    latestStatus={groupedStatuses.get(user.id)!.statuses.sort((a, b) => {
+                        const timeA = a.createdAt ? (a.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
+                        const timeB = b.createdAt ? (b.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
+                        return timeB - timeA;
+                    })[0]}
+                />
+            )}
 
             {isLoading ? (
                 [...Array(4)].map((_, i) => (
@@ -610,8 +605,7 @@ export default function StatusFeature() {
             ) : (
                 statusOrder.map((userId) => {
                     const group = groupedStatuses.get(userId);
-                    if (!group) return null;
-                     if (userId === user.id) return null; // Don't show the user's own bubble here
+                    if (!group || userId === user.id) return null; // Don't show the user's own bubble here again
                     const latestStatus = group.statuses.sort((a, b) => {
                         const timeA = a.createdAt ? (a.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
                         const timeB = b.createdAt ? (b.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
@@ -619,18 +613,6 @@ export default function StatusFeature() {
                     })[0];
                     return <StatusBubble key={userId} user={group.user} statuses={group.statuses} onSelect={handleSelectUser} latestStatus={latestStatus} />
                 })
-            )}
-             {user && groupedStatuses.has(user.id) && (
-                <StatusBubble
-                    user={user as User}
-                    statuses={groupedStatuses.get(user.id)!.statuses}
-                    onSelect={handleSelectUser}
-                    latestStatus={groupedStatuses.get(user.id)!.statuses.sort((a, b) => {
-                        const timeA = a.createdAt ? (a.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
-                        const timeB = b.createdAt ? (b.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
-                        return timeB - timeA;
-                    })[0]}
-                />
             )}
         </div>
         <ScrollBar orientation="horizontal" />
@@ -661,7 +643,6 @@ export default function StatusFeature() {
         userStatuses={selectedUserForViewing ? groupedStatuses.get(selectedUserForViewing.id)?.statuses || [] : []}
         onNext={handleNextUser}
         onPrev={handlePrevUser}
-        onStatusArchived={onStatusArchived}
       />
     </div>
   );

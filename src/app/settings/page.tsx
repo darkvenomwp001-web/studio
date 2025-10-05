@@ -74,7 +74,6 @@ export default function SettingsHubPage() {
           <h2 className="text-lg font-headline font-semibold mb-2 px-4">Content & Management</h2>
           <Card>
             <CardContent className="p-2">
-                <SettingsLink href="/settings/statuses" icon={Wind} title="Manage Statuses" description="View your drafts and manage published statuses." />
                 <SettingsLink href="/settings/echoes" icon={Sparkles} title="Echoes" description="Rediscover your journey and impact." />
             </CardContent>
           </Card>

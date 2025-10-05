@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, Pause, Play, EyeOff } from 'lucide-react';
+import { Loader2, X, Pause, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Timestamp } from 'firebase/firestore';
@@ -14,10 +14,8 @@ import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
-import { trashStatusUpdate } from '@/app/actions/statusActions';
 
-
-export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void, onOpenUploader?: (defaultTab: string) => void; }) {
+export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void }) {
     const { user } = useAuth();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
@@ -25,7 +23,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     const videoRef = useRef<HTMLVideoElement>(null);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const { toast } = useToast();
-    const [isProcessing, setIsProcessing] = useState(false);
 
     const currentStatus = userStatuses && userStatuses[currentStatusIndex];
 
@@ -115,19 +112,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     
     const isNoteStatus = !!currentStatus.note || !!currentStatus.spotifyUrl;
     
-    const handleHideStatusClick = async () => {
-        if (!currentStatus || !user) return;
-        setIsProcessing(true);
-        const result = await trashStatusUpdate(currentStatus.id, user.id);
-        if (result.success) {
-            onStatusArchived(currentStatus.authorId, currentStatus.id);
-            toast({ title: "Status Hidden" });
-            handleNext();
-        } else {
-            toast({ title: "Error", description: result.error, variant: "destructive" });
-        }
-        setIsProcessing(false);
-    }
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -146,9 +130,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                         <span className="text-gray-300 text-xs">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" title="Hide Status" onClick={handleHideStatusClick} disabled={isProcessing}>
-                            {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <EyeOff className="h-5 w-5" />}
-                        </Button>
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={() => onOpenChange(false)}>
                               <X className="h-5 w-5"/>
                         </Button>

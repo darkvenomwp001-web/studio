@@ -254,10 +254,6 @@ export interface StatusUpdate {
     poll?: Poll;
     expiresAt: any | null;
     createdAt: any;
-    isArchived: boolean;
-    archivedAt?: any;
-    isTrashed: boolean;
-    trashedAt?: any;
     status: 'published' | 'draft';
 }
 

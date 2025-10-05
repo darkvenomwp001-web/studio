@@ -66,24 +66,6 @@
       ]
     },
     {
-      "collectionGroup": "statusUpdates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "authorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isTrashed",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "trashedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "prompts",
       "queryScope": "COLLECTION",
       "fields": [
@@ -93,46 +75,6 @@
         },
         {
           "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "statusUpdates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "isArchived",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isTrashed",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "archivedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "statusUpdates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "authorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isArchived",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isTrashed",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "archivedAt",
           "order": "DESCENDING"
         }
       ]
@@ -208,13 +150,12 @@
       ]
     },
     {
-      "collectionGroup": "statusUpdates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "isTrashed", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "expiresAt", "order": "ASCENDING" }
-      ]
+        "collectionGroup": "statusUpdates",
+        "queryScope": "COLLECTION",
+        "fields": [
+            { "fieldPath": "status", "order": "ASCENDING" },
+            { "fieldPath": "expiresAt", "order": "ASCENDING" }
+        ]
     }
   ],
   "fieldOverrides": []

@@ -112,8 +112,6 @@
           "authorId": { "type": "string", "description": "ID of the status author.", "reference": "users" },
           "mediaUrl": { "type": "string", "description": "URL of the image or video for the status." },
           "status": { "type": "string", "description": "'published' or 'draft'." },
-          "isArchived": { "type": "boolean", "description": "True if the status is archived after expiring." },
-          "isTrashed": { "type": "boolean", "description": "True if the user moved the status to trash." },
           "createdAt": { "type": "timestamp", "description": "When the status was created." },
           "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." }
         }
