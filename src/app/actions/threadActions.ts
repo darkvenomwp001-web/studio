@@ -6,10 +6,6 @@ import {
   addDoc,
   collection,
   serverTimestamp,
-  doc,
-  getDoc,
-  deleteDoc,
-  updateDoc
 } from 'firebase/firestore';
 import type { UserSummary } from '@/types';
 import { revalidatePath } from 'next/cache';
@@ -44,39 +40,3 @@ export async function sendGlobalChatMessage(
     return { success: false, error: 'Could not send message. Please try again.' };
   }
 }
-
-export async function updateThreadPost(
-  postId: string,
-  newContent: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const postRef = doc(db, 'feedPosts', postId);
-    // In a real app, you'd add a security check here on the server-side
-    // to ensure the user owns this post. Firestore rules handle this for us.
-    await updateDoc(postRef, {
-      content: newContent
-    });
-    revalidatePath('/'); // Revalidate the feed
-    return { success: true };
-  } catch (error) {
-    console.error("Error updating post:", error);
-    return { success: false, error: "Could not update post." };
-  }
-}
-
-export async function deleteThreadPost(
-  postId: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const postRef = doc(db, 'feedPosts', postId);
-    // Server-side ownership check is handled by Firestore rules.
-    await deleteDoc(postRef);
-    revalidatePath('/'); // Revalidate the feed to remove the post
-    return { success: true };
-  } catch (error) {
-    console.error("Error deleting post:", error);
-    return { success: false, error: "Could not delete post." };
-  }
-}
-
-
