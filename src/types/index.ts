@@ -219,7 +219,6 @@ export interface ThreadPost {
     likesCount: number;
     commentsCount: number;
     likedBy: string[];
-    isHidden?: boolean;
 }
 
 export interface Prompt {

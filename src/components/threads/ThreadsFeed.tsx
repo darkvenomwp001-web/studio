@@ -4,23 +4,28 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import type { ThreadPost } from '@/types';
 import { Loader2 } from 'lucide-react';
 import CreatePostForm from './CreatePostForm';
 import ThreadPostCard from './ThreadPostCard';
 
+const HIDDEN_POSTS_SESSION_KEY = 'hidden_thread_posts';
+
 export default function ThreadsFeed() {
   const { user, loading } = useAuth();
   const [posts, setPosts] = useState<ThreadPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hiddenPosts, setHiddenPosts] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    const saved = sessionStorage.getItem(HIDDEN_POSTS_SESSION_KEY);
+    return saved ? JSON.parse(saved) : [];
+  });
 
   useEffect(() => {
     setIsLoading(true);
     const postsQuery = query(
         collection(db, 'feedPosts'), 
-        where('isHidden', '!=', true),
-        orderBy('isHidden'),
         orderBy('timestamp', 'desc')
     );
 
@@ -36,6 +41,16 @@ export default function ThreadsFeed() {
     return () => unsubscribe();
   }, []);
 
+  const handleHidePost = (postId: string) => {
+      setHiddenPosts(prev => {
+          const newHiddenPosts = [...prev, postId];
+          sessionStorage.setItem(HIDDEN_POSTS_SESSION_KEY, JSON.stringify(newHiddenPosts));
+          return newHiddenPosts;
+      })
+  }
+
+  const visiblePosts = posts.filter(post => !hiddenPosts.includes(post.id));
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {user && !user.isAnonymous && <CreatePostForm />}
@@ -45,10 +60,10 @@ export default function ThreadsFeed() {
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
         </div>
       ) : (
-        posts.map(post => <ThreadPostCard key={post.id} post={post} />)
+        visiblePosts.map(post => <ThreadPostCard key={post.id} post={post} onHide={handleHidePost} />)
       )}
 
-      {!isLoading && posts.length === 0 && (
+      {!isLoading && visiblePosts.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <p>No posts in the thread yet. Be the first to start a conversation!</p>
         </div>
