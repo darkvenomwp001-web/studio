@@ -1,82 +1,104 @@
-rules_version = '2';
 
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    
     // Helper functions
+    function isNotGuest() {
+      return request.auth.uid != null && request.auth.token.isAnonymous == false;
+    }
+    
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    function isNotGuest() {
-      // Check for anonymous sign-in provider
-      return request.auth.token.firebase.sign_in_provider != "anonymous";
-    }
-    
+    // USER collection
     match /users/{userId} {
       allow read;
-      allow write: if isOwner(userId);
-    }
-    
-    match /stories/{storyId} {
-      allow read: if resource.data.visibility == 'Public';
-      // Allow create/update/delete if user is the author or a collaborator
-      allow create, update, delete: if request.auth.uid == request.resource.data.author.id || request.auth.uid in resource.data.collaboratorIds;
-    }
-    
-    match /comments/{commentId} {
-        allow read;
-        allow create: if isNotGuest();
-        allow update, delete: if isOwner(resource.data.user.id);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // Generally, don't allow users to delete their own accounts directly
     }
 
-    match /notifications/{notificationId} {
-        allow read, update: if isOwner(resource.data.userId);
-        // Allow any authenticated user to create a notification (actions trigger this)
-        allow create: if request.auth != null; 
+    // STORIES collection
+    match /stories/{storyId} {
+        // Read access
+        allow read: if resource.data.visibility == 'Public' 
+                    || resource.data.visibility == 'Unlisted'
+                    || (request.auth != null && request.auth.uid == resource.data.author.id)
+                    || (request.auth != null && resource.data.collaboratorIds.hasAny([request.auth.uid]));
+
+        // Write access
+        allow create, update: if request.auth != null && request.auth.uid == request.resource.data.author.id;
+        allow delete: if request.auth != null && request.auth.uid == resource.data.author.id;
+    }
+
+    // COMMENTS collection
+    match /comments/{commentId} {
+      allow read;
+      allow create: if isNotGuest();
+      allow update: if isNotGuest() && request.auth.uid == resource.data.user.id;
+      allow delete: if isNotGuest() && request.auth.uid == resource.data.user.id;
     }
     
+    // NOTIFICATIONS collection
+    match /notifications/{notificationId} {
+        allow read, update, delete: if isOwner(resource.data.userId);
+        allow create: if isNotGuest();
+    }
+    
+    // CONVERSATIONS collection
     match /conversations/{conversationId} {
       allow read, create, update: if request.auth.uid in resource.data.participantIds;
-
-       match /messages/{messageId} {
+      
+      match /messages/{messageId} {
         allow read, create: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
       }
     }
 
-    match /globalChatMessages/{messageId} {
-        allow read;
-        allow create: if isNotGuest();
-    }
-    
-    match /statusUpdates/{statusId} {
-        allow read: if resource.data.status == 'published' && resource.data.expiresAt > request.time;
-        allow create: if isNotGuest() && isOwner(request.resource.data.authorId);
-        allow update, delete: if isOwner(resource.data.authorId);
-    }
-
-    match /prompts/{promptId} {
-        allow read: if resource.data.isArchived == false;
-        allow create: if isNotGuest();
-        allow update, delete: if isOwner(resource.data.author.id);
-    }
-    
+    // LETTERS collection
     match /letters/{letterId} {
         allow read: if request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.reader.id;
-        allow create: if isNotGuest() && isOwner(request.resource.data.reader.id);
-        allow update: if isOwner(resource.data.authorId);
-        allow delete: if isOwner(resource.data.reader.id);
+        allow create: if isNotGuest() && request.auth.uid == request.resource.data.reader.id;
+        allow update: if isNotGuest() && request.auth.uid == resource.data.authorId;
+        allow delete: if isNotGuest() && request.auth.uid == resource.data.reader.id;
     }
-
-    match /annotations/{annotationId} {
-      allow read, write, delete: if isOwner(resource.data.userId);
-      allow create: if isNotGuest() && isOwner(request.resource.data.userId);
+    
+    // PROMPTS collection
+    match /prompts/{promptId} {
+        allow read;
+        allow create: if isNotGuest();
+        allow update, delete: if isNotGuest() && request.auth.uid == resource.data.author.id;
     }
-
+    
+    // STATUS UPDATES collection
+    match /statusUpdates/{statusId} {
+        allow read;
+        allow create: if isNotGuest();
+        allow update, delete: if isNotGuest() && request.auth.uid == resource.data.authorId;
+    }
+    
+    // FEED POSTS (Threads) collection
     match /feedPosts/{postId} {
+        allow read;
+        allow create: if isNotGuest() && request.auth.uid == request.resource.data.author.id;
+        allow update: if isNotGuest() && request.auth.uid == resource.data.author.id;
+        // Allow liking/unliking
+        allow update: if isNotGuest() && request.resource.data.keys().hasOnly(['likedBy', 'likesCount']);
+        allow delete: if isNotGuest() && request.auth.uid == resource.data.author.id;
+    }
+    
+    // ANNOTATIONS collection
+    match /annotations/{annotationId} {
+        allow read, write: if isOwner(request.resource.data.userId);
+        allow create: if isNotGuest() && isOwner(request.resource.data.userId);
+        allow update, delete: if isNotGuest() && isOwner(resource.data.userId);
+    }
+
+    // Global Chat Room
+    match /globalChatMessages/{messageId} {
       allow read;
-      allow create: if isNotGuest() && request.auth.uid == request.resource.data.author.id;
-      allow update, delete: if isOwner(resource.data.author.id);
+      allow create: if isNotGuest();
     }
   }
 }
