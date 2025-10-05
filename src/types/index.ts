@@ -205,12 +205,13 @@ export interface Poll {
     options: { id: string; text: string; votes: string[] }[];
 }
 
-export type ReactionType = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
+export type ReactionType = 'like' | 'love';
 
 export interface Reaction {
     id: string; // userId
     type: ReactionType;
     timestamp: any;
+    user: UserSummary;
 }
 
 export interface ThreadPost {

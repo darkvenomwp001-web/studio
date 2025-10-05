@@ -4,46 +4,85 @@
 import { useState, useEffect, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Lottie from 'lottie-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Reaction, ReactionType } from '@/types';
+import { Reaction, ReactionType, UserSummary } from '@/types';
 import { toggleReaction } from '@/app/actions/threadActions';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ThumbsUp } from 'lucide-react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { Loader2, Heart } from 'lucide-react';
+import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { likeAnimation, loveAnimation } from './reactions';
+import { loveAnimation } from './reactions';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { ScrollArea } from '../ui/scroll-area';
+import Link from 'next/link';
 
 interface ReactionButtonProps {
     postId: string;
     initialReactionsCount: number;
 }
 
-const reactionConfig: Record<'like' | 'love', { animation: any, label: string }> = {
-    like: { animation: likeAnimation, label: 'Like' },
-    love: { animation: loveAnimation, label: 'Love' },
-};
+function ReactorsList({ postId }: { postId: string }) {
+    const [reactors, setReactors] = useState<UserSummary[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-const reactionTypes: ('like' | 'love')[] = ['like', 'love'];
+    useEffect(() => {
+        const reactionsColRef = collection(db, 'feedPosts', postId, 'reactions');
+        const unsubscribe = onSnapshot(reactionsColRef, (snapshot) => {
+            const users: UserSummary[] = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                // Assuming the reaction doc contains user info or a ref
+                // For this example, let's assume it has a 'user' field
+                if(data.user) {
+                    users.push(data.user);
+                }
+            });
+            setReactors(users);
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [postId]);
+
+    if (isLoading) {
+        return <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+    }
+    
+    if (reactors.length === 0) {
+        return <p className="p-4 text-center text-sm text-muted-foreground">No reactions yet.</p>;
+    }
+
+    return (
+        <ScrollArea className="max-h-64">
+            <div className="space-y-2 p-4">
+                {reactors.map(user => (
+                     <Link href={`/profile/${user.id}`} key={user.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted">
+                        <Avatar className="h-8 w-8">
+                            <AvatarImage src={user.avatarUrl} alt={user.displayName} />
+                            <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-semibold">{user.displayName || user.username}</span>
+                    </Link>
+                ))}
+            </div>
+        </ScrollArea>
+    );
+}
 
 export default function ReactionButton({ postId, initialReactionsCount }: ReactionButtonProps) {
     const { user } = useAuth();
     const { toast } = useToast();
-    const [currentUserReaction, setCurrentUserReaction] = useState<ReactionType | null>(null);
+    const [hasReacted, setHasReacted] = useState(false);
     const [reactionsCount, setReactionsCount] = useState(initialReactionsCount);
     const [isProcessing, startTransition] = useTransition();
-    const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
     useEffect(() => {
         if (!user || !postId) return;
         const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
         const unsubscribe = onSnapshot(reactionRef, (doc) => {
-            if (doc.exists()) {
-                setCurrentUserReaction(doc.data().type as ReactionType);
-            } else {
-                setCurrentUserReaction(null);
-            }
+            setHasReacted(doc.exists());
         });
         return () => unsubscribe();
     }, [postId, user]);
@@ -59,121 +98,58 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
         return () => unsubscribe();
     }, [postId]);
 
-
-    const handleReaction = (reactionType: ReactionType) => {
+    const handleReaction = () => {
         if (!user || user.isAnonymous) {
             toast({ title: 'Please sign in to react.' });
             return;
         }
         
-        setIsPopoverOpen(false);
-
         startTransition(async () => {
-            const oldReaction = currentUserReaction;
+            const oldHasReacted = hasReacted;
             const oldReactionsCount = reactionsCount;
             
-            const isRemovingReaction = oldReaction === reactionType;
-
             // Optimistic UI updates
-            if (isRemovingReaction) {
-                setCurrentUserReaction(null);
-                if (oldReaction !== null) setReactionsCount(prev => Math.max(0, prev - 1));
-            } else {
-                const hadReactionBefore = oldReaction !== null;
-                setCurrentUserReaction(reactionType);
-                if (!hadReactionBefore) {
-                    setReactionsCount(prev => prev + 1);
-                }
-            }
-            
-            const result = await toggleReaction(postId, user.id, reactionType);
+            setHasReacted(!oldHasReacted);
+            setReactionsCount(prev => oldHasReacted ? Math.max(0, prev - 1) : prev + 1);
+
+            const result = await toggleReaction(postId, user);
 
             if (!result.success) {
-                 // Revert optimistic UI updates on failure
-                setCurrentUserReaction(oldReaction);
+                setHasReacted(oldHasReacted);
                 setReactionsCount(oldReactionsCount);
                 toast({ title: 'Error', description: result.error, variant: 'destructive' });
             }
         });
     };
     
-    const DefaultIcon = () => (
-        <ThumbsUp className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-    );
-
-    const CurrentReactionIcon = () => {
-        if (!currentUserReaction || (currentUserReaction !== 'like' && currentUserReaction !== 'love')) return <DefaultIcon />;
-        const animation = reactionConfig[currentUserReaction].animation;
-        if (!animation) return <DefaultIcon />;
-        return (
-            <Lottie
-                animationData={animation}
-                loop={true}
-                autoplay={true}
-                className="w-6 h-6"
-            />
-        );
-    };
-
     return (
-        <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-            <PopoverTrigger asChild>
-                 <Button
-                    variant="ghost"
-                    size="sm"
-                    className="group"
-                    disabled={isProcessing}
-                    onClick={() => {
-                        if (!user || user.isAnonymous) {
-                            toast({ title: 'Please sign in to react.' });
-                            return;
-                        }
-                        if (currentUserReaction) {
-                            handleReaction(currentUserReaction);
-                        } else {
-                            setIsPopoverOpen(true);
-                        }
-                    }}
-                >
-                    {isProcessing ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                        <div className="flex items-center gap-1.5">
-                             <div className={cn(!currentUserReaction && "group-hover:scale-110 transition-transform")}>
-                                <CurrentReactionIcon />
-                             </div>
-                             <span className={cn(
-                                "font-semibold text-sm",
-                                currentUserReaction === 'love' ? 'text-red-500' :
-                                currentUserReaction === 'like' ? 'text-blue-500' :
-                                'text-muted-foreground group-hover:text-primary'
-                             )}>
-                               {currentUserReaction ? reactionConfig[currentUserReaction as 'like' | 'love'].label : 'Like'}
-                             </span>
-                             {reactionsCount > 0 && <span className="text-sm text-muted-foreground font-medium">{reactionsCount}</span>}
-                        </div>
-                    )}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-1">
-                <div className="flex gap-1">
-                    {reactionTypes.map((type) => (
-                        <button
-                            key={type}
-                            onClick={() => handleReaction(type)}
-                            className="p-1 rounded-full hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring transition-transform hover:scale-110"
-                            aria-label={reactionConfig[type].label}
-                        >
-                            <Lottie
-                                animationData={reactionConfig[type].animation}
-                                loop={true}
-                                autoplay={true}
-                                className="w-8 h-8"
-                            />
-                        </button>
-                    ))}
-                </div>
-            </PopoverContent>
-        </Popover>
+        <div className="flex items-center gap-2">
+             <Dialog>
+                <DialogTrigger asChild>
+                    <button disabled={reactionsCount === 0} className="text-sm text-muted-foreground hover:underline disabled:no-underline disabled:cursor-not-allowed">
+                        {reactionsCount > 0 && <span>{reactionsCount}</span>}
+                    </button>
+                </DialogTrigger>
+                <DialogContent>
+                     <DialogHeader>
+                        <DialogTitle>Reactions</DialogTitle>
+                    </DialogHeader>
+                    <ReactorsList postId={postId} />
+                </DialogContent>
+            </Dialog>
+            <Button
+                variant="ghost"
+                size="sm"
+                className="group"
+                disabled={isProcessing}
+                onClick={handleReaction}
+            >
+                {isProcessing ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                    <Heart className={cn("w-5 h-5 transition-all", hasReacted ? "text-red-500 fill-red-500" : "text-muted-foreground group-hover:text-red-500")} />
+                )}
+            </Button>
+        </div>
     );
 }

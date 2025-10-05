@@ -124,11 +124,11 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
                 )}
 
             </CardContent>
-            <CardFooter className="p-2 border-t flex gap-2">
+            <CardFooter className="p-2 border-t flex items-center justify-between">
                 <ReactionButton postId={post.id} initialReactionsCount={post.reactionsCount || 0} />
                 <DialogTrigger asChild>
                     <Button variant="ghost" size="sm">
-                        <MessageCircle className="mr-2 h-4 w-4" /> {post.commentsCount || 0}
+                        <MessageCircle className="mr-2 h-4 w-4" /> {post.commentsCount || 0} Comments
                     </Button>
                 </DialogTrigger>
             </CardFooter>
