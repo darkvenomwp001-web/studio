@@ -102,7 +102,7 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
                             <Image src={post.storyCoverUrl || ''} alt={post.storyTitle || ''} width={50} height={75} className="rounded-sm object-cover" />
                             <div>
                                 <p className="font-bold">{post.storyTitle}</p>
-                                <p className="text-sm text-muted-foreground">Attached Story</p>
+                                <p className="text-sm text-muted-foreground">by {post.author.displayName}</p>
                             </div>
                         </div>
                     </Link>
@@ -125,7 +125,7 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
 
             </CardContent>
             <CardFooter className="p-2 border-t flex gap-2">
-                <ReactionButton postId={post.id} reactions={post.reactions || {}} />
+                <ReactionButton postId={post.id} initialReactionsCount={post.reactionsCount || 0} />
                 <DialogTrigger asChild>
                     <Button variant="ghost" size="sm">
                         <MessageCircle className="mr-2 h-4 w-4" /> {post.commentsCount || 0}

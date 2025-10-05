@@ -165,7 +165,7 @@
           "storyId": { "type": "string", "description": "ID of a story attached to the post.", "reference": "stories" },
           "songUrl": { "type": "string", "description": "URL of a song attached to the post." },
           "songLyricSnippet": { "type": "string", "description": "A snippet of lyrics from the attached song." },
-          "reactions": { "type": "map", "description": "Map of user IDs to their reaction type (e.g., like, love, haha)." },
+          "reactionsCount": { "type": "number", "description": "Total number of reactions." },
           "commentsCount": { "type": "number", "description": "Total number of comments." },
           "timestamp": { "type": "timestamp", "description": "When the post was created." }
         },
@@ -176,6 +176,13 @@
                     "user": { "type": "map", "description": "Summary object of the commenter." },
                     "content": { "type": "string", "description": "The text of the comment." },
                     "timestamp": { "type": "timestamp", "description": "When the comment was posted." }
+                }
+            },
+            "reactions": {
+                "description": "Reactions to a feed post. The document ID is the user ID.",
+                "fields": {
+                    "type": { "type": "string", "description": "The type of reaction (e.g., like, love, haha)." },
+                    "timestamp": { "type": "timestamp", "description": "When the reaction was made." }
                 }
             }
         }

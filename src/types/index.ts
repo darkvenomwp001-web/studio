@@ -207,6 +207,12 @@ export interface Poll {
 
 export type ReactionType = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
 
+export interface Reaction {
+    id: string; // userId
+    type: ReactionType;
+    timestamp: any;
+}
+
 export interface ThreadPost {
     id: string;
     author: UserSummary;
@@ -219,9 +225,8 @@ export interface ThreadPost {
     songUrl?: string;
     songLyricSnippet?: string;
     timestamp: any;
-    reactions?: { [key: string]: ReactionType };
+    reactionsCount?: number;
     commentsCount: number;
-    likedBy: string[];
 }
 
 export interface Prompt {

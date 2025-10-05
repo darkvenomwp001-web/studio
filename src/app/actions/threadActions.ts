@@ -11,6 +11,8 @@ import {
   getDoc,
   deleteDoc,
   runTransaction,
+  increment,
+  setDoc,
 } from 'firebase/firestore';
 import type { UserSummary, ThreadPost, ReactionType } from '@/types';
 import { revalidatePath } from 'next/cache';
@@ -50,10 +52,8 @@ export async function createThreadPost(postData: Omit<ThreadPost, 'id' | 'timest
   try {
     await addDoc(collection(db, 'feedPosts'), {
       ...postData,
-      likesCount: 0,
+      reactionsCount: 0,
       commentsCount: 0,
-      likedBy: [],
-      reactions: {},
       timestamp: serverTimestamp()
     });
     revalidatePath('/'); // Revalidate the main feed
@@ -109,41 +109,45 @@ export async function deleteThreadPost(postId: string, userId: string): Promise<
     }
 }
 
-export async function toggleReaction(postId: string, reactionType: ReactionType, userId: string): Promise<{ success: boolean; error?: string }> {
+export async function toggleReaction(postId: string, userId: string, reactionType: ReactionType): Promise<{ success: boolean; error?: string }> {
     if (!userId) {
         return { success: false, error: 'You must be signed in to react.' };
     }
     
     const postRef = doc(db, 'feedPosts', postId);
+    const reactionRef = doc(db, 'feedPosts', postId, 'reactions', userId);
 
     try {
         await runTransaction(db, async (transaction) => {
+            const reactionDoc = await transaction.get(reactionRef);
             const postDoc = await transaction.get(postRef);
+
             if (!postDoc.exists()) {
-                throw "Post not found";
+                throw "Post not found.";
             }
-            
-            const postData = postDoc.data();
-            // Using a new variable for the reactions map is safer inside transactions
-            const newReactions = postData.reactions ? { ...postData.reactions } : {};
-            const currentReaction = newReactions[userId];
 
-            if (currentReaction === reactionType) {
-                // User is removing their reaction
-                delete newReactions[userId];
+            if (reactionDoc.exists()) {
+                // User has an existing reaction
+                if (reactionDoc.data().type === reactionType) {
+                    // It's the same reaction, so remove it (un-react)
+                    transaction.delete(reactionRef);
+                    transaction.update(postRef, { reactionsCount: increment(-1) });
+                } else {
+                    // It's a different reaction, so update it
+                    transaction.update(reactionRef, { type: reactionType, timestamp: serverTimestamp() });
+                    // No change in total reaction count
+                }
             } else {
-                // User is adding or changing their reaction
-                newReactions[userId] = reactionType;
+                // User has no existing reaction, so add a new one
+                transaction.set(reactionRef, { type: reactionType, timestamp: serverTimestamp() });
+                transaction.update(postRef, { reactionsCount: increment(1) });
             }
-
-            transaction.update(postRef, { reactions: newReactions });
         });
 
         revalidatePath('/');
         return { success: true };
     } catch (error) {
         console.error("Error toggling reaction:", error);
-        // Provide a more specific error if possible, otherwise generic.
         const errorMessage = error instanceof Error ? error.message : 'Could not save reaction.';
         return { success: false, error: errorMessage };
     }

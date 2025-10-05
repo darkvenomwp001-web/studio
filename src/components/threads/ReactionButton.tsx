@@ -7,15 +7,17 @@ import Lottie from 'lottie-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { ReactionType } from '@/types';
+import type { Reaction, ReactionType } from '@/types';
 import { toggleReaction } from '@/app/actions/threadActions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ThumbsUp } from 'lucide-react';
 import { likeAnimation, loveAnimation, hahaAnimation, wowAnimation, sadAnimation, angryAnimation } from './reactions';
+import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface ReactionButtonProps {
     postId: string;
-    reactions: { [key: string]: ReactionType };
+    initialReactionsCount: number;
 }
 
 const reactionTypes: ReactionType[] = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
@@ -36,21 +38,40 @@ const reactionLabels: { [key in ReactionType]: string } = {
     angry: 'Angry',
 };
 
-export default function ReactionButton({ postId, reactions: initialReactions }: ReactionButtonProps) {
+export default function ReactionButton({ postId, initialReactionsCount }: ReactionButtonProps) {
     const { user } = useAuth();
     const { toast } = useToast();
-    const [reactions, setReactions] = useState(initialReactions || {});
+    const [currentUserReaction, setCurrentUserReaction] = useState<ReactionType | null>(null);
+    const [reactionsCount, setReactionsCount] = useState(initialReactionsCount);
     const [isProcessing, startTransition] = useTransition();
     const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
     useEffect(() => {
-        setReactions(initialReactions || {});
-    }, [initialReactions]);
+        if (!user || !postId) return;
+        const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
+        const unsubscribe = onSnapshot(reactionRef, (doc) => {
+            if (doc.exists()) {
+                setCurrentUserReaction(doc.data().type as ReactionType);
+            } else {
+                setCurrentUserReaction(null);
+            }
+        });
+        return () => unsubscribe();
+    }, [postId, user]);
 
-    const currentUserReaction = user ? reactions[user.id] as ReactionType | undefined : undefined;
-    const totalReactions = Object.keys(reactions).length;
+    useEffect(() => {
+        if (!postId) return;
+        const postRef = doc(db, 'feedPosts', postId);
+        const unsubscribe = onSnapshot(postRef, (doc) => {
+            if (doc.exists()) {
+                setReactionsCount(doc.data().reactionsCount || 0);
+            }
+        });
+        return () => unsubscribe();
+    }, [postId]);
 
-    const handleReaction = async (reactionType: ReactionType) => {
+
+    const handleReaction = (reactionType: ReactionType) => {
         if (!user || user.isAnonymous) {
             toast({ title: 'Please sign in to react.' });
             return;
@@ -59,20 +80,28 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
         setIsPopoverOpen(false);
 
         startTransition(async () => {
-            const oldReactions = { ...reactions };
-            const newReactions = { ...reactions };
+            // Optimistic UI updates
+            const oldReaction = currentUserReaction;
+            const oldReactionsCount = reactionsCount;
             
-            const isRemovingReaction = newReactions[user.id] === reactionType;
-            if (isRemovingReaction) {
-                delete newReactions[user.id];
-            } else {
-                newReactions[user.id] = reactionType;
-            }
-            setReactions(newReactions);
+            const isRemovingReaction = oldReaction === reactionType;
 
+            if (isRemovingReaction) {
+                setCurrentUserReaction(null);
+                setReactionsCount(prev => prev - 1);
+            } else {
+                setCurrentUserReaction(reactionType);
+                if (oldReaction === null) {
+                    setReactionsCount(prev => prev + 1);
+                }
+            }
+            
             const result = await toggleReaction(postId, user.id, reactionType);
+
             if (!result.success) {
-                setReactions(oldReactions);
+                 // Revert optimistic UI updates on failure
+                setCurrentUserReaction(oldReaction);
+                setReactionsCount(oldReactionsCount);
                 toast({ title: 'Error', description: result.error, variant: 'destructive' });
             }
         });
@@ -135,7 +164,7 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
                              )}>
                                {currentUserReaction ? reactionLabels[currentUserReaction] : 'Like'}
                              </span>
-                             {totalReactions > 0 && <span className="text-sm text-muted-foreground font-medium">{totalReactions}</span>}
+                             {reactionsCount > 0 && <span className="text-sm text-muted-foreground font-medium">{reactionsCount}</span>}
                         </div>
                     )}
                 </Button>
@@ -162,5 +191,3 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
         </Popover>
     );
 }
-
-    
