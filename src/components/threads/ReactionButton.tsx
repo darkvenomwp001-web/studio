@@ -61,14 +61,16 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
 
         const oldReactions = { ...reactions };
         const newReactions = { ...reactions };
-        if (newReactions[user.id] === reactionType) {
+        
+        const isRemovingReaction = newReactions[user.id] === reactionType;
+        if (isRemovingReaction) {
             delete newReactions[user.id];
         } else {
             newReactions[user.id] = reactionType;
         }
         setReactions(newReactions);
 
-        const result = await toggleReaction(postId, reactionType, user.id);
+        const result = await toggleReaction(postId, user.id, reactionType);
         if (!result.success) {
             setReactions(oldReactions);
             toast({ title: 'Error', description: result.error, variant: 'destructive' });
@@ -85,8 +87,8 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
         if (currentUserReaction) {
             handleReaction(currentUserReaction);
         } else {
-            // If user has not reacted, clicking will toggle the popover.
-            setIsPopoverOpen(true);
+            // If user has not reacted, clicking will open the popover.
+            // Let the PopoverTrigger handle this.
         }
     }
     
