@@ -202,12 +202,26 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "authorId",
-          "arrayConfig": "CONTAINS"
-        },
-        {
           "fieldPath": "timestamp",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "statusUpdates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isTrashed",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "expiresAt",
+          "order": "ASCENDING"
         }
       ]
     }
