@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -276,15 +275,18 @@ service cloud.firestore {
       allow create: if isNotGuest() && 
                       request.auth.uid == request.resource.data.author.id;
       
-      // Authors can update their own post content.
-      // Any authenticated user can update the reaction count.
-      allow update: if isNotGuest() && 
+      // Allow updates in two scenarios:
+      // 1. Post author can update their own post (edit content, etc.)
+      // 2. Any authenticated user can update the reactionsCount
+      allow update: if isNotGuest() &&
                       ( (request.auth.uid == resource.data.author.id && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'updatedAt'])) ||
                         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionsCount']))
                       );
+
       
       // Only the post author can delete their thread
-      allow delete: if isNotGuest() && isOwner(resource.data.author.id);
+      allow delete: if isNotGuest() && 
+                      request.auth.uid == resource.data.author.id;
       
       // --------------------------------------------------------------------------
       // COMMENTS SUBCOLLECTION (Thread Comments)
@@ -307,14 +309,13 @@ service cloud.firestore {
       }
       
       // --------------------------------------------------------------------------
-      // POST REACTIONS SUBCOLLECTION
+      // POST REACTIONS SUBCOLLECTION (for future emoji reactions)
       // --------------------------------------------------------------------------
       
       match /reactions/{reactionId} {
+        // Users can read, create, update, and delete their own reaction
+        // The reactionId must be the user's UID to ensure one reaction per user.
         allow read: if true;
-        
-        // A user can create/update/delete their own reaction document,
-        // where the document ID is their user ID.
         allow write: if isNotGuest() && request.auth.uid == reactionId;
       }
     }
