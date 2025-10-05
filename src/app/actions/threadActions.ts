@@ -97,9 +97,7 @@ export async function deleteThreadPost(postId: string, userId: string): Promise<
         if (!postSnap.exists()) {
             return { success: true }; // Post is already gone
         }
-        if (postSnap.data().author.id !== userId) {
-            return { success: false, error: 'You do not have permission to delete this post.' };
-        }
+        // Anyone can hide/delete for now as per user request
         await deleteDoc(postRef);
         revalidatePath('/');
         return { success: true };

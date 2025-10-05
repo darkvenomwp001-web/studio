@@ -26,8 +26,6 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
   const [isProcessing, startProcessingTransition] = useTransition();
   const [isHiding, setIsHiding] = useState(false);
 
-  const isOwner = user?.id === post.author.id;
-
   const handleHidePost = () => {
     if (!user) {
         toast({ title: 'Please sign in', description: 'You must be signed in to hide posts.', variant: 'destructive'});
@@ -42,6 +40,7 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
         toast({ title: 'Post Hidden' });
         setTimeout(() => onHide(post.id), 300);
       } else {
+        // Even if server delete fails, hide it locally for the user who wanted it gone.
         toast({ title: 'Hiding Post', description: 'This post will be hidden from your view.' });
         setTimeout(() => onHide(post.id), 300);
       }
