@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import type { ReactionType } from '@/types';
 import { toggleReaction } from '@/app/actions/threadActions';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ThumbsUp } from 'lucide-react';
 import { likeAnimation, loveAnimation, hahaAnimation, wowAnimation, sadAnimation } from './reactions';
 
 interface ReactionButtonProps {
@@ -75,21 +75,17 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
     };
 
     const handleButtonClick = () => {
+        // If user already reacted, clicking the button will remove the reaction
         if (currentUserReaction) {
             handleReaction(currentUserReaction);
         } else {
-            // If no reaction, clicking opens the popover, which is the default PopoverTrigger behavior.
-            // No extra logic needed here, but we prevent the handleReaction from being called.
+            // If user has not reacted, clicking will open the popover.
+            // This is default PopoverTrigger behavior, so no action needed.
         }
     }
     
     const DefaultIcon = () => (
-        <Lottie
-            animationData={likeAnimation}
-            loop={false}
-            autoplay={false}
-            className="w-6 h-6"
-        />
+        <ThumbsUp className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
     );
 
     const CurrentReactionIcon = () => {
@@ -111,20 +107,22 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
                     {isProcessing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                              <div className={cn(!currentUserReaction && "group-hover:scale-110 transition-transform")}>
                                 <CurrentReactionIcon />
                              </div>
                              <span className={cn(
-                                "font-semibold",
-                                currentUserReaction === 'love' && 'text-red-500',
-                                currentUserReaction === 'like' && 'text-blue-500',
-                                (currentUserReaction === 'haha' || currentUserReaction === 'wow') && 'text-yellow-500',
-                                currentUserReaction === 'sad' && 'text-blue-300',
+                                "font-semibold text-sm",
+                                currentUserReaction === 'love' ? 'text-red-500' :
+                                currentUserReaction === 'like' ? 'text-blue-500' :
+                                currentUserReaction === 'haha' ? 'text-yellow-500' :
+                                currentUserReaction === 'wow' ? 'text-amber-500' :
+                                currentUserReaction === 'sad' ? 'text-blue-400' :
+                                'text-muted-foreground group-hover:text-primary'
                              )}>
                                {currentUserReaction ? reactionLabels[currentUserReaction] : 'React'}
                              </span>
-                             {totalReactions > 0 && <span>{totalReactions}</span>}
+                             {totalReactions > 0 && <span className="text-sm text-muted-foreground font-medium">{totalReactions}</span>}
                         </div>
                     )}
                 </Button>
@@ -135,7 +133,7 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
                         <button
                             key={type}
                             onClick={() => handleReaction(type)}
-                            className="p-1 rounded-full hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                            className="p-1 rounded-full hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring transition-transform hover:scale-110"
                         >
                             <Lottie
                                 animationData={reactionAnimations[type]}
@@ -150,4 +148,3 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
         </Popover>
     );
 }
-
