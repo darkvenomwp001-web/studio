@@ -198,33 +198,9 @@
       ]
     },
     {
-      "collectionGroup": "globalChatMessages",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "timestamp",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "username",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-     {
       "collectionGroup": "feedPosts",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "isHidden",
-          "order": "ASCENDING"
-        },
         {
           "fieldPath": "timestamp",
           "order": "DESCENDING"
