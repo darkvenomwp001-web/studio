@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Lottie from 'lottie-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -40,15 +40,15 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
     const { user } = useAuth();
     const { toast } = useToast();
     const [reactions, setReactions] = useState(initialReactions || {});
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [isProcessing, startTransition] = useTransition();
     const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-
-    const currentUserReaction = user ? reactions[user.id] as ReactionType | undefined : undefined;
-    const totalReactions = Object.keys(reactions).length;
 
     useEffect(() => {
         setReactions(initialReactions || {});
     }, [initialReactions]);
+
+    const currentUserReaction = user ? reactions[user.id] as ReactionType | undefined : undefined;
+    const totalReactions = Object.keys(reactions).length;
 
     const handleReaction = async (reactionType: ReactionType) => {
         if (!user || user.isAnonymous) {
@@ -56,41 +56,27 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
             return;
         }
         
-        setIsProcessing(true);
         setIsPopoverOpen(false);
 
-        const oldReactions = { ...reactions };
-        const newReactions = { ...reactions };
-        
-        const isRemovingReaction = newReactions[user.id] === reactionType;
-        if (isRemovingReaction) {
-            delete newReactions[user.id];
-        } else {
-            newReactions[user.id] = reactionType;
-        }
-        setReactions(newReactions);
+        startTransition(async () => {
+            const oldReactions = { ...reactions };
+            const newReactions = { ...reactions };
+            
+            const isRemovingReaction = newReactions[user.id] === reactionType;
+            if (isRemovingReaction) {
+                delete newReactions[user.id];
+            } else {
+                newReactions[user.id] = reactionType;
+            }
+            setReactions(newReactions);
 
-        const result = await toggleReaction(postId, user.id, reactionType);
-        if (!result.success) {
-            setReactions(oldReactions);
-            toast({ title: 'Error', description: result.error, variant: 'destructive' });
-        }
-        setIsProcessing(false);
+            const result = await toggleReaction(postId, user.id, reactionType);
+            if (!result.success) {
+                setReactions(oldReactions);
+                toast({ title: 'Error', description: result.error, variant: 'destructive' });
+            }
+        });
     };
-
-    const handleButtonClick = () => {
-        if (!user || user.isAnonymous) {
-            toast({ title: 'Please sign in to react.' });
-            return;
-        }
-        // If user already reacted, clicking the button will remove the reaction
-        if (currentUserReaction) {
-            handleReaction(currentUserReaction);
-        } else {
-            // If user has not reacted, clicking will open the popover.
-            // Let the PopoverTrigger handle this.
-        }
-    }
     
     const DefaultIcon = () => (
         <ThumbsUp className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -98,9 +84,11 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
 
     const CurrentReactionIcon = () => {
         if (!currentUserReaction) return <DefaultIcon />;
+        const animation = reactionAnimations[currentUserReaction];
+        if (!animation) return <DefaultIcon />;
         return (
             <Lottie
-                animationData={reactionAnimations[currentUserReaction]}
+                animationData={animation}
                 loop={true}
                 autoplay={true}
                 className="w-6 h-6"
@@ -111,7 +99,23 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
     return (
         <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
             <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="group" disabled={isProcessing} onClick={handleButtonClick}>
+                 <Button
+                    variant="ghost"
+                    size="sm"
+                    className="group"
+                    disabled={isProcessing}
+                    onClick={() => {
+                      if (!user || user.isAnonymous) {
+                        toast({ title: 'Please sign in to react.' });
+                        return;
+                      }
+                      if (currentUserReaction) {
+                        handleReaction(currentUserReaction);
+                      } else {
+                        setIsPopoverOpen(true);
+                      }
+                    }}
+                >
                     {isProcessing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
@@ -158,3 +162,5 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
         </Popover>
     );
 }
+
+    
