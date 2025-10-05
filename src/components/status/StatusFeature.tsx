@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -99,8 +99,7 @@ export default function StatusFeature() {
   
   const [showPollCreator, setShowPollCreator] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
-  const [pollOption1, setPollOption1] = useState('');
-  const [pollOption2, setPollOption2] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
 
   const [noteContent, setNoteContent] = useState('');
   
@@ -120,7 +119,7 @@ export default function StatusFeature() {
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(true);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   
-  const [activeUploaderTab, setActiveUploaderTab] = useState('media');
+  const [activeUploaderTab, setActiveUploaderTab] = useState('text');
   const [editingDraft, setEditingDraft] = useState<StatusUpdate | null>(null);
 
   const { toast } = useToast();
@@ -199,7 +198,7 @@ export default function StatusFeature() {
       setIsViewerOpen(true);
     } else {
       if (user.role === 'writer') {
-        handleOpenUploader('media');
+        handleOpenUploader('text');
       } else {
         toast({
           title: "Reader Role",
@@ -239,8 +238,7 @@ export default function StatusFeature() {
     setSongLyricSnippet(null);
     setShowPollCreator(false);
     setPollQuestion('');
-    setPollOption1('');
-    setPollOption2('');
+    setPollOptions(['', '']);
     setSuggestedCaptions([]);
     setSelectedFilter('filter-none');
     setExpiryDuration('24');
@@ -268,7 +266,6 @@ export default function StatusFeature() {
         setMediaPreview(event.target?.result as string);
       };
       reader.readAsDataURL(file);
-      setUploaderScreen('editor');
     }
   };
   
@@ -331,10 +328,9 @@ export default function StatusFeature() {
     }
   };
 
-
-  const handleNoteSubmit = async (status: 'published' | 'draft') => {
+  const handleTextSubmit = async (status: 'published' | 'draft') => {
     if (!noteContent.trim()) {
-        toast({ title: "Note is empty", description: "Please write a note.", variant: "destructive" });
+        toast({ title: "Text is empty", description: "Please write something.", variant: "destructive" });
         return;
     }
     const data: Record<string, any> = { note: noteContent.trim() };
@@ -353,6 +349,21 @@ export default function StatusFeature() {
       };
       await handleSubmit(status, data);
   }
+
+  const handlePollSubmit = async (status: 'published' | 'draft') => {
+    if (!pollQuestion.trim() || pollOptions.some(opt => !opt.trim())) {
+      toast({ title: 'Poll is incomplete', description: 'Please fill out the question and all options.', variant: 'destructive'});
+      return;
+    }
+     const data: Record<string, any> = {
+        poll: {
+            question: pollQuestion.trim(),
+            options: pollOptions.map((opt, index) => ({ id: `opt${index + 1}`, text: opt.trim(), votes: [] }))
+        }
+    };
+    await handleSubmit(status, data);
+  }
+
 
   const handleMediaSubmit = async (status: 'published' | 'draft') => {
     if (!mediaFile && !editingDraft?.mediaUrl) {
@@ -402,16 +413,7 @@ export default function StatusFeature() {
     if (textOverlay.trim()) {
         statusData.textOverlay = textOverlay.trim();
     }
-
-    if (showPollCreator && pollQuestion.trim() && pollOption1.trim() && pollOption2.trim()) {
-        statusData.poll = {
-            question: pollQuestion.trim(),
-            options: [
-                { id: 'opt1', text: pollOption1.trim(), votes: [] },
-                { id: 'opt2', text: pollOption2.trim(), votes: [] }
-            ]
-        };
-    }
+    
     setIsSubmitting(false);
     await handleSubmit(status, statusData);
   };
@@ -457,194 +459,114 @@ export default function StatusFeature() {
     return null;
   }
   
-  const renderPickerScreen = () => (
-    <>
-      <DialogHeader className="sr-only">
-        <DialogTitle>Create Status</DialogTitle>
-        <DialogDescription>Create a new status by sharing a note, media, or song.</DialogDescription>
-      </DialogHeader>
-      <Tabs defaultValue={activeUploaderTab} onValueChange={handleTabChange} className="w-full flex-grow flex flex-col pt-6">
-        <TabsList className="relative grid grid-cols-3 mx-6 bg-muted rounded-full p-1 h-auto">
-           <div
-            className="absolute h-[calc(100%-8px)] p-1 top-1 left-0 transition-transform duration-300 ease-in-out"
-            style={{ 
-                width: `calc(100% / 3)`,
-                transform: `translateX(${activeUploaderTab === 'note' ? '0%' : activeUploaderTab === 'media' ? '100%' : '200%'})`
-            }}
-          >
-            <div className="w-full h-full bg-background rounded-full shadow-md"></div>
-          </div>
-          <TabsTrigger value="note" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary data-[state=active]:font-semibold">Note</TabsTrigger>
-          <TabsTrigger value="media" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary data-[state=active]:font-semibold">Media</TabsTrigger>
-          <TabsTrigger value="song" className="relative flex-1 bg-transparent text-muted-foreground data-[state=active]:text-primary data-[state=active]:font-semibold">Song</TabsTrigger>
-        </TabsList>
-        <TabsContent value="note" className="flex-grow flex flex-col px-6 pb-6">
-            <div className="py-4 space-y-4 flex-grow">
-                <Textarea
-                    placeholder={`What's on your mind, ${user?.displayName || user?.username}?`}
-                    value={noteContent}
-                    onChange={e => setNoteContent(e.target.value)}
-                    className="min-h-[120px] h-full text-lg bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
-                />
-            </div>
-             <DialogFooter className="mt-auto">
-                <Button variant="ghost" onClick={() => handleNoteSubmit('draft')} disabled={isSubmitting || !noteContent.trim()}>
-                    Save as Draft
-                </Button>
-                <Button onClick={() => handleNoteSubmit('published')} disabled={isSubmitting || !noteContent.trim()}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                    Post Note
-                </Button>
-            </DialogFooter>
-        </TabsContent>
-        <TabsContent value="media" className="flex-grow flex flex-col p-0">
-             <div className="flex-grow flex flex-col p-6 overflow-hidden">
-                <div 
-                    className="w-full aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted relative overflow-hidden"
-                    onClick={() => mediaInputRef.current?.click()}
-                >
-                    {mediaPreview ? (
-                        <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" />
-                    ) : (
-                        <>
-                            <Camera className="h-10 w-10 text-muted-foreground mb-2" />
-                            <p className="text-muted-foreground">Select from gallery</p>
-                        </>
-                    )}
-                    <Input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/*" className="hidden" />
-                </div>
-                <div className="mt-4">
-                    <p className="text-sm font-medium">Gallery</p>
-                    <div className="mt-2 text-center text-xs text-muted-foreground bg-muted/50 p-4 rounded-lg">
-                        Direct gallery access is not available in web apps.
-                        <br />
-                        Click above to select a file from your device.
-                    </div>
-                </div>
-            </div>
-        </TabsContent>
-        <TabsContent value="song" className="px-6 pb-6">
-            <div className="py-4 space-y-4">
-                <SongSearch
-                    onSongSelect={(song) => setSelectedSong(song)}
-                    onLyricSelect={setSongLyricSnippet}
-                />
-                {selectedSong && songLyricSnippet && (
-                    <div className="p-3 bg-muted rounded-md text-center">
-                        <p className="text-sm font-semibold italic text-foreground/80">"{songLyricSnippet}"</p>
-                    </div>
-                )}
+  const uploaderContent = () => {
+    switch (activeUploaderTab) {
+      case 'text':
+        return (
+          <>
+            <div className="py-4 space-y-4 flex-grow flex flex-col">
+              <Textarea
+                  placeholder={`What's on your mind, ${user?.displayName || user?.username}?`}
+                  value={noteContent}
+                  onChange={e => setNoteContent(e.target.value)}
+                  className="flex-grow text-lg bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
+              />
             </div>
             <DialogFooter>
-                <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !selectedSong}>
-                    Save as Draft
-                </Button>
-                <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !selectedSong}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                    Post Song
+              <Button variant="ghost" onClick={() => handleTextSubmit('draft')} disabled={isSubmitting || !noteContent.trim()}>Save as Draft</Button>
+              <Button onClick={() => handleTextSubmit('published')} disabled={isSubmitting || !noteContent.trim()}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+              </Button>
+            </DialogFooter>
+          </>
+        );
+      case 'media':
+        return (
+          <>
+            <div className="flex-grow flex flex-col p-6 overflow-hidden items-center justify-center">
+              <div 
+                  className="w-full max-w-[300px] aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted relative overflow-hidden"
+                  onClick={() => mediaInputRef.current?.click()}
+              >
+                  {mediaPreview ? (
+                      <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" />
+                  ) : (
+                      <>
+                          <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
+                          <p className="text-muted-foreground">Select photo or video</p>
+                      </>
+                  )}
+                  <Input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/*" className="hidden" />
+              </div>
+            </div>
+             <DialogFooter>
+                <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaFile}>Save as Draft</Button>
+                <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || !mediaFile}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
                 </Button>
             </DialogFooter>
-        </TabsContent>
-      </Tabs>
-    </>
-  );
-
-  const renderEditorScreen = () => (
-    <div className="h-full flex flex-col">
-        <DialogHeader className="p-4 border-b">
-            <div className="flex justify-between items-center">
-                <Button variant="ghost" size="icon" onClick={() => setUploaderScreen('picker')}><X className="h-5 w-5" /></Button>
-                <DialogTitle className="sr-only">Edit Status</DialogTitle>
-                <Button onClick={() => handleMediaSubmit('published')} disabled={!mediaFile && !editingDraft || isSubmitting}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                    Post
-                </Button>
+          </>
+        );
+      case 'song':
+        return (
+          <>
+            <div className="py-4 space-y-4 flex-grow">
+              <SongSearch
+                  onSongSelect={(song) => setSelectedSong(song)}
+                  onLyricSelect={setSongLyricSnippet}
+              />
+              {selectedSong && songLyricSnippet && (
+                  <div className="p-3 bg-muted rounded-md text-center">
+                      <p className="text-sm font-semibold italic text-foreground/80">"{songLyricSnippet}"</p>
+                  </div>
+              )}
             </div>
-        </DialogHeader>
-        <ScrollArea className="flex-grow">
-            <div className="p-4 space-y-4">
-                <div className="relative group">
-                    {mediaType === 'image' ? (
-                        <Image src={mediaPreview!} alt="Preview" width={400} height={400} className={cn("w-full h-auto object-contain rounded-lg transition-all", selectedFilter)} />
-                    ) : (
-                        <video ref={previewVideoRef} src={mediaPreview!} autoPlay muted loop playsInline className="w-full h-auto object-contain rounded-lg" />
-                    )}
-                </div>
-                
-                <div className="space-y-4">
-                    {mediaType === 'image' && (
-                        <div>
-                            <Label className="text-xs text-muted-foreground">Filters</Label>
-                            <ScrollArea className="w-full whitespace-nowrap">
-                                <div className="flex space-x-2 pb-2">
-                                    {photoFilters.map(filter => (
-                                        <div key={filter.name} onClick={() => setSelectedFilter(filter.style)} className="text-center cursor-pointer">
-                                            <Image src={mediaPreview!} alt={filter.name} width={60} height={60} className={cn("rounded-md object-cover w-16 h-16 border-2 transition-all", selectedFilter === filter.style ? 'border-primary' : 'border-transparent', filter.style)} />
-                                            <p className="text-xs mt-1">{filter.name}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                                <ScrollBar orientation="horizontal" />
-                            </ScrollArea>
-                        </div>
-                    )}
-
-                    <Input type="text" placeholder="Add a caption..." value={textOverlay} onChange={(e) => setTextOverlay(e.target.value)} maxLength={100} />
-                    
-                    {mediaType === 'image' && (
-                    <Button variant="outline" size="sm" onClick={handleGenerateCaptions} disabled={isGeneratingCaptions}>
-                        {isGeneratingCaptions ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Wand2 className="h-4 w-4 mr-2" />}
-                        Generate AI Captions
-                    </Button>
-                    )}
-                    
-                    {suggestedCaptions.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                            {suggestedCaptions.map((caption, i) => (
-                                <Button key={i} size="sm" variant="secondary" onClick={() => setTextOverlay(caption)}>{caption}</Button>
-                            ))}
-                        </div>
-                    )}
-
-                    <div className="flex items-center justify-between p-2 border rounded-md">
-                        <Label htmlFor="poll-switch">Add a Poll</Label>
-                        <Switch id="poll-switch" checked={showPollCreator} onCheckedChange={setShowPollCreator} />
-                    </div>
-
-                    {showPollCreator && (
-                        <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
-                            <Input placeholder="Poll Question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
-                            <div className="flex gap-2">
-                                <Input placeholder="Option 1" value={pollOption1} onChange={e => setPollOption1(e.target.value)} />
-                                <Input placeholder="Option 2" value={pollOption2} onChange={e => setPollOption2(e.target.value)} />
-                            </div>
-                        </div>
-                    )}
-
-                    <div>
-                        <Label htmlFor="expiry-select">Set Expiry Duration</Label>
-                        <Select value={expiryDuration} onValueChange={setExpiryDuration}>
-                            <SelectTrigger id="expiry-select" className="w-[180px]">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="3">3 Hours</SelectItem>
-                                <SelectItem value="6">6 Hours</SelectItem>
-                                <SelectItem value="12">12 Hours</SelectItem>
-                                <SelectItem value="24">24 Hours</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !selectedSong}>Save as Draft</Button>
+              <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !selectedSong}>
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+              </Button>
+            </DialogFooter>
+          </>
+        );
+        case 'poll':
+        return (
+          <>
+            <div className="py-4 space-y-4 flex-grow">
+               <Textarea
+                    placeholder="Ask a question..."
+                    value={pollQuestion}
+                    onChange={e => setPollQuestion(e.target.value)}
+                    className="text-lg font-semibold bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
+                />
+                <div className="space-y-2">
+                    {pollOptions.map((option, index) => (
+                         <Input 
+                            key={index}
+                            placeholder={`Option ${index + 1}`}
+                            value={option}
+                            onChange={(e) => {
+                                const newOptions = [...pollOptions];
+                                newOptions[index] = e.target.value;
+                                setPollOptions(newOptions);
+                            }}
+                         />
+                    ))}
+                    {pollOptions.length < 4 && <Button variant="link" size="sm" onClick={() => setPollOptions([...pollOptions, ''])}>Add option</Button>}
                 </div>
             </div>
-        </ScrollArea>
-         <DialogFooter className="p-4 border-t">
-            <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={!mediaFile && !editingDraft || isSubmitting}>
-                <Save className="mr-2 h-4 w-4" /> Save as Draft
-            </Button>
-        </DialogFooter>
-    </div>
-  );
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => handlePollSubmit('draft')} disabled={isSubmitting || !pollQuestion.trim()}>Save as Draft</Button>
+              <Button onClick={() => handlePollSubmit('published')} disabled={isSubmitting || !pollQuestion.trim()}>
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+              </Button>
+            </DialogFooter>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
   
   return (
     <div className='py-4'>
@@ -689,9 +611,23 @@ export default function StatusFeature() {
       </ScrollArea>
 
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
-            <DialogContent className="p-0 m-0 border-0 w-screen h-screen max-w-full sm:max-w-md sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
-                {uploaderScreen === 'picker' ? renderPickerScreen() : renderEditorScreen()}
-            </DialogContent>
+          <DialogContent className="p-0 m-0 border-0 w-screen h-[80vh] max-h-[600px] max-w-full sm:max-w-md flex flex-col gap-0 rounded-lg">
+            <DialogHeader className="p-4 flex-row items-center justify-between border-b">
+                <DialogTitle>Create Status</DialogTitle>
+                <DialogClose asChild>
+                  <Button variant="ghost" size="icon"><X className="h-5 w-5" /></Button>
+                </DialogClose>
+            </DialogHeader>
+            <div className="flex-grow flex flex-col overflow-hidden px-6 pb-6">
+              {uploaderContent()}
+            </div>
+             <div className="grid grid-cols-4 border-t bg-muted/50 p-1">
+                <Button variant={activeUploaderTab === 'text' ? 'secondary' : 'ghost'} onClick={() => setActiveUploaderTab('text')} className="flex-col h-16"><Text className="h-6 w-6 mb-1"/>Text</Button>
+                <Button variant={activeUploaderTab === 'media' ? 'secondary' : 'ghost'} onClick={() => setActiveUploaderTab('media')} className="flex-col h-16"><ImageIcon className="h-6 w-6 mb-1"/>Media</Button>
+                <Button variant={activeUploaderTab === 'song' ? 'secondary' : 'ghost'} onClick={() => setActiveUploaderTab('song')} className="flex-col h-16"><Music className="h-6 w-6 mb-1"/>Song</Button>
+                <Button variant={activeUploaderTab === 'poll' ? 'secondary' : 'ghost'} onClick={() => setActiveUploaderTab('poll')} className="flex-col h-16"><BarChart2 className="h-6 w-6 mb-1"/>Poll</Button>
+            </div>
+          </DialogContent>
         </Dialog>
 
       <StatusViewer
@@ -706,3 +642,5 @@ export default function StatusFeature() {
     </div>
   );
 }
+
+    
