@@ -165,8 +165,7 @@
           "storyId": { "type": "string", "description": "ID of a story attached to the post.", "reference": "stories" },
           "songUrl": { "type": "string", "description": "URL of a song attached to the post." },
           "songLyricSnippet": { "type": "string", "description": "A snippet of lyrics from the attached song." },
-          "likesCount": { "type": "number", "description": "Total number of likes." },
-          "likedBy": { "type": "array", "description": "Array of user IDs who liked the post." },
+          "reactions": { "type": "map", "description": "Map of user IDs to their reaction type (e.g., like, love, haha)." },
           "commentsCount": { "type": "number", "description": "Total number of comments." },
           "timestamp": { "type": "timestamp", "description": "When the post was created." }
         },
