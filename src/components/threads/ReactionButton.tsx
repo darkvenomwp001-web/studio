@@ -66,7 +66,7 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
         }
         setReactions(newReactions);
 
-        const result = await toggleReaction(postId, reactionType);
+        const result = await toggleReaction(postId, reactionType, user.id);
         if (!result.success) {
             setReactions(oldReactions);
             toast({ title: 'Error', description: result.error, variant: 'destructive' });
@@ -79,8 +79,12 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
         if (currentUserReaction) {
             handleReaction(currentUserReaction);
         } else {
-            // If user has not reacted, clicking will open the popover.
-            // This is default PopoverTrigger behavior, so no action needed.
+            // If user has not reacted, clicking will toggle the popover.
+             if (!user || user.isAnonymous) {
+                toast({ title: 'Please sign in to react.' });
+                return;
+            }
+            setIsPopoverOpen(true);
         }
     }
     
@@ -120,7 +124,7 @@ export default function ReactionButton({ postId, reactions: initialReactions }: 
                                 currentUserReaction === 'sad' ? 'text-blue-400' :
                                 'text-muted-foreground group-hover:text-primary'
                              )}>
-                               {currentUserReaction ? reactionLabels[currentUserReaction] : 'React'}
+                               {currentUserReaction ? reactionLabels[currentUserReaction] : 'Like'}
                              </span>
                              {totalReactions > 0 && <span className="text-sm text-muted-foreground font-medium">{totalReactions}</span>}
                         </div>

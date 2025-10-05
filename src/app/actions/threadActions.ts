@@ -109,12 +109,8 @@ export async function deleteThreadPost(postId: string, userId: string): Promise<
     }
 }
 
-export async function toggleReaction(postId: string, reactionType: ReactionType): Promise<{ success: boolean; error?: string }> {
-    const { getAuth } = await import('firebase/auth');
-    const auth = getAuth();
-    const user = auth.currentUser;
-
-    if (!user || user.isAnonymous) {
+export async function toggleReaction(postId: string, reactionType: ReactionType, userId: string): Promise<{ success: boolean; error?: string }> {
+    if (!userId) {
         return { success: false, error: 'You must be signed in to react.' };
     }
     
@@ -129,19 +125,20 @@ export async function toggleReaction(postId: string, reactionType: ReactionType)
             
             const postData = postDoc.data();
             const reactions = postData.reactions || {};
-            const currentReaction = reactions[user.uid];
+            const currentReaction = reactions[userId];
 
             if (currentReaction === reactionType) {
                 // User is removing their reaction
-                delete reactions[user.uid];
+                delete reactions[userId];
             } else {
                 // User is adding or changing their reaction
-                reactions[user.uid] = reactionType;
+                reactions[userId] = reactionType;
             }
 
             transaction.update(postRef, { reactions });
         });
 
+        revalidatePath('/');
         return { success: true };
     } catch (error) {
         console.error("Error toggling reaction:", error);
