@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, Pause, Play } from 'lucide-react';
+import { Loader2, X, Pause, Play, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Timestamp } from 'firebase/firestore';
@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
+import { hideStatusUpdate } from '@/app/actions/statusActions';
+
 
 export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void }) {
     const { user } = useAuth();
@@ -105,12 +107,25 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         }
     }, [currentStatus, isPaused, isOpen]);
 
+    const handleHide = async () => {
+        if (!user || !currentStatus) return;
+        
+        const result = await hideStatusUpdate(currentStatus.id, user.id);
+        if (result.success) {
+            toast({ title: "Status Hidden" });
+            onOpenChange(false);
+        } else {
+            toast({ title: "Error", description: result.error, variant: "destructive" });
+        }
+    };
+
 
     if (!selectedUser || !currentStatus) {
         return null;
     }
     
     const isNoteStatus = !!currentStatus.note || !!currentStatus.spotifyUrl;
+    const isOwner = user?.id === selectedUser.id;
     
 
     return (
@@ -130,6 +145,11 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                         <span className="text-gray-300 text-xs">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
                      <div className="flex items-center gap-1">
+                        {isOwner && (
+                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={handleHide}>
+                                <EyeOff className="h-5 w-5"/>
+                            </Button>
+                        )}
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={() => onOpenChange(false)}>
                               <X className="h-5 w-5"/>
                         </Button>

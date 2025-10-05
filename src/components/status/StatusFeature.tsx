@@ -126,6 +126,7 @@ export default function StatusFeature() {
     const statusesQuery = query(
       collection(db, 'statusUpdates'),
       where('status', '==', 'published'),
+      where('isHidden', '==', false),
       where('expiresAt', '>', Timestamp.now())
     );
     
@@ -157,8 +158,8 @@ export default function StatusFeature() {
 
     const liveStatuses = allStatuses.filter(s => s.status === 'published');
     
+    // This part adds the user's own status bubble if they have one.
     if (user && !user.isAnonymous) {
-      // Prioritize current user's active statuses in the list
       const currentUserLive = liveStatuses.filter(s => s.authorId === user.id);
       if (currentUserLive.length > 0) {
           groups.set(user.id, { user: user as User, statuses: currentUserLive });
@@ -186,22 +187,12 @@ export default function StatusFeature() {
         return;
     }
 
-    if (selectedUser.id === user.id) {
-        // User clicked their own bubble (if it exists, means they have a status)
-        const userHasStatuses = groupedStatuses.has(selectedUser.id) && groupedStatuses.get(selectedUser.id)!.statuses.length > 0;
-        if (userHasStatuses) {
-            setSelectedUserForViewing(selectedUser);
-            setIsViewerOpen(true);
-        }
+    const userHasStatuses = groupedStatuses.has(selectedUser.id) && groupedStatuses.get(selectedUser.id)!.statuses.length > 0;
+    if (userHasStatuses) {
+        setSelectedUserForViewing(selectedUser);
+        setIsViewerOpen(true);
     } else {
-        // Clicked another user's bubble
-        const userHasStatuses = groupedStatuses.has(selectedUser.id) && groupedStatuses.get(selectedUser.id)!.statuses.length > 0;
-        if (userHasStatuses) {
-            setSelectedUserForViewing(selectedUser);
-            setIsViewerOpen(true);
-        } else {
-            toast({ title: "No Status", description: `${selectedUser.displayName} hasn't posted a status update yet.` });
-        }
+        toast({ title: "No Status", description: `${selectedUser.displayName} hasn't posted a status update yet.` });
     }
   }
 
@@ -309,6 +300,7 @@ export default function StatusFeature() {
         updatedAt: serverTimestamp(),
         status,
         expiresAt: expiryTime,
+        isHidden: false,
     };
   };
 
@@ -582,19 +574,6 @@ export default function StatusFeature() {
                 </div>
             )}
             
-            {user && groupedStatuses.has(user.id) && (
-                <StatusBubble
-                    user={user as User}
-                    statuses={groupedStatuses.get(user.id)!.statuses}
-                    onSelect={handleSelectUser}
-                    latestStatus={groupedStatuses.get(user.id)!.statuses.sort((a, b) => {
-                        const timeA = a.createdAt ? (a.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
-                        const timeB = b.createdAt ? (b.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
-                        return timeB - timeA;
-                    })[0]}
-                />
-            )}
-
             {isLoading ? (
                 [...Array(4)].map((_, i) => (
                     <div key={i} className="flex-shrink-0 w-20 text-center">
@@ -605,7 +584,7 @@ export default function StatusFeature() {
             ) : (
                 statusOrder.map((userId) => {
                     const group = groupedStatuses.get(userId);
-                    if (!group || userId === user.id) return null; // Don't show the user's own bubble here again
+                    if (!group) return null;
                     const latestStatus = group.statuses.sort((a, b) => {
                         const timeA = a.createdAt ? (a.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
                         const timeB = b.createdAt ? (b.createdAt as Timestamp)?.toMillis() ?? 0 : 0;

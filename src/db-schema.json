@@ -113,7 +113,8 @@
           "mediaUrl": { "type": "string", "description": "URL of the image or video for the status." },
           "status": { "type": "string", "description": "'published' or 'draft'." },
           "createdAt": { "type": "timestamp", "description": "When the status was created." },
-          "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." }
+          "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." },
+          "isHidden": { "type": "boolean", "description": "True if the user hid the status." }
         }
       },
       "prompts": {

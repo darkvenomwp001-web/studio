@@ -154,6 +154,7 @@
         "queryScope": "COLLECTION",
         "fields": [
             { "fieldPath": "status", "order": "ASCENDING" },
+            { "fieldPath": "isHidden", "order": "ASCENDING" },
             { "fieldPath": "expiresAt", "order": "ASCENDING" }
         ]
     }

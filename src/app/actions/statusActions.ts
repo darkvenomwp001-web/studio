@@ -17,6 +17,42 @@ function isOwner(userId: string, statusData: { [key: string]: any }): boolean {
 }
 
 /**
+ * Marks a status update as hidden.
+ * @param statusId The ID of the status update to hide.
+ * @param userId The ID of the user performing the action. Ensures ownership.
+ * @returns A promise that resolves to an object indicating success or failure.
+ */
+export async function hideStatusUpdate(
+    statusId: string,
+    userId: string
+): Promise<{ success: boolean; error?: string }> {
+    if (!userId) {
+        return { success: false, error: 'User not authenticated.' };
+    }
+    try {
+        const statusRef = doc(db, 'statusUpdates', statusId);
+        const statusSnap = await getDoc(statusRef);
+        if (!statusSnap.exists()) {
+            return { success: true }; // Already gone
+        }
+
+        if (!isOwner(userId, statusSnap.data())) {
+             return { success: false, error: 'You do not have permission to hide this status.' };
+        }
+
+        await updateDoc(statusRef, { 
+            isHidden: true,
+        });
+
+        revalidatePath('/');
+        return { success: true };
+    } catch (error) {
+        console.error('Error hiding status:', error);
+        return { success: false, error: 'Could not hide status.' };
+    }
+}
+
+/**
  * Permanently deletes a status update from Firestore.
  * @param statusId The ID of the status update to delete.
  * @param userId The ID of the user performing the action. Ensures ownership.

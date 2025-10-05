@@ -255,6 +255,7 @@ export interface StatusUpdate {
     expiresAt: any | null;
     createdAt: any;
     status: 'published' | 'draft';
+    isHidden?: boolean;
 }
 
 export interface Song {
