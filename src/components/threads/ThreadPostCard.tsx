@@ -7,19 +7,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, MoreHorizontal, Edit, Trash2, Save, Loader2 } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Edit, EyeOff, Save, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '../shared/SpotifyPlayer';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { updateThreadPost, deleteThreadPost } from '@/app/actions/threadActions';
+import { updateThreadPost, hideThreadPost } from '@/app/actions/threadActions';
 
 
 export default function ThreadPostCard({ post }: { post: ThreadPost }) {
@@ -62,16 +62,16 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
     setIsProcessing(false);
   };
   
-  const handleDeletePost = async () => {
+  const handleHidePost = async () => {
       if (!user) return;
       setIsProcessing(true);
-      const result = await deleteThreadPost(post.id);
+      const result = await hideThreadPost(post.id);
        if (!result.success) {
           toast({ title: 'Error', description: result.error, variant: 'destructive' });
           setIsProcessing(false);
       } else {
-          toast({ title: 'Post Deleted' });
-          // The component will be removed from the list by the parent's real-time listener
+          toast({ title: 'Post Hidden' });
+          // The component will be removed from the list by the parent's real-time listener filtering for isHidden
       }
   }
 
@@ -107,21 +107,21 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                         </DropdownMenuItem>
                         <AlertDialogTrigger asChild>
                             <DropdownMenuItem className="text-destructive focus:text-destructive">
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
+                                <EyeOff className="mr-2 h-4 w-4" />
+                                Hide Post
                             </DropdownMenuItem>
                         </AlertDialogTrigger>
                     </DropdownMenuContent>
                 </DropdownMenu>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>This action cannot be undone. This will permanently delete your post.</AlertDialogDescription>
+                        <AlertDialogTitle>Hide this post?</AlertDialogTitle>
+                        <AlertDialogDescription>This will hide the post from the public feed. You can manage hidden posts in your settings later (feature coming soon).</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeletePost} className="bg-destructive hover:bg-destructive/90">
-                            {isProcessing ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null} Delete
+                        <AlertDialogAction onClick={handleHidePost} className="bg-destructive hover:bg-destructive/90">
+                            {isProcessing ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null} Hide Post
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

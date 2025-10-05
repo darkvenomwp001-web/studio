@@ -64,17 +64,20 @@ export async function updateThreadPost(
   }
 }
 
-export async function deleteThreadPost(
+export async function hideThreadPost(
   postId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const postRef = doc(db, 'feedPosts', postId);
     // Again, server-side ownership check would go here in a different backend setup.
-    await deleteDoc(postRef);
-    revalidatePath('/'); // Revalidate the feed
+    await updateDoc(postRef, {
+        isHidden: true
+    });
+    revalidatePath('/'); // Revalidate the feed to hide the post
     return { success: true };
   } catch (error) {
-    console.error("Error deleting post:", error);
-    return { success: false, error: "Could not delete post." };
+    console.error("Error hiding post:", error);
+    return { success: false, error: "Could not hide post." };
   }
 }
+

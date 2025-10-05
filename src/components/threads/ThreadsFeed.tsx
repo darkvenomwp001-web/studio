@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
 import type { ThreadPost } from '@/types';
 import { Loader2 } from 'lucide-react';
 import CreatePostForm from './CreatePostForm';
@@ -16,7 +17,12 @@ export default function ThreadsFeed() {
 
   useEffect(() => {
     setIsLoading(true);
-    const postsQuery = query(collection(db, 'feedPosts'), orderBy('timestamp', 'desc'));
+    const postsQuery = query(
+        collection(db, 'feedPosts'), 
+        where('isHidden', '!=', true),
+        orderBy('isHidden'),
+        orderBy('timestamp', 'desc')
+    );
 
     const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
       const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ThreadPost));

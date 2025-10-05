@@ -168,7 +168,8 @@
           "likesCount": { "type": "number", "description": "Total number of likes." },
           "likedBy": { "type": "array", "description": "Array of user IDs who liked the post." },
           "commentsCount": { "type": "number", "description": "Total number of comments." },
-          "timestamp": { "type": "timestamp", "description": "When the post was created." }
+          "timestamp": { "type": "timestamp", "description": "When the post was created." },
+          "isHidden": { "type": "boolean", "description": "Whether the post is hidden by the author." }
         }
       }
     }
