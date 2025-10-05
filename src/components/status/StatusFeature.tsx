@@ -459,18 +459,31 @@ export default function StatusFeature() {
                   className="flex-grow text-lg bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
               />
             </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => handleTextSubmit('draft')} disabled={isSubmitting || !noteContent.trim()}>Save as Draft</Button>
-              <Button onClick={() => handleTextSubmit('published')} disabled={isSubmitting || !noteContent.trim()}>
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-              </Button>
+            <DialogFooter className="flex-row justify-between items-center">
+              <Select value={expiryDuration} onValueChange={setExpiryDuration}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue/>
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="3">Expires in 3 Hours</SelectItem>
+                    <SelectItem value="6">Expires in 6 Hours</SelectItem>
+                    <SelectItem value="10">Expires in 10 Hours</SelectItem>
+                    <SelectItem value="24">Expires in 24 Hours</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => handleTextSubmit('draft')} disabled={isSubmitting || !noteContent.trim()}>Save as Draft</Button>
+                <Button onClick={() => handleTextSubmit('published')} disabled={isSubmitting || !noteContent.trim()}>
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                </Button>
+              </div>
             </DialogFooter>
           </>
         );
       case 'media':
         return (
           <>
-            <div className="flex-grow flex flex-col p-6 overflow-hidden items-center justify-center">
+            <div className="flex-grow flex flex-col p-4 sm:p-6 overflow-hidden items-center justify-center">
               <div 
                   className="w-full max-w-[300px] aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted relative overflow-hidden"
                   onClick={() => mediaInputRef.current?.click()}
@@ -486,18 +499,31 @@ export default function StatusFeature() {
                   <Input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/*" className="hidden" />
               </div>
             </div>
-             <DialogFooter>
-                <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaFile}>Save as Draft</Button>
-                <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || !mediaFile}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-                </Button>
+             <DialogFooter className="flex-row justify-between items-center">
+                <Select value={expiryDuration} onValueChange={setExpiryDuration}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue/>
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="3">Expires in 3 Hours</SelectItem>
+                      <SelectItem value="6">Expires in 6 Hours</SelectItem>
+                      <SelectItem value="10">Expires in 10 Hours</SelectItem>
+                      <SelectItem value="24">Expires in 24 Hours</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2">
+                  <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaFile}>Save as Draft</Button>
+                  <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || !mediaFile}>
+                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                  </Button>
+                </div>
             </DialogFooter>
           </>
         );
       case 'song':
         return (
           <>
-            <div className="py-4 space-y-4 flex-grow">
+            <div className="py-4 space-y-4 flex-grow px-6">
               <SongSearch
                   onSongSelect={(song) => setSelectedSong(song)}
                   onLyricSelect={setSongLyricSnippet}
@@ -508,18 +534,31 @@ export default function StatusFeature() {
                   </div>
               )}
             </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !selectedSong}>Save as Draft</Button>
-              <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !selectedSong}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-              </Button>
+            <DialogFooter className="flex-row justify-between items-center">
+                <Select value={expiryDuration} onValueChange={setExpiryDuration}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue/>
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="3">Expires in 3 Hours</SelectItem>
+                      <SelectItem value="6">Expires in 6 Hours</SelectItem>
+                      <SelectItem value="10">Expires in 10 Hours</SelectItem>
+                      <SelectItem value="24">Expires in 24 Hours</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2">
+                  <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !selectedSong}>Save as Draft</Button>
+                  <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !selectedSong}>
+                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                  </Button>
+                </div>
             </DialogFooter>
           </>
         );
         case 'poll':
         return (
           <>
-            <div className="py-4 space-y-4 flex-grow">
+            <div className="py-4 space-y-4 flex-grow px-6">
                <Textarea
                     placeholder="Ask a question..."
                     value={pollQuestion}
@@ -542,11 +581,24 @@ export default function StatusFeature() {
                     {pollOptions.length < 4 && <Button variant="link" size="sm" onClick={() => setPollOptions([...pollOptions, ''])}>Add option</Button>}
                 </div>
             </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => handlePollSubmit('draft')} disabled={isSubmitting || !pollQuestion.trim()}>Save as Draft</Button>
-              <Button onClick={() => handlePollSubmit('published')} disabled={isSubmitting || !pollQuestion.trim()}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-              </Button>
+            <DialogFooter className="flex-row justify-between items-center">
+              <Select value={expiryDuration} onValueChange={setExpiryDuration}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue/>
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="3">Expires in 3 Hours</SelectItem>
+                      <SelectItem value="6">Expires in 6 Hours</SelectItem>
+                      <SelectItem value="10">Expires in 10 Hours</SelectItem>
+                      <SelectItem value="24">Expires in 24 Hours</SelectItem>
+                  </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => handlePollSubmit('draft')} disabled={isSubmitting || !pollQuestion.trim()}>Save as Draft</Button>
+                <Button onClick={() => handlePollSubmit('published')} disabled={isSubmitting || !pollQuestion.trim()}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                </Button>
+              </div>
             </DialogFooter>
           </>
         );
@@ -601,16 +653,16 @@ export default function StatusFeature() {
           <DialogContent className="p-0 m-0 border-0 w-screen h-[80vh] max-h-[600px] max-w-full sm:max-w-md flex flex-col gap-0 rounded-lg">
             <DialogHeader className="p-4 flex-row items-center justify-between border-b">
                 <DialogTitle>Create Status</DialogTitle>
+                 <div className="flex items-center rounded-full border bg-muted p-0.5">
+                    <Button variant={activeUploaderTab === 'text' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveUploaderTab('text')} className="rounded-full h-8 w-8"><Text className="h-4 w-4"/></Button>
+                    <Button variant={activeUploaderTab === 'media' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveUploaderTab('media')} className="rounded-full h-8 w-8"><ImageIcon className="h-4 w-4"/></Button>
+                    <Button variant={activeUploaderTab === 'song' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveUploaderTab('song')} className="rounded-full h-8 w-8"><Music className="h-4 w-4"/></Button>
+                    <Button variant={activeUploaderTab === 'poll' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveUploaderTab('poll')} className="rounded-full h-8 w-8"><BarChart2 className="h-4 w-4"/></Button>
+                </div>
                 <DialogClose asChild><Button variant="ghost" size="icon"><X className="h-5 w-5"/></Button></DialogClose>
             </DialogHeader>
-            <div className="flex-grow flex flex-col overflow-hidden px-6 pb-6">
+            <div className="flex-grow flex flex-col overflow-hidden">
               {uploaderContent()}
-            </div>
-             <div className="grid grid-cols-4 border-t bg-muted/50 p-1">
-                <Button variant={activeUploaderTab === 'text' ? 'secondary' : 'ghost'} onClick={() => setActiveUploaderTab('text')} className="flex-col h-16"><Text className="h-6 w-6 mb-1"/>Text</Button>
-                <Button variant={activeUploaderTab === 'media' ? 'secondary' : 'ghost'} onClick={() => setActiveUploaderTab('media')} className="flex-col h-16"><ImageIcon className="h-6 w-6 mb-1"/>Media</Button>
-                <Button variant={activeUploaderTab === 'song' ? 'secondary' : 'ghost'} onClick={() => setActiveUploaderTab('song')} className="flex-col h-16"><Music className="h-6 w-6 mb-1"/>Song</Button>
-                <Button variant={activeUploaderTab === 'poll' ? 'secondary' : 'ghost'} onClick={() => setActiveUploaderTab('poll')} className="flex-col h-16"><BarChart2 className="h-6 w-6 mb-1"/>Poll</Button>
             </div>
           </DialogContent>
         </Dialog>

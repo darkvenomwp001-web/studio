@@ -111,6 +111,7 @@
         "fields": {
           "authorId": { "type": "string", "description": "ID of the status author.", "reference": "users" },
           "mediaUrl": { "type": "string", "description": "URL of the image or video for the status." },
+          "note": { "type": "string", "description": "Text content for a note-based status." },
           "status": { "type": "string", "description": "'published' or 'draft'." },
           "createdAt": { "type": "timestamp", "description": "When the status was created." },
           "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." },
@@ -186,6 +187,14 @@
                     "user": { "type": "map", "description": "Summary object of the user who reacted." }
                 }
             }
+        }
+      },
+      "announcements": {
+        "description": "Author announcements to their followers.",
+        "fields": {
+          "author": { "type": "map", "description": "Summary object of the announcement author." },
+          "content": { "type": "string", "description": "Text content of the announcement." },
+          "timestamp": { "type": "timestamp", "description": "When the announcement was posted." }
         }
       }
     }
