@@ -3,319 +3,140 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // ============================================================================
-    // AUTHENTICATION & AUTHORIZATION HELPERS
-    // ============================================================================
-    
-    /**
-     * Verifies that the request originates from an authenticated user
-     * @returns {boolean} True if user is authenticated with a valid UID
-     */
+
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null && request.auth.uid != null;
     }
     
-    /**
-     * Verifies that the authenticated user is not anonymous (guest)
-     * Uses the sign_in_provider to check for anonymous authentication
-     * @returns {boolean} True if user has a non-anonymous account
-     */
     function isNotGuest() {
-      return isAuthenticated() && 
-             request.auth.token.firebase.sign_in_provider != 'anonymous';
+      return request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
-    
-    /**
-     * Checks if the authenticated user owns the specified resource
-     * @param {string} userId - The user ID to check ownership against
-     * @returns {boolean} True if the authenticated user matches the provided userId
-     */
+
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-    
-    /**
-     * Checks if the authenticated user has read access to a story
-     * @returns {boolean} True if story is public/unlisted, or user is author/collaborator
-     */
-    function canReadStory() {
-      let storyData = get(/databases/$(database)/documents/stories/$(storyId)).data;
-      return storyData.visibility == 'Public' 
-          || storyData.visibility == 'Unlisted'
-          || isOwner(storyData.author.id)
-          || (storyData.collaboratorIds != null && 
-              request.auth.uid in storyData.collaboratorIds);
-    }
-    
-    /**
-     * Checks if the authenticated user can write to a story
-     * @returns {boolean} True if user is the author or a collaborator
-     */
-    function canWriteStory() {
-      let storyData = get(/databases/$(database)/documents/stories/$(storyId)).data;
-      return isNotGuest() && 
-             (isOwner(storyData.author.id) || 
-              (storyData.collaboratorIds != null && 
-               request.auth.uid in storyData.collaboratorIds));
-    }
-    
-    /**
-     * Checks if user is a participant in a conversation
-     * @param {string} conversationId - The conversation document ID
-     * @returns {boolean} True if user is listed in participantIds
-     */
-    function isConversationParticipant(conversationId) {
-      return isAuthenticated() && 
-             request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      return request.auth.uid == userId;
     }
 
-    // ============================================================================
-    // USERS COLLECTION
-    // Purpose: Store user profiles and account information
-    // ============================================================================
+    function isAuthor() {
+      // Check if user has 'writer' role
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'writer';
+    }
     
+    function isStoryPublic() {
+        return resource.data.visibility == 'Public';
+    }
+    
+    function isStoryOwner(storyId) {
+        let story = get(/databases/$(database)/documents/stories/$(storyId));
+        return story.data.author.id == request.auth.uid;
+    }
+    
+    function isStoryCollaborator(storyId) {
+        let story = get(/databases/$(database)/documents/stories/$(storyId));
+        return request.auth.uid in story.data.collaboratorIds;
+    }
+
+    // Users Collection
     match /users/{userId} {
-      // Public read access for displaying user profiles
-      allow read: if true;
-      
-      // Users can create and update their own profile
-      allow create, update: if isOwner(userId);
-      
-      // Prevent direct account deletion - should be handled server-side
-      allow delete: if false;
+      allow read;
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && isOwner(userId) && 
+                    !('role' in request.resource.data) &&
+                    !('isBanned' in request.resource.data) &&
+                    !('followersCount' in request.resource.data) &&
+                    !('followingCount' in request.resource.data);
+      allow delete: if false; // Users shouldn't delete their own accounts directly
     }
 
-    // ============================================================================
-    // STORIES COLLECTION
-    // Purpose: Main content repository for user-created stories
-    // ============================================================================
-    
+    // Stories Collection
     match /stories/{storyId} {
-      // Read access based on visibility and ownership
-      allow read: if resource.data.visibility == 'Public' 
-          || resource.data.visibility == 'Unlisted'
-          || isOwner(resource.data.author.id)
-          || (resource.data.collaboratorIds != null && 
-              request.auth.uid in resource.data.collaboratorIds);
-      
-      // Only authenticated users can create stories with themselves as author
-      allow create: if isNotGuest() && 
-                      request.auth.uid == request.resource.data.author.id;
-      
-      // Authors and collaborators can update stories
-      allow update: if isNotGuest() && 
-             (isOwner(resource.data.author.id) || 
-              (resource.data.collaboratorIds != null && 
-               request.auth.uid in resource.data.collaboratorIds));
-      
-      // Only the author can delete their story
-      allow delete: if isNotGuest() && isOwner(resource.data.author.id);
+      allow read: if resource.data.visibility == 'Public' || 
+                   (resource.data.visibility == 'Unlisted' && isAuthenticated()) ||
+                   (isAuthenticated() && (isStoryOwner(storyId) || isStoryCollaborator(storyId)));
+      allow create: if isAuthenticated() && isNotGuest() && isAuthor() && isOwner(request.resource.data.author.id);
+      allow update: if isAuthenticated() && (isStoryOwner(storyId) || isStoryCollaborator(storyId));
+      allow delete: if isAuthenticated() && isStoryOwner(storyId);
     }
-
-    // ============================================================================
-    // COMMENTS COLLECTION
-    // Purpose: User comments on stories and other content
-    // ============================================================================
     
+    // Comments Collection
     match /comments/{commentId} {
-      // Public read access for all comments
-      allow read: if true;
-      
-      // Authenticated users can create comments
-      allow create: if isNotGuest() && 
-                      request.auth.uid == request.resource.data.user.id;
-      
-      // Users can only modify or delete their own comments
-      allow update, delete: if isNotGuest() && isOwner(resource.data.user.id);
+        allow read;
+        allow create: if isAuthenticated() && isNotGuest();
+        allow update: if isAuthenticated() && isOwner(resource.data.user.id);
+        allow delete: if isAuthenticated() && isOwner(resource.data.user.id);
     }
 
-    // ============================================================================
-    // NOTIFICATIONS COLLECTION
-    // Purpose: User notifications for activities and updates
-    // ============================================================================
-    
+    // Notifications Collection
     match /notifications/{notificationId} {
-      // Users can only read and update their own notifications
-      allow read, update: if isOwner(resource.data.userId);
-      
-      // Allow creation by authenticated users (for system-generated notifications)
-      allow create: if isNotGuest() && 
-                      request.auth.uid == request.resource.data.userId;
-      
-      // Prevent deletion to maintain notification history
-      allow delete: if false;
+        allow read: if isAuthenticated() && isOwner(resource.data.userId);
+        allow create: if isAuthenticated(); // Server-side or trusted client actions create notifications
+        allow update: if isAuthenticated() && isOwner(resource.data.userId);
+        allow delete: if isAuthenticated() && isOwner(resource.data.userId);
     }
-    
-    // ============================================================================
-    // CONVERSATIONS COLLECTION
-    // Purpose: Private messaging between users
-    // ============================================================================
-    
+
+    // Conversations & Messages
     match /conversations/{conversationId} {
-      // Participants can read and update conversation metadata
-      allow read, update: if isAuthenticated() && 
-                            request.auth.uid in resource.data.participantIds;
-      
-      // Users can create conversations where they are a participant
-      allow create: if isNotGuest() && 
-                      request.auth.uid in request.resource.data.participantIds;
-      
-      // Prevent conversation deletion to preserve message history
-      allow delete: if false;
-      
-      // ----------------------------------------------------------------------------
-      // MESSAGES SUBCOLLECTION
-      // Purpose: Individual messages within a conversation
-      // ----------------------------------------------------------------------------
-      
-      match /messages/{messageId} {
-        // Participants can read messages in their conversations
-        allow read: if isConversationParticipant(conversationId);
+        allow read, update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
+        allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participantIds;
         
-        // Participants can send messages
-        allow create: if isNotGuest() && 
-                        isConversationParticipant(conversationId);
-        
-        // Messages are immutable once created
-        allow update, delete: if false;
-      }
+        match /messages/{messageId} {
+            allow read, create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        }
     }
     
-    // ============================================================================
-    // GLOBAL CHAT MESSAGES COLLECTION
-    // Purpose: Public chat room accessible to all users
-    // ============================================================================
-    
+    // Global Chat
     match /globalChatMessages/{messageId} {
-      // Public read access for community chat
-      allow read: if true;
-      
-      // Authenticated users can post to global chat
-      allow create: if isNotGuest() && 
-                      request.auth.uid == request.resource.data.author.id;
-      
-      // Messages cannot be edited or deleted once posted
-      allow update, delete: if false;
+        allow read;
+        allow create: if isAuthenticated() && isNotGuest();
     }
 
-    // ============================================================================
-    // STATUS UPDATES COLLECTION
-    // Purpose: Short-form status updates from users
-    // ============================================================================
-    
+    // Status Updates
     match /statusUpdates/{statusId} {
-      // Read access for published statuses or owner's own statuses
-      allow read: if resource.data.status == 'published' || 
-                    isOwner(resource.data.authorId);
-      
-      // Authenticated users can create status updates
-      allow create: if isNotGuest() && 
-                      request.auth.uid == request.resource.data.authorId;
-      
-      // Users can only manage their own status updates
-      allow update, delete: if isNotGuest() && isOwner(resource.data.authorId);
+        allow read;
+        allow create: if isAuthenticated() && isAuthor() && isOwner(request.resource.data.authorId);
+        allow update: if isAuthenticated() && isOwner(resource.data.authorId);
+        allow delete: if isAuthenticated() && isNotGuest();
     }
     
-    // ============================================================================
-    // PROMPTS COLLECTION
-    // Purpose: Writing prompts created by the community
-    // ============================================================================
-    
+    // Prompts
     match /prompts/{promptId} {
-      // Read access for non-archived prompts or owner's own prompts
-      allow read: if resource.data.isArchived == false || 
-                    isOwner(resource.data.author.id);
-      
-      // Writers can contribute new prompts
-      allow create: if isNotGuest() && 
-                      request.auth.uid == request.resource.data.author.id;
-      
-      // Only prompt creators can modify or remove their prompts
-      allow update, delete: if isNotGuest() && isOwner(resource.data.author.id);
+        allow read: if resource.data.isArchived == false;
+        allow create: if isAuthenticated() && isAuthor() && isOwner(request.resource.data.author.id);
+        allow update, delete: if isAuthenticated() && isOwner(resource.data.author.id);
     }
 
-    // ============================================================================
-    // LETTERS COLLECTION
-    // Purpose: User-to-user letters/messages with privacy controls
-    // ============================================================================
-    
+    // Letters
     match /letters/{letterId} {
-      // Read access for sender, recipient, or if public
-      allow read: if isOwner(resource.data.reader.id) || 
-                    isOwner(resource.data.authorId) || 
-                    resource.data.visibility == 'public';
-      
-      // Users can send letters where they are the sender
-      allow create: if isNotGuest() && 
-                      request.auth.uid == request.resource.data.reader.id;
-      
-      // Only the recipient can update (e.g., mark as read, pin, respond)
-      allow update: if isNotGuest() && isOwner(resource.data.authorId);
-      
-      // Only the sender can delete their sent letter
-      allow delete: if isNotGuest() && isOwner(resource.data.reader.id);
+        allow read: if (resource.data.visibility == 'public') || 
+                     (isAuthenticated() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId)));
+        allow create: if isAuthenticated() && isNotGuest() && isOwner(request.resource.data.reader.id);
+        allow update: if isAuthenticated() && isOwner(resource.data.authorId); // Only author can pin/respond
+        allow delete: if isAuthenticated() && isOwner(resource.data.reader.id); // Only reader can delete
     }
 
-    // ============================================================================
-    // ANNOTATIONS COLLECTION
-    // Purpose: Private user annotations on content
-    // Security: Strictly private to the creating user
-    // ============================================================================
-    
+    // Annotations
     match /annotations/{annotationId} {
-      // Users can read, write, and delete their own annotations
-      allow read, write, delete: if isOwner(resource.data.userId);
-      
-      // Users can create annotations for themselves
-      allow create: if isNotGuest() && 
-                      request.auth.uid == request.resource.data.userId;
+        allow read, write: if isAuthenticated() && isOwner(resource.data.userId);
     }
 
-    // ============================================================================
-    // FEED POSTS COLLECTION (THREADS TAB)
-    // Purpose: Community forum threads and discussions
-    // ============================================================================
-
+    // Feed Posts
     match /feedPosts/{postId} {
-      allow read: if true;
-      
-      allow create: if isNotGuest() && 
-                      request.auth.uid == request.resource.data.author.id;
-      
-      allow update: if isNotGuest() && 
-                      // Author can update their own post content
-                      (request.auth.uid == resource.data.author.id ||
-                      // Any user can update the reactionsCount
-                       request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['reactionsCount']));
-      
-      allow delete: if isNotGuest() && 
-                      request.auth.uid == resource.data.author.id;
-      
-      // --------------------------------------------------------------------------
-      // COMMENTS SUBCOLLECTION
-      // --------------------------------------------------------------------------
-      
-      match /comments/{commentId} {
-        allow read: if true;
-        
-        allow create: if isNotGuest() && 
-                        request.auth.uid == request.resource.data.user.id;
-        
-        allow update, delete: if isNotGuest() && 
-                                request.auth.uid == resource.data.user.id;
-      }
-      
-      // --------------------------------------------------------------------------
-      // POST REACTIONS SUBCOLLECTION
-      // --------------------------------------------------------------------------
-      
-      match /reactions/{reactionId} {
-        allow read: if true;
-        // User can create, update, or delete their own reaction document
-        allow write: if isNotGuest() && request.auth.uid == reactionId;
-      }
+        allow read;
+        allow create: if isAuthenticated() && isNotGuest() && isOwner(request.resource.data.author.id);
+        allow update: if isAuthenticated() && isOwner(resource.data.author.id);
+        allow delete: if isAuthenticated() && isNotGuest();
+
+        match /comments/{commentId} {
+            allow read;
+            allow create: if isAuthenticated() && isNotGuest();
+            allow update, delete: if isAuthenticated() && isOwner(resource.data.user.id);
+        }
+
+        match /reactions/{userId} {
+            allow read;
+            allow write: if isAuthenticated() && isOwner(userId);
+        }
     }
+
   }
 }

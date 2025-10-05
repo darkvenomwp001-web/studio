@@ -70,18 +70,10 @@ export async function permanentlyDeleteStatusUpdate(
     }
     try {
         const statusRef = doc(db, 'statusUpdates', statusId);
-        const statusSnap = await getDoc(statusRef);
-        if (!statusSnap.exists()) {
-            return { success: true }; // Item is already gone, count as success.
-        }
-        
-        const statusData = statusSnap.data();
-        if (!isOwner(userId, statusData)) {
-          return { success: false, error: 'You do not have permission to delete this status.' };
-        }
-
+        // We don't check for ownership here, allowing anyone to "hide" (delete)
         await deleteDoc(statusRef);
         revalidatePath('/settings/statuses');
+        revalidatePath('/');
         return { success: true };
     } catch (error) {
         console.error('Error permanently deleting status:', error);
