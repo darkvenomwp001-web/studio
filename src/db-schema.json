@@ -182,6 +182,7 @@
                 "description": "Reactions to a feed post. The document ID is the user ID.",
                 "fields": {
                     "type": { "type": "string", "description": "The type of reaction (e.g., like, love, haha)." },
+                    "userId": { "type": "string", "description": "The ID of the user who reacted." },
                     "timestamp": { "type": "timestamp", "description": "When the reaction was made." }
                 }
             }

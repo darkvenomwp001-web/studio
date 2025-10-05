@@ -48,7 +48,7 @@ export async function sendGlobalChatMessage(
   }
 }
 
-export async function createThreadPost(postData: Omit<ThreadPost, 'id' | 'timestamp' | 'likesCount' | 'commentsCount' | 'likedBy'>): Promise<{ success: boolean; error?: string }> {
+export async function createThreadPost(postData: Omit<ThreadPost, 'id' | 'timestamp' | 'commentsCount'>): Promise<{ success: boolean; error?: string }> {
   try {
     await addDoc(collection(db, 'feedPosts'), {
       ...postData,
@@ -139,7 +139,7 @@ export async function toggleReaction(postId: string, userId: string, reactionTyp
                 }
             } else {
                 // User has no existing reaction, so add a new one
-                transaction.set(reactionRef, { type: reactionType, timestamp: serverTimestamp() });
+                transaction.set(reactionRef, { userId, type: reactionType, timestamp: serverTimestamp() });
                 transaction.update(postRef, { reactionsCount: increment(1) });
             }
         });

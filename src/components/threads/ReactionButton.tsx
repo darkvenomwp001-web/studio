@@ -80,18 +80,19 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
         setIsPopoverOpen(false);
 
         startTransition(async () => {
-            // Optimistic UI updates
             const oldReaction = currentUserReaction;
             const oldReactionsCount = reactionsCount;
             
             const isRemovingReaction = oldReaction === reactionType;
 
+            // Optimistic UI updates
             if (isRemovingReaction) {
                 setCurrentUserReaction(null);
-                setReactionsCount(prev => prev - 1);
+                if (oldReaction !== null) setReactionsCount(prev => Math.max(0, prev - 1));
             } else {
+                const hadReactionBefore = oldReaction !== null;
                 setCurrentUserReaction(reactionType);
-                if (oldReaction === null) {
+                if (!hadReactionBefore) {
                     setReactionsCount(prev => prev + 1);
                 }
             }
@@ -134,15 +135,15 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
                     className="group"
                     disabled={isProcessing}
                     onClick={() => {
-                      if (!user || user.isAnonymous) {
-                        toast({ title: 'Please sign in to react.' });
-                        return;
-                      }
-                      if (currentUserReaction) {
-                        handleReaction(currentUserReaction);
-                      } else {
-                        setIsPopoverOpen(true);
-                      }
+                        if (!user || user.isAnonymous) {
+                            toast({ title: 'Please sign in to react.' });
+                            return;
+                        }
+                        if (currentUserReaction) {
+                            handleReaction(currentUserReaction);
+                        } else {
+                            setIsPopoverOpen(true);
+                        }
                     }}
                 >
                     {isProcessing ? (

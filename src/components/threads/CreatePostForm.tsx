@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, ChangeEvent } from 'react';
@@ -113,9 +114,8 @@ export default function CreatePostForm() {
                 imageUrl: imageUrl || null,
                 songUrl: attachedSong ? `https://open.spotify.com/track/${attachedSong.id}` : null,
                 songLyricSnippet: lyricSnippet || null,
-                likesCount: 0,
+                reactionsCount: 0,
                 commentsCount: 0,
-                likedBy: [],
                 timestamp: serverTimestamp()
             });
             setContent('');
