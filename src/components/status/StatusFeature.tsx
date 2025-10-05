@@ -59,12 +59,6 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
               <Music className="h-3 w-3 text-muted-foreground" />
            </div>
         )}
-
-        {isOwn && (
-             <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-md">
-                <Plus className="h-4 w-4 text-primary-foreground" />
-            </div>
-        )}
       </div>
       <p className="text-xs mt-1 truncate">{isOwn ? 'Your Status' : user.displayName}</p>
     </div>
@@ -165,15 +159,16 @@ export default function StatusFeature() {
     const liveStatuses = allStatuses.filter(s => s.status === 'published');
     
     if (user && !user.isAnonymous) {
-        const currentUserLive = liveStatuses.filter(s => s.authorId === user.id);
-        if (currentUserLive.length > 0) {
-            groups.set(user.id, { user: user as User, statuses: currentUserLive });
-            newStatusOrder.push(user.id);
-        }
+      // Prioritize current user's active statuses in the list
+      const currentUserLive = liveStatuses.filter(s => s.authorId === user.id);
+      if (currentUserLive.length > 0) {
+          groups.set(user.id, { user: user as User, statuses: currentUserLive });
+          newStatusOrder.push(user.id);
+      }
     }
     
     liveStatuses.forEach(status => {
-        if (status.authorId === user?.id) return;
+        if (status.authorId === user?.id) return; // Already handled
         if (!groups.has(status.authorId)) {
             groups.set(status.authorId, { user: status.authorInfo as User, statuses: [] });
             newStatusOrder.push(status.authorId);
@@ -192,28 +187,31 @@ export default function StatusFeature() {
         return;
     }
 
-    if (selectedUser.id === user.id) {
-        // Always open the creator for the current user
-        if (user.role === 'writer') {
-            handleOpenUploader('text');
-        } else {
-            toast({
-              title: "Reader Role",
-              description: "Only users with a 'Writer' role can post a status update.",
-              variant: 'destructive',
-            });
-        }
-        return;
-    }
-
     const userHasStatuses = groupedStatuses.has(selectedUser.id) && groupedStatuses.get(selectedUser.id)!.statuses.length > 0;
+
     if (userHasStatuses) {
-      setSelectedUserForViewing(selectedUser);
-      setIsViewerOpen(true);
+        setSelectedUserForViewing(selectedUser);
+        setIsViewerOpen(true);
     } else {
        toast({ title: "No Status", description: `${selectedUser.displayName} hasn't posted a status update yet.` });
     }
   }
+
+  const handleOpenCreator = () => {
+    if (!user || user.isAnonymous) {
+      router.push('/auth/signin');
+      return;
+    }
+    if (user.role === 'writer') {
+      handleOpenUploader('text');
+    } else {
+      toast({
+        title: "Reader Role",
+        description: "Only users with a 'Writer' role can post a status update.",
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleNextUser = () => {
     const currentIndex = statusOrder.findIndex(id => id === selectedUserForViewing?.id);
@@ -578,7 +576,7 @@ export default function StatusFeature() {
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-start space-x-4">
             {user && !user.isAnonymous && (
-               <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={() => handleSelectUser(user as User)}>
+               <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={handleOpenCreator}>
                 <div className="relative w-16 h-16 mx-auto">
                     <Avatar className="w-full h-full border-2 border-border group-hover:border-primary/50 transition-colors">
                         <AvatarImage src={user.avatarUrl} />
@@ -588,7 +586,7 @@ export default function StatusFeature() {
                         <Plus className="h-4 w-4 text-primary-foreground" />
                     </div>
                 </div>
-                <p className="text-xs mt-1 truncate">Your Status</p>
+                <p className="text-xs mt-1 truncate">Add Status</p>
                 </div>
             )}
 
@@ -619,7 +617,7 @@ export default function StatusFeature() {
           <DialogContent className="p-0 m-0 border-0 w-screen h-[80vh] max-h-[600px] max-w-full sm:max-w-md flex flex-col gap-0 rounded-lg">
             <DialogHeader className="p-4 flex-row items-center justify-between border-b">
                 <DialogTitle>Create Status</DialogTitle>
-                <DialogClose />
+                <DialogClose asChild><Button variant="ghost" size="icon"><X className="h-5 w-5"/></Button></DialogClose>
             </DialogHeader>
             <div className="flex-grow flex flex-col overflow-hidden px-6 pb-6">
               {uploaderContent()}
@@ -645,5 +643,3 @@ export default function StatusFeature() {
     </div>
   );
 }
-
-    
