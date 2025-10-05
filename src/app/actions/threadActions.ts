@@ -84,3 +84,25 @@ export async function updateThreadPost(postId: string, newContent: string, userI
     return { success: false, error: 'Could not update post.' };
   }
 }
+
+export async function deleteThreadPost(postId: string, userId: string): Promise<{ success: boolean, error?: string }> {
+    if (!userId) {
+        return { success: false, error: 'User not authenticated.' };
+    }
+    const postRef = doc(db, 'feedPosts', postId);
+    try {
+        const postSnap = await getDoc(postRef);
+        if (!postSnap.exists()) {
+            return { success: true }; // Post is already gone
+        }
+        if (postSnap.data().author.id !== userId) {
+            return { success: false, error: 'You do not have permission to delete this post.' };
+        }
+        await deleteDoc(postRef);
+        revalidatePath('/');
+        return { success: true };
+    } catch (error) {
+        console.error("Error deleting post:", error);
+        return { success: false, error: "Could not delete post." };
+    }
+}

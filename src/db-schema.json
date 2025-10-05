@@ -169,6 +169,16 @@
           "likedBy": { "type": "array", "description": "Array of user IDs who liked the post." },
           "commentsCount": { "type": "number", "description": "Total number of comments." },
           "timestamp": { "type": "timestamp", "description": "When the post was created." }
+        },
+        "subcollections": {
+            "comments": {
+                "description": "Comments on a feed post.",
+                "fields": {
+                    "user": { "type": "map", "description": "Summary object of the commenter." },
+                    "content": { "type": "string", "description": "The text of the comment." },
+                    "timestamp": { "type": "timestamp", "description": "When the comment was posted." }
+                }
+            }
         }
       }
     }
