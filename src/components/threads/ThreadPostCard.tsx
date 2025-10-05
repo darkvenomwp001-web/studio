@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, MoreHorizontal, EyeOff, Loader2 } from 'lucide-react';
+import { MessageCircle, MoreHorizontal, EyeOff, Loader2, Edit } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -70,6 +70,14 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                     {user?.id === post.author.id && (
+                        <Link href={`/threads/edit/${post.id}`}>
+                            <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit Post
+                            </DropdownMenuItem>
+                        </Link>
+                    )}
                     <DropdownMenuItem onClick={handleHidePost} className="focus:text-destructive">
                         {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <EyeOff className="mr-2 h-4 w-4" />}
                         Hide Post

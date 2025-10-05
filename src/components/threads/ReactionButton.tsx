@@ -143,7 +143,7 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
              <Dialog>
                 <DialogTrigger asChild>
                     <button disabled={reactionsCount === 0} className="text-sm text-muted-foreground hover:underline disabled:no-underline disabled:cursor-not-allowed">
-                        {reactionsCount > 0 && <span>{reactionsCount}</span>}
+                        {reactionsCount > 0 && <span>{reactionsCount} {reactionsCount === 1 ? 'love' : 'loves'}</span>}
                     </button>
                 </DialogTrigger>
                 <DialogContent>
@@ -155,15 +155,26 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
             </Dialog>
             <Button
                 variant="ghost"
-                size="sm"
-                className="group"
+                size="icon"
+                className="group h-8 w-8"
                 disabled={isProcessing}
                 onClick={() => handleReaction('love')}
             >
                 {isProcessing ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                    <Heart className={cn("w-5 h-5 transition-all", userReaction === 'love' ? "text-red-500 fill-red-500" : "text-muted-foreground group-hover:text-red-500")} />
+                    <div className="w-8 h-8 relative">
+                        <Lottie 
+                            animationData={loveAnimation}
+                            loop={false}
+                            autoplay={false}
+                            className={cn("absolute inset-0 w-16 h-16 -top-4 -left-4 transition-opacity", userReaction === 'love' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}
+                            style={{
+                                transform: userReaction === 'love' ? 'scale(1)' : 'scale(0.8)'
+                            }}
+                        />
+                         <Heart className={cn("w-5 h-5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all", userReaction === 'love' ? "text-red-500 fill-red-500" : "text-muted-foreground group-hover:text-red-500")} />
+                    </div>
                 )}
             </Button>
         </div>
