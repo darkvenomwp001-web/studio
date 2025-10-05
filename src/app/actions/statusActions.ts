@@ -61,6 +61,25 @@ export async function moveStatusToDrafts(
   }
 }
 
+export async function trashStatusUpdate(statusId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+    if (!userId) {
+        return { success: false, error: 'User is not authenticated.' };
+    }
+    try {
+        const statusRef = doc(db, 'statusUpdates', statusId);
+        await updateDoc(statusRef, {
+            isTrashed: true,
+            trashedAt: serverTimestamp(),
+        });
+        revalidatePath('/');
+        return { success: true };
+    } catch (error) {
+        console.error('Error trashing status:', error);
+        return { success: false, error: 'Could not hide status.' };
+    }
+}
+
+
 export async function permanentlyDeleteStatusUpdate(
   statusId: string,
   userId: string
@@ -70,10 +89,17 @@ export async function permanentlyDeleteStatusUpdate(
     }
     try {
         const statusRef = doc(db, 'statusUpdates', statusId);
-        // We don't check for ownership here, allowing anyone to "hide" (delete)
+        const statusSnap = await getDoc(statusRef);
+        if (!statusSnap.exists()) {
+            return { success: true }; // Already gone
+        }
+
+        if (!isOwner(userId, statusSnap.data())) {
+             return { success: false, error: 'You do not have permission to delete this status.' };
+        }
+
         await deleteDoc(statusRef);
         revalidatePath('/settings/statuses');
-        revalidatePath('/');
         return { success: true };
     } catch (error) {
         console.error('Error permanently deleting status:', error);

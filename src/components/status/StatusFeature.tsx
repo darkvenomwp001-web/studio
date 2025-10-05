@@ -127,7 +127,8 @@ export default function StatusFeature() {
     const statusesQuery = query(
       collection(db, 'statusUpdates'),
       where('status', '==', 'published'),
-      where('expiresAt', '>', Timestamp.now())
+      where('expiresAt', '>', Timestamp.now()),
+      where('isTrashed', '==', false)
     );
     
     const unsubStatuses = onSnapshot(statusesQuery, (snapshot) => {
@@ -187,13 +188,22 @@ export default function StatusFeature() {
         return;
     }
 
-    const userHasStatuses = groupedStatuses.has(selectedUser.id) && groupedStatuses.get(selectedUser.id)!.statuses.length > 0;
-
-    if (userHasStatuses) {
-        setSelectedUserForViewing(selectedUser);
-        setIsViewerOpen(true);
+    if (selectedUser.id === user.id) {
+        // User clicked their own bubble (if it exists, means they have a status)
+        const userHasStatuses = groupedStatuses.has(selectedUser.id) && groupedStatuses.get(selectedUser.id)!.statuses.length > 0;
+        if (userHasStatuses) {
+            setSelectedUserForViewing(selectedUser);
+            setIsViewerOpen(true);
+        }
     } else {
-       toast({ title: "No Status", description: `${selectedUser.displayName} hasn't posted a status update yet.` });
+        // Clicked another user's bubble
+        const userHasStatuses = groupedStatuses.has(selectedUser.id) && groupedStatuses.get(selectedUser.id)!.statuses.length > 0;
+        if (userHasStatuses) {
+            setSelectedUserForViewing(selectedUser);
+            setIsViewerOpen(true);
+        } else {
+            toast({ title: "No Status", description: `${selectedUser.displayName} hasn't posted a status update yet.` });
+        }
     }
   }
 
@@ -586,7 +596,7 @@ export default function StatusFeature() {
                         <Plus className="h-4 w-4 text-primary-foreground" />
                     </div>
                 </div>
-                <p className="text-xs mt-1 truncate">Add Status</p>
+                <p className="text-xs mt-1 truncate">Your Status</p>
                 </div>
             )}
 
@@ -601,6 +611,7 @@ export default function StatusFeature() {
                 statusOrder.map((userId) => {
                     const group = groupedStatuses.get(userId);
                     if (!group) return null;
+                     if (userId === user.id) return null; // Don't show the user's own bubble here
                     const latestStatus = group.statuses.sort((a, b) => {
                         const timeA = a.createdAt ? (a.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
                         const timeB = b.createdAt ? (b.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
@@ -608,6 +619,18 @@ export default function StatusFeature() {
                     })[0];
                     return <StatusBubble key={userId} user={group.user} statuses={group.statuses} onSelect={handleSelectUser} latestStatus={latestStatus} />
                 })
+            )}
+             {user && groupedStatuses.has(user.id) && (
+                <StatusBubble
+                    user={user as User}
+                    statuses={groupedStatuses.get(user.id)!.statuses}
+                    onSelect={handleSelectUser}
+                    latestStatus={groupedStatuses.get(user.id)!.statuses.sort((a, b) => {
+                        const timeA = a.createdAt ? (a.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
+                        const timeB = b.createdAt ? (b.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
+                        return timeB - timeA;
+                    })[0]}
+                />
             )}
         </div>
         <ScrollBar orientation="horizontal" />

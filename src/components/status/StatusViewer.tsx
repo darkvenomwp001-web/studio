@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
-import { permanentlyDeleteStatusUpdate } from '@/app/actions/statusActions';
+import { trashStatusUpdate } from '@/app/actions/statusActions';
 
 
 export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev, onStatusArchived }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void, onStatusArchived: (userId: string, statusId: string) => void, onOpenUploader?: (defaultTab: string) => void; }) {
@@ -118,7 +118,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     const handleHideStatusClick = async () => {
         if (!currentStatus || !user) return;
         setIsProcessing(true);
-        const result = await permanentlyDeleteStatusUpdate(currentStatus.id, user.id);
+        const result = await trashStatusUpdate(currentStatus.id, user.id);
         if (result.success) {
             onStatusArchived(currentStatus.authorId, currentStatus.id);
             toast({ title: "Status Hidden" });
