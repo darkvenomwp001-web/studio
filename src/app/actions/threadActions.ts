@@ -54,6 +54,7 @@ export async function createThreadPost(postData: Omit<ThreadPost, 'id' | 'timest
       ...postData,
       reactionsCount: 0,
       commentsCount: 0,
+      isPinned: false,
       timestamp: serverTimestamp()
     });
     revalidatePath('/'); // Revalidate the main feed
@@ -87,24 +88,27 @@ export async function updateThreadPost(postId: string, newContent: string, userI
   }
 }
 
-export async function deleteThreadPost(postId: string, userId: string): Promise<{ success: boolean, error?: string }> {
-    if (!userId) {
-        return { success: false, error: 'User not authenticated.' };
+export async function deleteThreadPost(postId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+  if (!userId) {
+    return { success: false, error: 'User is not authenticated.' };
+  }
+  const postRef = doc(db, 'feedPosts', postId);
+  try {
+    const postSnap = await getDoc(postRef);
+    if (!postSnap.exists()) {
+      return { success: true }; // Post is already gone
     }
-    const postRef = doc(db, 'feedPosts', postId);
-    try {
-        const postSnap = await getDoc(postRef);
-        if (!postSnap.exists()) {
-            return { success: true }; // Post is already gone
-        }
-        // Anyone can hide/delete for now as per user request
-        await deleteDoc(postRef);
-        revalidatePath('/');
-        return { success: true };
-    } catch (error) {
-        console.error("Error deleting post:", error);
-        return { success: false, error: "Could not delete post." };
+    // Security check: Only the author can delete the post.
+    if (postSnap.data().author.id !== userId) {
+      return { success: false, error: 'You do not have permission to delete this post.' };
     }
+    await deleteDoc(postRef);
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    return { success: false, error: "Could not delete post." };
+  }
 }
 
 export async function toggleReaction(postId: string, user: UserSummary, reactionType: ReactionType): Promise<{ success: boolean; error?: string }> {
@@ -142,5 +146,34 @@ export async function toggleReaction(postId: string, user: UserSummary, reaction
         console.error("Error toggling reaction:", error);
         const errorMessage = error instanceof Error ? error.message : 'Could not save reaction.';
         return { success: false, error: errorMessage };
+    }
+}
+
+
+export async function pinThreadPost(postId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+    if (!userId) {
+        return { success: false, error: 'User not authenticated.' };
+    }
+    const postRef = doc(db, 'feedPosts', postId);
+    try {
+        const postSnap = await getDoc(postRef);
+        if (!postSnap.exists()) {
+            return { success: false, error: 'Post not found.' };
+        }
+        if (postSnap.data().author.id !== userId) {
+            return { success: false, error: 'You do not have permission to pin this post.' };
+        }
+        
+        const currentPinStatus = postSnap.data().isPinned || false;
+        
+        await updateDoc(postRef, {
+            isPinned: !currentPinStatus,
+        });
+
+        revalidatePath('/');
+        return { success: true };
+    } catch (error) {
+        console.error('Error pinning post:', error);
+        return { success: false, error: 'Could not pin post.' };
     }
 }

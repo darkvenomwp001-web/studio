@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useEffect, useState, FormEvent, useMemo } from 'react';
+import { useEffect, useState, FormEvent, useMemo, useTransition } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Music, PenSquare, Quote, Annoyed, Send } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Music, PenSquare, Quote, Annoyed, Send, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Story, User as AppUser, Announcement } from '@/types';
@@ -38,6 +38,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDistanceToNow } from 'date-fns';
 import { addNotification } from '@/app/actions/notificationActions';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { updateAnnouncement, deleteAnnouncement } from '@/app/actions/announcementActions';
+
 
 interface ProfileStoryCardProps {
   story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>;
@@ -101,6 +106,12 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
   const [newAnnouncement, setNewAnnouncement] = useState('');
   const [isPosting, setIsPosting] = useState(false);
 
+  const [editingPost, setEditingPost] = useState<Announcement | null>(null);
+  const [editedContent, setEditedContent] = useState("");
+  const [isUpdating, startUpdateTransition] = useTransition();
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [isDeleting, startDeleteTransition] = useTransition();
+
   useEffect(() => {
     setIsLoading(true);
     const q = query(
@@ -128,7 +139,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
       const authorSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
       
       // Add announcement to the database
-      await addDoc(collection(db, 'announcements'), {
+      const docRef = await addDoc(collection(db, 'announcements'), {
         author: authorSummary,
         content: newAnnouncement.trim(),
         timestamp: serverTimestamp()
@@ -162,6 +173,32 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
     }
   };
 
+  const handleUpdateAnnouncement = () => {
+    if (!editingPost || !user) return;
+    startUpdateTransition(async () => {
+      const result = await updateAnnouncement(editingPost.id, editedContent, user.id);
+      if (result.success) {
+        toast({ title: "Announcement updated!" });
+        setEditingPost(null);
+      } else {
+        toast({ title: "Error", description: result.error, variant: 'destructive' });
+      }
+    });
+  };
+
+  const handleDeleteAnnouncement = () => {
+    if (!deletingPostId || !user) return;
+    startDeleteTransition(async () => {
+      const result = await deleteAnnouncement(deletingPostId, user.id);
+      if (result.success) {
+        toast({ title: "Announcement deleted" });
+      } else {
+        toast({ title: "Error", description: result.error, variant: 'destructive' });
+      }
+      setDeletingPostId(null);
+    });
+  };
+
   const getFormattedTimestamp = (timestamp: any) => {
     if (!timestamp) return 'now';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -169,6 +206,8 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
   }
 
   return (
+     <Dialog onOpenChange={(open) => !open && setEditingPost(null)}>
+        <AlertDialog onOpenChange={(open) => !open && setDeletingPostId(null)}>
     <div className="max-w-2xl mx-auto space-y-6">
       {isOwnProfile && (
         <form onSubmit={handlePostAnnouncement}>
@@ -210,8 +249,25 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
                     <p className="font-semibold">{post.author.displayName}</p>
-                    <p className="text-xs text-muted-foreground">{getFormattedTimestamp(post.timestamp)}</p>
+                     {isOwnProfile ? (
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={() => { setEditingPost(post); setEditedContent(post.content); }}>
+                                        <Edit className="mr-2 h-4 w-4"/>Edit
+                                    </DropdownMenuItem>
+                                </DialogTrigger>
+                                <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem className="text-destructive" onSelect={() => setDeletingPostId(post.id)}>
+                                        <Trash2 className="mr-2 h-4 w-4"/>Delete
+                                    </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                            </DropdownMenuContent>
+                         </DropdownMenu>
+                     ) : <p className="text-xs text-muted-foreground">{getFormattedTimestamp(post.timestamp)}</p> }
                   </div>
+                   {!isOwnProfile && <p className="text-xs text-muted-foreground -mt-1 mb-2">{getFormattedTimestamp(post.timestamp)}</p>}
                   <p className="whitespace-pre-line mt-2">{post.content}</p>
                 </div>
               </div>
@@ -224,6 +280,45 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
         </div>
       )}
     </div>
+
+        {/* Edit Dialog */}
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Announcement</DialogTitle>
+          </DialogHeader>
+          <Textarea 
+            value={editedContent}
+            onChange={(e) => setEditedContent(e.target.value)}
+            rows={5}
+            className="my-4"
+          />
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleUpdateAnnouncement} disabled={isUpdating}>
+              {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+
+        {/* Delete Alert Dialog */}
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your announcement.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAnnouncement} className="bg-destructive hover:bg-destructive/90">
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+        </AlertDialog>
+    </Dialog>
   );
 }
 
