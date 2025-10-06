@@ -508,9 +508,17 @@ export default function UserProfilePage() {
 
             {publishedWorks.length > 0 && (
               <section className="mb-10">
-                <h2 className="text-2xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
-                  <Edit3 className="h-6 w-6" /> Published Works
-                </h2>
+                {isOwnProfile ? (
+                  <Link href="/write" className="group">
+                    <h2 className="text-xl font-headline font-semibold mb-4 text-primary flex items-center gap-2 group-hover:underline">
+                      <Edit3 className="h-5 w-5" /> Published Works
+                    </h2>
+                  </Link>
+                ) : (
+                  <h2 className="text-xl font-headline font-semibold mb-4 text-primary flex items-center gap-2">
+                    <Edit3 className="h-5 w-5" /> Published Works
+                  </h2>
+                )}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
                     {publishedWorks.map(story => ( <ProfileStoryCard key={`published-${story.id}`} story={story} /> ))}
                 </div>
@@ -519,9 +527,11 @@ export default function UserProfilePage() {
             
             {isOwnProfile && privateWorks.length > 0 && (
               <section>
-                <h2 className="text-2xl font-headline font-semibold mb-4 text-accent flex items-center gap-2">
-                  <FileText className="h-6 w-6" /> My Private Works & Drafts
-                </h2>
+                 <Link href="/write" className="group">
+                    <h2 className="text-xl font-headline font-semibold mb-4 text-accent flex items-center gap-2 group-hover:underline">
+                    <FileText className="h-5 w-5" /> My Private Works & Drafts
+                    </h2>
+                </Link>
                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
                     {privateWorks.map(story => ( <ProfileStoryCard key={`draft-${story.id}`} story={story} isPrivate /> ))}
                 </div>
@@ -545,5 +555,3 @@ export default function UserProfilePage() {
     </>
   );
 }
-
-    
