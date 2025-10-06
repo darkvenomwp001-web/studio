@@ -186,16 +186,16 @@ export default function ThreadPostCard({ post, onHide }: { post: ThreadPost, onH
               </AlertDialogFooter>
           </AlertDialogContent>
 
-          {/* Comments Dialog */}
-          
-          </AlertDialog>
-        </Dialog>
-        <DialogContent className="max-w-lg">
+          {/* Comments Dialog Content moved inside the main Dialog */}
+          <DialogContent className="max-w-lg">
             <DialogHeader>
                 <DialogTitle>Comments</DialogTitle>
             </DialogHeader>
             <ThreadPostComments postId={post.id} />
-        </DialogContent>
+          </DialogContent>
+          
+          </AlertDialog>
+        </Dialog>
     </>
   );
 }
