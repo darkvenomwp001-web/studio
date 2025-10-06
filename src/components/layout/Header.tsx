@@ -7,6 +7,7 @@ import { BookOpenText, Home, Edit3, Brain, Library, Search, Bell, Shield } from 
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import Logo from './Logo';
 
 const NavLink = ({ href, children, icon }: { href: string; children: React.ReactNode; icon?: React.ReactNode }) => (
   <Link href={href} passHref>
@@ -43,9 +44,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2 ml-2">
-          <span className="text-2xl font-headline font-bold text-foreground">D4RKV3NOM</span>
-        </Link>
+        <Logo />
 
         <nav className="flex items-center gap-1 md:gap-2">
           <div className="hidden md:flex items-center gap-1">
