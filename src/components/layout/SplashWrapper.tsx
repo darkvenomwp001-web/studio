@@ -22,7 +22,7 @@ export function SplashWrapper({ children }: { children: React.ReactNode }) {
         if (showSplash) {
             const timer = setTimeout(() => {
                 setShowSplash(false);
-            }, 1500); // Faster 1.5-second splash
+            }, 2000); // 2-second splash
 
             return () => clearTimeout(timer);
         }
