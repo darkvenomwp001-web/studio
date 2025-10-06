@@ -191,7 +191,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
           <ThreadPostComments postId={post.id} />
         </DialogContent>
         
-        </AlertDialog>
+       </AlertDialog>
       </Dialog>
   );
 }
