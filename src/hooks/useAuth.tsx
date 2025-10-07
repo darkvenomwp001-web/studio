@@ -391,16 +391,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUpWithEmailPassword = async ({ email, passwordOne, username }: { username: string; email: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
-      const signInMethods = await fetchSignInMethodsForEmail(auth, email);
-      if (signInMethods.length > 0) {
-        toast({
-          title: "Email Already in Use",
-          description: "This email is already associated with an account. Please sign in instead.",
-          variant: "destructive"
-        });
-        setAuthLoading(false);
-        return;
-      }
+        // Check if username is already taken
+        const usernameQuery = query(collection(db, 'users'), where('username', '==', username.trim()));
+        const usernameSnapshot = await getDocs(usernameQuery);
+        if (!usernameSnapshot.empty) {
+            toast({
+                title: "Username Taken",
+                description: "This username is already in use. Please choose another one.",
+                variant: "destructive"
+            });
+            setAuthLoading(false);
+            return;
+        }
+
+        // Check if email is already in use
+        const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+        if (signInMethods.length > 0) {
+            toast({
+                title: "Email Already in Use",
+                description: "This email is already associated with an account. Please sign in instead.",
+                variant: "destructive"
+            });
+            setAuthLoading(false);
+            return;
+        }
   
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       if (userCredential.user) {
