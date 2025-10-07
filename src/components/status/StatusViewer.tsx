@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, Pause, Play, EyeOff } from 'lucide-react';
+import { Loader2, X, Pause, Play, VolumeX, Volume2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Timestamp } from 'firebase/firestore';
@@ -22,6 +22,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
+    const [isMuted, setIsMuted] = useState(true);
     const videoRef = useRef<HTMLVideoElement>(null);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const { toast } = useToast();
@@ -107,18 +108,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         }
     }, [currentStatus, isPaused, isOpen]);
 
-    const handleHide = async () => {
-        if (!user || !currentStatus) return;
-        
-        const result = await hideStatusUpdate(currentStatus.id, user.id);
-        if (result.success) {
-            toast({ title: "Status Hidden" });
-            onOpenChange(false);
-        } else {
-            toast({ title: "Error", description: result.error, variant: "destructive" });
-        }
-    };
-
 
     if (!selectedUser || !currentStatus) {
         return null;
@@ -126,6 +115,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     
     const isNoteStatus = !!currentStatus.note || !!currentStatus.spotifyUrl;
     const isOwner = user?.id === selectedUser.id;
+    const isVideo = currentStatus.mediaType === 'video';
     
 
     return (
@@ -145,9 +135,9 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                         <span className="text-gray-300 text-xs">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
                      <div className="flex items-center gap-1">
-                        {isOwner && (
-                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={handleHide}>
-                                <EyeOff className="h-5 w-5"/>
+                        {isVideo && (
+                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={(e) => { e.stopPropagation(); setIsMuted(prev => !prev); }}>
+                                {isMuted ? <VolumeX className="h-5 w-5"/> : <Volume2 className="h-5 w-5"/>}
                             </Button>
                         )}
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={() => onOpenChange(false)}>
@@ -184,7 +174,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                                 src={currentStatus.mediaUrl} 
                                 autoPlay 
                                 playsInline
-                                muted
+                                muted={isMuted}
                                 loop
                                 className="w-full h-full object-contain" 
                             />
