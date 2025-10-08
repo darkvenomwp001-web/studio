@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -438,7 +438,7 @@ export default function StatusFeature() {
     }
     
     setIsSubmitting(false);
-    await handleSubmit(status, data);
+    await handleSubmit(status, statusData);
   };
   
   const handleShareStorySubmit = async (status: 'published' | 'draft') => {

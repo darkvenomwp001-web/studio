@@ -205,8 +205,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               level: 1,
               xp: 0,
               achievements: [],
-              profileSongUrl: '',
-              profileSongNote: '',
               followersCount: 0,
               followingCount: 0,
               followingIds: [],
