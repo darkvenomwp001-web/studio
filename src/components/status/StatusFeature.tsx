@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate, Poll, Story, Song } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ import StatusViewer from './StatusViewer';
 import { Textarea } from '../ui/textarea';
 import SongSearch from './SongSearch';
 import Link from 'next/link';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '../ui/switch';
 import { useRouter } from 'next/navigation';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 
@@ -76,7 +76,7 @@ const photoFilters = [
 
 
 export default function StatusFeature() {
-  const { user, loading: authLoading, getIdToken } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
   const [draftStatuses, setDraftStatuses] = useState<StatusUpdate[]>([]);
   const [groupedStatuses, setGroupedStatuses] = useState<Map<string, {user: User, statuses: StatusUpdate[]}>>(new Map());
@@ -117,6 +117,12 @@ export default function StatusFeature() {
   const [activeUploaderTab, setActiveUploaderTab] = useState('text');
   const [editingDraft, setEditingDraft] = useState<StatusUpdate | null>(null);
 
+  const [storySearchTerm, setStorySearchTerm] = useState('');
+  const [storySearchResults, setStorySearchResults] = useState<Story[]>([]);
+  const [isSearchingStories, setIsSearchingStories] = useState(false);
+  const [attachedStory, setAttachedStory] = useState<Story | null>(null);
+
+
   const { toast } = useToast();
   const router = useRouter();
   
@@ -151,8 +157,7 @@ export default function StatusFeature() {
         const liveStatuses = snapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate))
             .filter(s => {
-                if (s.visibility === 'close-friends' && user && !user.followingIds?.includes(s.authorId) && s.authorId !== user.id) {
-                    // A proper implementation would check a 'closeFriendsOf' array on the current user
+                if (s.visibility === 'close-friends' && user && !user.closeFriendIds?.includes(s.authorId) && s.authorId !== user.id) {
                     return false;
                 }
                 return s.expiresAt && (s.expiresAt as Timestamp).toMillis() > Date.now()
@@ -258,6 +263,9 @@ export default function StatusFeature() {
     setSelectedFilter('filter-none');
     setExpiryDuration('24');
     setEditingDraft(null);
+    setAttachedStory(null);
+    setStorySearchTerm('');
+    setStorySearchResults([]);
   }
   
   const handleTabChange = (value: string) => {
@@ -430,8 +438,21 @@ export default function StatusFeature() {
     }
     
     setIsSubmitting(false);
-    await handleSubmit(status, statusData);
+    await handleSubmit(status, data);
   };
+  
+  const handleShareStorySubmit = async (status: 'published' | 'draft') => {
+    if (!attachedStory) {
+      toast({ title: 'No Story Attached', description: 'Please select a story to share.', variant: 'destructive' });
+      return;
+    }
+    const data: Record<string, any> = {
+      sharedStoryId: attachedStory.id,
+      note: noteContent.trim() || '', // Optional note
+    };
+    await handleSubmit(status, data);
+  };
+
 
   const handleGenerateCaptions = () => {
     if (!mediaPreview) return;
@@ -458,6 +479,29 @@ export default function StatusFeature() {
     setIsCreatorOpen(false); // Close the menu
     setActiveUploaderTab(defaultTab);
     setIsUploaderOpen(true);
+  };
+  
+    const handleSearchStories = async () => {
+    if (!storySearchTerm.trim() || !user) return;
+    setIsSearchingStories(true);
+    try {
+      const storiesRef = collection(db, 'stories');
+      const q = query(
+        storiesRef,
+        where('author.id', '==', user.id),
+        where('title', '>=', storySearchTerm),
+        where('title', '<=', storySearchTerm + '\uf8ff'),
+        limit(10)
+      );
+      const querySnapshot = await getDocs(q);
+      const results = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
+      setStorySearchResults(results);
+    } catch (error) {
+      console.error("Error searching stories:", error);
+      toast({ title: "Search failed.", variant: "destructive" });
+    } finally {
+      setIsSearchingStories(false);
+    }
   };
 
 
@@ -575,7 +619,7 @@ export default function StatusFeature() {
       case 'song':
         return (
           <>
-            <div className="py-4 space-y-4 flex-grow px-6">
+            <div className="py-4 space-y-4 flex-grow px-6 bg-gradient-to-br from-green-900/10 to-card">
               <SongSearch
                   onSongSelect={(song) => setSelectedSong(song)}
                   onLyricSelect={setSongLyricSnippet}
@@ -662,9 +706,39 @@ export default function StatusFeature() {
           </>
         );
         case 'share-story':
-            // This is a new case to handle sharing a story
             return (
-                <p>Share story content here</p>
+                <>
+                <div className="p-4 flex-grow flex flex-col gap-4">
+                    <h3 className="font-semibold text-center">Share Your Story</h3>
+                     <div className="flex gap-2">
+                        <Input 
+                            placeholder="Search your stories..." 
+                            value={storySearchTerm}
+                            onChange={(e) => setStorySearchTerm(e.target.value)}
+                        />
+                        <Button onClick={handleSearchStories} disabled={isSearchingStories}>
+                            {isSearchingStories ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
+                        </Button>
+                    </div>
+                    <ScrollArea className="flex-grow border rounded-md">
+                        <div className="p-2 space-y-1">
+                            {(storySearchResults.length > 0 ? storySearchResults : user?.writtenStories || []).map(story => (
+                                <div key={story.id} className={cn("p-2 rounded-md flex items-center gap-3 cursor-pointer", attachedStory?.id === story.id ? 'bg-primary/20' : 'hover:bg-muted')} onClick={() => setAttachedStory(story)}>
+                                    <Image src={story.coverImageUrl || ''} alt={story.title} width={40} height={60} className="rounded-sm object-cover aspect-[2/3]" />
+                                    <p className="font-medium text-sm flex-1">{story.title}</p>
+                                    {attachedStory?.id === story.id && <CheckCircle className="h-5 w-5 text-primary" />}
+                                </div>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                </div>
+                <DialogFooter className="flex-row justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => handleShareStorySubmit('draft')} disabled={isSubmitting || !attachedStory}>Save as Draft</Button>
+                    <Button onClick={() => handleShareStorySubmit('published')} disabled={isSubmitting || !attachedStory}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                    </Button>
+                </DialogFooter>
+                </>
             );
         case 'settings':
             return (

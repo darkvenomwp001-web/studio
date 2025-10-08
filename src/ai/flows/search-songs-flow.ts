@@ -121,6 +121,37 @@ const mockSongs: Song[] = [
         cover: 'https://i.scdn.co/image/ab67616d0000b273b46f740976543e3a736944c6',
         lyrics: [ { time: 4, text: "Holdin' me back, gravity's holdin' me back" }, { time: 7, text: "I want you to hold out the palm of your hand" } ]
     },
+     // Sabrina Carpenter
+    {
+        id: '2nAivxxL2TH24w7sQ1s033',
+        title: 'Please Please Please',
+        artist: 'Sabrina Carpenter',
+        cover: 'https://i.scdn.co/image/ab67616d0000b2735706a4249a33b3a6a93540a0',
+        lyrics: [ { time: 5, text: "I heard that you're an actor, so act like a stand-up guy" }, { time: 8, text: "Whatever devil's inside you, don't let him out tonight" } ]
+    },
+    {
+        id: '3rU32Lg2lRm3p7iGed47nZ',
+        title: 'Espresso',
+        artist: 'Sabrina Carpenter',
+        cover: 'https://i.scdn.co/image/ab67616d0000b2735706a4249a33b3a6a93540a0',
+        lyrics: [ { time: 3, text: 'Now he\'s thinkin\' \'bout me every night, oh' }, { time: 6, text: 'Is it that sweet? I guess so' } ]
+    },
+    // Post Malone
+    {
+        id: '0e7ipj03S05BNilyu5bRzt',
+        title: 'Circles',
+        artist: 'Post Malone',
+        cover: 'https://i.scdn.co/image/ab67616d0000b2739478c87599550dd73bfa7e02',
+        lyrics: [ { time: 4, text: 'We couldn\'t turn around \'til we were upside down' }, { time: 8, text: 'I\'ll be the bad guy now, but know I ain\'t too proud' } ]
+    },
+     // Kendrick Lamar
+    {
+        id: '6AI3ezQ4o3HUoP6Dhudph3',
+        title: 'Not Like Us',
+        artist: 'Kendrick Lamar',
+        cover: 'https://i.scdn.co/image/ab67616d0000b2733ea79c1313835677a285098a',
+        lyrics: [ { time: 3, text: 'They not like us, they not like us, they not like us' }, { time: 6, text: 'I\'m a walkin\', livin\', breathin\', GOD-body, you know who I am' } ]
+    },
 ];
 
 // This is a mock function. In a real application, this would call the Spotify API.
