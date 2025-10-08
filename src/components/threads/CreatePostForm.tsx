@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Image as ImageIcon, Send, Loader2, Book, Music, X } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Story, Song } from '@/types';
 import Image from 'next/image';
 import SongSearch from '../status/SongSearch';
+import { Separator } from '../ui/separator';
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
@@ -29,6 +30,8 @@ export default function CreatePostForm() {
     
     // Attachments
     const [attachedStory, setAttachedStory] = useState<Story | null>(null);
+    const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
+    const [isSongModalOpen, setIsSongModalOpen] = useState(false);
     const [attachedImage, setAttachedImage] = useState<File | null>(null);
     const [attachedImagePreview, setAttachedImagePreview] = useState<string | null>(null);
     const [attachedSong, setAttachedSong] = useState<Song | null>(null);
@@ -135,104 +138,107 @@ export default function CreatePostForm() {
     
     if (!user) return null;
 
+    const hasAttachment = attachedStory || attachedImagePreview || attachedSong;
+
     return (
-        <Card className="mb-6">
-            <CardContent className="p-4 flex gap-4">
-                <Avatar>
-                    <AvatarImage src={user.avatarUrl} alt={user.displayName} />
-                    <AvatarFallback>{user.username.substring(0, 1).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div className="w-full">
-                    <Textarea
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        placeholder={`What's on your mind, ${user.displayName}?`}
-                        className="bg-transparent border-0 focus-visible:ring-0 shadow-none resize-none p-0"
-                    />
-                    
-                    {attachedImagePreview && (
-                        <div className="relative mt-2 w-32 h-32">
-                             <Image src={attachedImagePreview} alt="Preview" layout="fill" objectFit="cover" className="rounded-md" />
-                             <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full" onClick={() => { setAttachedImage(null); setAttachedImagePreview(null); }}>
-                                 <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    )}
-                    {attachedStory && (
-                         <div className="relative mt-2 p-2 border rounded-md flex items-center gap-2">
-                             <Image src={attachedStory.coverImageUrl || `https://picsum.photos/seed/${attachedStory.id}/512/800`} alt={attachedStory.title} width={40} height={60} className="rounded-sm object-cover" />
-                             <div className="flex-1">
-                                 <p className="font-semibold text-sm">{attachedStory.title}</p>
-                                 <p className="text-xs text-muted-foreground">by {attachedStory.author.displayName}</p>
-                             </div>
-                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setAttachedStory(null)}>
-                                 <X className="h-4 w-4" />
-                            </Button>
-                         </div>
-                    )}
-                    {attachedSong && (
-                         <div className="relative mt-2 p-2 border rounded-md">
-                             <div className="flex items-center gap-2">
+        <Dialog>
+          <Card className="mb-6 overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex gap-4">
+                  <Avatar>
+                      <AvatarImage src={user.avatarUrl} alt={user.displayName} data-ai-hint="profile person" />
+                      <AvatarFallback>{user.username.substring(0, 1).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="w-full">
+                      <Textarea
+                          value={content}
+                          onChange={(e) => setContent(e.target.value)}
+                          placeholder={`What's on your mind, ${user.displayName}?`}
+                          className="bg-transparent border-0 focus-visible:ring-0 shadow-none resize-none p-0 min-h-[60px] text-base"
+                      />
+                  </div>
+                </div>
+
+                {hasAttachment && (
+                  <div className="mt-4 pl-14 space-y-3">
+                      {attachedImagePreview && (
+                          <div className="relative w-32 h-32">
+                              <Image src={attachedImagePreview} alt="Preview" layout="fill" objectFit="cover" className="rounded-md" />
+                              <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full" onClick={() => { setAttachedImage(null); setAttachedImagePreview(null); }}>
+                                  <X className="h-4 w-4" />
+                              </Button>
+                          </div>
+                      )}
+                      {attachedStory && (
+                          <div className="relative p-2 border rounded-md flex items-center gap-2">
+                              <Image src={attachedStory.coverImageUrl || `https://picsum.photos/seed/${attachedStory.id}/512/800`} alt={attachedStory.title} width={40} height={60} className="rounded-sm object-cover" />
+                              <div className="flex-1">
+                                  <p className="font-semibold text-sm">{attachedStory.title}</p>
+                                  <p className="text-xs text-muted-foreground">by {attachedStory.author.displayName}</p>
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setAttachedStory(null)}>
+                                  <X className="h-4 w-4" />
+                              </Button>
+                          </div>
+                      )}
+                      {attachedSong && (
+                          <div className="relative p-2 border rounded-md">
+                              <div className="flex items-center gap-2">
                                 <Image src={attachedSong.cover} alt={attachedSong.title} width={40} height={40} className="rounded-sm" />
                                 <div className="flex-1">
-                                     <p className="font-semibold text-sm">{attachedSong.title}</p>
-                                     <p className="text-xs text-muted-foreground">{attachedSong.artist}</p>
+                                      <p className="font-semibold text-sm">{attachedSong.title}</p>
+                                      <p className="text-xs text-muted-foreground">{attachedSong.artist}</p>
                                 </div>
                                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setAttachedSong(null); setLyricSnippet(null); }}>
-                                     <X className="h-4 w-4" />
+                                      <X className="h-4 w-4" />
                                 </Button>
-                             </div>
-                             {lyricSnippet && <p className="text-xs italic mt-2 p-2 bg-muted rounded">"{lyricSnippet}"</p>}
-                         </div>
-                    )}
+                              </div>
+                              {lyricSnippet && <p className="text-xs italic mt-2 p-2 bg-muted rounded">"{lyricSnippet}"</p>}
+                          </div>
+                      )}
+                  </div>
+                )}
+              </CardContent>
+              <Separator />
+              <CardFooter className="p-2 flex justify-between items-center">
+                  <div className="flex">
+                      <input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
+                      <Button variant="ghost" size="icon" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-5 w-5 text-muted-foreground" /></Button>
+                      
+                       <DialogTrigger asChild>
+                           <Button variant="ghost" size="icon"><Book className="h-5 w-5 text-muted-foreground" /></Button>
+                      </DialogTrigger>
 
-                </div>
-            </CardContent>
-            <CardFooter className="flex justify-between items-center p-2 border-t">
-                <div className="flex">
-                    <input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
-                    <Button variant="ghost" size="icon" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-5 w-5 text-muted-foreground" /></Button>
-                     <Dialog>
-                        <DialogTrigger asChild>
-                             <Button variant="ghost" size="icon"><Book className="h-5 w-5 text-muted-foreground" /></Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Attach a Story</DialogTitle>
-                                <DialogDescription>Search for a story to attach to your post.</DialogDescription>
-                            </DialogHeader>
-                            <div className="flex gap-2">
-                                <Input placeholder="Search story title..." value={storySearchTerm} onChange={e => setStorySearchTerm(e.target.value)} />
-                                <Button onClick={handleSearchStories} disabled={isSearchingStories}>{isSearchingStories ? <Loader2 className="animate-spin h-4 w-4" /> : 'Search'}</Button>
-                            </div>
-                            <ScrollArea className="h-60 mt-4">
-                                {storySearchResults.map(story => (
-                                    <div key={story.id} className="p-2 border-b flex items-center justify-between">
-                                        <span>{story.title}</span>
-                                        <Button size="sm" onClick={() => setAttachedStory(story)}>Attach</Button>
-                                    </div>
-                                ))}
-                            </ScrollArea>
-                        </DialogContent>
-                    </Dialog>
-                    <Dialog>
-                        <DialogTrigger asChild>
-                             <Button variant="ghost" size="icon"><Music className="h-5 w-5 text-muted-foreground" /></Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Attach a Song</DialogTitle>
-                                <DialogDescription>Search for a song and optionally select a lyric snippet.</DialogDescription>
-                            </DialogHeader>
-                            <SongSearch onSongSelect={setAttachedSong} onLyricSelect={setLyricSnippet} />
-                        </DialogContent>
-                    </Dialog>
-                </div>
-                <Button onClick={handleSubmit} disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                    Post
-                </Button>
-            </CardFooter>
-        </Card>
+                      <Button variant="ghost" size="icon" onClick={() => { setIsSongModalOpen(true); }}><Music className="h-5 w-5 text-muted-foreground" /></Button>
+                  </div>
+                  <Button onClick={handleSubmit} disabled={isSubmitting || (!content.trim() && !hasAttachment)}>
+                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Post
+                  </Button>
+              </CardFooter>
+          </Card>
+          
+          {/* Attach Story Modal */}
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Attach a Story</DialogTitle>
+                  <DialogDescription>Search for a story to attach to your post.</DialogDescription>
+              </DialogHeader>
+              <div className="flex gap-2">
+                  <Input placeholder="Search story title..." value={storySearchTerm} onChange={e => setStorySearchTerm(e.target.value)} />
+                  <Button onClick={handleSearchStories} disabled={isSearchingStories}>{isSearchingStories ? <Loader2 className="animate-spin h-4 w-4" /> : 'Search'}</Button>
+              </div>
+              <ScrollArea className="h-60 mt-4">
+                  {storySearchResults.map(story => (
+                      <DialogClose asChild key={story.id}>
+                        <div className="p-2 border-b flex items-center justify-between hover:bg-muted cursor-pointer" onClick={() => setAttachedStory(story)}>
+                            <span>{story.title}</span>
+                            <Button size="sm" variant="outline">Attach</Button>
+                        </div>
+                      </DialogClose>
+                  ))}
+              </ScrollArea>
+          </DialogContent>
+        </Dialog>
     );
 }
