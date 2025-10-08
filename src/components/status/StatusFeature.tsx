@@ -119,6 +119,8 @@ export default function StatusFeature() {
 
   const { toast } = useToast();
   const router = useRouter();
+  
+  const [statusVisibility, setStatusVisibility] = useState<'public' | 'close-friends'>('public');
 
   useEffect(() => {
     if (!user || user.isAnonymous) {
@@ -294,7 +296,7 @@ export default function StatusFeature() {
     }
   };
   
-  const createBaseStatus = (status: 'published' | 'draft', visibility: 'public' | 'close-friends') => {
+  const createBaseStatus = (status: 'published' | 'draft') => {
     if (!user) return null;
     const authorInfo = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
     
@@ -312,12 +314,12 @@ export default function StatusFeature() {
         status,
         expiresAt: expiryTime,
         isHidden: false,
-        visibility: visibility,
+        visibility: statusVisibility,
     };
   };
 
-  const handleSubmit = async (status: 'published' | 'draft', visibility: 'public' | 'close-friends', data: Record<string, any>) => {
-    const baseStatus = createBaseStatus(status, visibility);
+  const handleSubmit = async (status: 'published' | 'draft', data: Record<string, any>) => {
+    const baseStatus = createBaseStatus(status);
     if (!baseStatus) return;
 
     setIsSubmitting(true);
@@ -341,16 +343,16 @@ export default function StatusFeature() {
     }
   };
 
-  const handleTextSubmit = async (status: 'published' | 'draft', visibility: 'public' | 'close-friends' = 'public') => {
+  const handleTextSubmit = async (status: 'published' | 'draft') => {
     if (!noteContent.trim()) {
         toast({ title: "Text is empty", description: "Please write something.", variant: "destructive" });
         return;
     }
     const data: Record<string, any> = { note: noteContent.trim() };
-    await handleSubmit(status, visibility, data);
+    await handleSubmit(status, data);
   };
   
-  const handleSongSubmit = async (status: 'published' | 'draft', visibility: 'public' | 'close-friends' = 'public') => {
+  const handleSongSubmit = async (status: 'published' | 'draft') => {
       if (!selectedSong) {
         toast({ title: "No song selected", variant: "destructive" });
         return;
@@ -360,10 +362,10 @@ export default function StatusFeature() {
           note: noteContent.trim() || '',
           songLyricSnippet: songLyricSnippet || '',
       };
-      await handleSubmit(status, visibility, data);
+      await handleSubmit(status, data);
   }
 
-  const handlePollSubmit = async (status: 'published' | 'draft', visibility: 'public' | 'close-friends' = 'public') => {
+  const handlePollSubmit = async (status: 'published' | 'draft') => {
     if (!pollQuestion.trim() || pollOptions.some(opt => !opt.trim())) {
       toast({ title: 'Poll is incomplete', description: 'Please fill out the question and all options.', variant: 'destructive'});
       return;
@@ -374,11 +376,11 @@ export default function StatusFeature() {
             options: pollOptions.map((opt, index) => ({ id: `opt${index + 1}`, text: opt.trim(), votes: [] }))
         }
     };
-    await handleSubmit(status, visibility, data);
+    await handleSubmit(status, data);
   }
 
 
-  const handleMediaSubmit = async (status: 'published' | 'draft', visibility: 'public' | 'close-friends' = 'public') => {
+  const handleMediaSubmit = async (status: 'published' | 'draft') => {
     if (!mediaFile && !editingDraft?.mediaUrl) {
       toast({title: "No Media", description: "Please select a file to submit.", variant: "destructive"});
       return;
@@ -428,7 +430,7 @@ export default function StatusFeature() {
     }
     
     setIsSubmitting(false);
-    await handleSubmit(status, visibility, statusData);
+    await handleSubmit(status, statusData);
   };
 
   const handleGenerateCaptions = () => {
@@ -561,10 +563,10 @@ export default function StatusFeature() {
               )}
             </div>
             <DialogFooter className="flex-row justify-between items-center p-2 flex-shrink-0">
-                <Button variant="outline" size="sm" onClick={() => handleMediaSubmit('draft', 'close-friends')} disabled={isSubmitting || !mediaPreview}>
+                <Button variant="outline" size="sm" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaPreview}>
                   <Users className="h-4 w-4 mr-2" /> Close Friends
                 </Button>
-                <Button onClick={() => handleMediaSubmit('published', 'public')} disabled={isSubmitting || !mediaPreview}>
+                <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || !mediaPreview}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Your Story
                 </Button>
             </DialogFooter>
@@ -608,30 +610,37 @@ export default function StatusFeature() {
         case 'poll':
         return (
           <>
-            <div className="py-4 space-y-4 flex-grow px-6">
+            <div className="py-4 px-6 space-y-4 flex-grow flex flex-col bg-gradient-to-br from-primary/10 to-accent/10">
                <Textarea
                     placeholder="Ask a question..."
                     value={pollQuestion}
                     onChange={e => setPollQuestion(e.target.value)}
-                    className="text-lg font-semibold bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
+                    className="text-lg font-semibold bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none text-center h-28"
                 />
-                <div className="space-y-2">
+                <div className="space-y-3">
                     {pollOptions.map((option, index) => (
-                         <Input 
-                            key={index}
-                            placeholder={`Option ${index + 1}`}
-                            value={option}
-                            onChange={(e) => {
-                                const newOptions = [...pollOptions];
-                                newOptions[index] = e.target.value;
-                                setPollOptions(newOptions);
-                            }}
-                         />
+                        <div key={index} className="relative">
+                            <Input 
+                                placeholder={`Option ${index + 1}`}
+                                value={option}
+                                onChange={(e) => {
+                                    const newOptions = [...pollOptions];
+                                    newOptions[index] = e.target.value;
+                                    setPollOptions(newOptions);
+                                }}
+                                className="h-12 text-center"
+                             />
+                             {pollOptions.length > 2 && (
+                                <Button variant="ghost" size="icon" className="absolute right-1 top-1 h-10 w-10 text-muted-foreground hover:text-destructive" onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== index))}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                             )}
+                        </div>
                     ))}
-                    {pollOptions.length < 4 && <Button variant="link" size="sm" onClick={() => setPollOptions([...pollOptions, ''])}>Add option</Button>}
+                    {pollOptions.length < 4 && <Button variant="outline" className="w-full h-12 border-dashed" onClick={() => setPollOptions([...pollOptions, ''])}>Add option</Button>}
                 </div>
             </div>
-            <DialogFooter className="flex-row justify-between items-center">
+            <DialogFooter className="flex-row justify-between items-center p-4 border-t">
               <Select value={expiryDuration} onValueChange={setExpiryDuration}>
                   <SelectTrigger className="w-[150px]">
                     <SelectValue/>
@@ -652,6 +661,11 @@ export default function StatusFeature() {
             </DialogFooter>
           </>
         );
+        case 'share-story':
+            // This is a new case to handle sharing a story
+            return (
+                <p>Share story content here</p>
+            );
         case 'settings':
             return (
                 <>
@@ -661,14 +675,35 @@ export default function StatusFeature() {
                             <CardTitle>Who can see my status?</CardTitle>
                         </CardHeader>
                         <CardContent>
-                             <RadioGroup defaultValue="followers" className="space-y-2">
+                             <RadioGroup defaultValue={statusVisibility} onValueChange={(v) => setStatusVisibility(v as 'public' | 'close-friends')} className="space-y-2">
                                 <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="followers" id="r1" />
+                                    <RadioGroupItem value="public" id="r1" />
                                     <Label htmlFor="r1">My Followers</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="close_friends" id="r2" />
+                                    <RadioGroupItem value="close-friends" id="r2" />
                                     <Label htmlFor="r2">Close Friends Only</Label>
+                                </div>
+                             </RadioGroup>
+                        </CardContent>
+                    </Card>
+                     <Card>
+                        <CardHeader>
+                            <CardTitle>Who can reply?</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <RadioGroup defaultValue="everyone" className="space-y-2">
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="everyone" id="r-reply-1" />
+                                    <Label htmlFor="r-reply-1">Everyone</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="following" id="r-reply-2" />
+                                    <Label htmlFor="r-reply-2">People you follow</Label>
+                                </div>
+                                 <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="none" id="r-reply-3" />
+                                    <Label htmlFor="r-reply-3">Off</Label>
                                 </div>
                              </RadioGroup>
                         </CardContent>
@@ -754,7 +789,7 @@ export default function StatusFeature() {
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('media')}><ImageIcon className="h-6 w-6"/>Media</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('song')}><Music className="h-6 w-6"/>Song</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('poll')}><BarChart2 className="h-6 w-6"/>Poll</Button>
-                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => toast({ title: 'Coming Soon!' })}><BookOpen className="h-6 w-6"/>Share Story</Button>
+                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('share-story')}><BookOpen className="h-6 w-6"/>Share Story</Button>
               </div>
           </DialogContent>
       </Dialog>
@@ -764,8 +799,6 @@ export default function StatusFeature() {
             <DialogHeader className="p-4 flex-row items-center justify-between border-b">
                 <DialogTitle>Create Status</DialogTitle>
                 <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => setActiveUploaderTab('drafts')}><Archive className="h-5 w-5"/></Button>
-                    <Button variant="ghost" size="icon" onClick={() => setActiveUploaderTab('settings')}><Settings className="h-5 w-5"/></Button>
                     <DialogClose asChild><Button variant="ghost" size="icon"><X className="h-5 w-5"/></Button></DialogClose>
                 </div>
             </DialogHeader>
@@ -774,11 +807,12 @@ export default function StatusFeature() {
             </div>
              <div className="p-2 border-t bg-background">
                 <Tabs value={activeUploaderTab} onValueChange={handleTabChange} className="w-full">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-5">
                         <TabsTrigger value="text"><Text className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="media"><ImageIcon className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="song"><Music className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="poll"><BarChart2 className="h-5 w-5"/></TabsTrigger>
+                        <TabsTrigger value="settings"><Settings className="h-5 w-5"/></TabsTrigger>
                     </TabsList>
                 </Tabs>
              </div>
