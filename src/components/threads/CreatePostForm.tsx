@@ -160,7 +160,7 @@ export default function CreatePostForm() {
                     )}
                     {attachedStory && (
                          <div className="relative mt-2 p-2 border rounded-md flex items-center gap-2">
-                             <Image src={attachedStory.coverImageUrl || ''} alt={attachedStory.title} width={40} height={60} className="rounded-sm object-cover" />
+                             <Image src={attachedStory.coverImageUrl || `https://picsum.photos/seed/${attachedStory.id}/512/800`} alt={attachedStory.title} width={40} height={60} className="rounded-sm object-cover" />
                              <div className="flex-1">
                                  <p className="font-semibold text-sm">{attachedStory.title}</p>
                                  <p className="text-xs text-muted-foreground">by {attachedStory.author.displayName}</p>
