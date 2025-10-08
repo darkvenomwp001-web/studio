@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export interface Achievement {
@@ -261,6 +260,7 @@ export interface StatusUpdate {
     mediaType?: 'image' | 'video';
     textOverlay?: string;
     note?: string;
+    backgroundStyle?: string;
     spotifyUrl?: string;
     songLyricSnippet?: string;
     poll?: Poll;

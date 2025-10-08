@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -32,6 +31,16 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
+
+const gradientBackgrounds = [
+  'bg-gradient-to-br from-gray-700 via-gray-900 to-black',
+  'bg-gradient-to-br from-rose-400 via-fuchsia-500 to-indigo-500',
+  'bg-gradient-to-br from-green-300 via-blue-500 to-purple-600',
+  'bg-gradient-to-br from-yellow-200 via-green-200 to-green-500',
+  'bg-gradient-to-br from-red-200 via-red-300 to-yellow-200',
+  'bg-gradient-to-br from-sky-400 to-sky-200',
+];
+
 
 function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, statuses: StatusUpdate[], onSelect: (user: User) => void, latestStatus: StatusUpdate | null }) {
   const { user: authUser } = useAuth();
@@ -97,6 +106,7 @@ export default function StatusFeature() {
   const [pollOptions, setPollOptions] = useState(['', '']);
 
   const [noteContent, setNoteContent] = useState('');
+  const [backgroundStyle, setBackgroundStyle] = useState<string>('');
   
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [songLyricSnippet, setSongLyricSnippet] = useState<string | null>(null);
@@ -265,6 +275,7 @@ export default function StatusFeature() {
     setAttachedStory(null);
     setStorySearchTerm('');
     setStorySearchResults([]);
+    setBackgroundStyle('');
   }
   
   const handleTabChange = (value: string) => {
@@ -356,6 +367,9 @@ export default function StatusFeature() {
         return;
     }
     const data: Record<string, any> = { note: noteContent.trim() };
+    if (backgroundStyle) {
+      data.backgroundStyle = backgroundStyle;
+    }
     await handleSubmit(status, data);
   };
   
@@ -437,7 +451,7 @@ export default function StatusFeature() {
     }
     
     setIsSubmitting(false);
-    await handleSubmit(status, data);
+    await handleSubmit(status, statusData);
   };
   
   const handleShareStorySubmit = async (status: 'published' | 'draft') => {
@@ -532,13 +546,29 @@ export default function StatusFeature() {
       case 'text':
         return (
           <>
-            <div className="py-4 space-y-4 flex-grow flex flex-col">
+            <div className={cn("py-4 space-y-4 flex-grow flex flex-col justify-center items-center text-white", backgroundStyle)}>
               <Textarea
                   placeholder={`What's on your mind, ${user?.displayName || user?.username}?`}
                   value={noteContent}
                   onChange={e => setNoteContent(e.target.value)}
-                  className="flex-grow text-lg bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none"
+                  className={cn(
+                    "flex-grow text-2xl bg-transparent border-0 focus-visible:ring-0 p-4 resize-none shadow-none text-center flex items-center justify-center",
+                    noteContent.length < 50 ? 'text-2xl' : 'text-lg'
+                  )}
               />
+              <div className="flex gap-2 p-2 bg-black/20 rounded-full">
+                <button
+                  onClick={() => setBackgroundStyle('')}
+                  className={cn("w-6 h-6 rounded-full bg-background border-2", backgroundStyle === '' ? 'border-primary' : 'border-transparent')}
+                />
+                {gradientBackgrounds.map(bg => (
+                  <button
+                    key={bg}
+                    onClick={() => setBackgroundStyle(bg)}
+                    className={cn("w-6 h-6 rounded-full border-2", bg, backgroundStyle === bg ? 'border-primary' : 'border-transparent')}
+                  />
+                ))}
+              </div>
             </div>
             <DialogFooter className="flex-row justify-between items-center">
               <Select value={expiryDuration} onValueChange={setExpiryDuration}>

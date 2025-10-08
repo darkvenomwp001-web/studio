@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -182,9 +181,9 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                             <Image src={currentStatus.mediaUrl!} alt="Status Update" layout="fill" objectFit="contain" />
                         )
                     ) : isNoteStatus ? (
-                         <div className="absolute inset-0 flex items-center justify-center p-8 bg-gradient-to-br from-gray-900 to-black">
+                         <div className={cn("absolute inset-0 flex items-center justify-center p-8", currentStatus.backgroundStyle)}>
                             {currentStatus.note && (
-                                <p className="text-white text-center text-2xl font-semibold whitespace-pre-line">
+                                <p className={cn("text-white text-center font-semibold whitespace-pre-line", currentStatus.note.length < 50 ? 'text-3xl' : 'text-xl')}>
                                     {currentStatus.note}
                                 </p>
                             )}
