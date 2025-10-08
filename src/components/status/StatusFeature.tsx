@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen, CheckCircle, HelpCircle, Sparkles as SparklesIcon } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen, CheckCircle, HelpCircle, Sparkles as SparklesIcon, PenSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getStatusCaptions, generateImage } from '@/app/actions/aiActions';
+import { getStatusCaptions } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import StatusViewer from './StatusViewer';
@@ -107,9 +107,6 @@ export default function StatusFeature() {
   
   const [suggestedCaptions, setSuggestedCaptions] = useState<string[]>([]);
   const [isGeneratingCaptions, startCaptionTransition] = useTransition();
-  const [isGeneratingAiImage, startAiImageTransition] = useTransition();
-  const [aiImagePrompt, setAiImagePrompt] = useState('');
-
 
   const [selectedFilter, setSelectedFilter] = useState<(typeof photoFilters)[number]['style']>('filter-none');
   const [expiryDuration, setExpiryDuration] = useState<string>('24');
@@ -268,7 +265,6 @@ export default function StatusFeature() {
     setAttachedStory(null);
     setStorySearchTerm('');
     setStorySearchResults([]);
-    setAiImagePrompt('');
   }
   
   const handleTabChange = (value: string) => {
@@ -392,25 +388,13 @@ export default function StatusFeature() {
 
 
   const handleMediaSubmit = async (status: 'published' | 'draft') => {
-    if (!mediaFile && !editingDraft?.mediaUrl && !mediaPreview) { // Check for generated AI image too
-      toast({title: "No Media", description: "Please select or generate a file to submit.", variant: "destructive"});
+    if (!mediaFile && !editingDraft?.mediaUrl) {
+      toast({title: "No Media", description: "Please select a file to submit.", variant: "destructive"});
       return;
     }
 
     setIsSubmitting(true);
     let mediaUrl = editingDraft?.mediaUrl || '';
-
-    // If there is a generated AI image, use it directly
-    if (!mediaFile && mediaPreview?.startsWith('data:image')) {
-      const data: Record<string, any> = {
-          mediaUrl: mediaPreview,
-          mediaType: 'image',
-          textOverlay: textOverlay.trim() || '',
-      };
-      await handleSubmit(status, data);
-      setIsSubmitting(false);
-      return;
-    }
 
     if (mediaFile) {
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -467,26 +451,22 @@ export default function StatusFeature() {
     };
     await handleSubmit(status, data);
   };
-
-  const handleGenerateAiImage = () => {
-    if (!aiImagePrompt.trim()) {
-      toast({ title: "Prompt is empty", variant: "destructive" });
+  
+  const handleTeaserSubmit = async (status: 'published' | 'draft') => {
+    if (!attachedStory) {
+      toast({ title: 'No Story Attached', description: 'Please select a story to tease.', variant: 'destructive' });
       return;
     }
-    startAiImageTransition(async () => {
-      setMediaPreview(null);
-      const result = await generateImage({ prompt: aiImagePrompt });
-      if ('error' in result) {
-        toast({ title: "AI Image Generation Failed", description: result.error, variant: "destructive" });
-      } else {
-        setMediaPreview(result.imageDataUri);
-        setMediaType('image');
-        setMediaFile(null); // Ensure we don't re-upload
-        setActiveUploaderTab('media');
-      }
-    });
-  }
-
+    if (!noteContent.trim()) {
+        toast({ title: "Teaser is empty", description: "Please write a teaser message.", variant: "destructive" });
+        return;
+    }
+    const data: Record<string, any> = {
+      sharedStoryId: attachedStory.id,
+      note: noteContent.trim(),
+    };
+    await handleSubmit(status, data);
+  };
 
   const handleGenerateCaptions = () => {
     if (!mediaPreview) return;
@@ -774,25 +754,48 @@ export default function StatusFeature() {
                 </DialogFooter>
                 </>
             );
-        case 'ai-image':
+        case 'teaser':
             return (
-              <>
-                <div className="py-4 px-6 space-y-4 flex-grow flex flex-col items-center justify-center bg-gradient-to-br from-indigo-900/10 to-purple-900/10">
-                    <SparklesIcon className="h-16 w-16 text-primary/50" />
-                    <p className="text-muted-foreground text-center">Describe the image you want to create with AI.</p>
+                <>
+                <div className="p-4 flex-grow flex flex-col gap-4">
+                    <h3 className="font-semibold text-center">Create a Chapter Teaser</h3>
+                     <div className="flex gap-2">
+                        <Input 
+                            placeholder="Search your stories..." 
+                            value={storySearchTerm}
+                            onChange={(e) => setStorySearchTerm(e.target.value)}
+                        />
+                        <Button onClick={handleSearchStories} disabled={isSearchingStories}>
+                            {isSearchingStories ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
+                        </Button>
+                    </div>
+                    <ScrollArea className="h-40 border rounded-md">
+                        <div className="p-2 space-y-1">
+                            {(storySearchResults.length > 0 ? storySearchResults : user?.writtenStories || []).map(story => (
+                                <div key={story.id} className={cn("p-2 rounded-md flex items-center gap-3 cursor-pointer", attachedStory?.id === story.id ? 'bg-primary/20' : 'hover:bg-muted')} onClick={() => setAttachedStory(story)}>
+                                    <Image src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/80/120`} alt={story.title} width={40} height={60} className="rounded-sm object-cover aspect-[2/3]" />
+                                    <p className="font-medium text-sm flex-1">{story.title}</p>
+                                    {attachedStory?.id === story.id && <CheckCircle className="h-5 w-5 text-primary" />}
+                                </div>
+                            ))}
+                        </div>
+                    </ScrollArea>
                     <Textarea
-                        placeholder="e.g., a cyberpunk city in the rain, hyperrealistic, 8k"
-                        value={aiImagePrompt}
-                        onChange={(e) => setAiImagePrompt(e.target.value)}
-                        className="text-sm bg-background focus-visible:ring-primary"
-                        rows={3}
+                        placeholder={attachedStory ? `Write a teaser for "${attachedStory.title}"...` : "Select a story first..."}
+                        value={noteContent}
+                        onChange={e => setNoteContent(e.target.value)}
+                        className="text-base bg-background focus-visible:ring-primary"
+                        rows={4}
+                        disabled={!attachedStory}
                     />
-                     <Button onClick={handleGenerateAiImage} disabled={isGeneratingAiImage || !aiImagePrompt.trim()} className="w-full">
-                        {isGeneratingAiImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                        Generate Image
-                    </Button>
                 </div>
-              </>
+                <DialogFooter className="flex-row justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => handleTeaserSubmit('draft')} disabled={isSubmitting || !attachedStory || !noteContent.trim()}>Save as Draft</Button>
+                    <Button onClick={() => handleTeaserSubmit('published')} disabled={isSubmitting || !attachedStory || !noteContent.trim()}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post Teaser
+                    </Button>
+                </DialogFooter>
+                </>
             );
         case 'settings':
             return (
@@ -915,7 +918,7 @@ export default function StatusFeature() {
               <div className="grid grid-cols-2 gap-4 py-4">
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('text')}><Text className="h-6 w-6"/>Text</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('media')}><ImageIcon className="h-6 w-6"/>Media</Button>
-                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('ai-image')}><SparklesIcon className="h-6 w-6"/>AI Image</Button>
+                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('teaser')}><PenSquare className="h-6 w-6"/>Teaser</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('song')}><Music className="h-6 w-6"/>Song</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('poll')}><BarChart2 className="h-6 w-6"/>Poll</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('share-story')}><BookOpen className="h-6 w-6"/>Share Story</Button>
@@ -939,7 +942,7 @@ export default function StatusFeature() {
                     <TabsList className="grid w-full grid-cols-7">
                         <TabsTrigger value="text"><Text className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="media"><ImageIcon className="h-5 w-5"/></TabsTrigger>
-                        <TabsTrigger value="ai-image"><SparklesIcon className="h-5 w-5"/></TabsTrigger>
+                        <TabsTrigger value="teaser"><PenSquare className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="song"><Music className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="poll"><BarChart2 className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="share-story"><BookOpen className="h-5 w-5"/></TabsTrigger>

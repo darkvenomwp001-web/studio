@@ -6,7 +6,6 @@ import { matchStoryMood as matchStoryMoodFlow, MatchStoryMoodInput, MatchStoryMo
 import { generateConversationStarters as generateConversationStartersFlow, GenerateConversationStartersInput, GenerateConversationStartersOutput } from '@/ai/flows/generate-conversation-starters';
 import { generateStatusCaption as generateStatusCaptionFlow, GenerateStatusCaptionInput, GenerateStatusCaptionOutput } from '@/ai/flows/generate-status-caption';
 import { searchSongs as searchSongsFlow, SearchSongsInput, SearchSongsOutput } from '@/ai/flows/search-songs-flow';
-import { generateImage as generateImageFlow, GenerateImageInput, GenerateImageOutput } from '@/ai/flows/generate-image-flow';
 
 
 export async function getWritingSuggestions(input: ImproveWritingStyleInput): Promise<ImproveWritingStyleOutput | { error: string }> {
@@ -74,16 +73,6 @@ export async function searchSongs(input: SearchSongsInput): Promise<SearchSongsO
         return result;
     } catch (error) {
         console.error("Error in searchSongs AI action:", error);
-        return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
-    }
-}
-
-export async function generateImage(input: GenerateImageInput): Promise<GenerateImageOutput | { error: string }> {
-    try {
-        const result = await generateImageFlow(input);
-        return result;
-    } catch (error) {
-        console.error("Error in generateImage AI action:", error);
         return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
     }
 }
