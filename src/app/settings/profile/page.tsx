@@ -148,10 +148,6 @@ export default function EditProfilePage() {
             <Button variant="ghost" onClick={() => router.push('/settings')} className="mb-2">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
             </Button>
-            <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-3">
-            <UserCog className="h-8 w-8" /> Edit Profile
-            </h1>
-            <p className="text-muted-foreground">Update your public profile information.</p>
         </header>
 
           <Card className="shadow-lg">
