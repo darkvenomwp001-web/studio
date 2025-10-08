@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen, CheckCircle, HelpCircle } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen, CheckCircle, HelpCircle, Sparkles as SparklesIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getStatusCaptions } from '@/app/actions/aiActions';
+import { getStatusCaptions, generateImage } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import StatusViewer from './StatusViewer';
@@ -107,6 +107,9 @@ export default function StatusFeature() {
   
   const [suggestedCaptions, setSuggestedCaptions] = useState<string[]>([]);
   const [isGeneratingCaptions, startCaptionTransition] = useTransition();
+  const [isGeneratingAiImage, startAiImageTransition] = useTransition();
+  const [aiImagePrompt, setAiImagePrompt] = useState('');
+
 
   const [selectedFilter, setSelectedFilter] = useState<(typeof photoFilters)[number]['style']>('filter-none');
   const [expiryDuration, setExpiryDuration] = useState<string>('24');
@@ -121,9 +124,6 @@ export default function StatusFeature() {
   const [storySearchResults, setStorySearchResults] = useState<Story[]>([]);
   const [isSearchingStories, setIsSearchingStories] = useState(false);
   const [attachedStory, setAttachedStory] = useState<Story | null>(null);
-
-  const [askMePrompt, setAskMePrompt] = useState('Ask me anything!');
-
 
   const { toast } = useToast();
   const router = useRouter();
@@ -268,7 +268,7 @@ export default function StatusFeature() {
     setAttachedStory(null);
     setStorySearchTerm('');
     setStorySearchResults([]);
-    setAskMePrompt('Ask me anything!');
+    setAiImagePrompt('');
   }
   
   const handleTabChange = (value: string) => {
@@ -392,13 +392,25 @@ export default function StatusFeature() {
 
 
   const handleMediaSubmit = async (status: 'published' | 'draft') => {
-    if (!mediaFile && !editingDraft?.mediaUrl) {
-      toast({title: "No Media", description: "Please select a file to submit.", variant: "destructive"});
+    if (!mediaFile && !editingDraft?.mediaUrl && !mediaPreview) { // Check for generated AI image too
+      toast({title: "No Media", description: "Please select or generate a file to submit.", variant: "destructive"});
       return;
     }
 
     setIsSubmitting(true);
     let mediaUrl = editingDraft?.mediaUrl || '';
+
+    // If there is a generated AI image, use it directly
+    if (!mediaFile && mediaPreview?.startsWith('data:image')) {
+      const data: Record<string, any> = {
+          mediaUrl: mediaPreview,
+          mediaType: 'image',
+          textOverlay: textOverlay.trim() || '',
+      };
+      await handleSubmit(status, data);
+      setIsSubmitting(false);
+      return;
+    }
 
     if (mediaFile) {
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -455,17 +467,25 @@ export default function StatusFeature() {
     };
     await handleSubmit(status, data);
   };
-  
-  const handleAskMeSubmit = async (status: 'published' | 'draft') => {
-    if (!askMePrompt.trim()) {
-      toast({ title: "Prompt is empty!", description: "Please enter a prompt for your Q&A.", variant: "destructive" });
+
+  const handleGenerateAiImage = () => {
+    if (!aiImagePrompt.trim()) {
+      toast({ title: "Prompt is empty", variant: "destructive" });
       return;
     }
-    const data: Record<string, any> = {
-      prompt: askMePrompt.trim(),
-    };
-    await handleSubmit(status, data);
-  };
+    startAiImageTransition(async () => {
+      setMediaPreview(null);
+      const result = await generateImage({ prompt: aiImagePrompt });
+      if ('error' in result) {
+        toast({ title: "AI Image Generation Failed", description: result.error, variant: "destructive" });
+      } else {
+        setMediaPreview(result.imageDataUri);
+        setMediaType('image');
+        setMediaFile(null); // Ensure we don't re-upload
+        setActiveUploaderTab('media');
+      }
+    });
+  }
 
 
   const handleGenerateCaptions = () => {
@@ -754,36 +774,24 @@ export default function StatusFeature() {
                 </DialogFooter>
                 </>
             );
-        case 'ask-me':
+        case 'ai-image':
             return (
               <>
                 <div className="py-4 px-6 space-y-4 flex-grow flex flex-col items-center justify-center bg-gradient-to-br from-indigo-900/10 to-purple-900/10">
-                    <HelpCircle className="h-16 w-16 text-primary/50" />
-                    <p className="text-muted-foreground text-center">Your followers will be able to send you questions.</p>
+                    <SparklesIcon className="h-16 w-16 text-primary/50" />
+                    <p className="text-muted-foreground text-center">Describe the image you want to create with AI.</p>
                     <Textarea
-                        placeholder="Ask me anything!"
-                        value={askMePrompt}
-                        onChange={(e) => setAskMePrompt(e.target.value)}
-                        className="text-lg font-semibold bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none text-center h-28"
+                        placeholder="e.g., a cyberpunk city in the rain, hyperrealistic, 8k"
+                        value={aiImagePrompt}
+                        onChange={(e) => setAiImagePrompt(e.target.value)}
+                        className="text-sm bg-background focus-visible:ring-primary"
+                        rows={3}
                     />
+                     <Button onClick={handleGenerateAiImage} disabled={isGeneratingAiImage || !aiImagePrompt.trim()} className="w-full">
+                        {isGeneratingAiImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                        Generate Image
+                    </Button>
                 </div>
-                <DialogFooter className="flex-row justify-between items-center p-4 border-t">
-                    <Select value={expiryDuration} onValueChange={setExpiryDuration}>
-                        <SelectTrigger className="w-[150px]"><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="3">Expires in 3 Hours</SelectItem>
-                            <SelectItem value="6">Expires in 6 Hours</SelectItem>
-                            <SelectItem value="10">Expires in 10 Hours</SelectItem>
-                            <SelectItem value="24">Expires in 24 Hours</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <div className="flex gap-2">
-                        <Button variant="ghost" onClick={() => handleAskMeSubmit('draft')} disabled={isSubmitting || !askMePrompt.trim()}>Save as Draft</Button>
-                        <Button onClick={() => handleAskMeSubmit('published')} disabled={isSubmitting || !askMePrompt.trim()}>
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-                        </Button>
-                    </div>
-                </DialogFooter>
               </>
             );
         case 'settings':
@@ -907,10 +915,10 @@ export default function StatusFeature() {
               <div className="grid grid-cols-2 gap-4 py-4">
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('text')}><Text className="h-6 w-6"/>Text</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('media')}><ImageIcon className="h-6 w-6"/>Media</Button>
+                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('ai-image')}><SparklesIcon className="h-6 w-6"/>AI Image</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('song')}><Music className="h-6 w-6"/>Song</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('poll')}><BarChart2 className="h-6 w-6"/>Poll</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('share-story')}><BookOpen className="h-6 w-6"/>Share Story</Button>
-                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('ask-me')}><HelpCircle className="h-6 w-6"/>Ask Me</Button>
               </div>
           </DialogContent>
       </Dialog>
@@ -928,12 +936,13 @@ export default function StatusFeature() {
             </div>
              <div className="p-2 border-t bg-background">
                 <Tabs value={activeUploaderTab} onValueChange={handleTabChange} className="w-full">
-                    <TabsList className="grid w-full grid-cols-6">
+                    <TabsList className="grid w-full grid-cols-7">
                         <TabsTrigger value="text"><Text className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="media"><ImageIcon className="h-5 w-5"/></TabsTrigger>
+                        <TabsTrigger value="ai-image"><SparklesIcon className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="song"><Music className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="poll"><BarChart2 className="h-5 w-5"/></TabsTrigger>
-                        <TabsTrigger value="ask-me"><HelpCircle className="h-5 w-5"/></TabsTrigger>
+                        <TabsTrigger value="share-story"><BookOpen className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="settings"><Settings className="h-5 w-5"/></TabsTrigger>
                     </TabsList>
                 </Tabs>

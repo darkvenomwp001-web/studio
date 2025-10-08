@@ -42,7 +42,6 @@ export interface UserSummary {
   avatarUrl?: string;
   displayName?: string;
   bio?: string;
-  key?: string;
 }
 
 export interface Story {
