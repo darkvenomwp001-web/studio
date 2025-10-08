@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate, Poll, Story, Song } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, deleteDoc, getDocs, limit } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -437,7 +437,7 @@ export default function StatusFeature() {
     }
     
     setIsSubmitting(false);
-    await handleSubmit(status, statusData);
+    await handleSubmit(status, data);
   };
   
   const handleShareStorySubmit = async (status: 'published' | 'draft') => {
