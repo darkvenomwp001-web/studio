@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen, CheckCircle } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen, CheckCircle, HelpCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -121,6 +121,8 @@ export default function StatusFeature() {
   const [storySearchResults, setStorySearchResults] = useState<Story[]>([]);
   const [isSearchingStories, setIsSearchingStories] = useState(false);
   const [attachedStory, setAttachedStory] = useState<Story | null>(null);
+
+  const [askMePrompt, setAskMePrompt] = useState('Ask me anything!');
 
 
   const { toast } = useToast();
@@ -266,6 +268,7 @@ export default function StatusFeature() {
     setAttachedStory(null);
     setStorySearchTerm('');
     setStorySearchResults([]);
+    setAskMePrompt('Ask me anything!');
   }
   
   const handleTabChange = (value: string) => {
@@ -449,6 +452,17 @@ export default function StatusFeature() {
     const data: Record<string, any> = {
       sharedStoryId: attachedStory.id,
       note: noteContent.trim() || '', // Optional note
+    };
+    await handleSubmit(status, data);
+  };
+  
+  const handleAskMeSubmit = async (status: 'published' | 'draft') => {
+    if (!askMePrompt.trim()) {
+      toast({ title: "Prompt is empty!", description: "Please enter a prompt for your Q&A.", variant: "destructive" });
+      return;
+    }
+    const data: Record<string, any> = {
+      prompt: askMePrompt.trim(),
     };
     await handleSubmit(status, data);
   };
@@ -724,7 +738,7 @@ export default function StatusFeature() {
                         <div className="p-2 space-y-1">
                             {(storySearchResults.length > 0 ? storySearchResults : user?.writtenStories || []).map(story => (
                                 <div key={story.id} className={cn("p-2 rounded-md flex items-center gap-3 cursor-pointer", attachedStory?.id === story.id ? 'bg-primary/20' : 'hover:bg-muted')} onClick={() => setAttachedStory(story)}>
-                                    <Image src={story.coverImageUrl || ''} alt={story.title} width={40} height={60} className="rounded-sm object-cover aspect-[2/3]" />
+                                    <Image src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/80/120`} alt={story.title} width={40} height={60} className="rounded-sm object-cover aspect-[2/3]" />
                                     <p className="font-medium text-sm flex-1">{story.title}</p>
                                     {attachedStory?.id === story.id && <CheckCircle className="h-5 w-5 text-primary" />}
                                 </div>
@@ -739,6 +753,38 @@ export default function StatusFeature() {
                     </Button>
                 </DialogFooter>
                 </>
+            );
+        case 'ask-me':
+            return (
+              <>
+                <div className="py-4 px-6 space-y-4 flex-grow flex flex-col items-center justify-center bg-gradient-to-br from-indigo-900/10 to-purple-900/10">
+                    <HelpCircle className="h-16 w-16 text-primary/50" />
+                    <p className="text-muted-foreground text-center">Your followers will be able to send you questions.</p>
+                    <Textarea
+                        placeholder="Ask me anything!"
+                        value={askMePrompt}
+                        onChange={(e) => setAskMePrompt(e.target.value)}
+                        className="text-lg font-semibold bg-transparent border-0 focus-visible:ring-0 p-1 resize-none shadow-none text-center h-28"
+                    />
+                </div>
+                <DialogFooter className="flex-row justify-between items-center p-4 border-t">
+                    <Select value={expiryDuration} onValueChange={setExpiryDuration}>
+                        <SelectTrigger className="w-[150px]"><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="3">Expires in 3 Hours</SelectItem>
+                            <SelectItem value="6">Expires in 6 Hours</SelectItem>
+                            <SelectItem value="10">Expires in 10 Hours</SelectItem>
+                            <SelectItem value="24">Expires in 24 Hours</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <div className="flex gap-2">
+                        <Button variant="ghost" onClick={() => handleAskMeSubmit('draft')} disabled={isSubmitting || !askMePrompt.trim()}>Save as Draft</Button>
+                        <Button onClick={() => handleAskMeSubmit('published')} disabled={isSubmitting || !askMePrompt.trim()}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                        </Button>
+                    </div>
+                </DialogFooter>
+              </>
             );
         case 'settings':
             return (
@@ -864,6 +910,7 @@ export default function StatusFeature() {
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('song')}><Music className="h-6 w-6"/>Song</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('poll')}><BarChart2 className="h-6 w-6"/>Poll</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('share-story')}><BookOpen className="h-6 w-6"/>Share Story</Button>
+                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('ask-me')}><HelpCircle className="h-6 w-6"/>Ask Me</Button>
               </div>
           </DialogContent>
       </Dialog>
@@ -881,11 +928,12 @@ export default function StatusFeature() {
             </div>
              <div className="p-2 border-t bg-background">
                 <Tabs value={activeUploaderTab} onValueChange={handleTabChange} className="w-full">
-                    <TabsList className="grid w-full grid-cols-5">
+                    <TabsList className="grid w-full grid-cols-6">
                         <TabsTrigger value="text"><Text className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="media"><ImageIcon className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="song"><Music className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="poll"><BarChart2 className="h-5 w-5"/></TabsTrigger>
+                        <TabsTrigger value="ask-me"><HelpCircle className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="settings"><Settings className="h-5 w-5"/></TabsTrigger>
                     </TabsList>
                 </Tabs>

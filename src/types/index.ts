@@ -264,6 +264,8 @@ export interface StatusUpdate {
     spotifyUrl?: string;
     songLyricSnippet?: string;
     poll?: Poll;
+    sharedStoryId?: string;
+    prompt?: string;
     expiresAt: any | null;
     createdAt: any;
     status: 'published' | 'draft';
