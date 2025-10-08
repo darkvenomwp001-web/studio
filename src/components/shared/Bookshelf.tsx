@@ -160,7 +160,7 @@ export default function Bookshelf() {
                             {friendsActivity.map((activity, index) => (
                                 <Card key={index} className="p-3">
                                     <div className="flex items-center gap-3">
-                                        <Image src={activity.story.coverImageUrl || ''} alt={activity.story.title} width={40} height={60} className="rounded-sm object-cover aspect-[2/3]" />
+                                        <Image src={activity.story.coverImageUrl || `https://picsum.photos/seed/${activity.story.id}/40/60`} alt={activity.story.title} width={40} height={60} className="rounded-sm object-cover aspect-[2/3]" />
                                         <div className="flex-1">
                                             <p className="text-sm text-muted-foreground">
                                                 <span className="font-semibold text-foreground">{activity.user.displayName}</span> just added <span className="font-semibold text-foreground">"{activity.story.title}"</span> to their library.

@@ -61,7 +61,7 @@ function ProfileStoryCard({ story, isPrivate = false }: ProfileStoryCardProps) {
              isPrivate && "opacity-70 group-hover:opacity-100" 
         )}>
           <Image
-            src={story.coverImageUrl || 'https://placehold.co/512x800.png'}
+            src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
             alt={story.title}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out"
