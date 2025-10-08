@@ -231,6 +231,7 @@ export interface ThreadPost {
     commentsCount: number;
     repostCount?: number; // New field for reposts
     isPinned?: boolean;
+    isHidden?: boolean;
     // Fields for reposts
     type: 'original' | 'repost';
     originalPost?: {

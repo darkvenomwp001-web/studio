@@ -88,9 +88,25 @@ export async function updateThreadPost(postId: string, newContent: string, userI
   }
 }
 
+export async function hideThreadPost(postId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+    if (!userId) {
+        return { success: false, error: 'User not authenticated.' };
+    }
+    const postRef = doc(db, 'feedPosts', postId);
+    try {
+        await updateDoc(postRef, { isHidden: true });
+        revalidatePath('/');
+        return { success: true };
+    } catch (error) {
+        console.error("Error hiding post:", error);
+        return { success: false, error: "Could not hide post." };
+    }
+}
+
+
 export async function deleteThreadPost(postId: string, userId: string): Promise<{ success: boolean; error?: string }> {
   if (!userId) {
-    return { success: false, error: 'User is not authenticated.' };
+    return { success: false, error: 'User not authenticated.' };
   }
   const postRef = doc(db, 'feedPosts', postId);
   try {

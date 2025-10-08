@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ThreadPostComments from './ThreadPostComments';
 import ReactionButton from './ReactionButton';
-import { deleteThreadPost, pinThreadPost } from '@/app/actions/threadActions';
+import { deleteThreadPost, pinThreadPost, hideThreadPost } from '@/app/actions/threadActions';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 
 
@@ -39,24 +39,28 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
       });
   }
 
-  const handleDeletePost = () => {
-    if (!user) return;
-    startProcessingTransition(async () => {
-        const result = await deleteThreadPost(post.id, user.id);
-        if (result.success) {
-            toast({ title: 'Post Deleted' });
-            // The parent component will handle the removal from the UI via real-time updates.
-        } else {
-            toast({ title: 'Error', description: result.error, variant: 'destructive' });
-        }
-    });
-  }
+  const handleHidePost = () => {
+      if (!user) return;
+      startProcessingTransition(async () => {
+          const result = await hideThreadPost(post.id, user.id);
+          if (result.success) {
+              toast({ title: 'Post Hidden' });
+          } else {
+              toast({ title: 'Error', description: result.error, variant: 'destructive' });
+          }
+      });
+  };
 
   const handleCopyLink = () => {
     const postUrl = `${window.location.origin}/post/${post.id}`;
     navigator.clipboard.writeText(postUrl);
     toast({ title: 'Link Copied!', description: 'Post link copied to clipboard.' });
   }
+  
+  if (post.isHidden) {
+    return null;
+  }
+
 
   return (
     <Dialog>
@@ -95,16 +99,12 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                                     Edit Post
                                 </DropdownMenuItem>
                             </Link>
-                            <DropdownMenuSeparator />
-                             <AlertDialogTrigger asChild>
-                                <DropdownMenuItem className="text-destructive focus:text-destructive">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete Post
-                                </DropdownMenuItem>
-                            </AlertDialogTrigger>
+                             <DropdownMenuItem onClick={handleHidePost}>
+                                <EyeOff className="mr-2 h-4 w-4" /> Hide Post
+                            </DropdownMenuItem>
                         </>
                     ) : (
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleHidePost}>
                           <EyeOff className="mr-2 h-4 w-4" /> Hide Post
                       </DropdownMenuItem>
                     )}
@@ -117,7 +117,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
             {post.storyId && (
                 <Link href={`/stories/${post.storyId}`}>
                     <div className="border rounded-lg p-3 flex gap-3 hover:bg-muted/50 transition-colors">
-                        <Image src={post.storyCoverUrl || ''} alt={post.storyTitle || ''} width={50} height={75} className="rounded-sm object-cover" />
+                        <Image src={post.storyCoverUrl || `https://picsum.photos/seed/${post.id}/512/800`} alt={post.storyTitle || ''} width={50} height={75} className="rounded-sm object-cover" />
                         <div>
                             <p className="font-bold">{post.storyTitle}</p>
                             <p className="text-sm text-muted-foreground">by {post.author.displayName}</p>
@@ -168,22 +168,6 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
         </CardFooter>
         </Card>
         
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete your post and remove its data from our servers.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeletePost} className="bg-destructive hover:bg-destructive/90">
-                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Delete
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-
         <DialogContent className="max-w-lg">
           <DialogHeader>
               <DialogTitle>Comments</DialogTitle>
