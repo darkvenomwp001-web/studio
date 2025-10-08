@@ -620,22 +620,42 @@ export default function StatusFeature() {
                         </Button>
                     )}
                   </div>
-                  {/* Filters */}
-                  {mediaType === 'image' && (
-                    <div className="w-full flex-shrink-0 bg-background/80 p-2 backdrop-blur-sm">
-                      <ScrollArea>
-                        <div className="flex space-x-2 pb-2">
-                          {photoFilters.map(filter => (
-                            <div key={filter.name} className="text-center w-20 flex-shrink-0" onClick={() => setSelectedFilter(filter.style)}>
-                              <p className={cn("text-xs mb-1", selectedFilter === filter.style ? 'text-primary font-semibold' : 'text-muted-foreground')}>{filter.name}</p>
-                              <div className={cn("w-full aspect-square rounded-md overflow-hidden border-2", selectedFilter === filter.style ? 'border-primary' : 'border-transparent')}>
-                                <Image src={mediaPreview} alt={filter.name} width={80} height={80} objectFit="cover" className={filter.style} />
-                              </div>
+                  {/* Filters and Captions */}
+                   {mediaType === 'image' && (
+                    <div className="w-full flex-shrink-0 bg-background/80 p-2 backdrop-blur-sm space-y-2">
+                      <div>
+                        <ScrollArea>
+                            <div className="flex space-x-2 pb-2">
+                            {photoFilters.map(filter => (
+                                <div key={filter.name} className="text-center w-20 flex-shrink-0" onClick={() => setSelectedFilter(filter.style)}>
+                                <p className={cn("text-xs mb-1", selectedFilter === filter.style ? 'text-primary font-semibold' : 'text-muted-foreground')}>{filter.name}</p>
+                                <div className={cn("w-full aspect-square rounded-md overflow-hidden border-2", selectedFilter === filter.style ? 'border-primary' : 'border-transparent')}>
+                                    <Image src={mediaPreview} alt={filter.name} width={80} height={80} objectFit="cover" className={filter.style} />
+                                </div>
+                                </div>
+                            ))}
                             </div>
-                          ))}
-                        </div>
-                        <ScrollBar orientation="horizontal" />
-                      </ScrollArea>
+                            <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
+                      </div>
+                      <div>
+                          <Button onClick={handleGenerateCaptions} size="sm" variant="outline" className="w-full" disabled={isGeneratingCaptions}>
+                              {isGeneratingCaptions ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
+                              Generate Captions
+                          </Button>
+                          {suggestedCaptions.length > 0 && (
+                               <ScrollArea className="w-full whitespace-nowrap rounded-md mt-2">
+                                <div className="flex space-x-2 pb-2">
+                                    {suggestedCaptions.map((caption, i) => (
+                                        <Button key={i} size="sm" variant="secondary" className="h-auto" onClick={() => setTextOverlay(caption)}>
+                                            <p className="whitespace-normal text-xs">{caption}</p>
+                                        </Button>
+                                    ))}
+                                </div>
+                                 <ScrollBar orientation="horizontal" />
+                               </ScrollArea>
+                          )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -651,12 +671,23 @@ export default function StatusFeature() {
               )}
             </div>
             <DialogFooter className="flex-row justify-between items-center p-2 flex-shrink-0">
-                <Button variant="outline" size="sm" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaPreview}>
-                  <Users className="h-4 w-4 mr-2" /> Close Friends
-                </Button>
-                <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || !mediaPreview}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Your Story
-                </Button>
+               <Select value={expiryDuration} onValueChange={setExpiryDuration}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue/>
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="3">Expires in 3 Hours</SelectItem>
+                    <SelectItem value="6">Expires in 6 Hours</SelectItem>
+                    <SelectItem value="10">Expires in 10 Hours</SelectItem>
+                    <SelectItem value="24">Expires in 24 Hours</SelectItem>
+                </SelectContent>
+              </Select>
+               <div className="flex gap-2">
+                    <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaPreview}>Save as Draft</Button>
+                    <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || !mediaPreview}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                    </Button>
+                </div>
             </DialogFooter>
           </>
         );
