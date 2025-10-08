@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2, BarChart2, Book, Feather, ShieldAlert } from 'lucide-react';
+import { PlusCircle, Loader2, BarChart2, Book, Feather, ShieldAlert, PenSquare, Brain } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState, useEffect, useMemo } from 'react';
@@ -19,6 +19,24 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import DashboardStoryCard from '@/components/shared/DashboardStoryCard';
+
+function QuickActionCard({ href, icon: Icon, title, description }: { href: string, icon: React.ElementType, title: string, description: string }) {
+    return (
+        <Link href={href} passHref>
+            <Card className="hover:bg-primary/5 hover:border-primary/20 hover:shadow-lg transition-all duration-300 h-full">
+                <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-2">
+                    <div className="p-3 bg-primary/10 rounded-full">
+                        <Icon className="h-6 w-6 text-primary" />
+                    </div>
+                    <CardTitle className="text-lg font-headline">{title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground">{description}</p>
+                </CardContent>
+            </Card>
+        </Link>
+    )
+}
 
 export default function WriteDashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -156,12 +174,16 @@ export default function WriteDashboardPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">Writer Dashboard</h1>
           <p className="text-muted-foreground">Your creative space. Manage all your stories and drafts here.</p>
         </div>
-        <Link href="/write/edit-details" passHref>
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">
-              <PlusCircle className="mr-2 h-5 w-5" /> Start a New Story
-            </Button>
-        </Link>
       </div>
+      
+       <section>
+          <h2 className="text-xl font-headline font-semibold mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <QuickActionCard href="/write/edit-details" icon={PenSquare} title="New Story" description="Start a new adventure from scratch." />
+              <QuickActionCard href="/" icon={Book} title="Community Prompts" description="Get inspired by prompts from fellow writers." />
+              <QuickActionCard href="/ai-assistant" icon={Brain} title="AI Assistant" description="Enhance your writing with AI suggestions." />
+          </div>
+      </section>
 
       <Card>
         <CardHeader>
@@ -224,3 +246,5 @@ export default function WriteDashboardPage() {
     </div>
   );
 }
+
+    

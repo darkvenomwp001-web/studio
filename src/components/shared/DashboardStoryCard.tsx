@@ -37,12 +37,13 @@ export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
   };
 
   const displayStatus = story.visibility !== 'Public' ? story.visibility : (story.status || 'Draft');
+  const isCollaborator = story.author.id !== user?.id;
 
   return (
-      <Card className="w-full overflow-hidden shadow-sm hover:shadow-lg transition-shadow">
-        <div className="flex">
-          <Link href={`/stories/${story.id}`} passHref className="block flex-shrink-0">
-            <div className="relative w-28 h-40 sm:w-32 sm:h-48 bg-muted">
+      <Card className="w-full overflow-hidden shadow-sm hover:shadow-primary/10 transition-shadow duration-300">
+        <div className="flex flex-col sm:flex-row">
+           <Link href={`/stories/${story.id}`} passHref className="block flex-shrink-0 sm:w-32">
+            <div className="relative h-40 sm:h-full w-full sm:w-32 bg-muted">
               <Image
                 src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
                 alt={story.title}
@@ -53,16 +54,21 @@ export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
               />
             </div>
           </Link>
-          <CardContent className="p-3 sm:p-4 flex flex-col justify-between flex-grow">
+          <CardContent className="p-4 flex flex-col justify-between flex-grow">
             <div>
-              <div className="flex justify-between items-start mb-1">
-                <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
-                  <h3 className="font-headline text-lg sm:text-xl font-bold hover:underline line-clamp-1">{story.title}</h3>
-                </Link>
-                <Badge variant="outline" className={cn("text-xs capitalize h-fit", getStatusBadgeClasses(story.status, story.visibility))}>{displayStatus}</Badge>
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex-1">
+                    <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
+                        <h3 className="font-headline text-lg sm:text-xl font-bold hover:underline line-clamp-2">{story.title}</h3>
+                    </Link>
+                     {isCollaborator && (
+                        <p className="text-xs text-muted-foreground">by {story.author.displayName || story.author.username}</p>
+                    )}
+                </div>
+                <Badge variant="outline" className={cn("text-xs capitalize h-fit ml-2", getStatusBadgeClasses(story.status, story.visibility))}>{displayStatus}</Badge>
               </div>
 
-              <div className="flex items-center text-xs text-muted-foreground mb-3 gap-x-4 gap-y-1 flex-wrap">
+              <div className="flex items-center text-xs text-muted-foreground mb-4 gap-x-4 gap-y-1 flex-wrap">
                 <div className="flex items-center gap-1.5" title="Chapters">
                   <BookOpen className="h-3.5 w-3.5" />
                   <span>{story.chapters.length} Parts</span>
@@ -77,12 +83,12 @@ export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
                 </div>
               </div>
 
-              <p className="text-sm text-muted-foreground line-clamp-2 hidden sm:block">{story.summary || "No description provided."}</p>
+              <p className="text-sm text-muted-foreground line-clamp-2 hidden md:block">{story.summary || "No description provided."}</p>
             </div>
             
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-2 mt-4">
                 <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
-                    <Button size="sm"><Edit2 className="mr-1.5 h-4 w-4"/>Edit Details</Button>
+                    <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground"><Edit2 className="mr-1.5 h-4 w-4"/>Manage</Button>
                 </Link>
                 <Link href={`/stories/${story.id}`} passHref>
                     <Button size="sm" variant="outline"><Eye className="mr-1.5 h-4 w-4"/>View Story</Button>
@@ -93,3 +99,5 @@ export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
       </Card>
   );
 }
+
+    
