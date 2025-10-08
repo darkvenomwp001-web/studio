@@ -47,19 +47,19 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-          <SplashWrapper>
-            <AuthProvider>
-              <StoryPreviewProvider>
-                <ScrollToTop />
-                <div className="relative flex min-h-screen flex-col">
-                  {children}
-                </div>
-                <Toaster />
-                <PasswordSetupDialog />
-                <StoryPreviewDrawer />
-              </StoryPreviewProvider>
-            </AuthProvider>
-          </SplashWrapper>
+          <AuthProvider>
+            <SplashWrapper>
+                <StoryPreviewProvider>
+                  <ScrollToTop />
+                  <div className="relative flex min-h-screen flex-col">
+                    {children}
+                  </div>
+                  <Toaster />
+                  <PasswordSetupDialog />
+                  <StoryPreviewDrawer />
+                </StoryPreviewProvider>
+            </SplashWrapper>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

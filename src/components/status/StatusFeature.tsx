@@ -76,7 +76,7 @@ const photoFilters = [
 
 
 export default function StatusFeature() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, getIdToken } = useAuth();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
   const [draftStatuses, setDraftStatuses] = useState<StatusUpdate[]>([]);
   const [groupedStatuses, setGroupedStatuses] = useState<Map<string, {user: User, statuses: StatusUpdate[]}>>(new Map());
@@ -148,7 +148,13 @@ export default function StatusFeature() {
     const unsubPublished = onSnapshot(publishedQuery, (snapshot) => {
         const liveStatuses = snapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate))
-            .filter(s => s.expiresAt && (s.expiresAt as Timestamp).toMillis() > Date.now()); // Client-side re-check
+            .filter(s => {
+                if (s.visibility === 'close-friends' && user && !user.followingIds?.includes(s.authorId) && s.authorId !== user.id) {
+                    // A proper implementation would check a 'closeFriendsOf' array on the current user
+                    return false;
+                }
+                return s.expiresAt && (s.expiresAt as Timestamp).toMillis() > Date.now()
+            });
         
         liveStatuses.sort((a, b) => {
             const timeA = a.createdAt ? (a.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
@@ -288,7 +294,7 @@ export default function StatusFeature() {
     }
   };
   
-  const createBaseStatus = (status: 'published' | 'draft') => {
+  const createBaseStatus = (status: 'published' | 'draft', visibility: 'public' | 'close-friends') => {
     if (!user) return null;
     const authorInfo = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
     
@@ -306,11 +312,12 @@ export default function StatusFeature() {
         status,
         expiresAt: expiryTime,
         isHidden: false,
+        visibility: visibility,
     };
   };
 
-  const handleSubmit = async (status: 'published' | 'draft', data: Record<string, any>) => {
-    const baseStatus = createBaseStatus(status);
+  const handleSubmit = async (status: 'published' | 'draft', visibility: 'public' | 'close-friends', data: Record<string, any>) => {
+    const baseStatus = createBaseStatus(status, visibility);
     if (!baseStatus) return;
 
     setIsSubmitting(true);
@@ -334,16 +341,16 @@ export default function StatusFeature() {
     }
   };
 
-  const handleTextSubmit = async (status: 'published' | 'draft') => {
+  const handleTextSubmit = async (status: 'published' | 'draft', visibility: 'public' | 'close-friends' = 'public') => {
     if (!noteContent.trim()) {
         toast({ title: "Text is empty", description: "Please write something.", variant: "destructive" });
         return;
     }
     const data: Record<string, any> = { note: noteContent.trim() };
-    await handleSubmit(status, data);
+    await handleSubmit(status, visibility, data);
   };
   
-  const handleSongSubmit = async (status: 'published' | 'draft') => {
+  const handleSongSubmit = async (status: 'published' | 'draft', visibility: 'public' | 'close-friends' = 'public') => {
       if (!selectedSong) {
         toast({ title: "No song selected", variant: "destructive" });
         return;
@@ -353,10 +360,10 @@ export default function StatusFeature() {
           note: noteContent.trim() || '',
           songLyricSnippet: songLyricSnippet || '',
       };
-      await handleSubmit(status, data);
+      await handleSubmit(status, visibility, data);
   }
 
-  const handlePollSubmit = async (status: 'published' | 'draft') => {
+  const handlePollSubmit = async (status: 'published' | 'draft', visibility: 'public' | 'close-friends' = 'public') => {
     if (!pollQuestion.trim() || pollOptions.some(opt => !opt.trim())) {
       toast({ title: 'Poll is incomplete', description: 'Please fill out the question and all options.', variant: 'destructive'});
       return;
@@ -367,11 +374,11 @@ export default function StatusFeature() {
             options: pollOptions.map((opt, index) => ({ id: `opt${index + 1}`, text: opt.trim(), votes: [] }))
         }
     };
-    await handleSubmit(status, data);
+    await handleSubmit(status, visibility, data);
   }
 
 
-  const handleMediaSubmit = async (status: 'published' | 'draft') => {
+  const handleMediaSubmit = async (status: 'published' | 'draft', visibility: 'public' | 'close-friends' = 'public') => {
     if (!mediaFile && !editingDraft?.mediaUrl) {
       toast({title: "No Media", description: "Please select a file to submit.", variant: "destructive"});
       return;
@@ -421,7 +428,7 @@ export default function StatusFeature() {
     }
     
     setIsSubmitting(false);
-    await handleSubmit(status, statusData);
+    await handleSubmit(status, visibility, statusData);
   };
 
   const handleGenerateCaptions = () => {
@@ -497,32 +504,69 @@ export default function StatusFeature() {
       case 'media':
         return (
           <>
-            <div className="flex-grow flex flex-col p-4 sm:p-6 overflow-hidden items-center justify-center">
-              <div 
-                  className="w-full max-w-[300px] aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted relative overflow-hidden"
-                  onClick={() => mediaInputRef.current?.click()}
-              >
-                  {mediaPreview ? (
-                      <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" />
-                  ) : (
-                      <>
-                          <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
-                          <p className="text-muted-foreground">Select photo or video</p>
-                      </>
+            <div className="flex-grow flex flex-col overflow-hidden bg-black/80 justify-center">
+              {mediaPreview ? (
+                <div className="relative w-full h-full flex flex-col">
+                  {/* Media Preview */}
+                  <div className="flex-grow relative flex items-center justify-center">
+                    {mediaType === 'video' ? (
+                      <video ref={previewVideoRef} src={mediaPreview} className={cn("max-h-full max-w-full object-contain", selectedFilter)} loop playsInline autoPlay muted />
+                    ) : (
+                      <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" className={cn(selectedFilter)} />
+                    )}
+                    {/* Text Overlay Input */}
+                    <div className="absolute inset-x-0 bottom-1/2 translate-y-1/2 p-4">
+                        <Input 
+                            placeholder="Add text..." 
+                            value={textOverlay}
+                            onChange={(e) => setTextOverlay(e.target.value)}
+                            className="bg-black/50 text-white text-center border-none text-lg placeholder:text-white/70 focus-visible:ring-0"
+                        />
+                    </div>
+                     {/* Play/Pause Button for Video */}
+                     {mediaType === 'video' && (
+                        <Button variant="ghost" size="icon" className="absolute top-4 right-4 bg-black/50 hover:bg-black/70" onClick={handlePreviewPlayToggle}>
+                            {isPreviewPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white" />}
+                        </Button>
+                    )}
+                  </div>
+                  {/* Filters */}
+                  {mediaType === 'image' && (
+                    <div className="w-full flex-shrink-0 bg-background/80 p-2 backdrop-blur-sm">
+                      <ScrollArea>
+                        <div className="flex space-x-2 pb-2">
+                          {photoFilters.map(filter => (
+                            <div key={filter.name} className="text-center w-20 flex-shrink-0" onClick={() => setSelectedFilter(filter.style)}>
+                              <p className={cn("text-xs mb-1", selectedFilter === filter.style ? 'text-primary font-semibold' : 'text-muted-foreground')}>{filter.name}</p>
+                              <div className={cn("w-full aspect-square rounded-md overflow-hidden border-2", selectedFilter === filter.style ? 'border-primary' : 'border-transparent')}>
+                                <Image src={mediaPreview} alt={filter.name} width={80} height={80} objectFit="cover" className={filter.style} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <ScrollBar orientation="horizontal" />
+                      </ScrollArea>
+                    </div>
                   )}
-                  <Input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/*" className="hidden" />
-              </div>
+                </div>
+              ) : (
+                <div 
+                    className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-muted/10 p-4"
+                    onClick={() => mediaInputRef.current?.click()}
+                >
+                    <ImageIcon className="h-12 w-12 text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">Select photo or video</p>
+                    <Input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/*" className="hidden" />
+                </div>
+              )}
             </div>
-             <DialogFooter className="flex-row justify-between items-center">
-                <Button variant="outline" size="sm" onClick={() => toast({ title: 'Coming Soon!' })}>
+            <DialogFooter className="flex-row justify-between items-center p-2 flex-shrink-0">
+                <Button variant="outline" size="sm" onClick={() => handleMediaSubmit('draft', 'close-friends')} disabled={isSubmitting || !mediaPreview}>
                   <Users className="h-4 w-4 mr-2" /> Close Friends
                 </Button>
-                <div className="flex gap-2">
-                  <Button variant="secondary" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaFile}>Save as Draft</Button>
-                  <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || !mediaFile}>
-                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Your Story
-                  </Button>
-                </div>
+                <Button onClick={() => handleMediaSubmit('published', 'public')} disabled={isSubmitting || !mediaPreview}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Your Story
+                </Button>
             </DialogFooter>
           </>
         );
