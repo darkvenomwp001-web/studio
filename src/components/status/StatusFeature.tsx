@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2 } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -28,6 +28,7 @@ import SongSearch from './SongSearch';
 import Link from 'next/link';
 import { Switch } from '@/components/ui/switch';
 import { useRouter } from 'next/navigation';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
@@ -77,9 +78,11 @@ const photoFilters = [
 export default function StatusFeature() {
   const { user, loading: authLoading } = useAuth();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
+  const [draftStatuses, setDraftStatuses] = useState<StatusUpdate[]>([]);
   const [groupedStatuses, setGroupedStatuses] = useState<Map<string, {user: User, statuses: StatusUpdate[]}>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   
+  const [isCreatorOpen, setIsCreatorOpen] = useState(false);
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
   
   const [mediaFile, setMediaFile] = useState<File | null>(null);
@@ -123,32 +126,52 @@ export default function StatusFeature() {
         return;
     }
 
-    const statusesQuery = query(
+    const now = Timestamp.now();
+
+    // Query for published, non-hidden, non-expired statuses
+    const publishedQuery = query(
       collection(db, 'statusUpdates'),
       where('status', '==', 'published'),
       where('isHidden', '==', false),
-      where('expiresAt', '>', Timestamp.now())
+      where('expiresAt', '>', now),
+      orderBy('expiresAt', 'desc') // Example ordering
     );
     
-    const unsubStatuses = onSnapshot(statusesQuery, (snapshot) => {
-        const now = Date.now();
-        const allFetchedStatuses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
+    // Query for the current user's drafts
+    const draftsQuery = query(
+        collection(db, 'statusUpdates'),
+        where('authorId', '==', user.id),
+        where('status', '==', 'draft'),
+        orderBy('createdAt', 'desc')
+    );
 
-        const liveAndRelevant = allFetchedStatuses.filter(s => {
-            return s.status === 'published' && s.expiresAt && (s.expiresAt as Timestamp).toMillis() > now;
-        });
-
-        const sortedStatuses = liveAndRelevant.sort((a, b) => {
+    const unsubPublished = onSnapshot(publishedQuery, (snapshot) => {
+        const liveStatuses = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate))
+            .filter(s => s.expiresAt && (s.expiresAt as Timestamp).toMillis() > Date.now()); // Client-side re-check
+        
+        liveStatuses.sort((a, b) => {
             const timeA = a.createdAt ? (a.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
             const timeB = b.createdAt ? (b.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
             return timeB - timeA;
         });
-        setAllStatuses(sortedStatuses);
+        
+        setAllStatuses(liveStatuses);
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching published statuses: ", error);
         setIsLoading(false);
     });
 
+    const unsubDrafts = onSnapshot(draftsQuery, (snapshot) => {
+        setDraftStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
+    }, (error) => {
+        console.error("Error fetching draft statuses: ", error);
+    });
+
     return () => {
-        unsubStatuses();
+        unsubPublished();
+        unsubDrafts();
     };
   }, [user]);
 
@@ -156,18 +179,16 @@ export default function StatusFeature() {
     const groups = new Map<string, {user: User, statuses: StatusUpdate[]}>(new Map());
     const newStatusOrder: string[] = [];
 
-    const liveStatuses = allStatuses.filter(s => s.status === 'published');
-    
-    // This part adds the user's own status bubble if they have one.
+    // Prioritize current user's status bubble
     if (user && !user.isAnonymous) {
-      const currentUserLive = liveStatuses.filter(s => s.authorId === user.id);
+      const currentUserLive = allStatuses.filter(s => s.authorId === user.id);
       if (currentUserLive.length > 0) {
           groups.set(user.id, { user: user as User, statuses: currentUserLive });
           newStatusOrder.push(user.id);
       }
     }
     
-    liveStatuses.forEach(status => {
+    allStatuses.forEach(status => {
         if (status.authorId === user?.id) return; // Already handled
         if (!groups.has(status.authorId)) {
             groups.set(status.authorId, { user: status.authorInfo as User, statuses: [] });
@@ -192,25 +213,9 @@ export default function StatusFeature() {
         setSelectedUserForViewing(selectedUser);
         setIsViewerOpen(true);
     } else {
-        toast({ title: "No Status", description: `${selectedUser.displayName} hasn't posted a status update yet.` });
+        setIsCreatorOpen(true);
     }
   }
-
-  const handleOpenCreator = () => {
-    if (!user || user.isAnonymous) {
-      router.push('/auth/signin');
-      return;
-    }
-    if (user.role === 'writer') {
-      handleOpenUploader('text');
-    } else {
-      toast({
-        title: "Reader Role",
-        description: "Only users with a 'Writer' role can post a status update.",
-        variant: 'destructive',
-      });
-    }
-  };
 
   const handleNextUser = () => {
     const currentIndex = statusOrder.findIndex(id => id === selectedUserForViewing?.id);
@@ -431,8 +436,17 @@ export default function StatusFeature() {
         }
     });
   }
+  
+  const handleOpenCreatorMenu = () => {
+      if (!user || user.isAnonymous) {
+          router.push('/auth/signin');
+          return;
+      }
+      setIsCreatorOpen(true);
+  }
 
   const handleOpenUploader = (defaultTab: string) => {
+    setIsCreatorOpen(false); // Close the menu
     setActiveUploaderTab(defaultTab);
     setIsUploaderOpen(true);
   };
@@ -500,21 +514,13 @@ export default function StatusFeature() {
               </div>
             </div>
              <DialogFooter className="flex-row justify-between items-center">
-                <Select value={expiryDuration} onValueChange={setExpiryDuration}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue/>
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="3">Expires in 3 Hours</SelectItem>
-                      <SelectItem value="6">Expires in 6 Hours</SelectItem>
-                      <SelectItem value="10">Expires in 10 Hours</SelectItem>
-                      <SelectItem value="24">Expires in 24 Hours</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Button variant="outline" size="sm" onClick={() => toast({ title: 'Coming Soon!' })}>
+                  <Users className="h-4 w-4 mr-2" /> Close Friends
+                </Button>
                 <div className="flex gap-2">
-                  <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaFile}>Save as Draft</Button>
+                  <Button variant="secondary" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaFile}>Save as Draft</Button>
                   <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || !mediaFile}>
-                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Your Story
                   </Button>
                 </div>
             </DialogFooter>
@@ -602,6 +608,50 @@ export default function StatusFeature() {
             </DialogFooter>
           </>
         );
+        case 'settings':
+            return (
+                <>
+                <div className="p-6 space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Who can see my status?</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <RadioGroup defaultValue="followers" className="space-y-2">
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="followers" id="r1" />
+                                    <Label htmlFor="r1">My Followers</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="close_friends" id="r2" />
+                                    <Label htmlFor="r2">Close Friends Only</Label>
+                                </div>
+                             </RadioGroup>
+                        </CardContent>
+                    </Card>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button>Done</Button>
+                    </DialogClose>
+                </DialogFooter>
+                </>
+            );
+        case 'drafts':
+            return (
+                 <>
+                <div className="p-6 space-y-4">
+                    {draftStatuses.length > 0 ? draftStatuses.map(draft => (
+                        <div key={draft.id} className='p-2 border rounded-md'>Draft: {draft.note || 'Media Status'}</div>
+                    )) : <p className='text-muted-foreground text-center'>No drafts saved.</p>}
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button>Close</Button>
+                    </DialogClose>
+                </DialogFooter>
+                </>
+            );
       default:
         return null;
     }
@@ -612,7 +662,7 @@ export default function StatusFeature() {
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-start space-x-4">
             {user && !user.isAnonymous && (
-               <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={handleOpenCreator}>
+               <div className="text-center flex-shrink-0 w-20 cursor-pointer group" onClick={handleOpenCreatorMenu}>
                 <div className="relative w-16 h-16 mx-auto">
                     <Avatar className="w-full h-full border-2 border-border group-hover:border-primary/50 transition-colors">
                         <AvatarImage src={user.avatarUrl} />
@@ -649,21 +699,45 @@ export default function StatusFeature() {
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
+      <Dialog open={isCreatorOpen} onOpenChange={setIsCreatorOpen}>
+          <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                  <DialogTitle>Create a New Status</DialogTitle>
+                  <DialogDescription>What would you like to share today?</DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-4 py-4">
+                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('text')}><Text className="h-6 w-6"/>Text</Button>
+                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('media')}><ImageIcon className="h-6 w-6"/>Media</Button>
+                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('song')}><Music className="h-6 w-6"/>Song</Button>
+                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('poll')}><BarChart2 className="h-6 w-6"/>Poll</Button>
+                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => toast({ title: 'Coming Soon!' })}><BookOpen className="h-6 w-6"/>Share Story</Button>
+              </div>
+          </DialogContent>
+      </Dialog>
+
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
-          <DialogContent className="p-0 m-0 border-0 w-screen h-[80vh] max-h-[600px] max-w-full sm:max-w-md flex flex-col gap-0 rounded-lg">
+          <DialogContent className="p-0 m-0 border-0 w-screen h-[90vh] max-h-[700px] max-w-full sm:max-w-md flex flex-col gap-0 rounded-lg">
             <DialogHeader className="p-4 flex-row items-center justify-between border-b">
                 <DialogTitle>Create Status</DialogTitle>
-                 <div className="flex items-center rounded-full border bg-muted p-0.5">
-                    <Button variant={activeUploaderTab === 'text' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveUploaderTab('text')} className="rounded-full h-8 w-8"><Text className="h-4 w-4"/></Button>
-                    <Button variant={activeUploaderTab === 'media' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveUploaderTab('media')} className="rounded-full h-8 w-8"><ImageIcon className="h-4 w-4"/></Button>
-                    <Button variant={activeUploaderTab === 'song' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveUploaderTab('song')} className="rounded-full h-8 w-8"><Music className="h-4 w-4"/></Button>
-                    <Button variant={activeUploaderTab === 'poll' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveUploaderTab('poll')} className="rounded-full h-8 w-8"><BarChart2 className="h-4 w-4"/></Button>
+                <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => setActiveUploaderTab('drafts')}><Archive className="h-5 w-5"/></Button>
+                    <Button variant="ghost" size="icon" onClick={() => setActiveUploaderTab('settings')}><Settings className="h-5 w-5"/></Button>
+                    <DialogClose asChild><Button variant="ghost" size="icon"><X className="h-5 w-5"/></Button></DialogClose>
                 </div>
-                <DialogClose asChild><Button variant="ghost" size="icon"><X className="h-5 w-5"/></Button></DialogClose>
             </DialogHeader>
             <div className="flex-grow flex flex-col overflow-hidden">
               {uploaderContent()}
             </div>
+             <div className="p-2 border-t bg-background">
+                <Tabs value={activeUploaderTab} onValueChange={handleTabChange} className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="text"><Text className="h-5 w-5"/></TabsTrigger>
+                        <TabsTrigger value="media"><ImageIcon className="h-5 w-5"/></TabsTrigger>
+                        <TabsTrigger value="song"><Music className="h-5 w-5"/></TabsTrigger>
+                        <TabsTrigger value="poll"><BarChart2 className="h-5 w-5"/></TabsTrigger>
+                    </TabsList>
+                </Tabs>
+             </div>
           </DialogContent>
         </Dialog>
 
