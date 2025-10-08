@@ -2,8 +2,32 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc, Timestamp, addDoc, collection } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
+import type { StatusUpdate } from '@/types';
+
+
+export async function createStatusUpdate(userId: string, data: Partial<StatusUpdate>): Promise<{ success: boolean; error?: string }> {
+    if (!userId) {
+        return { success: false, error: 'User is not authenticated.' };
+    }
+    try {
+        const statusData = {
+            ...data,
+            authorId: userId,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            isHidden: false,
+        };
+        await addDoc(collection(db, 'statusUpdates'), statusData);
+        revalidatePath('/'); // Revalidate the feed
+        return { success: true };
+    } catch(error) {
+        console.error('Error creating status update:', error);
+        return { success: false, error: 'Could not create status update.' };
+    }
+}
+
 
 // Universal ownership check for Status Updates
 // This is the single source of truth for ownership verification on the server.

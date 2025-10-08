@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, deleteDoc, arrayRemove } from 'firebase/firestore';
 import type { Achievement } from '@/types';
 import { addNotification } from './notificationActions';
 
@@ -177,4 +177,27 @@ export async function deleteUserPermanently(adminId: string, targetUserId: strin
   }
 }
 
-    
+export async function toggleCloseFriend(currentUserId: string, friendId: string, isAdding: boolean): Promise<{ success: boolean, error?: string }> {
+  if (!currentUserId || !friendId) {
+    return { success: false, error: 'User information is missing.' };
+  }
+
+  const userRef = doc(db, 'users', currentUserId);
+
+  try {
+    if (isAdding) {
+      await updateDoc(userRef, {
+        closeFriendIds: arrayUnion(friendId)
+      });
+    } else {
+      await updateDoc(userRef, {
+        closeFriendIds: arrayRemove(friendId)
+      });
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating close friends list:', error);
+    return { success: false, error: 'Could not update your Close Friends list.' };
+  }
+}
+

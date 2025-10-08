@@ -19,6 +19,7 @@ export interface User {
   followersCount?: number;
   followingCount?: number;
   followingIds?: string[];
+  closeFriendIds?: string[]; // Added for Close Friends feature
   writtenStories?: Story[]; // Changed to hold full story objects for attach feature
   readingList?: ReadingListItem[];
   readChapters?: { [storyId: string]: string[] }; // Track read chapters per story
@@ -265,6 +266,7 @@ export interface StatusUpdate {
     expiresAt: any | null;
     createdAt: any;
     status: 'published' | 'draft';
+    visibility: 'public' | 'close-friends';
     isHidden?: boolean;
 }
 
