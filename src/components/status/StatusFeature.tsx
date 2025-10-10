@@ -5,13 +5,13 @@ import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate, Poll, Story, Song } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, getDocs, limit } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen, CheckCircle, HelpCircle, Sparkles as SparklesIcon, PenSquare } from 'lucide-react';
+import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen, CheckCircle, HelpCircle, Sparkles as SparklesIcon, PenSquare, Bold, Italic, Type, Palette, AlignLeft, AlignCenter, AlignRight, Volume2, VolumeX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { Switch } from '../ui/switch';
 import { useRouter } from 'next/navigation';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
@@ -84,6 +85,13 @@ const photoFilters = [
     { name: 'Vibrant', style: 'filter-saturate-200' },
 ] as const;
 
+type TextOverlayStyle = {
+    font: 'sans' | 'serif' | 'mono';
+    color: string;
+    alignment: 'left' | 'center' | 'right';
+    background: 'none' | 'solid' | 'translucent';
+};
+
 
 export default function StatusFeature() {
   const { user, loading: authLoading } = useAuth();
@@ -123,6 +131,7 @@ export default function StatusFeature() {
   const [expiryDuration, setExpiryDuration] = useState<string>('24');
   
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   
   const [activeUploaderTab, setActiveUploaderTab] = useState('text');
@@ -132,6 +141,13 @@ export default function StatusFeature() {
   const [storySearchResults, setStorySearchResults] = useState<Story[]>([]);
   const [isSearchingStories, setIsSearchingStories] = useState(false);
   const [attachedStory, setAttachedStory] = useState<Story | null>(null);
+  
+  const [textOverlayStyle, setTextOverlayStyle] = useState<TextOverlayStyle>({
+    font: 'sans',
+    color: 'white',
+    alignment: 'center',
+    background: 'translucent'
+  });
 
   const { toast } = useToast();
   const router = useRouter();
@@ -278,6 +294,7 @@ export default function StatusFeature() {
     setStorySearchResults([]);
     setBackgroundStyle('');
     setStatusVisibility('public');
+    setTextOverlayStyle({ font: 'sans', color: 'white', alignment: 'center', background: 'translucent'});
   }
   
   const handleTabChange = (value: string) => {
@@ -450,10 +467,11 @@ export default function StatusFeature() {
     
     if (textOverlay.trim()) {
         statusData.textOverlay = textOverlay.trim();
+        statusData.textOverlayStyle = textOverlayStyle;
     }
     
     setIsSubmitting(false);
-    await handleSubmit(status, statusData);
+    await handleSubmit(status, data);
   };
   
   const handleShareStorySubmit = async (status: 'published' | 'draft') => {
@@ -521,6 +539,7 @@ export default function StatusFeature() {
         where('author.id', '==', user.id),
         where('title', '>=', storySearchTerm),
         where('title', '<=', storySearchTerm + '\uf8ff'),
+        limit(10)
       );
       const querySnapshot = await getDocs(q);
       const results = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
@@ -593,6 +612,15 @@ export default function StatusFeature() {
           </>
         );
       case 'media':
+        const textStyle = {
+            fontFamily: textOverlayStyle.font === 'serif' ? 'Georgia, serif' : (textOverlayStyle.font === 'mono' ? 'monospace' : 'inherit'),
+            color: textOverlayStyle.color,
+            textAlign: textOverlayStyle.alignment,
+            backgroundColor: textOverlayStyle.background === 'solid' ? 'rgba(0,0,0,0.7)' : (textOverlayStyle.background === 'translucent' ? 'rgba(0,0,0,0.4)' : 'transparent'),
+            padding: textOverlayStyle.background !== 'none' ? '0.25rem 0.5rem' : '0',
+            borderRadius: textOverlayStyle.background !== 'none' ? '0.375rem' : '0'
+        };
+
         return (
           <>
             <div className="flex-grow flex flex-col overflow-hidden bg-black/80 justify-center">
@@ -601,44 +629,77 @@ export default function StatusFeature() {
                   {/* Media Preview */}
                   <div className="flex-grow relative flex items-center justify-center">
                     {mediaType === 'video' ? (
-                      <video ref={previewVideoRef} src={mediaPreview} className={cn("max-h-full max-w-full object-contain", selectedFilter)} loop playsInline autoPlay muted />
+                      <video ref={previewVideoRef} src={mediaPreview} className={cn("max-h-full max-w-full object-contain", selectedFilter)} loop playsInline autoPlay muted={isMuted} />
                     ) : (
                       <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" className={cn(selectedFilter)} />
                     )}
                     {/* Text Overlay Input */}
                     <div className="absolute inset-x-0 bottom-1/2 translate-y-1/2 p-4">
-                        <Input 
+                        <Textarea
                             placeholder="Add text..." 
                             value={textOverlay}
                             onChange={(e) => setTextOverlay(e.target.value)}
-                            className="bg-black/50 text-white text-center border-none text-lg placeholder:text-white/70 focus-visible:ring-0"
+                            className="bg-transparent text-white border-none focus-visible:ring-0 p-0 shadow-none resize-none"
+                            style={textStyle}
                         />
                     </div>
-                     {/* Play/Pause Button for Video */}
-                     {mediaType === 'video' && (
-                        <Button variant="ghost" size="icon" className="absolute top-4 right-4 bg-black/50 hover:bg-black/70" onClick={handlePreviewPlayToggle}>
-                            {isPreviewPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white" />}
-                        </Button>
-                    )}
+                     {/* Media Controls */}
+                     <div className="absolute top-4 right-4 flex gap-2">
+                        {mediaType === 'video' && (
+                            <Button variant="ghost" size="icon" className="text-white bg-black/50 hover:bg-black/70 hover:text-white" onClick={() => setIsMuted(prev => !prev)}>
+                                {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                            </Button>
+                        )}
+                        {mediaType === 'video' && (
+                          <Button variant="ghost" size="icon" className="bg-black/50 hover:bg-black/70" onClick={handlePreviewPlayToggle}>
+                              {isPreviewPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white" />}
+                          </Button>
+                        )}
+                     </div>
                   </div>
-                  {/* Filters and Captions */}
-                   {mediaType === 'image' && (
-                    <div className="w-full flex-shrink-0 bg-background/80 p-2 backdrop-blur-sm space-y-2">
-                      <div>
-                        <ScrollArea>
-                            <div className="flex space-x-2 pb-2">
-                            {photoFilters.map(filter => (
-                                <div key={filter.name} className="text-center w-20 flex-shrink-0" onClick={() => setSelectedFilter(filter.style)}>
-                                <p className={cn("text-xs mb-1", selectedFilter === filter.style ? 'text-primary font-semibold' : 'text-muted-foreground')}>{filter.name}</p>
-                                <div className={cn("w-full aspect-square rounded-md overflow-hidden border-2", selectedFilter === filter.style ? 'border-primary' : 'border-transparent')}>
-                                    <Image src={mediaPreview} alt={filter.name} width={80} height={80} objectFit="cover" className={filter.style} />
+                  {/* Editing Tools */}
+                   <div className="w-full flex-shrink-0 bg-background/80 p-2 backdrop-blur-sm space-y-2">
+                       <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="ghost" className="w-full justify-start"><Type className="mr-2 h-4 w-4"/>Text Style</Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 space-y-4">
+                                <div className='space-y-1'>
+                                    <Label>Font</Label>
+                                    <RadioGroup value={textOverlayStyle.font} onValueChange={(v) => setTextOverlayStyle(s => ({...s, font: v as any}))} className='grid grid-cols-3 gap-1'>
+                                        <Label className='border p-2 rounded-md text-center font-sans cursor-pointer' htmlFor='font-sans'>Sans</Label><RadioGroupItem value='sans' id='font-sans' className='sr-only'/>
+                                        <Label className='border p-2 rounded-md text-center font-serif cursor-pointer' htmlFor='font-serif'>Serif</Label><RadioGroupItem value='serif' id='font-serif' className='sr-only'/>
+                                        <Label className='border p-2 rounded-md text-center font-mono cursor-pointer' htmlFor='font-mono'>Mono</Label><RadioGroupItem value='mono' id='font-mono' className='sr-only'/>
+                                    </RadioGroup>
                                 </div>
+                                 <div className='space-y-1'>
+                                    <Label>Alignment</Label>
+                                    <RadioGroup value={textOverlayStyle.alignment} onValueChange={(v) => setTextOverlayStyle(s => ({...s, alignment: v as any}))} className='grid grid-cols-3 gap-1'>
+                                        <Label className='border p-2 rounded-md flex justify-center cursor-pointer' htmlFor='align-left'><AlignLeft/></Label><RadioGroupItem value='left' id='align-left' className='sr-only'/>
+                                        <Label className='border p-2 rounded-md flex justify-center cursor-pointer' htmlFor='align-center'><AlignCenter/></Label><RadioGroupItem value='center' id='align-center' className='sr-only'/>
+                                        <Label className='border p-2 rounded-md flex justify-center cursor-pointer' htmlFor='align-right'><AlignRight/></Label><RadioGroupItem value='right' id='align-right' className='sr-only'/>
+                                    </RadioGroup>
                                 </div>
-                            ))}
-                            </div>
-                            <ScrollBar orientation="horizontal" />
-                        </ScrollArea>
-                      </div>
+                            </PopoverContent>
+                       </Popover>
+                      {mediaType === 'image' && (
+                        <div className='space-y-2'>
+                             <Label className='px-3 text-sm'>Filters</Label>
+                             <ScrollArea>
+                                <div className="flex space-x-2 pb-2 px-1">
+                                {photoFilters.map(filter => (
+                                    <div key={filter.name} className="text-center w-20 flex-shrink-0" onClick={() => setSelectedFilter(filter.style)}>
+                                        <p className={cn("text-xs mb-1", selectedFilter === filter.style ? 'text-primary font-semibold' : 'text-muted-foreground')}>{filter.name}</p>
+                                        <div className={cn("w-full aspect-square rounded-md overflow-hidden border-2", selectedFilter === filter.style ? 'border-primary' : 'border-transparent')}>
+                                            <Image src={mediaPreview} alt={filter.name} width={80} height={80} objectFit="cover" className={filter.style} />
+                                        </div>
+                                    </div>
+                                ))}
+                                </div>
+                                <ScrollBar orientation="horizontal" />
+                            </ScrollArea>
+                        </div>
+                      )}
                       <div>
                           <Button onClick={handleGenerateCaptions} size="sm" variant="outline" className="w-full" disabled={isGeneratingCaptions}>
                               {isGeneratingCaptions ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
@@ -1026,3 +1087,5 @@ export default function StatusFeature() {
     </div>
   );
 }
+
+    
