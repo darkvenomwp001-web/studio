@@ -707,8 +707,7 @@ export default function StatusFeature() {
                 </div>
               )}
             </div>
-          </>
-        );
+          );
       case 'song':
         return (
             <div
@@ -981,4 +980,3 @@ export default function StatusFeature() {
     </div>
   );
 }
-
