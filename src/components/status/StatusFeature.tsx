@@ -1,10 +1,11 @@
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate, Poll, Story, Song } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, deleteDoc, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -276,6 +277,7 @@ export default function StatusFeature() {
     setStorySearchTerm('');
     setStorySearchResults([]);
     setBackgroundStyle('');
+    setStatusVisibility('public');
   }
   
   const handleTabChange = (value: string) => {
@@ -519,7 +521,6 @@ export default function StatusFeature() {
         where('author.id', '==', user.id),
         where('title', '>=', storySearchTerm),
         where('title', '<=', storySearchTerm + '\uf8ff'),
-        limit(10)
       );
       const querySnapshot = await getDocs(q);
       const results = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
