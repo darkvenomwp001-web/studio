@@ -24,12 +24,13 @@ import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import StatusViewer from './StatusViewer';
 import { Textarea } from '../ui/textarea';
-import SongSearch from './SongSearch';
+import SongSearch, { LyricCarousel } from './SongSearch';
 import Link from 'next/link';
 import { Switch } from '../ui/switch';
 import { useRouter } from 'next/navigation';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import VinylPlayer from './VinylPlayer';
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
@@ -119,6 +120,9 @@ export default function StatusFeature() {
   
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [songLyricSnippet, setSongLyricSnippet] = useState<string | null>(null);
+  const [vibeTags, setVibeTags] = useState('');
+  const [dynamicBgColor, setDynamicBgColor] = useState<string | null>(null);
+
   
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [selectedUserForViewing, setSelectedUserForViewing] = useState<User | null>(null);
@@ -295,6 +299,8 @@ export default function StatusFeature() {
     setBackgroundStyle('');
     setStatusVisibility('public');
     setTextOverlayStyle({ font: 'sans', color: 'white', alignment: 'center', background: 'translucent'});
+    setDynamicBgColor(null);
+    setVibeTags('');
   }
   
   const handleTabChange = (value: string) => {
@@ -401,6 +407,8 @@ export default function StatusFeature() {
           spotifyUrl: `https://open.spotify.com/track/${selectedSong.id}`,
           note: noteContent.trim() || '',
           songLyricSnippet: songLyricSnippet || '',
+          vibeTags: vibeTags.split(',').map(t => t.trim()).filter(Boolean),
+          dynamicBgColor,
       };
       await handleSubmit(status, data);
   }
@@ -609,7 +617,6 @@ export default function StatusFeature() {
         };
 
         return (
-          <>
             <div className="flex-grow flex flex-col overflow-hidden bg-black justify-center items-center">
               {mediaPreview ? (
                 <div className="relative w-full h-full flex flex-col">
@@ -643,8 +650,8 @@ export default function StatusFeature() {
                       </Button>
                       {mediaType === 'video' && (
                         <>
-                          <Button variant="ghost" size="icon" className="text-white bg-black/50 hover:bg-black/70 hover:text-white" onClick={() => setIsMuted(prev => !prev)}>
-                            {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                          <Button variant="ghost" size="icon" className="text-white bg-black/50 hover:bg-black/70 hover:text-white" onClick={(e) => { e.stopPropagation(); setIsMuted(prev => !prev); }}>
+                            {isMuted ? <VolumeX className="h-5 w-5"/> : <Volume2 className="h-5 w-5"/>}
                           </Button>
                           <Button variant="ghost" size="icon" className="bg-black/50 hover:bg-black/70" onClick={handlePreviewPlayToggle}>
                             {isPreviewPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white" />}
@@ -700,56 +707,59 @@ export default function StatusFeature() {
                 </div>
               )}
             </div>
-             <DialogFooter className="flex-row justify-between items-center p-2 flex-shrink-0 border-t">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost">
-                    <Users className="mr-2 h-4 w-4"/> {statusVisibility === 'public' ? 'Followers' : 'Close Friends'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent>
-                  <RadioGroup defaultValue={statusVisibility} onValueChange={(v) => setStatusVisibility(v as 'public' | 'close-friends')} className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="public" id="r-vis-1" />
-                      <Label htmlFor="r-vis-1">My Followers</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="close-friends" id="r-vis-2" />
-                      <Label htmlFor="r-vis-2">Close Friends Only</Label>
-                    </div>
-                  </RadioGroup>
-                </PopoverContent>
-              </Popover>
-               <div className="flex gap-2">
-                    <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaPreview}>Save Draft</Button>
-                    <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || !mediaPreview}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-                    </Button>
-                </div>
-            </DialogFooter>
           </>
         );
       case 'song':
         return (
-          <>
-            <div className="py-4 space-y-4 flex-grow px-6 bg-gradient-to-br from-green-900/10 to-card">
-              <SongSearch
-                  onSongSelect={(song) => setSelectedSong(song)}
-                  onLyricSelect={setSongLyricSnippet}
-              />
-              {selectedSong && songLyricSnippet && (
-                  <div className="p-3 bg-muted rounded-md text-center">
-                      <p className="text-sm font-semibold italic text-foreground/80">"{songLyricSnippet}"</p>
-                  </div>
-              )}
+            <div
+                className="flex-grow flex flex-col justify-between"
+                style={{ backgroundColor: dynamicBgColor || '#121212' }}
+            >
+                <div className="p-4">
+                    <SongSearch onSongSelect={(song) => {
+                        setSelectedSong(song);
+                        if (song) {
+                            // Basic color extraction - in real app, use a library
+                            const colors = ['#4c1d95', '#be185d', '#047857', '#b45309'];
+                            setDynamicBgColor(colors[Math.floor(Math.random() * colors.length)]);
+                        } else {
+                            setDynamicBgColor(null);
+                        }
+                    }} />
+                </div>
+
+                <div className="flex-grow flex flex-col items-center justify-center p-4 space-y-4">
+                    {selectedSong ? (
+                        <>
+                           <VinylPlayer albumArtUrl={selectedSong.cover} />
+                           <LyricCarousel lyrics={selectedSong.lyrics} onSelectLyric={setSongLyricSnippet} selectedLyric={songLyricSnippet} />
+                        </>
+                    ) : (
+                        <div className="text-center text-white/50">
+                            <Music className="h-16 w-16 mx-auto" />
+                            <p>Search for a song to begin.</p>
+                        </div>
+                    )}
+                </div>
+                
+                <div className="p-4 space-y-2">
+                    <Input 
+                        placeholder="Add a personal note... (optional)"
+                        value={noteContent}
+                        onChange={e => setNoteContent(e.target.value)}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                    />
+                    <Input 
+                        placeholder="#vibetags, #writingfuel (optional)"
+                        value={vibeTags}
+                        onChange={e => setVibeTags(e.target.value)}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                    />
+                     <Button onClick={() => handleSongSubmit('published')} className="w-full" disabled={isSubmitting || !selectedSong}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                    </Button>
+                </div>
             </div>
-            <DialogFooter className="flex-row justify-between items-center p-4">
-                <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !selectedSong}>Save as Draft</Button>
-                <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !selectedSong}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-                </Button>
-            </DialogFooter>
-          </>
         );
         case 'poll':
         return (
@@ -971,3 +981,4 @@ export default function StatusFeature() {
     </div>
   );
 }
+

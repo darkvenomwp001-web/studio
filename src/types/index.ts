@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface Achievement {
@@ -275,6 +276,8 @@ export interface StatusUpdate {
     backgroundStyle?: string;
     spotifyUrl?: string;
     songLyricSnippet?: string;
+    dynamicBgColor?: string;
+    vibeTags?: string[];
     poll?: Poll;
     sharedStoryId?: string;
     prompt?: string;

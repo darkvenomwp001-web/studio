@@ -9,8 +9,9 @@ import { Music, CheckCircle, Loader2 } from 'lucide-react';
 import SpotifyPlayer from '../shared/SpotifyPlayer';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
-import type { Song } from '@/ai/flows/search-songs-flow';
+import type { Song } from '@/types';
 import { searchSongs } from '@/app/actions/aiActions';
+import { Carousel, CarouselContent, CarouselItem, useCarousel } from '../ui/carousel';
 
 
 // Debounce function
@@ -25,17 +26,39 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
     });
 }
 
+export function LyricCarousel({ lyrics, onSelectLyric, selectedLyric }: { lyrics: Song['lyrics'], onSelectLyric: (lyric: string | null) => void, selectedLyric: string | null }) {
+    const { setApi, api } = useCarousel();
 
-interface SongSearchProps {
-    onSongSelect: (song: Song) => void;
-    onLyricSelect: (lyric: string | null) => void;
+    useEffect(() => {
+        if (!api) return;
+        api.on("select", () => {
+             const selected = lyrics[api.selectedScrollSnap()];
+             onSelectLyric(selected.text);
+        });
+    }, [api, lyrics, onSelectLyric]);
+
+    return (
+        <Carousel setApi={setApi} opts={{ loop: true }} className="w-full">
+            <CarouselContent>
+                {lyrics.map((lyric, index) => (
+                    <CarouselItem key={index}>
+                        <div className="p-1">
+                            <p className="text-center text-lg italic text-white/90">"{lyric.text}"</p>
+                        </div>
+                    </CarouselItem>
+                ))}
+            </CarouselContent>
+        </Carousel>
+    )
 }
 
-export default function SongSearch({ onSongSelect, onLyricSelect }: SongSearchProps) {
+interface SongSearchProps {
+    onSongSelect: (song: Song | null) => void;
+}
+
+export default function SongSearch({ onSongSelect }: SongSearchProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState<Song[]>([]);
-    const [selectedSong, setSelectedSong] = useState<Song | null>(null);
-    const [selectedLyric, setSelectedLyric] = useState<string | null>(null);
     const [isSearching, startSearchTransition] = useTransition();
 
     const performSearch = async (query: string) => {
@@ -46,7 +69,6 @@ export default function SongSearch({ onSongSelect, onLyricSelect }: SongSearchPr
         startSearchTransition(async () => {
             const result = await searchSongs({ query });
             if ('error' in result) {
-                // Handle error appropriately, maybe with a toast
                 console.error(result.error);
                 setSearchResults([]);
             } else {
@@ -63,22 +85,9 @@ export default function SongSearch({ onSongSelect, onLyricSelect }: SongSearchPr
     }, [searchTerm, debouncedSearch]);
 
     const handleSelectSong = (song: Song) => {
-        setSelectedSong(song);
         onSongSelect(song);
-        setSelectedLyric(null);
-        onLyricSelect(null);
         setSearchTerm('');
         setSearchResults([]);
-    };
-    
-    const handleSelectLyric = (lyric: string) => {
-        if(selectedLyric === lyric) {
-            setSelectedLyric(null);
-            onLyricSelect(null);
-        } else {
-            setSelectedLyric(lyric);
-            onLyricSelect(lyric);
-        }
     };
 
 
@@ -89,57 +98,34 @@ export default function SongSearch({ onSongSelect, onLyricSelect }: SongSearchPr
                     placeholder="Search for a song or artist..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                 />
-                {isSearching && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-muted-foreground" />}
+                {isSearching && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-white/70" />}
             </div>
-            {selectedSong && (
-                <div className="space-y-3">
-                    <SpotifyPlayer trackUrl={`https://open.spotify.com/track/${selectedSong.id}`} />
-                    <div>
-                        <h4 className="font-semibold text-sm mb-2">Select a lyric snippet (optional)</h4>
-                        <ScrollArea className="h-40 border rounded-md">
-                             <div className="p-2 space-y-1">
-                                {selectedSong.lyrics.map((lyric, index) => (
-                                    <button 
-                                        key={index}
-                                        type="button"
-                                        onClick={() => handleSelectLyric(lyric.text)}
-                                        className={cn(
-                                            "w-full text-left p-2 rounded-md text-sm transition-colors",
-                                            selectedLyric === lyric.text ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                                        )}
-                                    >
-                                        {lyric.text}
-                                    </button>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    </div>
-                </div>
-            )}
             
-            {searchResults.length > 0 && !selectedSong && (
+            {searchResults.length > 0 && (
                  <ScrollArea className="h-60">
                     <div className="space-y-2 pr-4">
                         {searchResults.map(song => (
                             <div
                                 key={song.id}
-                                className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-muted"
+                                className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/10"
                                 onClick={() => handleSelectSong(song)}
                             >
                                 <Image src={song.cover} alt={song.title} width={40} height={40} className="rounded-sm" />
                                 <div className="flex-1">
-                                    <p className="font-semibold text-sm truncate">{song.title}</p>
-                                    <p className="text-xs text-muted-foreground">{song.artist}</p>
+                                    <p className="font-semibold text-sm truncate text-white">{song.title}</p>
+                                    <p className="text-xs text-white/70">{song.artist}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
                  </ScrollArea>
             )}
-             {searchTerm && searchResults.length === 0 && !selectedSong && !isSearching && (
-                <p className="text-sm text-center text-muted-foreground py-4">No songs found for "{searchTerm}".</p>
+             {searchTerm && searchResults.length === 0 && !isSearching && (
+                <p className="text-sm text-center text-white/70 py-4">No songs found for "{searchTerm}".</p>
             )}
         </div>
     );
 }
+
