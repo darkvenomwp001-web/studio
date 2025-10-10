@@ -253,6 +253,13 @@ export interface Prompt {
     archivedAt?: any;
 }
 
+export interface TextOverlayStyle {
+    font: 'sans' | 'serif' | 'mono';
+    color: string;
+    alignment: 'left' | 'center' | 'right';
+    background: 'none' | 'solid' | 'translucent';
+}
+
 export interface StatusUpdate {
     id: string;
     authorId: string;
@@ -260,6 +267,7 @@ export interface StatusUpdate {
     mediaUrl?: string;
     mediaType?: 'image' | 'video';
     textOverlay?: string;
+    textOverlayStyle?: TextOverlayStyle;
     note?: string;
     backgroundStyle?: string;
     spotifyUrl?: string;

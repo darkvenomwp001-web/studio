@@ -460,14 +460,14 @@ export default function StatusFeature() {
         }
     }
 
-    const statusData: { [key: string]: any } = {
+    const data: { [key: string]: any } = {
         mediaUrl: mediaUrl,
         mediaType: mediaType,
     };
     
     if (textOverlay.trim()) {
-        statusData.textOverlay = textOverlay.trim();
-        statusData.textOverlayStyle = textOverlayStyle;
+        data.textOverlay = textOverlay.trim();
+        data.textOverlayStyle = textOverlayStyle;
     }
     
     setIsSubmitting(false);
@@ -590,24 +590,11 @@ export default function StatusFeature() {
                 ))}
               </div>
             </div>
-            <DialogFooter className="flex-row justify-between items-center">
-              <Select value={expiryDuration} onValueChange={setExpiryDuration}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue/>
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="3">Expires in 3 Hours</SelectItem>
-                    <SelectItem value="6">Expires in 6 Hours</SelectItem>
-                    <SelectItem value="10">Expires in 10 Hours</SelectItem>
-                    <SelectItem value="24">Expires in 24 Hours</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={() => handleTextSubmit('draft')} disabled={isSubmitting || !noteContent.trim()}>Save as Draft</Button>
-                <Button onClick={() => handleTextSubmit('published')} disabled={isSubmitting || !noteContent.trim()}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-                </Button>
-              </div>
+            <DialogFooter className="flex-row justify-between items-center p-4">
+              <Button variant="ghost" onClick={() => handleTextSubmit('draft')} disabled={isSubmitting || !noteContent.trim()}>Save as Draft</Button>
+              <Button onClick={() => handleTextSubmit('published')} disabled={isSubmitting || !noteContent.trim()}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+              </Button>
             </DialogFooter>
           </>
         );
@@ -623,11 +610,51 @@ export default function StatusFeature() {
 
         return (
           <>
-            <div className="flex-grow flex flex-col overflow-hidden bg-black/80 justify-center">
+            <div className="flex-grow flex flex-col overflow-hidden bg-black justify-center items-center">
               {mediaPreview ? (
                 <div className="relative w-full h-full flex flex-col">
+                  {/* Top Toolbar */}
+                  <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+                     <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-white bg-black/50 hover:bg-black/70 hover:text-white"><Type className="h-5 w-5" /></Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 space-y-4">
+                             <div className='space-y-1'>
+                                <Label>Font</Label>
+                                <RadioGroup value={textOverlayStyle.font} onValueChange={(v) => setTextOverlayStyle(s => ({...s, font: v as any}))} className='grid grid-cols-3 gap-1'>
+                                    <Label className='border p-2 rounded-md text-center font-sans cursor-pointer data-[state=checked]:border-primary' htmlFor='font-sans-2'>Aa</Label><RadioGroupItem value='sans' id='font-sans-2' className='sr-only'/>
+                                    <Label className='border p-2 rounded-md text-center font-serif cursor-pointer data-[state=checked]:border-primary' htmlFor='font-serif-2'>Aa</Label><RadioGroupItem value='serif' id='font-serif-2' className='sr-only'/>
+                                    <Label className='border p-2 rounded-md text-center font-mono cursor-pointer data-[state=checked]:border-primary' htmlFor='font-mono-2'>Aa</Label><RadioGroupItem value='mono' id='font-mono-2' className='sr-only'/>
+                                </RadioGroup>
+                            </div>
+                            <div className='space-y-1'>
+                                <Label>Alignment</Label>
+                                <RadioGroup value={textOverlayStyle.alignment} onValueChange={(v) => setTextOverlayStyle(s => ({...s, alignment: v as any}))} className='grid grid-cols-3 gap-1'>
+                                    <Label className='border p-2 rounded-md flex justify-center cursor-pointer data-[state=checked]:border-primary' htmlFor='align-left-2'><AlignLeft/></Label><RadioGroupItem value='left' id='align-left-2' className='sr-only'/>
+                                    <Label className='border p-2 rounded-md flex justify-center cursor-pointer data-[state=checked]:border-primary' htmlFor='align-center-2'><AlignCenter/></Label><RadioGroupItem value='center' id='align-center-2' className='sr-only'/>
+                                    <Label className='border p-2 rounded-md flex justify-center cursor-pointer data-[state=checked]:border-primary' htmlFor='align-right-2'><AlignRight/></Label><RadioGroupItem value='right' id='align-right-2' className='sr-only'/>
+                                </RadioGroup>
+                            </div>
+                        </PopoverContent>
+                      </Popover>
+                      <Button variant="ghost" size="icon" className="text-white bg-black/50 hover:bg-black/70 hover:text-white" onClick={handleGenerateCaptions} disabled={isGeneratingCaptions}>
+                        {isGeneratingCaptions ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wand2 className="h-5 w-5" />}
+                      </Button>
+                      {mediaType === 'video' && (
+                        <>
+                          <Button variant="ghost" size="icon" className="text-white bg-black/50 hover:bg-black/70 hover:text-white" onClick={() => setIsMuted(prev => !prev)}>
+                            {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" className="bg-black/50 hover:bg-black/70" onClick={handlePreviewPlayToggle}>
+                            {isPreviewPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white" />}
+                          </Button>
+                        </>
+                      )}
+                  </div>
+
                   {/* Media Preview */}
-                  <div className="flex-grow relative flex items-center justify-center">
+                  <div className="flex-grow relative flex items-center justify-center" onClick={() => mediaInputRef.current?.click()}>
                     {mediaType === 'video' ? (
                       <video ref={previewVideoRef} src={mediaPreview} className={cn("max-h-full max-w-full object-contain", selectedFilter)} loop playsInline autoPlay muted={isMuted} />
                     ) : (
@@ -643,83 +670,24 @@ export default function StatusFeature() {
                             style={textStyle}
                         />
                     </div>
-                     {/* Media Controls */}
-                     <div className="absolute top-4 right-4 flex gap-2">
-                        {mediaType === 'video' && (
-                            <Button variant="ghost" size="icon" className="text-white bg-black/50 hover:bg-black/70 hover:text-white" onClick={() => setIsMuted(prev => !prev)}>
-                                {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-                            </Button>
-                        )}
-                        {mediaType === 'video' && (
-                          <Button variant="ghost" size="icon" className="bg-black/50 hover:bg-black/70" onClick={handlePreviewPlayToggle}>
-                              {isPreviewPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white" />}
-                          </Button>
-                        )}
-                     </div>
                   </div>
-                  {/* Editing Tools */}
-                   <div className="w-full flex-shrink-0 bg-background/80 p-2 backdrop-blur-sm space-y-2">
-                       <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="ghost" className="w-full justify-start"><Type className="mr-2 h-4 w-4"/>Text Style</Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-64 space-y-4">
-                                <div className='space-y-1'>
-                                    <Label>Font</Label>
-                                    <RadioGroup value={textOverlayStyle.font} onValueChange={(v) => setTextOverlayStyle(s => ({...s, font: v as any}))} className='grid grid-cols-3 gap-1'>
-                                        <Label className='border p-2 rounded-md text-center font-sans cursor-pointer' htmlFor='font-sans'>Sans</Label><RadioGroupItem value='sans' id='font-sans' className='sr-only'/>
-                                        <Label className='border p-2 rounded-md text-center font-serif cursor-pointer' htmlFor='font-serif'>Serif</Label><RadioGroupItem value='serif' id='font-serif' className='sr-only'/>
-                                        <Label className='border p-2 rounded-md text-center font-mono cursor-pointer' htmlFor='font-mono'>Mono</Label><RadioGroupItem value='mono' id='font-mono' className='sr-only'/>
-                                    </RadioGroup>
-                                </div>
-                                 <div className='space-y-1'>
-                                    <Label>Alignment</Label>
-                                    <RadioGroup value={textOverlayStyle.alignment} onValueChange={(v) => setTextOverlayStyle(s => ({...s, alignment: v as any}))} className='grid grid-cols-3 gap-1'>
-                                        <Label className='border p-2 rounded-md flex justify-center cursor-pointer' htmlFor='align-left'><AlignLeft/></Label><RadioGroupItem value='left' id='align-left' className='sr-only'/>
-                                        <Label className='border p-2 rounded-md flex justify-center cursor-pointer' htmlFor='align-center'><AlignCenter/></Label><RadioGroupItem value='center' id='align-center' className='sr-only'/>
-                                        <Label className='border p-2 rounded-md flex justify-center cursor-pointer' htmlFor='align-right'><AlignRight/></Label><RadioGroupItem value='right' id='align-right' className='sr-only'/>
-                                    </RadioGroup>
-                                </div>
-                            </PopoverContent>
-                       </Popover>
-                      {mediaType === 'image' && (
-                        <div className='space-y-2'>
-                             <Label className='px-3 text-sm'>Filters</Label>
-                             <ScrollArea>
-                                <div className="flex space-x-2 pb-2 px-1">
-                                {photoFilters.map(filter => (
-                                    <div key={filter.name} className="text-center w-20 flex-shrink-0" onClick={() => setSelectedFilter(filter.style)}>
-                                        <p className={cn("text-xs mb-1", selectedFilter === filter.style ? 'text-primary font-semibold' : 'text-muted-foreground')}>{filter.name}</p>
-                                        <div className={cn("w-full aspect-square rounded-md overflow-hidden border-2", selectedFilter === filter.style ? 'border-primary' : 'border-transparent')}>
-                                            <Image src={mediaPreview} alt={filter.name} width={80} height={80} objectFit="cover" className={filter.style} />
-                                        </div>
-                                    </div>
+
+                  {/* Caption Suggestions */}
+                  {suggestedCaptions.length > 0 && (
+                       <div className="w-full flex-shrink-0 p-2">
+                        <ScrollArea>
+                            <div className="flex justify-center space-x-2 pb-2">
+                                {suggestedCaptions.map((caption, i) => (
+                                    <Button key={i} size="sm" variant="secondary" className="h-auto bg-black/50 text-white hover:bg-black/70" onClick={() => setTextOverlay(caption)}>
+                                        <p className="whitespace-normal text-xs">{caption}</p>
+                                    </Button>
                                 ))}
-                                </div>
-                                <ScrollBar orientation="horizontal" />
-                            </ScrollArea>
-                        </div>
-                      )}
-                      <div>
-                          <Button onClick={handleGenerateCaptions} size="sm" variant="outline" className="w-full" disabled={isGeneratingCaptions}>
-                              {isGeneratingCaptions ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
-                              Generate Captions
-                          </Button>
-                          {suggestedCaptions.length > 0 && (
-                               <ScrollArea className="w-full whitespace-nowrap rounded-md mt-2">
-                                <div className="flex space-x-2 pb-2">
-                                    {suggestedCaptions.map((caption, i) => (
-                                        <Button key={i} size="sm" variant="secondary" className="h-auto" onClick={() => setTextOverlay(caption)}>
-                                            <p className="whitespace-normal text-xs">{caption}</p>
-                                        </Button>
-                                    ))}
-                                </div>
-                                 <ScrollBar orientation="horizontal" />
-                               </ScrollArea>
-                          )}
-                      </div>
-                    </div>
+                            </div>
+                            <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
+                       </div>
                   )}
+
                 </div>
               ) : (
                 <div 
@@ -732,20 +700,28 @@ export default function StatusFeature() {
                 </div>
               )}
             </div>
-            <DialogFooter className="flex-row justify-between items-center p-2 flex-shrink-0">
-               <Select value={expiryDuration} onValueChange={setExpiryDuration}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue/>
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="3">Expires in 3 Hours</SelectItem>
-                    <SelectItem value="6">Expires in 6 Hours</SelectItem>
-                    <SelectItem value="10">Expires in 10 Hours</SelectItem>
-                    <SelectItem value="24">Expires in 24 Hours</SelectItem>
-                </SelectContent>
-              </Select>
+             <DialogFooter className="flex-row justify-between items-center p-2 flex-shrink-0 border-t">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost">
+                    <Users className="mr-2 h-4 w-4"/> {statusVisibility === 'public' ? 'Followers' : 'Close Friends'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent>
+                  <RadioGroup defaultValue={statusVisibility} onValueChange={(v) => setStatusVisibility(v as 'public' | 'close-friends')} className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="public" id="r-vis-1" />
+                      <Label htmlFor="r-vis-1">My Followers</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="close-friends" id="r-vis-2" />
+                      <Label htmlFor="r-vis-2">Close Friends Only</Label>
+                    </div>
+                  </RadioGroup>
+                </PopoverContent>
+              </Popover>
                <div className="flex gap-2">
-                    <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaPreview}>Save as Draft</Button>
+                    <Button variant="ghost" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || !mediaPreview}>Save Draft</Button>
                     <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || !mediaPreview}>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
                     </Button>
@@ -767,24 +743,11 @@ export default function StatusFeature() {
                   </div>
               )}
             </div>
-            <DialogFooter className="flex-row justify-between items-center">
-                <Select value={expiryDuration} onValueChange={setExpiryDuration}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue/>
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="3">Expires in 3 Hours</SelectItem>
-                      <SelectItem value="6">Expires in 6 Hours</SelectItem>
-                      <SelectItem value="10">Expires in 10 Hours</SelectItem>
-                      <SelectItem value="24">Expires in 24 Hours</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex gap-2">
-                  <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !selectedSong}>Save as Draft</Button>
-                  <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !selectedSong}>
-                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-                  </Button>
-                </div>
+            <DialogFooter className="flex-row justify-between items-center p-4">
+                <Button variant="ghost" onClick={() => handleSongSubmit('draft')} disabled={isSubmitting || !selectedSong}>Save as Draft</Button>
+                <Button onClick={() => handleSongSubmit('published')} disabled={isSubmitting || !selectedSong}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                </Button>
             </DialogFooter>
           </>
         );
@@ -822,23 +785,10 @@ export default function StatusFeature() {
                 </div>
             </div>
             <DialogFooter className="flex-row justify-between items-center p-4 border-t">
-              <Select value={expiryDuration} onValueChange={setExpiryDuration}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue/>
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="3">Expires in 3 Hours</SelectItem>
-                      <SelectItem value="6">Expires in 6 Hours</SelectItem>
-                      <SelectItem value="10">Expires in 10 Hours</SelectItem>
-                      <SelectItem value="24">Expires in 24 Hours</SelectItem>
-                  </SelectContent>
-              </Select>
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={() => handlePollSubmit('draft')} disabled={isSubmitting || !pollQuestion.trim()}>Save as Draft</Button>
-                <Button onClick={() => handlePollSubmit('published')} disabled={isSubmitting || !pollQuestion.trim()}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-                </Button>
-              </div>
+              <Button variant="ghost" onClick={() => handlePollSubmit('draft')} disabled={isSubmitting || !pollQuestion.trim()}>Save as Draft</Button>
+              <Button onClick={() => handlePollSubmit('published')} disabled={isSubmitting || !pollQuestion.trim()}>
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+              </Button>
             </DialogFooter>
           </>
         );
@@ -869,8 +819,8 @@ export default function StatusFeature() {
                         </div>
                     </ScrollArea>
                 </div>
-                <DialogFooter className="flex-row justify-between items-center">
-                    <Button variant="outline" size="sm" onClick={() => handleShareStorySubmit('draft')} disabled={isSubmitting || !attachedStory}>Save as Draft</Button>
+                <DialogFooter className="flex-row justify-between items-center p-4">
+                    <Button variant="ghost" size="sm" onClick={() => handleShareStorySubmit('draft')} disabled={isSubmitting || !attachedStory}>Save as Draft</Button>
                     <Button onClick={() => handleShareStorySubmit('published')} disabled={isSubmitting || !attachedStory}>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
                     </Button>
@@ -912,76 +862,11 @@ export default function StatusFeature() {
                         disabled={!attachedStory}
                     />
                 </div>
-                <DialogFooter className="flex-row justify-between items-center">
-                    <Button variant="outline" size="sm" onClick={() => handleTeaserSubmit('draft')} disabled={isSubmitting || !attachedStory || !noteContent.trim()}>Save as Draft</Button>
+                <DialogFooter className="flex-row justify-between items-center p-4">
+                    <Button variant="ghost" size="sm" onClick={() => handleTeaserSubmit('draft')} disabled={isSubmitting || !attachedStory || !noteContent.trim()}>Save as Draft</Button>
                     <Button onClick={() => handleTeaserSubmit('published')} disabled={isSubmitting || !attachedStory || !noteContent.trim()}>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post Teaser
                     </Button>
-                </DialogFooter>
-                </>
-            );
-        case 'settings':
-            return (
-                <>
-                <div className="p-6 space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Who can see my status?</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                             <RadioGroup defaultValue={statusVisibility} onValueChange={(v) => setStatusVisibility(v as 'public' | 'close-friends')} className="space-y-2">
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="public" id="r1" />
-                                    <Label htmlFor="r1">My Followers</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="close-friends" id="r2" />
-                                    <Label htmlFor="r2">Close Friends Only</Label>
-                                </div>
-                             </RadioGroup>
-                        </CardContent>
-                    </Card>
-                     <Card>
-                        <CardHeader>
-                            <CardTitle>Who can reply?</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                             <RadioGroup defaultValue="everyone" className="space-y-2">
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="everyone" id="r-reply-1" />
-                                    <Label htmlFor="r-reply-1">Everyone</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="following" id="r-reply-2" />
-                                    <Label htmlFor="r-reply-2">People you follow</Label>
-                                </div>
-                                 <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="none" id="r-reply-3" />
-                                    <Label htmlFor="r-reply-3">Off</Label>
-                                </div>
-                             </RadioGroup>
-                        </CardContent>
-                    </Card>
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild>
-                        <Button>Done</Button>
-                    </DialogClose>
-                </DialogFooter>
-                </>
-            );
-        case 'drafts':
-            return (
-                 <>
-                <div className="p-6 space-y-4">
-                    {draftStatuses.length > 0 ? draftStatuses.map(draft => (
-                        <div key={draft.id} className='p-2 border rounded-md'>Draft: {draft.note || 'Media Status'}</div>
-                    )) : <p className='text-muted-foreground text-center'>No drafts saved.</p>}
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild>
-                        <Button>Close</Button>
-                    </DialogClose>
                 </DialogFooter>
                 </>
             );
@@ -1062,14 +947,13 @@ export default function StatusFeature() {
             </div>
              <div className="p-2 border-t bg-background">
                 <Tabs value={activeUploaderTab} onValueChange={handleTabChange} className="w-full">
-                    <TabsList className="grid w-full grid-cols-7">
+                    <TabsList className="grid w-full grid-cols-6">
                         <TabsTrigger value="text"><Text className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="media"><ImageIcon className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="teaser"><PenSquare className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="song"><Music className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="poll"><BarChart2 className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="share-story"><BookOpen className="h-5 w-5"/></TabsTrigger>
-                        <TabsTrigger value="settings"><Settings className="h-5 w-5"/></TabsTrigger>
                     </TabsList>
                 </Tabs>
              </div>
@@ -1087,5 +971,3 @@ export default function StatusFeature() {
     </div>
   );
 }
-
-    
