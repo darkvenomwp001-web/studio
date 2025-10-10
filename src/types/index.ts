@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export interface Achievement {
@@ -159,9 +158,10 @@ export interface Letter {
 export interface Question {
   id: string;
   asker: UserSummary;
+  authorId: string;
   questionText: string;
   status: 'unanswered' | 'answered';
-  createdAt?: any;
+  createdAt: any;
   answerText?: string;
   answeredAt?: any;
   answerer?: UserSummary;
@@ -202,8 +202,11 @@ export interface GlobalChatMessage {
 }
 
 export interface Poll {
+    id: string;
+    authorId: string;
     question: string;
     options: { id: string; text: string; votes: string[] }[];
+    createdAt: any;
 }
 
 export type ReactionType = 'like' | 'love';

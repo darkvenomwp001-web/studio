@@ -195,6 +195,28 @@
           "content": { "type": "string", "description": "Text content of the announcement." },
           "timestamp": { "type": "timestamp", "description": "When the announcement was posted." }
         }
+      },
+      "questions": {
+          "description": "Questions asked by readers to authors.",
+          "fields": {
+              "asker": { "type": "map", "description": "Summary object of the user who asked." },
+              "authorId": { "type": "string", "description": "ID of the author the question is for.", "reference": "users" },
+              "questionText": { "type": "string", "description": "The text of the question." },
+              "status": { "type": "string", "description": "'unanswered' or 'answered'." },
+              "createdAt": { "type": "timestamp", "description": "When the question was asked." },
+              "answerText": { "type": "string", "description": "The author's answer." },
+              "answeredAt": { "type": "timestamp", "description": "When the question was answered." },
+              "answerer": { "type": "map", "description": "Summary object of the user who answered." }
+          }
+      },
+      "polls": {
+          "description": "Polls created by authors.",
+          "fields": {
+              "authorId": { "type": "string", "description": "ID of the author who created the poll.", "reference": "users" },
+              "question": { "type": "string", "description": "The poll question." },
+              "options": { "type": "array", "description": "Array of poll options with their vote counts." },
+              "createdAt": { "type": "timestamp", "description": "When the poll was created." }
+          }
       }
     }
   }

@@ -2,8 +2,8 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, deleteDoc, arrayRemove } from 'firebase/firestore';
-import type { Achievement } from '@/types';
+import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, deleteDoc, arrayRemove, addDoc, serverTimestamp } from 'firebase/firestore';
+import type { Achievement, User, UserSummary } from '@/types';
 import { addNotification } from './notificationActions';
 
 const XP_AMOUNTS = {
@@ -201,3 +201,97 @@ export async function toggleCloseFriend(currentUserId: string, friendId: string,
   }
 }
 
+export async function askQuestion(asker: User, authorId: string, questionText: string): Promise<{ success: boolean, error?: string }> {
+    if (!asker || !authorId || !questionText) {
+        return { success: false, error: 'Missing required information.' };
+    }
+    try {
+        await addDoc(collection(db, 'questions'), {
+            asker: {
+                id: asker.id,
+                username: asker.username,
+                displayName: asker.displayName,
+                avatarUrl: asker.avatarUrl,
+            },
+            authorId,
+            questionText,
+            status: 'unanswered',
+            createdAt: serverTimestamp(),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Error asking question:", error);
+        return { success: false, error: 'Could not send question.' };
+    }
+}
+
+export async function answerQuestion(answerer: User, questionId: string, answerText: string): Promise<{ success: boolean, error?: string }> {
+    if (!answerer || !questionId || !answerText) {
+        return { success: false, error: 'Missing required information.' };
+    }
+    try {
+        const questionRef = doc(db, 'questions', questionId);
+        await updateDoc(questionRef, {
+            status: 'answered',
+            answerText,
+            answerer: {
+                id: answerer.id,
+                username: answerer.username,
+                displayName: answerer.displayName,
+                avatarUrl: answerer.avatarUrl,
+            },
+            answeredAt: serverTimestamp(),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Error answering question:", error);
+        return { success: false, error: 'Could not publish answer.' };
+    }
+}
+
+export async function createPoll(authorId: string, question: string, options: string[]): Promise<{ success: boolean, error?: string }> {
+    if (!authorId || !question || options.length < 2) {
+        return { success: false, error: 'Missing required information for poll.' };
+    }
+    try {
+        await addDoc(collection(db, 'polls'), {
+            authorId,
+            question,
+            options: options.map((opt, i) => ({ id: `opt${i}`, text: opt, votes: [] })),
+            createdAt: serverTimestamp(),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Error creating poll:", error);
+        return { success: false, error: 'Could not create poll.' };
+    }
+}
+
+export async function voteOnPoll(pollId: string, optionId: string, userId: string): Promise<{ success: boolean, error?: string }> {
+    if (!pollId || !optionId || !userId) {
+        return { success: false, error: 'Missing required information.' };
+    }
+    try {
+        const pollRef = doc(db, 'polls', pollId);
+        const pollSnap = await getDoc(pollRef);
+        if (!pollSnap.exists()) {
+            return { success: false, error: 'Poll not found.' };
+        }
+        const pollData = pollSnap.data();
+        const hasVoted = pollData.options.some((opt: any) => opt.votes.includes(userId));
+        if (hasVoted) {
+            return { success: false, error: 'You have already voted in this poll.' };
+        }
+        const updatedOptions = pollData.options.map((opt: any) => {
+            if (opt.id === optionId) {
+                return { ...opt, votes: [...opt.votes, userId] };
+            }
+            return opt;
+        });
+        await updateDoc(pollRef, { options: updatedOptions });
+        return { success: true };
+    } catch (error) {
+        console.error("Error voting on poll:", error);
+        return { success: false, error: 'Could not cast vote.' };
+    }
+}
