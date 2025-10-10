@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StatusUpdate } from '@/types';
+import type { User, StatusUpdate, TextOverlayStyle } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, X, Pause, Play, VolumeX, Volume2 } from 'lucide-react';
@@ -115,6 +116,15 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     const isNoteStatus = !!currentStatus.note || !!currentStatus.spotifyUrl;
     const isOwner = user?.id === selectedUser.id;
     const isVideo = currentStatus.mediaType === 'video';
+
+    const textStyle = {
+      fontFamily: currentStatus.textOverlayStyle?.font === 'serif' ? 'Georgia, serif' : (currentStatus.textOverlayStyle?.font === 'mono' ? 'monospace' : 'inherit'),
+      color: currentStatus.textOverlayStyle?.color || 'white',
+      textAlign: currentStatus.textOverlayStyle?.alignment || 'center',
+      backgroundColor: currentStatus.textOverlayStyle?.background === 'solid' ? 'rgba(0,0,0,0.7)' : (currentStatus.textOverlayStyle?.background === 'translucent' ? 'rgba(0,0,0,0.4)' : 'transparent'),
+      padding: currentStatus.textOverlayStyle?.background !== 'none' ? '0.25rem 0.5rem' : '0',
+      borderRadius: currentStatus.textOverlayStyle?.background !== 'none' ? '0.375rem' : '0'
+    };
     
 
     return (
@@ -191,8 +201,15 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     ) : null}
                     
                     {currentStatus.textOverlay && (
-                        <div className="absolute bottom-10 left-4 right-4 z-10">
-                            <p className="text-white text-center text-lg font-semibold bg-black/50 p-2 rounded-md shadow-lg">
+                         <div
+                            className="absolute p-4"
+                            style={{
+                                left: `${currentStatus.textOverlayPosition?.x ?? 50}%`,
+                                top: `${currentStatus.textOverlayPosition?.y ?? 50}%`,
+                                transform: 'translate(-50%, -50%)',
+                            }}
+                        >
+                            <p style={textStyle} className="whitespace-pre-line text-lg font-semibold shadow-lg">
                                 {currentStatus.textOverlay}
                             </p>
                         </div>

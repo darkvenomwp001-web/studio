@@ -272,6 +272,7 @@ export interface StatusUpdate {
     mediaType?: 'image' | 'video';
     textOverlay?: string;
     textOverlayStyle?: TextOverlayStyle;
+    textOverlayPosition?: { x: number; y: number };
     note?: string;
     backgroundStyle?: string;
     spotifyUrl?: string;

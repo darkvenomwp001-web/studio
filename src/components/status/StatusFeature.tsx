@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StatusUpdate, Poll, Story, Song } from '@/types';
+import type { User, StatusUpdate, Poll, Story, Song, TextOverlayStyle } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, getDocs, limit } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -86,14 +86,6 @@ const photoFilters = [
     { name: 'Vibrant', style: 'filter-saturate-200' },
 ] as const;
 
-type TextOverlayStyle = {
-    font: 'sans' | 'serif' | 'mono';
-    color: string;
-    alignment: 'left' | 'center' | 'right';
-    background: 'none' | 'solid' | 'translucent';
-};
-
-
 export default function StatusFeature() {
   const { user, loading: authLoading } = useAuth();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
@@ -152,6 +144,11 @@ export default function StatusFeature() {
     alignment: 'center',
     background: 'translucent'
   });
+  
+  const [textOverlayPosition, setTextOverlayPosition] = useState({ x: 50, y: 50 }); // Center in percentage
+  const [isDragging, setIsDragging] = useState(false);
+  const mediaContainerRef = useRef<HTMLDivElement>(null);
+  const textDraggableRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -299,6 +296,7 @@ export default function StatusFeature() {
     setBackgroundStyle('');
     setStatusVisibility('public');
     setTextOverlayStyle({ font: 'sans', color: 'white', alignment: 'center', background: 'translucent'});
+    setTextOverlayPosition({ x: 50, y: 50 });
     setDynamicBgColor(null);
     setVibeTags('');
   }
@@ -476,6 +474,7 @@ export default function StatusFeature() {
     if (textOverlay.trim()) {
         data.textOverlay = textOverlay.trim();
         data.textOverlayStyle = textOverlayStyle;
+        data.textOverlayPosition = textOverlayPosition;
     }
     
     setIsSubmitting(false);
@@ -560,6 +559,31 @@ export default function StatusFeature() {
     }
   };
 
+  const handleTextDrag = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDragging || !mediaContainerRef.current) return;
+
+    const containerRect = mediaContainerRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    let x = ((clientX - containerRect.left) / containerRect.width) * 100;
+    let y = ((clientY - containerRect.top) / containerRect.height) * 100;
+
+    // Clamp values to be within the container
+    x = Math.max(0, Math.min(100, x));
+    y = Math.max(0, Math.min(100, y));
+
+    setTextOverlayPosition({ x, y });
+  };
+  
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
 
   if (authLoading) {
     return <div className="h-[98px] w-full bg-card rounded-lg animate-pulse" />;
@@ -617,9 +641,45 @@ export default function StatusFeature() {
         };
 
         return (
-            <div className="flex-grow flex flex-col overflow-hidden bg-black justify-center items-center">
+            <div 
+              className="flex-grow flex flex-col overflow-hidden bg-black justify-center items-center"
+              onMouseMove={handleTextDrag}
+              onTouchMove={handleTextDrag}
+              onMouseUp={handleDragEnd}
+              onTouchEnd={handleDragEnd}
+              onMouseLeave={handleDragEnd} // End drag if mouse leaves container
+            >
               {mediaPreview ? (
-                <div className="relative w-full h-full flex flex-col">
+                <div ref={mediaContainerRef} className="relative w-full h-full flex flex-col">
+                  {/* Media Preview */}
+                  <div className="flex-grow relative flex items-center justify-center" onClick={() => mediaInputRef.current?.click()}>
+                    {mediaType === 'video' ? (
+                      <video ref={previewVideoRef} src={mediaPreview} className={cn("max-h-full max-w-full object-contain", selectedFilter)} loop playsInline autoPlay muted={isMuted} />
+                    ) : (
+                      <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" className={cn(selectedFilter)} />
+                    )}
+                    {/* Draggable Text Overlay */}
+                    <div
+                      ref={textDraggableRef}
+                      className="absolute cursor-move p-2"
+                      style={{
+                          left: `${textOverlayPosition.x}%`,
+                          top: `${textOverlayPosition.y}%`,
+                          transform: `translate(-50%, -50%)`,
+                      }}
+                      onMouseDown={handleDragStart}
+                      onTouchStart={handleDragStart}
+                    >
+                        <Textarea
+                            placeholder="Add text..." 
+                            value={textOverlay}
+                            onChange={(e) => setTextOverlay(e.target.value)}
+                            className="bg-transparent text-white border-none focus-visible:ring-0 p-0 shadow-none resize-none min-h-0 h-auto"
+                            style={textStyle}
+                        />
+                    </div>
+                  </div>
+
                   {/* Top Toolbar */}
                   <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
                      <Popover>
@@ -660,28 +720,10 @@ export default function StatusFeature() {
                       )}
                   </div>
 
-                  {/* Media Preview */}
-                  <div className="flex-grow relative flex items-center justify-center" onClick={() => mediaInputRef.current?.click()}>
-                    {mediaType === 'video' ? (
-                      <video ref={previewVideoRef} src={mediaPreview} className={cn("max-h-full max-w-full object-contain", selectedFilter)} loop playsInline autoPlay muted={isMuted} />
-                    ) : (
-                      <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" className={cn(selectedFilter)} />
-                    )}
-                    {/* Text Overlay Input */}
-                    <div className="absolute inset-x-0 bottom-1/2 translate-y-1/2 p-4">
-                        <Textarea
-                            placeholder="Add text..." 
-                            value={textOverlay}
-                            onChange={(e) => setTextOverlay(e.target.value)}
-                            className="bg-transparent text-white border-none focus-visible:ring-0 p-0 shadow-none resize-none"
-                            style={textStyle}
-                        />
-                    </div>
-                  </div>
 
                   {/* Caption Suggestions */}
                   {suggestedCaptions.length > 0 && (
-                       <div className="w-full flex-shrink-0 p-2">
+                       <div className="absolute bottom-16 left-0 right-0 w-full flex-shrink-0 p-2 z-20">
                         <ScrollArea>
                             <div className="flex justify-center space-x-2 pb-2">
                                 {suggestedCaptions.map((caption, i) => (
