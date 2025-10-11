@@ -644,8 +644,11 @@ export default function StatusFeature() {
         };
 
         return (
+          <div 
+            className="flex-grow flex flex-col bg-black"
+          >
             <div 
-              className="flex-grow flex flex-col overflow-hidden bg-black justify-center items-center"
+              className="flex-grow flex flex-col overflow-hidden justify-center items-center"
               onMouseMove={handleTextDrag}
               onTouchMove={handleTextDrag}
               onMouseUp={handleDragEnd}
@@ -677,7 +680,7 @@ export default function StatusFeature() {
                             placeholder="Add text..." 
                             value={textOverlay}
                             onChange={(e) => setTextOverlay(e.target.value)}
-                            className="bg-transparent text-white border-none focus-visible:ring-0 p-0 shadow-none resize-none min-h-0 h-auto"
+                            className="bg-transparent border-none focus-visible:ring-0 p-0 shadow-none resize-none min-h-0 h-auto"
                             style={textStyle}
                         />
                     </div>
@@ -752,13 +755,15 @@ export default function StatusFeature() {
                 </div>
               )}
             </div>
-          );
+          </div>
+        );
       case 'song':
         return (
             <div
-                className="flex-grow flex flex-col justify-between"
+                className="flex-grow flex flex-col"
                 style={{ backgroundColor: dynamicBgColor || '#121212' }}
             >
+             <ScrollArea className="flex-grow">
                 <div className="p-4">
                     <SongSearch onSongSelect={(song) => {
                         setSelectedSong(song);
@@ -790,8 +795,9 @@ export default function StatusFeature() {
                         </div>
                     )}
                 </div>
+                </ScrollArea>
                 
-                <div className="p-4 space-y-2">
+                <div className="p-4 space-y-2 border-t border-white/10 mt-auto flex-shrink-0">
                     <Input 
                         placeholder="Add a personal note... (optional)"
                         value={noteContent}
