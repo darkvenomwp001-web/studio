@@ -26,8 +26,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
     });
 }
 
-export function LyricCarousel({ lyrics, onSelectLyric, selectedLyric }: { lyrics: Song['lyrics'], onSelectLyric: (lyric: string | null) => void, selectedLyric: string | null }) {
-    const [api, setApi] = useState<CarouselApi>()
+export function LyricCarousel({ lyrics, onSelectLyric, selectedLyric, api, setApi }: { lyrics: Song['lyrics'], onSelectLyric: (lyric: string | null) => void, selectedLyric: string | null, api: CarouselApi, setApi: (api: CarouselApi) => void }) {
  
     useEffect(() => {
       if (!api) {
@@ -35,6 +34,7 @@ export function LyricCarousel({ lyrics, onSelectLyric, selectedLyric }: { lyrics
       }
    
       const handleSelect = () => {
+        if (!api) return;
         const selected = lyrics[api.selectedScrollSnap()];
         onSelectLyric(selected.text);
       }
