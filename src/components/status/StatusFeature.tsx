@@ -31,6 +31,7 @@ import { useRouter } from 'next/navigation';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import VinylPlayer from './VinylPlayer';
+import type { CarouselApi } from "@/components/ui/carousel"
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
@@ -114,6 +115,8 @@ export default function StatusFeature() {
   const [songLyricSnippet, setSongLyricSnippet] = useState<string | null>(null);
   const [vibeTags, setVibeTags] = useState('');
   const [dynamicBgColor, setDynamicBgColor] = useState<string | null>(null);
+  
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>()
 
   
   const [isViewerOpen, setIsViewerOpen] = useState(false);
@@ -773,7 +776,12 @@ export default function StatusFeature() {
                     {selectedSong ? (
                         <>
                            <VinylPlayer albumArtUrl={selectedSong.cover} />
-                           <LyricCarousel lyrics={selectedSong.lyrics} onSelectLyric={setSongLyricSnippet} selectedLyric={songLyricSnippet} />
+                           <div className="w-full max-w-sm pt-4">
+                            <LyricCarousel lyrics={selectedSong.lyrics} onSelectLyric={setSongLyricSnippet} api={carouselApi} setApi={setCarouselApi} />
+                           </div>
+                           <div className='pt-4 w-full'>
+                            <SpotifyPlayer trackUrl={`https://open.spotify.com/track/${selectedSong.id}`} />
+                           </div>
                         </>
                     ) : (
                         <div className="text-center text-white/50">
@@ -1022,4 +1030,3 @@ export default function StatusFeature() {
     </div>
   );
 }
-

@@ -26,7 +26,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
     });
 }
 
-export function LyricCarousel({ lyrics, onSelectLyric, selectedLyric, api, setApi }: { lyrics: Song['lyrics'], onSelectLyric: (lyric: string | null) => void, selectedLyric: string | null, api: CarouselApi, setApi: (api: CarouselApi) => void }) {
+export function LyricCarousel({ lyrics, onSelectLyric, selectedLyric, api, setApi }: { lyrics: Song['lyrics'], onSelectLyric: (lyric: string | null) => void, selectedLyric: string | null, api: CarouselApi | undefined, setApi: (api: CarouselApi | undefined) => void }) {
  
     useEffect(() => {
       if (!api) {
