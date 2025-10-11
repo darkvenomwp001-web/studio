@@ -11,7 +11,7 @@ import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
 import type { Song } from '@/types';
 import { searchSongs } from '@/app/actions/aiActions';
-import { Carousel, CarouselContent, CarouselItem, useCarousel } from '../ui/carousel';
+import { Carousel, CarouselApi, CarouselContent, CarouselItem } from '../ui/carousel';
 
 
 // Debounce function
@@ -27,15 +27,26 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
 }
 
 export function LyricCarousel({ lyrics, onSelectLyric, selectedLyric }: { lyrics: Song['lyrics'], onSelectLyric: (lyric: string | null) => void, selectedLyric: string | null }) {
-    const { setApi, api } = useCarousel();
-
+    const [api, setApi] = useState<CarouselApi>()
+ 
     useEffect(() => {
-        if (!api) return;
-        api.on("select", () => {
-             const selected = lyrics[api.selectedScrollSnap()];
-             onSelectLyric(selected.text);
-        });
-    }, [api, lyrics, onSelectLyric]);
+      if (!api) {
+        return
+      }
+   
+      const handleSelect = () => {
+        const selected = lyrics[api.selectedScrollSnap()];
+        onSelectLyric(selected.text);
+      }
+      
+      api.on("select", handleSelect)
+      // Set initial lyric
+      handleSelect();
+   
+      return () => {
+        api.off("select", handleSelect)
+      }
+    }, [api, lyrics, onSelectLyric])
 
     return (
         <Carousel setApi={setApi} opts={{ loop: true }} className="w-full">
@@ -128,4 +139,3 @@ export default function SongSearch({ onSongSelect }: SongSearchProps) {
         </div>
     );
 }
-
