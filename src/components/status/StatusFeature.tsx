@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getStatusCaptions } from '@/app/actions/aiActions';
+import { getStatusCaptions, generateConversationStarters } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import StatusViewer from './StatusViewer';
@@ -102,7 +102,6 @@ export default function StatusFeature() {
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [textOverlay, setTextOverlay] = useState('');
   
   const [showPollCreator, setShowPollCreator] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
@@ -123,8 +122,9 @@ export default function StatusFeature() {
   const [selectedUserForViewing, setSelectedUserForViewing] = useState<User | null>(null);
   const [statusOrder, setStatusOrder] = useState<string[]>([]);
   
-  const [suggestedCaptions, setSuggestedCaptions] = useState<string[]>([]);
   const [isGeneratingCaptions, startCaptionTransition] = useTransition();
+  const [suggestedCaptions, setSuggestedCaptions] = useState<string[]>([]);
+  const [isGeneratingStarters, startStarterTransition] = useTransition();
 
   const [selectedFilter, setSelectedFilter] = useState<(typeof photoFilters)[number]['style']>('filter-none');
   const [expiryDuration, setExpiryDuration] = useState<string>('24');
@@ -141,6 +141,7 @@ export default function StatusFeature() {
   const [isSearchingStories, setIsSearchingStories] = useState(false);
   const [attachedStory, setAttachedStory] = useState<Story | null>(null);
   
+  const [textOverlay, setTextOverlay] = useState('');
   const [textOverlayStyle, setTextOverlayStyle] = useState<TextOverlayStyle>({
     font: 'sans',
     color: 'white',
@@ -152,6 +153,7 @@ export default function StatusFeature() {
   const [isDragging, setIsDragging] = useState(false);
   const mediaContainerRef = useRef<HTMLDivElement>(null);
   const textDraggableRef = useRef<HTMLDivElement>(null);
+  const [noteStyle, setNoteStyle] = useState({ font: 'sans', alignment: 'center' });
 
   const { toast } = useToast();
   const router = useRouter();
@@ -302,6 +304,7 @@ export default function StatusFeature() {
     setTextOverlayPosition({ x: 50, y: 50 });
     setDynamicBgColor(null);
     setVibeTags('');
+    setNoteStyle({ font: 'sans', alignment: 'center' });
   }
   
   const handleTabChange = (value: string) => {
@@ -392,10 +395,11 @@ export default function StatusFeature() {
         toast({ title: "Text is empty", description: "Please write something.", variant: "destructive" });
         return;
     }
-    const data: Record<string, any> = { note: noteContent.trim() };
-    if (backgroundStyle) {
-      data.backgroundStyle = backgroundStyle;
-    }
+    const data: Record<string, any> = {
+      note: noteContent.trim(),
+      noteStyle, // Save the new style object
+      backgroundStyle,
+    };
     await handleSubmit(status, data);
   };
   
@@ -515,7 +519,6 @@ export default function StatusFeature() {
   const handleGenerateCaptions = () => {
     if (!mediaPreview) return;
     startCaptionTransition(async () => {
-        setSuggestedCaptions([]);
         const result = await getStatusCaptions({ photoDataUri: mediaPreview });
         if ('error' in result) {
             toast({ title: "AI Error", description: result.error, variant: "destructive" });
@@ -524,6 +527,17 @@ export default function StatusFeature() {
         }
     });
   }
+
+  const handleGenerateStarters = () => {
+    startStarterTransition(async () => {
+        const result = await generateConversationStarters({});
+        if ('error' in result) {
+            toast({ title: "AI Error", description: result.error, variant: "destructive" });
+        } else if (result.starters.length > 0) {
+            setNoteContent(result.starters[Math.floor(Math.random() * result.starters.length)]);
+        }
+    });
+  };
   
   const handleOpenCreatorMenu = () => {
       if (!user || user.isAnonymous) {
@@ -607,22 +621,55 @@ export default function StatusFeature() {
                   value={noteContent}
                   onChange={e => setNoteContent(e.target.value)}
                   className={cn(
-                    "flex-grow text-2xl bg-transparent border-0 focus-visible:ring-0 p-4 resize-none shadow-none text-center flex items-center justify-center",
-                    noteContent.length < 50 ? 'text-2xl' : 'text-lg'
+                    "flex-grow bg-transparent border-0 focus-visible:ring-0 p-4 resize-none shadow-none text-center flex items-center justify-center",
+                    noteStyle.font === 'serif' ? 'font-serif' : (noteStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
+                    noteStyle.alignment === 'left' ? 'text-left' : (noteStyle.alignment === 'right' ? 'text-right' : 'text-center'),
+                    noteContent.length < 50 ? 'text-3xl' : 'text-xl',
                   )}
               />
-              <div className="flex gap-2 p-2 bg-black/20 rounded-full">
-                <button
-                  onClick={() => setBackgroundStyle('')}
-                  className={cn("w-6 h-6 rounded-full bg-background border-2", backgroundStyle === '' ? 'border-primary' : 'border-transparent')}
-                />
-                {gradientBackgrounds.map(bg => (
-                  <button
-                    key={bg}
-                    onClick={() => setBackgroundStyle(bg)}
-                    className={cn("w-6 h-6 rounded-full border-2", bg, backgroundStyle === bg ? 'border-primary' : 'border-transparent')}
-                  />
-                ))}
+              <div className="flex gap-2 p-2 bg-black/20 rounded-full items-center">
+                <Popover>
+                    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="text-white"><Type/></Button></PopoverTrigger>
+                    <PopoverContent className="w-auto p-1">
+                        <div className='flex gap-1'>
+                            <Button variant={noteStyle.font === 'sans' ? 'secondary' : 'ghost'} size="sm" onClick={() => setNoteStyle(s=>({...s, font: 'sans'}))}>Sans</Button>
+                            <Button variant={noteStyle.font === 'serif' ? 'secondary' : 'ghost'} size="sm" onClick={() => setNoteStyle(s=>({...s, font: 'serif'}))}>Serif</Button>
+                            <Button variant={noteStyle.font === 'mono' ? 'secondary' : 'ghost'} size="sm" onClick={() => setNoteStyle(s=>({...s, font: 'mono'}))}>Mono</Button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+                 <Popover>
+                    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="text-white"><AlignCenter/></Button></PopoverTrigger>
+                    <PopoverContent className="w-auto p-1">
+                        <div className='flex gap-1'>
+                            <Button variant={noteStyle.alignment === 'left' ? 'secondary' : 'ghost'} size="icon" onClick={() => setNoteStyle(s=>({...s, alignment: 'left'}))}><AlignLeft/></Button>
+                            <Button variant={noteStyle.alignment === 'center' ? 'secondary' : 'ghost'} size="icon" onClick={() => setNoteStyle(s=>({...s, alignment: 'center'}))}><AlignCenter/></Button>
+                            <Button variant={noteStyle.alignment === 'right' ? 'secondary' : 'ghost'} size="icon" onClick={() => setNoteStyle(s=>({...s, alignment: 'right'}))}><AlignRight/></Button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+                 <Popover>
+                    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="text-white"><Palette/></Button></PopoverTrigger>
+                    <PopoverContent className="w-auto p-1">
+                        <div className="flex gap-2 p-1 bg-black/20 rounded-full">
+                            <button
+                            onClick={() => setBackgroundStyle('')}
+                            className={cn("w-6 h-6 rounded-full bg-background border-2", backgroundStyle === '' ? 'border-primary' : 'border-transparent')}
+                            />
+                            {gradientBackgrounds.map(bg => (
+                            <button
+                                key={bg}
+                                onClick={() => setBackgroundStyle(bg)}
+                                className={cn("w-6 h-6 rounded-full border-2", bg, backgroundStyle === bg ? 'border-primary' : 'border-transparent')}
+                            />
+                            ))}
+                        </div>
+                    </PopoverContent>
+                </Popover>
+                <Button variant="ghost" size="icon" className="text-white" onClick={handleGenerateStarters} disabled={isGeneratingStarters}>
+                    {isGeneratingStarters ? <Loader2 className="h-4 w-4 animate-spin"/> : <SparklesIcon className="h-4 w-4" />}
+                </Button>
+                 <Button variant="ghost" size="icon" className="text-white" onClick={() => alert('Quote mode coming soon!')}><MessageSquare className="h-4 w-4"/></Button>
               </div>
             </div>
             <DialogFooter className="flex-row justify-between items-center p-4">
@@ -645,17 +692,17 @@ export default function StatusFeature() {
         };
 
         return (
-          <div className="flex-grow flex flex-col bg-black">
-            <div 
-              className="flex-grow flex flex-col overflow-hidden justify-center items-center"
-              onMouseMove={handleTextDrag}
-              onTouchMove={handleTextDrag}
-              onMouseUp={handleDragEnd}
-              onTouchEnd={handleDragEnd}
-              onMouseLeave={handleDragEnd}
-            >
+             <div className="flex-grow flex flex-col bg-black justify-center items-center">
               {mediaPreview ? (
-                <div ref={mediaContainerRef} className="relative w-full h-full flex flex-col">
+                <div 
+                    ref={mediaContainerRef}
+                    className="relative w-full h-full flex flex-col"
+                    onMouseMove={handleTextDrag}
+                    onTouchMove={handleTextDrag}
+                    onMouseUp={handleDragEnd}
+                    onTouchEnd={handleDragEnd}
+                    onMouseLeave={handleDragEnd}
+                >
                   {/* Media Preview */}
                   <div className="flex-grow relative flex items-center justify-center" onClick={() => mediaInputRef.current?.click()}>
                     {mediaType === 'video' ? (
@@ -777,73 +824,65 @@ export default function StatusFeature() {
                 </div>
               )}
             </div>
-            <DialogFooter className="flex-row justify-between items-center p-4 bg-black">
-                <Button variant="ghost" className="text-white" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || (!mediaFile && !editingDraft)}>Save as Draft</Button>
-                <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || (!mediaFile && !editingDraft)}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-                </Button>
-            </DialogFooter>
-          </div>
-        );
+          );
         case 'song':
-          return (
-            <div
-                className="flex-grow flex flex-col"
-                style={{ backgroundColor: dynamicBgColor || '#121212' }}
-            >
-             <ScrollArea className="flex-grow">
-                <div className="p-4">
-                    <SongSearch onSongSelect={(song) => {
-                        setSelectedSong(song);
-                        if (song) {
-                            // Basic color extraction - in real app, use a library
-                            const colors = ['#4c1d95', '#be185d', '#047857', '#b45309'];
-                            setDynamicBgColor(colors[Math.floor(Math.random() * colors.length)]);
-                        } else {
-                            setDynamicBgColor(null);
-                        }
-                    }} />
-                </div>
+            return (
+                <ScrollArea className="flex-grow">
+                    <div
+                        className="flex-grow flex flex-col min-h-full"
+                        style={{ backgroundColor: dynamicBgColor || '#121212' }}
+                    >
+                    <div className="p-4">
+                        <SongSearch onSongSelect={(song) => {
+                            setSelectedSong(song);
+                            if (song) {
+                                const colors = ['#4c1d95', '#be185d', '#047857', '#b45309'];
+                                setDynamicBgColor(colors[Math.floor(Math.random() * colors.length)]);
+                            } else {
+                                setDynamicBgColor(null);
+                            }
+                        }} />
+                    </div>
 
-                <div className="flex-grow flex flex-col items-center justify-center p-4 space-y-4">
-                    {selectedSong ? (
-                        <>
-                           <VinylPlayer albumArtUrl={selectedSong.cover} />
-                           <div className="w-full max-w-sm pt-4">
-                            <LyricCarousel lyrics={selectedSong.lyrics} onSelectLyric={setSongLyricSnippet} api={carouselApi} setApi={setCarouselApi} />
-                           </div>
-                           <div className='pt-4 w-full'>
-                            <SpotifyPlayer trackUrl={`https://open.spotify.com/track/${selectedSong.id}`} />
-                           </div>
-                        </>
-                    ) : (
-                        <div className="text-center text-white/50">
-                            <Music className="h-16 w-16 mx-auto" />
-                            <p>Search for a song to begin.</p>
-                        </div>
-                    )}
-                </div>
+                    <div className="flex-grow flex flex-col items-center justify-center p-4 space-y-4">
+                        {selectedSong ? (
+                            <>
+                            <VinylPlayer albumArtUrl={selectedSong.cover} />
+                            <div className="w-full max-w-sm pt-4">
+                                <LyricCarousel lyrics={selectedSong.lyrics} onSelectLyric={setSongLyricSnippet} selectedLyric={songLyricSnippet} api={carouselApi} setApi={setCarouselApi} />
+                            </div>
+                             <div className='pt-4 w-full'>
+                               <SpotifyPlayer trackUrl={`https://open.spotify.com/track/${selectedSong.id}`} />
+                             </div>
+                            </>
+                        ) : (
+                            <div className="text-center text-white/50">
+                                <Music className="h-16 w-16 mx-auto" />
+                                <p>Search for a song to begin.</p>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="p-4 space-y-2 border-t border-white/10 mt-auto flex-shrink-0">
+                        <Input 
+                            placeholder="Add a personal note... (optional)"
+                            value={noteContent}
+                            onChange={e => setNoteContent(e.target.value)}
+                            className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                        />
+                        <Input 
+                            placeholder="#vibetags, #writingfuel (optional)"
+                            value={vibeTags}
+                            onChange={e => setVibeTags(e.target.value)}
+                            className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                        />
+                        <Button onClick={() => handleSongSubmit('published')} className="w-full" disabled={isSubmitting || !selectedSong}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                        </Button>
+                    </div>
+                    </div>
                 </ScrollArea>
-                
-                <div className="p-4 space-y-2 border-t border-white/10 mt-auto flex-shrink-0">
-                    <Input 
-                        placeholder="Add a personal note... (optional)"
-                        value={noteContent}
-                        onChange={e => setNoteContent(e.target.value)}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                    />
-                    <Input 
-                        placeholder="#vibetags, #writingfuel (optional)"
-                        value={vibeTags}
-                        onChange={e => setVibeTags(e.target.value)}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                    />
-                     <Button onClick={() => handleSongSubmit('published')} className="w-full" disabled={isSubmitting || !selectedSong}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-                    </Button>
-                </div>
-            </div>
-        );
+            );
         case 'poll':
         return (
           <>
@@ -1064,3 +1103,5 @@ export default function StatusFeature() {
     </div>
   );
 }
+
+    

@@ -274,6 +274,7 @@ export interface StatusUpdate {
     textOverlayStyle?: TextOverlayStyle;
     textOverlayPosition?: { x: number; y: number };
     note?: string;
+    noteStyle?: { font: 'sans' | 'serif' | 'mono', alignment: 'left' | 'center' | 'right' };
     backgroundStyle?: string;
     spotifyUrl?: string;
     songLyricSnippet?: string;

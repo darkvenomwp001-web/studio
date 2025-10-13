@@ -1,3 +1,4 @@
+
 'use server';
 
 import { improveWritingStyle as improveWritingStyleFlow, ImproveWritingStyleInput, ImproveWritingStyleOutput } from '@/ai/flows/improve-writing-style';
@@ -76,3 +77,5 @@ export async function searchSongs(input: SearchSongsInput): Promise<SearchSongsO
         return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
     }
 }
+
+export { generateConversationStarters };
