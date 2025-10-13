@@ -638,22 +638,21 @@ export default function StatusFeature() {
             fontFamily: textOverlayStyle.font === 'serif' ? 'Georgia, serif' : (textOverlayStyle.font === 'mono' ? 'monospace' : 'inherit'),
             color: textOverlayStyle.color,
             textAlign: textOverlayStyle.alignment,
+            textShadow: '1px 1px 3px rgba(0,0,0,0.5)',
             backgroundColor: textOverlayStyle.background === 'solid' ? 'rgba(0,0,0,0.7)' : (textOverlayStyle.background === 'translucent' ? 'rgba(0,0,0,0.4)' : 'transparent'),
             padding: textOverlayStyle.background !== 'none' ? '0.25rem 0.5rem' : '0',
             borderRadius: textOverlayStyle.background !== 'none' ? '0.375rem' : '0'
         };
 
         return (
-          <div 
-            className="flex-grow flex flex-col bg-black"
-          >
+          <div className="flex-grow flex flex-col bg-black">
             <div 
               className="flex-grow flex flex-col overflow-hidden justify-center items-center"
               onMouseMove={handleTextDrag}
               onTouchMove={handleTextDrag}
               onMouseUp={handleDragEnd}
               onTouchEnd={handleDragEnd}
-              onMouseLeave={handleDragEnd} // End drag if mouse leaves container
+              onMouseLeave={handleDragEnd}
             >
               {mediaPreview ? (
                 <div ref={mediaContainerRef} className="relative w-full h-full flex flex-col">
@@ -672,6 +671,7 @@ export default function StatusFeature() {
                           left: `${textOverlayPosition.x}%`,
                           top: `${textOverlayPosition.y}%`,
                           transform: `translate(-50%, -50%)`,
+                          minWidth: '50px',
                       }}
                       onMouseDown={handleDragStart}
                       onTouchStart={handleDragStart}
@@ -687,21 +687,21 @@ export default function StatusFeature() {
                   </div>
 
                   {/* Top Toolbar */}
-                  <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+                   <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
                      <Popover>
                         <PopoverTrigger asChild>
                             <Button variant="ghost" size="icon" className="text-white bg-black/50 hover:bg-black/70 hover:text-white"><Type className="h-5 w-5" /></Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-64 space-y-4">
-                             <div className='space-y-1'>
+                            <div className='space-y-2'>
                                 <Label>Font</Label>
                                 <RadioGroup value={textOverlayStyle.font} onValueChange={(v) => setTextOverlayStyle(s => ({...s, font: v as any}))} className='grid grid-cols-3 gap-1'>
-                                    <Label className='border p-2 rounded-md text-center font-sans cursor-pointer data-[state=checked]:border-primary' htmlFor='font-sans-2'>Aa</Label><RadioGroupItem value='sans' id='font-sans-2' className='sr-only'/>
-                                    <Label className='border p-2 rounded-md text-center font-serif cursor-pointer data-[state=checked]:border-primary' htmlFor='font-serif-2'>Aa</Label><RadioGroupItem value='serif' id='font-serif-2' className='sr-only'/>
-                                    <Label className='border p-2 rounded-md text-center font-mono cursor-pointer data-[state=checked]:border-primary' htmlFor='font-mono-2'>Aa</Label><RadioGroupItem value='mono' id='font-mono-2' className='sr-only'/>
+                                    <Label className='border p-2 rounded-md text-center font-sans cursor-pointer data-[state=checked]:border-primary' htmlFor='font-sans-2'>Sans</Label><RadioGroupItem value='sans' id='font-sans-2' className='sr-only'/>
+                                    <Label className='border p-2 rounded-md text-center font-serif cursor-pointer data-[state=checked]:border-primary' htmlFor='font-serif-2'>Serif</Label><RadioGroupItem value='serif' id='font-serif-2' className='sr-only'/>
+                                    <Label className='border p-2 rounded-md text-center font-mono cursor-pointer data-[state=checked]:border-primary' htmlFor='font-mono-2'>Mono</Label><RadioGroupItem value='mono' id='font-mono-2' className='sr-only'/>
                                 </RadioGroup>
                             </div>
-                            <div className='space-y-1'>
+                            <div className='space-y-2'>
                                 <Label>Alignment</Label>
                                 <RadioGroup value={textOverlayStyle.alignment} onValueChange={(v) => setTextOverlayStyle(s => ({...s, alignment: v as any}))} className='grid grid-cols-3 gap-1'>
                                     <Label className='border p-2 rounded-md flex justify-center cursor-pointer data-[state=checked]:border-primary' htmlFor='align-left-2'><AlignLeft/></Label><RadioGroupItem value='left' id='align-left-2' className='sr-only'/>
@@ -709,6 +709,28 @@ export default function StatusFeature() {
                                     <Label className='border p-2 rounded-md flex justify-center cursor-pointer data-[state=checked]:border-primary' htmlFor='align-right-2'><AlignRight/></Label><RadioGroupItem value='right' id='align-right-2' className='sr-only'/>
                                 </RadioGroup>
                             </div>
+                             <div className='space-y-2'>
+                                <Label>Background</Label>
+                                <RadioGroup value={textOverlayStyle.background} onValueChange={(v) => setTextOverlayStyle(s => ({...s, background: v as any}))} className='grid grid-cols-3 gap-1'>
+                                    <Label className='border p-2 rounded-md text-center cursor-pointer data-[state=checked]:border-primary' htmlFor='bg-none'>None</Label><RadioGroupItem value='none' id='bg-none' className='sr-only'/>
+                                    <Label className='border p-2 rounded-md text-center cursor-pointer data-[state=checked]:border-primary bg-black/40 text-white' htmlFor='bg-trans'>Shadow</Label><RadioGroupItem value='translucent' id='bg-trans' className='sr-only'/>
+                                    <Label className='border p-2 rounded-md text-center cursor-pointer data-[state=checked]:border-primary bg-black text-white' htmlFor='bg-solid'>Solid</Label><RadioGroupItem value='solid' id='bg-solid' className='sr-only'/>
+                                </RadioGroup>
+                            </div>
+                        </PopoverContent>
+                      </Popover>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                           <Button variant="ghost" size="icon" className="text-white bg-black/50 hover:bg-black/70 hover:text-white"><Palette className="h-5 w-5" /></Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-1">
+                          <div className="flex gap-1">
+                             {photoFilters.map(filter => (
+                                <button key={filter.name} onClick={() => setSelectedFilter(filter.style)} className={cn("w-10 h-10 rounded-md overflow-hidden border-2", selectedFilter === filter.style ? "border-primary" : "border-transparent")}>
+                                    <Image src={mediaPreview || ''} alt={filter.name} width={40} height={40} className={cn("object-cover", filter.style)} />
+                                </button>
+                             ))}
+                          </div>
                         </PopoverContent>
                       </Popover>
                       <Button variant="ghost" size="icon" className="text-white bg-black/50 hover:bg-black/70 hover:text-white" onClick={handleGenerateCaptions} disabled={isGeneratingCaptions}>
@@ -755,10 +777,16 @@ export default function StatusFeature() {
                 </div>
               )}
             </div>
+            <DialogFooter className="flex-row justify-between items-center p-4 bg-black">
+                <Button variant="ghost" className="text-white" onClick={() => handleMediaSubmit('draft')} disabled={isSubmitting || (!mediaFile && !editingDraft)}>Save as Draft</Button>
+                <Button onClick={() => handleMediaSubmit('published')} disabled={isSubmitting || (!mediaFile && !editingDraft)}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+                </Button>
+            </DialogFooter>
           </div>
         );
-      case 'song':
-        return (
+        case 'song':
+          return (
             <div
                 className="flex-grow flex flex-col"
                 style={{ backgroundColor: dynamicBgColor || '#121212' }}

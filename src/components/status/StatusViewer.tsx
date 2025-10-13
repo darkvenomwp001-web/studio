@@ -121,6 +121,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
       fontFamily: currentStatus.textOverlayStyle?.font === 'serif' ? 'Georgia, serif' : (currentStatus.textOverlayStyle?.font === 'mono' ? 'monospace' : 'inherit'),
       color: currentStatus.textOverlayStyle?.color || 'white',
       textAlign: currentStatus.textOverlayStyle?.alignment || 'center',
+      textShadow: '1px 1px 3px rgba(0,0,0,0.5)',
       backgroundColor: currentStatus.textOverlayStyle?.background === 'solid' ? 'rgba(0,0,0,0.7)' : (currentStatus.textOverlayStyle?.background === 'translucent' ? 'rgba(0,0,0,0.4)' : 'transparent'),
       padding: currentStatus.textOverlayStyle?.background !== 'none' ? '0.25rem 0.5rem' : '0',
       borderRadius: currentStatus.textOverlayStyle?.background !== 'none' ? '0.375rem' : '0'
