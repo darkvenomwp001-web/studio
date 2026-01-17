@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getStatusCaptions, generateConversationStarters } from '@/app/actions/aiActions';
+import { getStatusCaptions, getConversationStarters } from '@/app/actions/aiActions';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import StatusViewer from './StatusViewer';
@@ -153,7 +153,7 @@ export default function StatusFeature() {
   const [isDragging, setIsDragging] = useState(false);
   const mediaContainerRef = useRef<HTMLDivElement>(null);
   const textDraggableRef = useRef<HTMLDivElement>(null);
-  const [noteStyle, setNoteStyle] = useState({ font: 'sans', alignment: 'center' });
+  const [noteStyle, setNoteStyle] = useState<{font: 'sans' | 'serif' | 'mono', alignment: 'left' | 'center' | 'right'}>({ font: 'sans', alignment: 'center' });
 
   const { toast } = useToast();
   const router = useRouter();
@@ -530,7 +530,7 @@ export default function StatusFeature() {
 
   const handleGenerateStarters = () => {
     startStarterTransition(async () => {
-        const result = await generateConversationStarters({});
+        const result = await getConversationStarters({});
         if ('error' in result) {
             toast({ title: "AI Error", description: result.error, variant: "destructive" });
         } else if (result.starters.length > 0) {
@@ -824,65 +824,62 @@ export default function StatusFeature() {
                 </div>
               )}
             </div>
-          );
+        );
         case 'song':
-            return (
-                <ScrollArea className="flex-grow">
-                    <div
-                        className="flex-grow flex flex-col min-h-full"
-                        style={{ backgroundColor: dynamicBgColor || '#121212' }}
-                    >
-                    <div className="p-4">
-                        <SongSearch onSongSelect={(song) => {
-                            setSelectedSong(song);
-                            if (song) {
-                                const colors = ['#4c1d95', '#be185d', '#047857', '#b45309'];
-                                setDynamicBgColor(colors[Math.floor(Math.random() * colors.length)]);
-                            } else {
-                                setDynamicBgColor(null);
-                            }
-                        }} />
-                    </div>
+          return (
+            <ScrollArea className="flex-grow">
+                <div
+                    className="flex-grow flex flex-col min-h-full"
+                    style={{ backgroundColor: dynamicBgColor || '#121212' }}
+                >
+                <div className="p-4">
+                    <SongSearch onSongSelect={(song) => {
+                        setSelectedSong(song);
+                        if (song) {
+                            const colors = ['#4c1d95', '#be185d', '#047857', '#b45309'];
+                            setDynamicBgColor(colors[Math.floor(Math.random() * colors.length)]);
+                        } else {
+                            setDynamicBgColor(null);
+                        }
+                    }} />
+                </div>
 
-                    <div className="flex-grow flex flex-col items-center justify-center p-4 space-y-4">
-                        {selectedSong ? (
-                            <>
-                            <VinylPlayer albumArtUrl={selectedSong.cover} />
-                            <div className="w-full max-w-sm pt-4">
-                                <LyricCarousel lyrics={selectedSong.lyrics} onSelectLyric={setSongLyricSnippet} selectedLyric={songLyricSnippet} api={carouselApi} setApi={setCarouselApi} />
-                            </div>
-                             <div className='pt-4 w-full'>
-                               <SpotifyPlayer trackUrl={`https://open.spotify.com/track/${selectedSong.id}`} />
-                             </div>
-                            </>
-                        ) : (
-                            <div className="text-center text-white/50">
-                                <Music className="h-16 w-16 mx-auto" />
-                                <p>Search for a song to begin.</p>
-                            </div>
-                        )}
-                    </div>
-                    
-                    <div className="p-4 space-y-2 border-t border-white/10 mt-auto flex-shrink-0">
-                        <Input 
-                            placeholder="Add a personal note... (optional)"
-                            value={noteContent}
-                            onChange={e => setNoteContent(e.target.value)}
-                            className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                        />
-                        <Input 
-                            placeholder="#vibetags, #writingfuel (optional)"
-                            value={vibeTags}
-                            onChange={e => setVibeTags(e.target.value)}
-                            className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                        />
-                        <Button onClick={() => handleSongSubmit('published')} className="w-full" disabled={isSubmitting || !selectedSong}>
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-                        </Button>
-                    </div>
-                    </div>
-                </ScrollArea>
-            );
+                <div className="flex-grow flex flex-col items-center justify-center p-4 space-y-4">
+                    {selectedSong ? (
+                        <>
+                        <VinylPlayer albumArtUrl={selectedSong.cover} />
+                        <div className="w-full max-w-sm pt-4">
+                            <LyricCarousel lyrics={selectedSong.lyrics} onSelectLyric={setSongLyricSnippet} selectedLyric={songLyricSnippet} api={carouselApi} setApi={setCarouselApi} />
+                        </div>
+                         <div className='pt-4 w-full'>
+                           <SpotifyPlayer trackUrl={`https://open.spotify.com/track/${selectedSong.id}`} />
+                         </div>
+                        </>
+                    ) : (
+                        <div className="text-center text-white/50">
+                            <Music className="h-16 w-16 mx-auto" />
+                            <p>Search for a song to begin.</p>
+                        </div>
+                    )}
+                </div>
+                
+                <div className="p-4 space-y-2 border-t border-white/10 mt-auto flex-shrink-0">
+                    <Input 
+                        placeholder="Add a personal note... (optional)"
+                        value={noteContent}
+                        onChange={e => setNoteContent(e.target.value)}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                    />
+                    <Input 
+                        placeholder="#vibetags, #writingfuel (optional)"
+                        value={vibeTags}
+                        onChange={e => setVibeTags(e.target.value)}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                    />
+                </div>
+                </div>
+            </ScrollArea>
+        );
         case 'poll':
         return (
           <>
