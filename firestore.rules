@@ -131,13 +131,30 @@ service cloud.firestore {
       }
       
       // Feed Post Reactions Subcollection
-      // This rule ensures a signed-in user can only create or delete their own reaction document.
-      // The `isOwner(userId)` function checks that the requester's UID matches the document ID ({userId}).
       match /reactions/{userId} {
         allow read: if true;
         allow create, delete: if isSignedIn() && isOwner(userId);
         allow update: if false; // No updates allowed, only create/delete
       }
+    }
+    
+    // Questions asked to authors
+    match /questions/{questionId} {
+      allow read: if resource.data.status == 'answered' || (isSignedIn() && isOwner(resource.data.authorId));
+      allow create: if isSignedIn() && request.resource.data.asker.id == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(resource.data.authorId); // Only the author can answer/update
+      allow delete: if isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.asker.id)); // Author or Asker can delete
+    }
+
+    // Polls created by authors
+    match /polls/{pollId} {
+      allow read: if true;
+      allow create: if isWriter() && request.resource.data.authorId == request.auth.uid;
+      // Let the backend action handle the detailed vote logic. This rule ensures the poll question and author cannot be changed after creation.
+      allow update: if isSignedIn() 
+                    && request.resource.data.question == resource.data.question
+                    && request.resource.data.authorId == resource.data.authorId;
+      allow delete: if isSignedIn() && isOwner(resource.data.authorId);
     }
   }
 }
