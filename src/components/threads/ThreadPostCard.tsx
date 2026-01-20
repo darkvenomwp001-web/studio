@@ -104,6 +104,18 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
     navigator.clipboard.writeText(postUrl);
     toast({ title: 'Link Copied!', description: 'Post link copied to clipboard.' });
   }
+
+  const handleDeletePost = () => {
+    if (!user) return;
+    startProcessingTransition(async () => {
+        const result = await deleteThreadPost(post.id, user.id);
+        if (result.success) {
+            toast({ title: 'Post deleted' });
+        } else {
+            toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        }
+    });
+  };
   
   if (post.isHidden) {
     return null;
@@ -221,13 +233,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction 
                       className="bg-destructive hover:bg-destructive/90"
-                      onClick={() => {
-                          if (!user) return;
-                          startProcessingTransition(async () => {
-                              await deleteThreadPost(post.id, user.id);
-                              toast({ title: 'Post deleted' });
-                          });
-                      }}
+                      onClick={handleDeletePost}
                   >
                       {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
                   </AlertDialogAction>

@@ -125,19 +125,33 @@ export async function deleteThreadPost(postId: string, userId: string): Promise<
   }
   const postRef = doc(db, 'feedPosts', postId);
   
-  deleteDoc(postRef)
-    .then(() => {
+  try {
+    const postSnap = await getDoc(postRef);
+    if (!postSnap.exists()) {
       revalidatePath('/');
-    })
-    .catch(async (serverError) => {
-      const permissionError = new FirestorePermissionError({
-        path: postRef.path,
-        operation: 'delete',
-      });
-      errorEmitter.emit('permission-error', permissionError);
-    });
+      return { success: true };
+    }
 
-  return { success: true };
+    if (postSnap.data().author.id !== userId) {
+      return { success: false, error: 'You do not have permission to delete this post.' };
+    }
+
+    await deleteDoc(postRef);
+    revalidatePath('/');
+    return { success: true };
+
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    if ((error as any).code === 'permission-denied') {
+        const permissionError = new FirestorePermissionError({
+            path: postRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        return { success: false, error: 'Permission denied by security rules.' };
+    }
+    return { success: false, error: "An unexpected error occurred while deleting the post." };
+  }
 }
 
 export async function toggleReaction(postId: string, user: UserSummary, reactionType: ReactionType): Promise<{ success: boolean; error?: string }> {
