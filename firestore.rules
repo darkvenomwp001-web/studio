@@ -116,10 +116,9 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn() && !request.auth.token.isAnonymous;
       
-      // Only author can update content, but anyone can update reactionsCount
       allow update: if isSignedIn() && 
                     ( (isOwner(resource.data.author.id) && request.resource.data.content != resource.data.content)
-                      || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionsCount'])) );
+                      || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionsCount', 'repostCount'])) );
                       
       allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAdmin());
 
