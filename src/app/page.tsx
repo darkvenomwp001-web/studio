@@ -1,4 +1,5 @@
 
+
 'use client'; 
 
 import Link from 'next/link';
@@ -50,7 +51,7 @@ import placeholderImages from '@/app/lib/placeholder-images.json';
 import { cn } from '@/lib/utils';
 import PromptCard from '@/components/shared/PromptCard';
 import YourStoryCard from '@/components/shared/YourStoryCard';
-import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import Autoplay from "embla-carousel-autoplay";
 import AnnotationFeed from '@/components/annotations/AnnotationFeed';
 import ThreadsFeed from '@/components/threads/ThreadsFeed';
@@ -113,6 +114,17 @@ function ForYouTabContent() {
       unsubscribeAuthors();
     };
   }, []);
+
+  const authorStoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    allStories.forEach(story => {
+        if (story.status !== 'Draft' && story.visibility === 'Public') {
+            const authorId = story.author.id;
+            counts.set(authorId, (counts.get(authorId) || 0) + 1);
+        }
+    });
+    return counts;
+  }, [allStories]);
 
   const featuredStoriesForCarousel = allStories.slice(0, 5);
   const popularStories = [...allStories].sort((a,b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
@@ -268,25 +280,64 @@ function ForYouTabContent() {
 
       {featuredAuthors.length > 0 && (
       <section>
-        <h2 className="text-xl font-headline font-bold text-accent mb-6  animate-fade-in">Featured Authors</h2>
-         <div className="relative">
-            <div className="flex overflow-x-auto space-x-6 pb-4 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent -m-2 p-2">
-            {featuredAuthors.map(author => (
-                <Link href={`/profile/${author.id}`} key={`author-${author.id}`} passHref>
-                <div className="flex-shrink-0 w-52 group cursor-pointer">
-                    <Card className="flex flex-col items-center p-4 bg-card rounded-lg shadow-md hover:shadow-xl transition-all duration-300 ease-in-out transform hover:-translate-y-1 h-full">
-                    <Avatar className="w-28 h-28 mb-4 border-4 border-accent/30 group-hover:border-accent transition-colors">
-                        <AvatarImage src={author.avatarUrl || `https://picsum.photos/seed/${author.id}/120/120`} alt={author.displayName || author.username} data-ai-hint="profile person" />
-                        <AvatarFallback className="text-3xl">{author.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <h3 className="text-lg font-semibold font-headline text-center group-hover:text-accent transition-colors">{author.displayName || author.username}</h3>
-                    <p className="text-xs text-muted-foreground text-center line-clamp-2 mt-1 flex-grow">{(author.bio || "Passionate Creator").substring(0,60)}{author.bio && author.bio.length > 60 ? "..." : ""}</p>
-                    </Card>
+        <h2 className="text-xl font-headline font-bold text-accent mb-6 animate-fade-in">Featured Authors</h2>
+        <Carousel
+          opts={{
+            align: "start",
+            loop: featuredAuthors.length > 2,
+          }}
+          className="w-full max-w-6xl mx-auto"
+        >
+          <CarouselContent className="-ml-4">
+            {featuredAuthors.map((author, index) => (
+              <CarouselItem key={index} className="pl-4 md:basis-1/2 lg:basis-1/3">
+                <div className="p-1 h-full">
+                  <Card className="group overflow-hidden relative shadow-lg hover:shadow-2xl transition-shadow duration-300 h-full flex flex-col">
+                    <Link href={`/profile/${author.id}`} passHref className="flex flex-col h-full">
+                        <div className="cursor-pointer flex flex-col h-full">
+                            <div className="relative h-32 bg-muted flex-shrink-0">
+                                <Image
+                                    src={`https://picsum.photos/seed/${author.id}-banner/600/200`}
+                                    alt={`${author.displayName || author.username}'s banner`}
+                                    layout="fill"
+                                    objectFit="cover"
+                                    className="group-hover:scale-110 transition-transform duration-500"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                            </div>
+                            <div className="p-6 bg-card flex-grow flex flex-col">
+                                <div className="relative -mt-20">
+                                    <Avatar className="w-24 h-24 border-4 border-card bg-card shadow-md mx-auto">
+                                        <AvatarImage src={author.avatarUrl || `https://picsum.photos/seed/${author.id}/120/120`} alt={author.displayName || author.username} data-ai-hint="profile person" />
+                                        <AvatarFallback className="text-3xl">{author.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                </div>
+                                <div className="text-center mt-4 flex-grow">
+                                    <h3 className="text-xl font-bold font-headline text-foreground group-hover:text-accent transition-colors">{author.displayName || author.username}</h3>
+                                    <p className="text-sm text-muted-foreground">@{author.username}</p>
+                                    <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{(author.bio || "Passionate Creator")}</p>
+                                </div>
+                                <div className="flex justify-center items-center text-xs text-muted-foreground mt-4 pt-4 border-t border-border/50 gap-4">
+                                    <div className="text-center">
+                                        <p className="font-bold text-foreground text-lg">{author.followersCount || 0}</p>
+                                        <p>Followers</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="font-bold text-foreground text-lg">{authorStoryCounts.get(author.id) || 0}</p>
+                                        <p>Stories</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Link>
+                  </Card>
                 </div>
-                </Link>
+              </CarouselItem>
             ))}
-            </div>
-        </div>
+          </CarouselContent>
+          <CarouselPrevious className="absolute left-[-1.5rem] top-1/2 -translate-y-1/2" />
+          <CarouselNext className="absolute right-[-1.5rem] top-1/2 -translate-y-1/2" />
+        </Carousel>
       </section>
       )}
     </div>
