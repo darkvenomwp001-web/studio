@@ -233,16 +233,20 @@ export interface ThreadPost {
     timestamp: any;
     reactionsCount?: number;
     commentsCount: number;
-    repostCount?: number; // New field for reposts
+    repostCount?: number;
     isPinned?: boolean;
     isHidden?: boolean;
-    // Fields for reposts
     type: 'original' | 'repost';
     originalPost?: {
       id: string;
       author: UserSummary;
       content: string;
       timestamp: any;
+      storyId?: string;
+      storyTitle?: string;
+      storyCoverUrl?: string;
+      imageUrl?: string;
+      songUrl?: string;
     }
 }
 

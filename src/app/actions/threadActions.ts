@@ -193,3 +193,61 @@ export async function pinThreadPost(postId: string, userId: string): Promise<{ s
         return { success: false, error: 'Could not pin post.' };
     }
 }
+
+
+export async function repostThreadPost(originalPostId: string, user: UserSummary): Promise<{ success: boolean, error?: string }> {
+    if (!user || !user.id) {
+        return { success: false, error: 'You must be signed in to repost.' };
+    }
+    
+    const originalPostRef = doc(db, 'feedPosts', originalPostId);
+    const newPostRef = doc(collection(db, 'feedPosts'));
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const originalPostDoc = await transaction.get(originalPostRef);
+            if (!originalPostDoc.exists()) {
+                throw new Error("Original post not found.");
+            }
+
+            const originalPostData = originalPostDoc.data() as ThreadPost;
+            
+            // Cannot repost a repost
+            if (originalPostData.type === 'repost') {
+                throw new Error("You cannot repost a repost.");
+            }
+
+            const newPostData: ThreadPost = {
+                id: newPostRef.id,
+                author: user,
+                content: '', // Reposts don't have their own primary content, they quote the original
+                timestamp: serverTimestamp(),
+                type: 'repost',
+                commentsCount: 0,
+                reactionsCount: 0,
+                repostCount: 0,
+                originalPost: {
+                    id: originalPostDoc.id,
+                    author: originalPostData.author,
+                    content: originalPostData.content,
+                    timestamp: originalPostData.timestamp,
+                    storyId: originalPostData.storyId,
+                    storyTitle: originalPostData.storyTitle,
+                    storyCoverUrl: originalPostData.storyCoverUrl,
+                    imageUrl: originalPostData.imageUrl,
+                    songUrl: originalPostData.songUrl,
+                },
+            };
+
+            transaction.set(newPostRef, newPostData);
+            transaction.update(originalPostRef, { repostCount: increment(1) });
+        });
+
+        revalidatePath('/');
+        return { success: true };
+
+    } catch (error) {
+        console.error("Error reposting:", error);
+        return { success: false, error: error instanceof Error ? error.message : 'Could not complete repost.' };
+    }
+}

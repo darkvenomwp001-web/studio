@@ -111,7 +111,6 @@
         "fields": {
           "authorId": { "type": "string", "description": "ID of the status author.", "reference": "users" },
           "mediaUrl": { "type": "string", "description": "URL of the image or video for the status." },
-          "note": { "type": "string", "description": "Text content for a note-based status." },
           "status": { "type": "string", "description": "'published' or 'draft'." },
           "createdAt": { "type": "timestamp", "description": "When the status was created." },
           "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." },
@@ -167,6 +166,9 @@
           "songLyricSnippet": { "type": "string", "description": "A snippet of lyrics from the attached song." },
           "reactionsCount": { "type": "number", "description": "Total number of reactions." },
           "commentsCount": { "type": "number", "description": "Total number of comments." },
+          "repostCount": { "type": "number", "description": "Total number of reposts." },
+          "type": { "type": "string", "description": "Type of post: 'original' or 'repost'." },
+          "originalPost": { "type": "map", "description": "A summary of the original post if this is a repost." },
           "timestamp": { "type": "timestamp", "description": "When the post was created." }
         },
         "subcollections": {
@@ -196,6 +198,28 @@
           "content": { "type": "string", "description": "Text content of the announcement." },
           "timestamp": { "type": "timestamp", "description": "When the announcement was posted." }
         }
+      },
+      "questions": {
+          "description": "Questions asked by readers to authors.",
+          "fields": {
+              "asker": { "type": "map", "description": "Summary object of the user who asked." },
+              "authorId": { "type": "string", "description": "ID of the author the question is for.", "reference": "users" },
+              "questionText": { "type": "string", "description": "The text of the question." },
+              "status": { "type": "string", "description": "'unanswered' or 'answered'." },
+              "createdAt": { "type": "timestamp", "description": "When the question was asked." },
+              "answerText": { "type": "string", "description": "The author's answer." },
+              "answeredAt": { "type": "timestamp", "description": "When the question was answered." },
+              "answerer": { "type": "map", "description": "Summary object of the user who answered." }
+          }
+      },
+      "polls": {
+          "description": "Polls created by authors.",
+          "fields": {
+              "authorId": { "type": "string", "description": "ID of the author who created the poll.", "reference": "users" },
+              "question": { "type": "string", "description": "The poll question." },
+              "options": { "type": "array", "description": "Array of poll options with their vote counts." },
+              "createdAt": { "type": "timestamp", "description": "When the poll was created." }
+          }
       }
     }
   }
