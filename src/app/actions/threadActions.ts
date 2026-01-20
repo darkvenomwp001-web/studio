@@ -16,6 +16,8 @@ import {
 } from 'firebase/firestore';
 import type { UserSummary, ThreadPost, ReactionType } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export async function sendGlobalChatMessage(
   author: UserSummary,
@@ -49,20 +51,29 @@ export async function sendGlobalChatMessage(
 }
 
 export async function createThreadPost(postData: Omit<ThreadPost, 'id' | 'timestamp' | 'commentsCount'>): Promise<{ success: boolean; error?: string }> {
-  try {
-    await addDoc(collection(db, 'feedPosts'), {
+  const postCollectionRef = collection(db, 'feedPosts');
+  const finalPostData = {
       ...postData,
       reactionsCount: 0,
       commentsCount: 0,
       isPinned: false,
       timestamp: serverTimestamp()
+  };
+
+  addDoc(postCollectionRef, finalPostData)
+    .then(() => {
+        revalidatePath('/');
+    })
+    .catch(async (serverError) => {
+      const permissionError = new FirestorePermissionError({
+        path: postCollectionRef.path,
+        operation: 'create',
+        requestResourceData: finalPostData,
+      });
+      errorEmitter.emit('permission-error', permissionError);
     });
-    revalidatePath('/'); // Revalidate the main feed
-    return { success: true };
-  } catch (error) {
-    console.error("Error creating thread post:", error);
-    return { success: false, error: "Could not create post." };
-  }
+
+  return { success: true };
 }
 
 export async function updateThreadPost(postId: string, newContent: string, userId: string): Promise<{ success: boolean; error?: string }> {
@@ -70,22 +81,26 @@ export async function updateThreadPost(postId: string, newContent: string, userI
     return { success: false, error: 'User not authenticated.' };
   }
   const postRef = doc(db, 'feedPosts', postId);
-  try {
-    const postSnap = await getDoc(postRef);
-    if (!postSnap.exists() || postSnap.data().author.id !== userId) {
-      return { success: false, error: 'You do not have permission to edit this post.' };
-    }
-    await updateDoc(postRef, {
-      content: newContent,
-      updatedAt: serverTimestamp(),
+  const updateData = {
+    content: newContent,
+    updatedAt: serverTimestamp(),
+  };
+
+  updateDoc(postRef, updateData)
+    .then(() => {
+        revalidatePath('/');
+        revalidatePath(`/threads/edit/${postId}`);
+    })
+    .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: postRef.path,
+            operation: 'update',
+            requestResourceData: updateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
     });
-    revalidatePath('/');
-    revalidatePath(`/threads/edit/${postId}`);
-    return { success: true };
-  } catch (error) {
-    console.error("Error updating post:", error);
-    return { success: false, error: 'Could not update post.' };
-  }
+    
+  return { success: true };
 }
 
 export async function hideThreadPost(postId: string, userId: string): Promise<{ success: boolean; error?: string }> {
@@ -109,22 +124,20 @@ export async function deleteThreadPost(postId: string, userId: string): Promise<
     return { success: false, error: 'User not authenticated.' };
   }
   const postRef = doc(db, 'feedPosts', postId);
-  try {
-    const postSnap = await getDoc(postRef);
-    if (!postSnap.exists()) {
-      return { success: true }; // Post is already gone
-    }
-    // Security check: Only the author can delete the post.
-    if (postSnap.data().author.id !== userId) {
-      return { success: false, error: 'You do not have permission to delete this post.' };
-    }
-    await deleteDoc(postRef);
-    revalidatePath('/');
-    return { success: true };
-  } catch (error) {
-    console.error("Error deleting post:", error);
-    return { success: false, error: "Could not delete post." };
-  }
+  
+  deleteDoc(postRef)
+    .then(() => {
+      revalidatePath('/');
+    })
+    .catch(async (serverError) => {
+      const permissionError = new FirestorePermissionError({
+        path: postRef.path,
+        operation: 'delete',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
+
+  return { success: true };
 }
 
 export async function toggleReaction(postId: string, user: UserSummary, reactionType: ReactionType): Promise<{ success: boolean; error?: string }> {
@@ -135,34 +148,34 @@ export async function toggleReaction(postId: string, user: UserSummary, reaction
     const postRef = doc(db, 'feedPosts', postId);
     const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
 
-    try {
-        await runTransaction(db, async (transaction) => {
-            const reactionDoc = await transaction.get(reactionRef);
-            
-            if (reactionDoc.exists()) {
-                // User is removing their reaction or changing it
-                // For a simple heart toggle, we just delete it.
-                transaction.delete(reactionRef);
-                transaction.update(postRef, { reactionsCount: increment(-1) });
-            } else {
-                // User has no existing reaction, so add a new one
-                transaction.set(reactionRef, { 
-                    userId: user.id, 
-                    type: reactionType, // Will be 'love'
-                    timestamp: serverTimestamp(),
-                    user: user // Storing summary for easy display of reactors
-                });
-                transaction.update(postRef, { reactionsCount: increment(1) });
-            }
+    runTransaction(db, async (transaction) => {
+        const reactionDoc = await transaction.get(reactionRef);
+        
+        if (reactionDoc.exists()) {
+            transaction.delete(reactionRef);
+            transaction.update(postRef, { reactionsCount: increment(-1) });
+        } else {
+            const reactionData = { 
+                userId: user.id, 
+                type: reactionType,
+                timestamp: serverTimestamp(),
+                user: user
+            };
+            transaction.set(reactionRef, reactionData);
+            transaction.update(postRef, { reactionsCount: increment(1) });
+        }
+    }).then(() => {
+        revalidatePath('/');
+    }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: reactionRef.path,
+            operation: 'write',
+            requestResourceData: { type: reactionType },
         });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 
-        revalidatePath('/'); // Revalidate the feed to show updated counts
-        return { success: true };
-    } catch (error) {
-        console.error("Error toggling reaction:", error);
-        const errorMessage = error instanceof Error ? error.message : 'Could not save reaction.';
-        return { success: false, error: errorMessage };
-    }
+    return { success: true };
 }
 
 
@@ -171,27 +184,34 @@ export async function pinThreadPost(postId: string, userId: string): Promise<{ s
         return { success: false, error: 'User not authenticated.' };
     }
     const postRef = doc(db, 'feedPosts', postId);
+    
+    // We get the post first to toggle the pin status, but let the update itself be handled by rules.
     try {
         const postSnap = await getDoc(postRef);
         if (!postSnap.exists()) {
             return { success: false, error: 'Post not found.' };
         }
-        if (postSnap.data().author.id !== userId) {
-            return { success: false, error: 'You do not have permission to pin this post.' };
-        }
         
         const currentPinStatus = postSnap.data().isPinned || false;
         
-        await updateDoc(postRef, {
-            isPinned: !currentPinStatus,
-        });
-
-        revalidatePath('/');
-        return { success: true };
-    } catch (error) {
-        console.error('Error pinning post:', error);
-        return { success: false, error: 'Could not pin post.' };
+        updateDoc(postRef, { isPinned: !currentPinStatus })
+            .then(() => {
+                revalidatePath('/');
+            })
+            .catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: postRef.path,
+                    operation: 'update',
+                    requestResourceData: { isPinned: !currentPinStatus },
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
+            
+    } catch (e) {
+         return { success: false, error: 'Could not read post to pin.' };
     }
+    
+    return { success: true };
 }
 
 
@@ -203,51 +223,53 @@ export async function repostThreadPost(originalPostId: string, user: UserSummary
     const originalPostRef = doc(db, 'feedPosts', originalPostId);
     const newPostRef = doc(collection(db, 'feedPosts'));
 
-    try {
-        await runTransaction(db, async (transaction) => {
-            const originalPostDoc = await transaction.get(originalPostRef);
-            if (!originalPostDoc.exists()) {
-                throw new Error("Original post not found.");
-            }
+    runTransaction(db, async (transaction) => {
+        const originalPostDoc = await transaction.get(originalPostRef);
+        if (!originalPostDoc.exists()) {
+            throw new Error("Original post not found.");
+        }
 
-            const originalPostData = originalPostDoc.data() as ThreadPost;
-            
-            // Cannot repost a repost
-            if (originalPostData.type === 'repost') {
-                throw new Error("You cannot repost a repost.");
-            }
+        const originalPostData = originalPostDoc.data() as ThreadPost;
+        
+        if (originalPostData.type === 'repost') {
+            throw new Error("You cannot repost a repost.");
+        }
 
-            const newPostData: ThreadPost = {
-                id: newPostRef.id,
-                author: user,
-                content: '', // Reposts don't have their own primary content, they quote the original
-                timestamp: serverTimestamp(),
-                type: 'repost',
-                commentsCount: 0,
-                reactionsCount: 0,
-                repostCount: 0,
-                originalPost: {
-                    id: originalPostDoc.id,
-                    author: originalPostData.author,
-                    content: originalPostData.content,
-                    timestamp: originalPostData.timestamp,
-                    storyId: originalPostData.storyId,
-                    storyTitle: originalPostData.storyTitle,
-                    storyCoverUrl: originalPostData.storyCoverUrl,
-                    imageUrl: originalPostData.imageUrl,
-                    songUrl: originalPostData.songUrl,
-                },
-            };
+        const newPostData: Omit<ThreadPost, 'id'> = {
+            author: user,
+            content: '', 
+            timestamp: serverTimestamp(),
+            type: 'repost',
+            commentsCount: 0,
+            reactionsCount: 0,
+            repostCount: 0,
+            originalPost: {
+                id: originalPostDoc.id,
+                author: originalPostData.author,
+                content: originalPostData.content,
+                timestamp: originalPostData.timestamp,
+                storyId: originalPostData.storyId,
+                storyTitle: originalPostData.storyTitle,
+                storyCoverUrl: originalPostData.storyCoverUrl,
+                imageUrl: originalPostData.imageUrl,
+                songUrl: originalPostData.songUrl,
+            },
+        };
 
-            transaction.set(newPostRef, newPostData);
-            transaction.update(originalPostRef, { repostCount: increment(1) });
-        });
-
+        transaction.set(newPostRef, newPostData);
+        transaction.update(originalPostRef, { repostCount: increment(1) });
+    })
+    .then(() => {
         revalidatePath('/');
-        return { success: true };
+    })
+    .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: originalPostRef.path,
+          operation: 'write',
+          requestResourceData: { note: `Repost action by ${user.id}` },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 
-    } catch (error) {
-        console.error("Error reposting:", error);
-        return { success: false, error: error instanceof Error ? error.message : 'Could not complete repost.' };
-    }
+    return { success: true };
 }

@@ -11,6 +11,7 @@ import { ScrollToTop } from '@/components/layout/ScrollToTop';
 import { ThemeProvider } from '@/components/theme-provider';
 import { StoryPreviewProvider } from '@/context/StoryPreviewProvider';
 import StoryPreviewDrawer from '@/components/story/StoryPreviewDrawer';
+import FirebaseErrorListener from '@/components/FirebaseErrorListener';
 
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -50,6 +51,7 @@ export default function RootLayout({
           <AuthProvider>
             <SplashWrapper>
                 <StoryPreviewProvider>
+                  <FirebaseErrorListener />
                   <ScrollToTop />
                   <div className="relative flex min-h-screen flex-col">
                     {children}
