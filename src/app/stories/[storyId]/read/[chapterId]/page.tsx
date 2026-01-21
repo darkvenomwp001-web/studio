@@ -35,6 +35,8 @@ import {
   RectangleHorizontal,
   RotateCcw,
   Search,
+  Pencil,
+  Snowflake,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -59,6 +61,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { createAnnotation } from '@/app/actions/annotationActions';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
@@ -94,29 +99,27 @@ export default function StoryReaderPage() {
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
   const [layoutWidth, setLayoutWidth] = useState<LayoutWidth>('normal');
   const [isNightPortalActive, setIsNightPortalActive] = useState(false);
+  const [isFrozen, setIsFrozen] = useState(false);
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<{ from: number; to: number; snippet: string }[]>([]);
 
+  // Annotation state
+  const [annotationNote, setAnnotationNote] = useState("");
+  const [selectedHighlightColor, setSelectedHighlightColor] = useState("#fde047"); // Default yellow
+
   const contentRef = useRef<HTMLDivElement>(null);
   const viewIncrementedRef = useRef(false);
 
+  const isAuthorOrCollaborator = currentUser && story && (story.author.id === currentUser.id || story.collaborators?.some(c => c.id === currentUser.id));
+
   const editor = useEditor({
-    editable: true,
+    editable: isAuthorOrCollaborator && !isFrozen,
     editorProps: {
         attributes: {
             class: 'prose dark:prose-invert focus:outline-none',
         },
-        handleTextInput: () => true, // Allows typing, but transaction will prevent it
-        handlePaste: () => true,
-        handleDrop: () => true,
-    },
-    // This is the magic part: intercept any transaction that changes the document
-    handleTransaction: (tr) => {
-        // If the document has changed, we prevent the transaction.
-        // We allow transactions that only change the selection (e.g., highlighting text).
-        return !tr.docChanged;
     },
     content: '',
     extensions: [
@@ -125,6 +128,16 @@ export default function StoryReaderPage() {
         TiptapHighlight.configure({ multicolor: true }),
     ],
 });
+
+  useEffect(() => {
+    if (editor) {
+      const isEditable = isAuthorOrCollaborator && !isFrozen;
+      if (editor.isEditable !== isEditable) {
+        editor.setEditable(isEditable);
+      }
+    }
+  }, [isAuthorOrCollaborator, isFrozen, editor]);
+
 
   // Load reading preferences from localStorage
   useEffect(() => {
@@ -380,6 +393,50 @@ export default function StoryReaderPage() {
     }
   };
 
+  const handleSaveAnnotation = async () => {
+    if (!editor || !currentUser || !story || !currentChapter) {
+        toast({ title: "Cannot Annotate", description: "You must be signed in to save annotations.", variant: "destructive" });
+        return;
+    }
+
+    const { from, to, empty } = editor.state.selection;
+    if (empty) {
+        toast({ title: "No Text Selected", description: "Please select some text to annotate.", variant: "destructive" });
+        return;
+    }
+
+    const highlightedText = editor.state.doc.textBetween(from, to, " ");
+
+    const previouslyEditable = editor.isEditable;
+    if (!previouslyEditable) {
+        editor.setOptions({ editable: true });
+    }
+    
+    editor.chain().focus().toggleHighlight({ color: selectedHighlightColor }).run();
+    
+    if (!previouslyEditable) {
+        editor.setOptions({ editable: false });
+    }
+
+    try {
+        await createAnnotation({
+            userId: currentUser.id,
+            storyId: story.id,
+            storyTitle: story.title,
+            chapterId: currentChapter.id,
+            chapterTitle: currentChapter.title,
+            highlightedText,
+            highlightColor: selectedHighlightColor,
+            note: annotationNote || undefined,
+        });
+        toast({ title: "Annotation Saved!", description: "Your highlight and note have been saved." });
+        setAnnotationNote(""); // Reset note field
+    } catch (error) {
+        console.error("Failed to save annotation:", error);
+        toast({ title: "Error", description: "Could not save your annotation.", variant: "destructive" });
+    }
+  };
+
   if (isLoading || !story || !currentChapter || !editor) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
@@ -448,43 +505,59 @@ export default function StoryReaderPage() {
                             Customize the look of the reader.
                         </p>
                     </div>
-                    <div className="grid gap-2">
-                        <Label>Theme</Label>
-                        <RadioGroup defaultValue={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
-                            <Label htmlFor="light" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="light" id="light" className="sr-only" /><Sun className="h-5 w-5" /></Label>
-                            <Label htmlFor="dark" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="dark" id="dark" className="sr-only" /><Moon className="h-5 w-5" /></Label>
-                            <Label htmlFor="system" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="system" id="system" className="sr-only" /><Monitor className="h-5 w-5" /></Label>
-                        </RadioGroup>
-                        <Button variant="outline" size="sm" onClick={() => setIsNightPortalActive(!isNightPortalActive)}><Moon className="mr-2 h-4 w-4" /> Night Portal</Button>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label>Font Size</Label>
-                        <RadioGroup defaultValue={fontSize} onValueChange={(v) => setFontSize(v as FontSize)} className="grid grid-cols-4 gap-2">
-                            {fontSizes.map(size => <Label key={size} htmlFor={`font-${size}`} className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer capitalize"><RadioGroupItem value={size} id={`font-${size}`} className="sr-only" /><TextIcon className="h-4 w-4" />{size}</Label>)}
-                        </RadioGroup>
-                    </div>
-                     <div className="grid gap-2">
-                        <Label>Font Family</Label>
-                        <RadioGroup defaultValue={fontFamily} onValueChange={(v) => setFontFamily(v as FontFamily)} className="grid grid-cols-2 gap-2">
-                            <Label htmlFor="font-sans" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer font-sans"><RadioGroupItem value="sans" id="font-sans" className="sr-only" />Sans-Serif</Label>
-                            <Label htmlFor="font-serif" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer font-serif"><RadioGroupItem value="serif" id="font-serif" className="sr-only" />Serif</Label>
-                        </RadioGroup>
-                    </div>
-                     <div className="grid gap-2">
-                        <Label>Line Height</Label>
-                        <RadioGroup defaultValue={lineHeight} onValueChange={(v) => setLineHeight(v as LineHeight)} className="grid grid-cols-3 gap-2">
-                            <Label htmlFor="lh-tight" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="tight" id="lh-tight" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
-                            <Label htmlFor="lh-normal" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="normal" id="lh-normal" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
-                            <Label htmlFor="lh-loose" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="loose" id="lh-loose" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
-                        </RadioGroup>
-                    </div>
-                     <div className="grid gap-2">
-                        <Label>Layout Width</Label>
-                        <RadioGroup defaultValue={layoutWidth} onValueChange={(v) => setLayoutWidth(v as LayoutWidth)} className="grid grid-cols-2 gap-2">
-                           <Label htmlFor="lw-normal" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="normal" id="lw-normal" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
-                           <Label htmlFor="lw-wide" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="wide" id="lw-wide" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
-                        </RadioGroup>
-                    </div>
+                     <div className="flex items-center space-x-2 p-2 rounded-md border">
+                        <Label htmlFor="freeze-mode" className="flex-grow">Freeze Mode</Label>
+                        <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} disabled={!isAuthorOrCollaborator} />
+                     </div>
+                     <Tabs defaultValue="theme">
+                        <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="theme">Theme</TabsTrigger>
+                            <TabsTrigger value="text">Text</TabsTrigger>
+                            <TabsTrigger value="layout">Layout</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="theme" className="pt-2">
+                            <div className="grid gap-2">
+                                <RadioGroup defaultValue={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
+                                    <Label htmlFor="light" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="light" id="light" className="sr-only" /><Sun className="h-5 w-5" /></Label>
+                                    <Label htmlFor="dark" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="dark" id="dark" className="sr-only" /><Moon className="h-5 w-5" /></Label>
+                                    <Label htmlFor="system" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="system" id="system" className="sr-only" /><Monitor className="h-5 w-5" /></Label>
+                                </RadioGroup>
+                                <Button variant="outline" size="sm" onClick={() => setIsNightPortalActive(!isNightPortalActive)}><Moon className="mr-2 h-4 w-4" /> Night Portal</Button>
+                            </div>
+                        </TabsContent>
+                         <TabsContent value="text" className="pt-2 space-y-4">
+                            <div className="grid gap-2">
+                                <Label>Font Size</Label>
+                                <RadioGroup defaultValue={fontSize} onValueChange={(v) => setFontSize(v as FontSize)} className="grid grid-cols-4 gap-2">
+                                    {fontSizes.map(size => <Label key={size} htmlFor={`font-${size}`} className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer capitalize"><RadioGroupItem value={size} id={`font-${size}`} className="sr-only" /><TextIcon className="h-4 w-4" />{size}</Label>)}
+                                </RadioGroup>
+                            </div>
+                             <div className="grid gap-2">
+                                <Label>Font Family</Label>
+                                <RadioGroup defaultValue={fontFamily} onValueChange={(v) => setFontFamily(v as FontFamily)} className="grid grid-cols-2 gap-2">
+                                    <Label htmlFor="font-sans" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer font-sans"><RadioGroupItem value="sans" id="font-sans" className="sr-only" />Sans-Serif</Label>
+                                    <Label htmlFor="font-serif" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer font-serif"><RadioGroupItem value="serif" id="font-serif" className="sr-only" />Serif</Label>
+                                </RadioGroup>
+                            </div>
+                             <div className="grid gap-2">
+                                <Label>Line Height</Label>
+                                <RadioGroup defaultValue={lineHeight} onValueChange={(v) => setLineHeight(v as LineHeight)} className="grid grid-cols-3 gap-2">
+                                    <Label htmlFor="lh-tight" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="tight" id="lh-tight" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                    <Label htmlFor="lh-normal" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="normal" id="lh-normal" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                    <Label htmlFor="lh-loose" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="loose" id="lh-loose" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                </RadioGroup>
+                            </div>
+                         </TabsContent>
+                         <TabsContent value="layout" className="pt-2">
+                             <div className="grid gap-2">
+                                <Label>Layout Width</Label>
+                                <RadioGroup defaultValue={layoutWidth} onValueChange={(v) => setLayoutWidth(v as LayoutWidth)} className="grid grid-cols-2 gap-2">
+                                   <Label htmlFor="lw-normal" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="normal" id="lw-normal" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
+                                   <Label htmlFor="lw-wide" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="wide" id="lw-wide" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
+                                </RadioGroup>
+                            </div>
+                         </TabsContent>
+                     </Tabs>
                     <Button variant="ghost" size="sm" onClick={resetAppearanceSettings}><RotateCcw className="mr-2 h-4 w-4" /> Reset</Button>
                 </div>
                 </ScrollArea>
@@ -608,22 +681,38 @@ export default function StoryReaderPage() {
             }
         }}> 
              {editor && (
-                <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
+                 <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
                     <div className="flex gap-1 bg-card border shadow-lg p-1 rounded-md">
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="ghost" size="icon" title="Highlight Text"><Highlighter className="h-5 w-5" /></Button>
+                                <Button variant="ghost" size="icon" title="Annotate"><Pencil className="h-5 w-5" /></Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-fit p-1">
-                               <div className="flex items-center gap-1">
-                                 <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()}><div className="w-5 h-5 rounded-full bg-yellow-300 border-2 border-border" /></Button>
-                                 <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#6ee7b7' }).run()}><div className="w-5 h-5 rounded-full bg-emerald-300 border-2 border-border" /></Button>
-                                 <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#f87171' }).run()}><div className="w-5 h-5 rounded-full bg-red-400 border-2 border-border" /></Button>
-                                 <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="w-4 h-4"/></Button>
-                               </div>
+                            <PopoverContent className="w-80">
+                                <div className="grid gap-4">
+                                    <div className="space-y-2">
+                                        <h4 className="font-medium leading-none">Annotate</h4>
+                                        <p className="text-sm text-muted-foreground">
+                                            Highlight this selection and add a private note.
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Highlight Color</Label>
+                                        <div className="flex items-center gap-2">
+                                            <Button variant={selectedHighlightColor === '#fde047' ? 'secondary' : 'ghost'} size="icon" onClick={() => setSelectedHighlightColor('#fde047')}><div className="w-5 h-5 rounded-full bg-yellow-300 border-2 border-border" /></Button>
+                                            <Button variant={selectedHighlightColor === '#6ee7b7' ? 'secondary' : 'ghost'} size="icon" onClick={() => setSelectedHighlightColor('#6ee7b7')}><div className="w-5 h-5 rounded-full bg-emerald-300 border-2 border-border" /></Button>
+                                            <Button variant={selectedHighlightColor === '#f87171' ? 'secondary' : 'ghost'} size="icon" onClick={() => setSelectedHighlightColor('#f87171')}><div className="w-5 h-5 rounded-full bg-red-400 border-2 border-border" /></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="w-4 h-4"/></Button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="annotation-note">Private Note (optional)</Label>
+                                        <Textarea id="annotation-note" value={annotationNote} onChange={(e) => setAnnotationNote(e.target.value)} rows={3} />
+                                    </div>
+                                    <Button onClick={handleSaveAnnotation}>Save Annotation</Button>
+                                </div>
                             </PopoverContent>
                         </Popover>
-                        <Button
+                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => {
