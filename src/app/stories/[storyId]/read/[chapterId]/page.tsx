@@ -115,7 +115,7 @@ export default function StoryReaderPage() {
   const isAuthorOrCollaborator = currentUser && story && (story.author.id === currentUser.id || story.collaborators?.some(c => c.id === currentUser.id));
 
   const editor = useEditor({
-    editable: isAuthorOrCollaborator && !isFrozen,
+    editable: false, // Start as non-editable; useEffect will manage this state.
     editorProps: {
         attributes: {
             class: 'prose dark:prose-invert focus:outline-none',
@@ -131,9 +131,9 @@ export default function StoryReaderPage() {
 
   useEffect(() => {
     if (editor) {
-      const isEditable = isAuthorOrCollaborator && !isFrozen;
-      if (editor.isEditable !== isEditable) {
-        editor.setEditable(isEditable);
+      const isNowEditable = isAuthorOrCollaborator && !isFrozen;
+      if (editor.isEditable !== isNowEditable) {
+        editor.setEditable(isNowEditable);
       }
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
@@ -406,19 +406,14 @@ export default function StoryReaderPage() {
     }
 
     const highlightedText = editor.state.doc.textBetween(from, to, " ");
-
     const previouslyEditable = editor.isEditable;
-    if (!previouslyEditable) {
-        editor.setOptions({ editable: true });
-    }
-    
-    editor.chain().focus().toggleHighlight({ color: selectedHighlightColor }).run();
-    
-    if (!previouslyEditable) {
-        editor.setOptions({ editable: false });
-    }
 
     try {
+        if (!previouslyEditable) {
+            editor.setEditable(true);
+        }
+        editor.chain().focus().toggleHighlight({ color: selectedHighlightColor }).run();
+        
         await createAnnotation({
             userId: currentUser.id,
             storyId: story.id,
@@ -431,9 +426,16 @@ export default function StoryReaderPage() {
         });
         toast({ title: "Annotation Saved!", description: "Your highlight and note have been saved." });
         setAnnotationNote(""); // Reset note field
+
     } catch (error) {
         console.error("Failed to save annotation:", error);
         toast({ title: "Error", description: "Could not save your annotation.", variant: "destructive" });
+        // Attempt to undo the visual highlight if DB save fails
+        editor.chain().focus().unsetHighlight().run();
+    } finally {
+        if (!previouslyEditable) {
+            editor.setEditable(false);
+        }
     }
   };
 
@@ -508,6 +510,7 @@ export default function StoryReaderPage() {
                      <div className="flex items-center space-x-2 p-2 rounded-md border">
                         <Label htmlFor="freeze-mode" className="flex-grow">Freeze Mode</Label>
                         <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} disabled={!isAuthorOrCollaborator} />
+                        <Snowflake className="h-4 w-4 text-muted-foreground" />
                      </div>
                      <Tabs defaultValue="theme">
                         <TabsList className="grid w-full grid-cols-3">
@@ -828,3 +831,4 @@ export default function StoryReaderPage() {
     </>
   );
 }
+
