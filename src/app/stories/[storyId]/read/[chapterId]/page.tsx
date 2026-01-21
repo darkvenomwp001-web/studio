@@ -681,7 +681,14 @@ export default function StoryReaderPage() {
             }
         }}> 
              {editor && (
-                 <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
+                 <BubbleMenu
+                    editor={editor}
+                    tippyOptions={{ duration: 100 }}
+                    shouldShow={({ editor, from, to }) => {
+                        // Show the menu when there is a selection
+                        return from !== to
+                    }}
+                 >
                     <div className="flex gap-1 bg-card border shadow-lg p-1 rounded-md">
                         <Popover>
                             <PopoverTrigger asChild>
@@ -701,7 +708,7 @@ export default function StoryReaderPage() {
                                             <Button variant={selectedHighlightColor === '#fde047' ? 'secondary' : 'ghost'} size="icon" onClick={() => setSelectedHighlightColor('#fde047')}><div className="w-5 h-5 rounded-full bg-yellow-300 border-2 border-border" /></Button>
                                             <Button variant={selectedHighlightColor === '#6ee7b7' ? 'secondary' : 'ghost'} size="icon" onClick={() => setSelectedHighlightColor('#6ee7b7')}><div className="w-5 h-5 rounded-full bg-emerald-300 border-2 border-border" /></Button>
                                             <Button variant={selectedHighlightColor === '#f87171' ? 'secondary' : 'ghost'} size="icon" onClick={() => setSelectedHighlightColor('#f87171')}><div className="w-5 h-5 rounded-full bg-red-400 border-2 border-border" /></Button>
-                                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="w-4 h-4"/></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="w-4 w-4"/></Button>
                                         </div>
                                     </div>
                                     <div className="space-y-2">
