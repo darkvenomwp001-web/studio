@@ -502,11 +502,10 @@ export default function UserProfilePage() {
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8">
         <Tabs defaultValue={defaultTab} className="w-full">
-          <TabsList className={cn("grid w-full max-w-2xl mx-auto", isOwnProfile ? "grid-cols-4" : "grid-cols-3")}>
+          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-3">
             <TabsTrigger value="works"><PenSquare className="mr-2 h-4 w-4" />Works</TabsTrigger>
             <TabsTrigger value="feed"><LayoutGrid className="mr-2 h-4 w-4" />Feed</TabsTrigger>
             <TabsTrigger value="announcements"><Annoyed className="mr-2 h-4 w-4" />Announcements</TabsTrigger>
-            {isOwnProfile && <TabsTrigger value="analytics"><BarChart2 className="mr-2 h-4 w-4" />Analytics</TabsTrigger>}
           </TabsList>
           
           <TabsContent value="works" className="mt-6">
@@ -559,15 +558,7 @@ export default function UserProfilePage() {
           <TabsContent value="announcements" className="mt-6">
              <AnnouncementsTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
           </TabsContent>
-
-          {isOwnProfile && (
-            <TabsContent value="analytics" className="mt-6">
-                <div className="text-center py-16 text-muted-foreground bg-card rounded-lg">
-                    <h2 className="text-xl font-semibold">Coming Soon!</h2>
-                    <p>Detailed analytics about your stories and audience will appear here.</p>
-                </div>
-            </TabsContent>
-          )}
+          
         </Tabs>
       </main>
     </div>
