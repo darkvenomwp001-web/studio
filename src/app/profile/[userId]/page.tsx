@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, FormEvent, useMemo, useTransition } from 'react';
@@ -7,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Music, PenSquare, Quote, Annoyed, Send, MoreHorizontal, Edit, Trash2, Mailbox, BarChart2, LayoutGrid } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Music, PenSquare, Quote, Annoyed, Send, MoreHorizontal, Edit, Trash2, Mailbox, BarChart2, LayoutGrid, Megaphone } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Story, User as AppUser, Announcement, Question } from '@/types';
@@ -505,7 +506,7 @@ export default function UserProfilePage() {
           <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-3">
             <TabsTrigger value="works"><PenSquare className="mr-2 h-4 w-4" />Works</TabsTrigger>
             <TabsTrigger value="feed"><LayoutGrid className="mr-2 h-4 w-4" />Feed</TabsTrigger>
-            <TabsTrigger value="announcements"><Annoyed className="mr-2 h-4 w-4" />Announcements</TabsTrigger>
+            <TabsTrigger value="announcements"><Megaphone className="mr-2 h-4 w-4" />Updates</TabsTrigger>
           </TabsList>
           
           <TabsContent value="works" className="mt-6">

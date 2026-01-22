@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil, RefreshCw, Sparkles, PenSquare, FileText, TrendingUp, LibrarySquare, MessageCircle, Quote } from 'lucide-react';
+import { ArrowRight, BookHeart, Edit, Users, Loader2, Award, Swords, Rocket, Heart as HeartIcon, BookMarked, Wand2, PlusCircle, Send, Image as ImageIcon, X, MoreHorizontal, Archive, Trash2, Pin, Pencil, RefreshCw, Sparkles, PenSquare, FileText, TrendingUp, LibrarySquare, MessageCircle, Quote, LayoutGrid } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -352,7 +352,7 @@ export default function HomePage() {
   const TABS = [
     { value: 'for-you', label: 'For You' },
     { value: 'annotations', label: 'Annotations', icon: <Quote className="mr-2 h-4 w-4" /> },
-    { value: 'threads', label: 'Threads', icon: <MessageCircle className="mr-2 h-4 w-4" /> },
+    { value: 'threads', label: 'Feed', icon: <LayoutGrid className="mr-2 h-4 w-4" /> },
   ];
   
   if (authLoading) {
