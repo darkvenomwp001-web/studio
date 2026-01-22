@@ -735,24 +735,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setNotificationPermission(permission);
 
         if (permission === 'granted') {
-            if (!process.env.NEXT_PUBLIC_VAPID_KEY) {
-                throw new Error("VAPID key is not configured. Please set NEXT_PUBLIC_VAPID_KEY in your environment variables.");
-            }
-            
-            const currentToken = await getToken(messaging, {
-                vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY,
-            });
-
-            if (currentToken && user) {
-                setFcmToken(currentToken);
-                console.log('FCM Token:', currentToken);
-                const userRef = doc(db, 'users', user.id);
-                await updateDoc(userRef, {
-                    fcmTokens: arrayUnion(currentToken)
+            const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
+            if (!vapidKey) {
+                toast({
+                    title: "VAPID Key Missing",
+                    description: "The push notification configuration is incomplete. A VAPID key needs to be set in the environment variables.",
+                    variant: "destructive",
+                    duration: 9000,
                 });
-                toast({ title: "Notifications Enabled", description: "You will now receive updates outside the app." });
-            } else if (!currentToken) {
-                toast({ title: "Could not get token", description: "Failed to retrieve the notification token.", variant: "destructive" });
+                setAuthLoading(false);
+                return;
+            }
+
+            try {
+                const currentToken = await getToken(messaging, { vapidKey });
+
+                if (currentToken && user) {
+                    setFcmToken(currentToken);
+                    console.log('FCM Token:', currentToken);
+                    const userRef = doc(db, 'users', user.id);
+                    await updateDoc(userRef, {
+                        fcmTokens: arrayUnion(currentToken)
+                    });
+                    toast({ title: "Notifications Enabled", description: "You will now receive updates outside the app." });
+                } else if (!currentToken) {
+                    toast({ title: "Could not get token", description: "Failed to retrieve the notification token.", variant: "destructive" });
+                }
+            } catch (err) {
+                 console.error("Error getting FCM token:", err);
+                 if (err instanceof DOMException && err.name === 'InvalidCharacterError') {
+                     toast({
+                         title: "Invalid VAPID Key",
+                         description: "The VAPID key is not correctly encoded. Please ensure it's a valid URL-safe base64 string and check your environment variables.",
+                         variant: "destructive",
+                         duration: 9000
+                     });
+                 } else {
+                     toast({ title: "Notification Setup Error", description: (err as Error).message, variant: "destructive" });
+                 }
             }
         } else {
             toast({ title: "Permission Denied", description: "You won't receive push notifications.", variant: "default" });
@@ -991,3 +1011,5 @@ export function useAuth() {
   }
   return context;
 }
+
+    
