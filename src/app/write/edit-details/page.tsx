@@ -573,9 +573,8 @@ export default function EditStoryDetailsPage() {
         </header>
 
         <Tabs defaultValue="content" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="content"><ListChecks className="mr-2 h-4 w-4" />Content</TabsTrigger>
-                <TabsTrigger value="analytics"><BarChartBig className="mr-2 h-4 w-4" />Analytics</TabsTrigger>
                 <TabsTrigger value="settings"><Settings className="mr-2 h-4 w-4" />Settings</TabsTrigger>
             </TabsList>
             <TabsContent value="content" className="mt-6">
@@ -710,28 +709,6 @@ export default function EditStoryDetailsPage() {
                         </CardFooter>
                         </Card>
                     </div>
-                </div>
-            </TabsContent>
-            <TabsContent value="analytics" className="mt-6">
-                <div className="grid gap-6 md:grid-cols-2">
-                    <Card className="opacity-60">
-                        <CardHeader>
-                            <CardTitle>Views Over Time</CardTitle>
-                            <CardDescription>Daily reads for the last 30 days.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground p-8 bg-muted/50 rounded-md text-center">Analytics coming soon</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="opacity-60">
-                        <CardHeader>
-                            <CardTitle>Vote Distribution</CardTitle>
-                            <CardDescription>How votes are spread across chapters.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground p-8 bg-muted/50 rounded-md text-center">Analytics coming soon</p>
-                        </CardContent>
-                    </Card>
                 </div>
             </TabsContent>
             <TabsContent value="settings" className="mt-6 space-y-6">

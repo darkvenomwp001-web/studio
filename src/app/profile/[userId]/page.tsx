@@ -44,7 +44,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { updateAnnouncement, deleteAnnouncement } from '@/app/actions/announcementActions';
 import { askQuestion, answerQuestion } from '@/app/actions/userActions';
-import UserFeed from '@/components/threads/UserFeed';
+import ProfilePhotoGrid from '@/components/profile/ProfilePhotoGrid';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -552,7 +552,7 @@ export default function UserProfilePage() {
           </TabsContent>
           
           <TabsContent value="feed" className="mt-6">
-            <UserFeed userId={profileUser.id} />
+            <ProfilePhotoGrid userId={profileUser.id} />
           </TabsContent>
 
           <TabsContent value="announcements" className="mt-6">
