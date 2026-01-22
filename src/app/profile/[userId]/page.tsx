@@ -130,7 +130,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching announcements:", error);
-      toast({ title: 'Error loading announcements', variant: 'destructive' });
+      toast({ title: 'Error loading updates', variant: 'destructive' });
       setIsLoading(false);
     });
     return () => unsubscribe();
@@ -144,14 +144,12 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
     try {
       const authorSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
       
-      // Add announcement to the database
       const docRef = await addDoc(collection(db, 'announcements'), {
         author: authorSummary,
         content: newAnnouncement.trim(),
         timestamp: serverTimestamp()
       });
 
-      // Fetch followers to send notifications
       const followersQuery = query(collection(db, 'users'), where('followingIds', 'array-contains', user.id));
       const followersSnapshot = await getDocs(followersQuery);
       
@@ -160,7 +158,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
           const notification = {
             userId: followerDoc.id,
             type: 'author_announcement',
-            message: `posted a new announcement.`,
+            message: `posted a new update.`,
             link: `/profile/${user.id}?tab=announcements`,
             actor: authorSummary
           };
@@ -170,10 +168,10 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
       await Promise.all(batch);
 
       setNewAnnouncement('');
-      toast({ title: 'Announcement posted!' });
+      toast({ title: 'Update posted!' });
     } catch (error) {
-      console.error("Error posting announcement:", error);
-      toast({ title: 'Could not post announcement', variant: 'destructive' });
+      console.error("Error posting update:", error);
+      toast({ title: 'Could not post update', variant: 'destructive' });
     } finally {
       setIsPosting(false);
     }
@@ -184,7 +182,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
     startUpdateTransition(async () => {
       const result = await updateAnnouncement(editingPost.id, editedContent, user.id);
       if (result.success) {
-        toast({ title: "Announcement updated!" });
+        toast({ title: "Update saved!" });
         setEditingPost(null);
       } else {
         toast({ title: "Error", description: result.error, variant: 'destructive' });
@@ -197,7 +195,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
     startDeleteTransition(async () => {
       const result = await deleteAnnouncement(deletingPostId, user.id);
       if (result.success) {
-        toast({ title: "Announcement deleted" });
+        toast({ title: "Update deleted" });
       } else {
         toast({ title: "Error", description: result.error, variant: 'destructive' });
       }
@@ -282,7 +280,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
         ))
       ) : (
         <div className="text-center py-16 text-muted-foreground bg-card rounded-lg">
-          <p>{isOwnProfile ? "You haven't" : `${profileUser.displayName} hasn't`} posted any announcements yet.</p>
+          <p>{isOwnProfile ? "You haven't" : `${profileUser.displayName} hasn't`} posted any updates yet.</p>
         </div>
       )}
     </div>
@@ -290,7 +288,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
         {/* Edit Dialog */}
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Announcement</DialogTitle>
+            <DialogTitle>Edit Update</DialogTitle>
           </DialogHeader>
           <Textarea 
             value={editedContent}
@@ -312,7 +310,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your announcement.
+              This action cannot be undone. This will permanently delete your update.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

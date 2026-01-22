@@ -352,7 +352,7 @@ export default function HomePage() {
   const TABS = [
     { value: 'for-you', label: 'For You' },
     { value: 'annotations', label: 'Annotations', icon: <Quote className="mr-2 h-4 w-4" /> },
-    { value: 'threads', label: 'Feed', icon: <LayoutGrid className="mr-2 h-4 w-4" /> },
+    { value: 'feed', label: 'Feed', icon: <LayoutGrid className="mr-2 h-4 w-4" /> },
   ];
   
   if (authLoading) {
@@ -380,7 +380,7 @@ export default function HomePage() {
               <TabsContent value="annotations" className="mt-6">
                 <AnnotationFeed />
               </TabsContent>
-              <TabsContent value="threads" className="mt-6">
+              <TabsContent value="feed" className="mt-6">
                 <ThreadsFeed />
               </TabsContent>
             </Tabs>

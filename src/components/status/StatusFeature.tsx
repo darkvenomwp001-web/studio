@@ -1,9 +1,10 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StatusUpdate, Poll, Story, Song, TextOverlayStyle } from '@/types';
+import type { User, StatusUpdate, Poll, Story, Song, TextOverlayStyle, ThreadPost } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, getDocs, limit } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -32,6 +33,7 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import VinylPlayer from './VinylPlayer';
 import type { CarouselApi } from "@/components/ui/carousel"
+import { createThreadPost } from '@/app/actions/threadActions';
 
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
@@ -149,6 +151,8 @@ export default function StatusFeature() {
     background: 'translucent'
   });
   
+  const [postDestination, setPostDestination] = useState<'status' | 'feed'>('status');
+
   const [textOverlayPosition, setTextOverlayPosition] = useState({ x: 50, y: 50 }); // Center in percentage
   const [isDragging, setIsDragging] = useState(false);
   const mediaContainerRef = useRef<HTMLDivElement>(null);
@@ -300,6 +304,7 @@ export default function StatusFeature() {
     setStorySearchResults([]);
     setBackgroundStyle('');
     setStatusVisibility('public');
+    setPostDestination('status');
     setTextOverlayStyle({ font: 'sans', color: 'white', alignment: 'center', background: 'translucent'});
     setTextOverlayPosition({ x: 50, y: 50 });
     setDynamicBgColor(null);
@@ -365,31 +370,64 @@ export default function StatusFeature() {
     };
   };
 
-  const handleSubmit = async (status: 'published' | 'draft', data: Record<string, any>) => {
-    const baseStatus = createBaseStatus(status);
-    if (!baseStatus) return;
-
+  const handleSubmit = async (destination: 'status' | 'feed', status: 'published' | 'draft', data: Record<string, any>) => {
+    if (!user) return;
     setIsSubmitting(true);
-    const statusData = { ...baseStatus, ...data };
-    
-    try {
-        if(editingDraft) {
-            await updateDoc(doc(db, "statusUpdates", editingDraft.id), statusData);
-            toast({ title: `Draft updated and ${status}!` });
-        } else {
-            await addDoc(collection(db, 'statusUpdates'), statusData);
-            toast({ title: `Status ${status === 'published' ? 'Published!' : 'Saved as Draft!'}` });
-        }
-        setIsUploaderOpen(false);
-        resetUploader();
-    } catch (error) {
-        console.error("Error saving status:", error);
-        toast({ title: "Failed to save status", variant: "destructive"});
-    } finally {
-        setIsSubmitting(false);
-    }
-  };
 
+    if (destination === 'feed') {
+        if (status === 'draft') {
+            toast({ title: "Not Supported", description: "Saving feed posts as drafts is not yet supported.", variant: "default" });
+            setIsSubmitting(false);
+            return;
+        }
+
+        const postData = {
+            author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
+            content: data.note || '',
+            type: 'original' as const,
+            imageUrl: data.mediaUrl || undefined,
+            storyId: data.sharedStoryId || undefined,
+            storyTitle: data.storyTitle || undefined,
+            storyCoverUrl: data.storyCoverUrl || undefined,
+            songUrl: data.spotifyUrl || undefined,
+            songLyricSnippet: data.songLyricSnippet || undefined,
+        };
+
+        const result = await createThreadPost(postData as Omit<ThreadPost, 'id' | 'timestamp' | 'commentsCount'>);
+
+        if (result.success) {
+            toast({ title: 'Posted to Feed!' });
+            setIsUploaderOpen(false);
+            resetUploader();
+        } else {
+            toast({ title: "Failed to post to feed", description: result.error, variant: "destructive" });
+        }
+    } else { // destination === 'status'
+        const baseStatus = createBaseStatus(status);
+        if (!baseStatus) {
+             setIsSubmitting(false);
+             return;
+        }
+        const statusData = { ...baseStatus, ...data };
+        
+        try {
+            if(editingDraft) {
+                await updateDoc(doc(db, "statusUpdates", editingDraft.id), statusData);
+                toast({ title: `Draft updated and ${status}!` });
+            } else {
+                await addDoc(collection(db, 'statusUpdates'), statusData);
+                toast({ title: `Status ${status === 'published' ? 'Published!' : 'Saved as Draft!'}` });
+            }
+            setIsUploaderOpen(false);
+            resetUploader();
+        } catch (error) {
+            console.error("Error saving status:", error);
+            toast({ title: "Failed to save status", variant: "destructive"});
+        }
+    }
+    setIsSubmitting(false);
+  };
+  
   const handleTextSubmit = async (status: 'published' | 'draft') => {
     if (!noteContent.trim()) {
         toast({ title: "Text is empty", description: "Please write something.", variant: "destructive" });
@@ -397,10 +435,10 @@ export default function StatusFeature() {
     }
     const data: Record<string, any> = {
       note: noteContent.trim(),
-      noteStyle, // Save the new style object
+      noteStyle,
       backgroundStyle,
     };
-    await handleSubmit(status, data);
+    await handleSubmit(postDestination, status, data);
   };
   
   const handleSongSubmit = async (status: 'published' | 'draft') => {
@@ -415,10 +453,14 @@ export default function StatusFeature() {
           vibeTags: vibeTags.split(',').map(t => t.trim()).filter(Boolean),
           dynamicBgColor,
       };
-      await handleSubmit(status, data);
+      await handleSubmit(postDestination, status, data);
   }
 
   const handlePollSubmit = async (status: 'published' | 'draft') => {
+    if (postDestination === 'feed') {
+        toast({ title: "Not Supported", description: "Polls can only be posted as a Status.", variant: "default" });
+        return;
+    }
     if (!pollQuestion.trim() || pollOptions.some(opt => !opt.trim())) {
       toast({ title: 'Poll is incomplete', description: 'Please fill out the question and all options.', variant: 'destructive'});
       return;
@@ -429,7 +471,7 @@ export default function StatusFeature() {
             options: pollOptions.map((opt, index) => ({ id: `opt${index + 1}`, text: opt.trim(), votes: [] }))
         }
     };
-    await handleSubmit(status, data);
+    await handleSubmit('status', status, data);
   }
 
 
@@ -485,7 +527,7 @@ export default function StatusFeature() {
     }
     
     setIsSubmitting(false);
-    await handleSubmit(status, data);
+    await handleSubmit(postDestination, status, data);
   };
   
   const handleShareStorySubmit = async (status: 'published' | 'draft') => {
@@ -496,11 +538,17 @@ export default function StatusFeature() {
     const data: Record<string, any> = {
       sharedStoryId: attachedStory.id,
       note: noteContent.trim() || '', // Optional note
+      storyTitle: attachedStory.title,
+      storyCoverUrl: attachedStory.coverImageUrl,
     };
-    await handleSubmit(status, data);
+    await handleSubmit(postDestination, status, data);
   };
   
   const handleTeaserSubmit = async (status: 'published' | 'draft') => {
+    if (postDestination === 'feed') {
+        toast({ title: "Not Supported", description: "Teasers can only be posted as a Status.", variant: "default" });
+        return;
+    }
     if (!attachedStory) {
       toast({ title: 'No Story Attached', description: 'Please select a story to tease.', variant: 'destructive' });
       return;
@@ -513,7 +561,7 @@ export default function StatusFeature() {
       sharedStoryId: attachedStory.id,
       note: noteContent.trim(),
     };
-    await handleSubmit(status, data);
+    await handleSubmit('status', status, data);
   };
 
   const handleGenerateCaptions = () => {
@@ -601,15 +649,29 @@ export default function StatusFeature() {
   const handleDragEnd = () => {
     setIsDragging(false);
   };
-
-  if (authLoading) {
-    return <div className="h-[98px] w-full bg-card rounded-lg animate-pulse" />;
-  }
-
-  if (!user || user.isAnonymous) {
-    return null;
-  }
   
+  const UploaderFooter = ({ onSaveDraft, onPublish, draftDisabled, publishDisabled, showDraft = true }: { onSaveDraft: () => void, onPublish: () => void, draftDisabled?: boolean, publishDisabled?: boolean, showDraft?: boolean }) => (
+    <DialogFooter className="flex-row justify-between items-center p-4 border-t">
+      <div className="flex items-center gap-2">
+        <Label htmlFor="destination-switch" className={cn("text-sm transition-colors", postDestination === 'status' ? 'text-foreground font-semibold' : 'text-muted-foreground')}>Status</Label>
+        <Switch
+          id="destination-switch"
+          checked={postDestination === 'feed'}
+          onCheckedChange={(checked) => setPostDestination(checked ? 'feed' : 'status')}
+          disabled={isSubmitting}
+        />
+        <Label htmlFor="destination-switch" className={cn("text-sm transition-colors", postDestination === 'feed' ? 'text-foreground font-semibold' : 'text-muted-foreground')}>Feed</Label>
+      </div>
+      <div className="flex items-center gap-2">
+          {showDraft && <Button variant="ghost" onClick={onSaveDraft} disabled={isSubmitting || draftDisabled}>Save Draft</Button>}
+          <Button onClick={onPublish} disabled={isSubmitting || publishDisabled}>
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
+          </Button>
+      </div>
+    </DialogFooter>
+  );
+
+
   const uploaderContent = () => {
     switch (activeUploaderTab) {
       case 'text':
@@ -672,12 +734,13 @@ export default function StatusFeature() {
                  <Button variant="ghost" size="icon" className="text-white" onClick={() => alert('Quote mode coming soon!')}><MessageSquare className="h-4 w-4"/></Button>
               </div>
             </div>
-            <DialogFooter className="flex-row justify-between items-center p-4">
-              <Button variant="ghost" onClick={() => handleTextSubmit('draft')} disabled={isSubmitting || !noteContent.trim()}>Save as Draft</Button>
-              <Button onClick={() => handleTextSubmit('published')} disabled={isSubmitting || !noteContent.trim()}>
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-              </Button>
-            </DialogFooter>
+            <UploaderFooter
+              onSaveDraft={() => handleTextSubmit('draft')}
+              onPublish={() => handleTextSubmit('published')}
+              draftDisabled={!noteContent.trim()}
+              publishDisabled={!noteContent.trim()}
+              showDraft={postDestination === 'status'}
+            />
           </>
         );
       case 'media':
@@ -692,6 +755,7 @@ export default function StatusFeature() {
         };
 
         return (
+          <>
              <div className="flex-grow flex flex-col bg-black justify-center items-center">
               {mediaPreview ? (
                 <div 
@@ -824,9 +888,18 @@ export default function StatusFeature() {
                 </div>
               )}
             </div>
+            <UploaderFooter
+              onSaveDraft={() => handleMediaSubmit('draft')}
+              onPublish={() => handleMediaSubmit('published')}
+              draftDisabled={!mediaFile}
+              publishDisabled={!mediaFile}
+              showDraft={postDestination === 'status'}
+            />
+          </>
         );
         case 'song':
           return (
+            <>
             <ScrollArea className="flex-grow">
                 <div
                     className="flex-grow flex flex-col min-h-full"
@@ -879,6 +952,14 @@ export default function StatusFeature() {
                 </div>
                 </div>
             </ScrollArea>
+             <UploaderFooter
+              onSaveDraft={() => handleSongSubmit('draft')}
+              onPublish={() => handleSongSubmit('published')}
+              draftDisabled={!selectedSong}
+              publishDisabled={!selectedSong}
+              showDraft={postDestination === 'status'}
+            />
+            </>
         );
         case 'poll':
         return (
@@ -913,12 +994,13 @@ export default function StatusFeature() {
                     {pollOptions.length < 4 && <Button variant="outline" className="w-full h-12 border-dashed" onClick={() => setPollOptions([...pollOptions, ''])}>Add option</Button>}
                 </div>
             </div>
-            <DialogFooter className="flex-row justify-between items-center p-4 border-t">
-              <Button variant="ghost" onClick={() => handlePollSubmit('draft')} disabled={isSubmitting || !pollQuestion.trim()}>Save as Draft</Button>
-              <Button onClick={() => handlePollSubmit('published')} disabled={isSubmitting || !pollQuestion.trim()}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-              </Button>
-            </DialogFooter>
+            <UploaderFooter
+              onSaveDraft={() => handlePollSubmit('draft')}
+              onPublish={() => handlePollSubmit('published')}
+              draftDisabled={!pollQuestion.trim()}
+              publishDisabled={!pollQuestion.trim() || pollOptions.some(o => !o.trim())}
+              showDraft={postDestination === 'status'}
+            />
           </>
         );
         case 'share-story':
@@ -948,12 +1030,13 @@ export default function StatusFeature() {
                         </div>
                     </ScrollArea>
                 </div>
-                <DialogFooter className="flex-row justify-between items-center p-4">
-                    <Button variant="ghost" size="sm" onClick={() => handleShareStorySubmit('draft')} disabled={isSubmitting || !attachedStory}>Save as Draft</Button>
-                    <Button onClick={() => handleShareStorySubmit('published')} disabled={isSubmitting || !attachedStory}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post
-                    </Button>
-                </DialogFooter>
+                <UploaderFooter
+                  onSaveDraft={() => handleShareStorySubmit('draft')}
+                  onPublish={() => handleShareStorySubmit('published')}
+                  draftDisabled={!attachedStory}
+                  publishDisabled={!attachedStory}
+                  showDraft={postDestination === 'status'}
+                />
                 </>
             );
         case 'teaser':
@@ -991,12 +1074,13 @@ export default function StatusFeature() {
                         disabled={!attachedStory}
                     />
                 </div>
-                <DialogFooter className="flex-row justify-between items-center p-4">
-                    <Button variant="ghost" size="sm" onClick={() => handleTeaserSubmit('draft')} disabled={isSubmitting || !attachedStory || !noteContent.trim()}>Save as Draft</Button>
-                    <Button onClick={() => handleTeaserSubmit('published')} disabled={isSubmitting || !attachedStory || !noteContent.trim()}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Post Teaser
-                    </Button>
-                </DialogFooter>
+                <UploaderFooter
+                  onSaveDraft={() => handleTeaserSubmit('draft')}
+                  onPublish={() => handleTeaserSubmit('published')}
+                  draftDisabled={!attachedStory || !noteContent.trim()}
+                  publishDisabled={!attachedStory || !noteContent.trim()}
+                   showDraft={postDestination === 'status'}
+                />
                 </>
             );
       default:
@@ -1066,7 +1150,7 @@ export default function StatusFeature() {
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
           <DialogContent className="p-0 m-0 border-0 w-screen h-[90vh] max-h-[700px] max-w-full sm:max-w-md flex flex-col gap-0 rounded-lg">
             <DialogHeader className="p-4 flex-row items-center justify-between border-b">
-                <DialogTitle>Create Status</DialogTitle>
+                <DialogTitle>Create Post</DialogTitle>
                 <div className="flex items-center gap-1">
                     <DialogClose asChild><Button variant="ghost" size="icon"><X className="h-5 w-5"/></Button></DialogClose>
                 </div>
@@ -1100,5 +1184,3 @@ export default function StatusFeature() {
     </div>
   );
 }
-
-    
