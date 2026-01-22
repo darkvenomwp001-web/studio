@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 
 export default function NotificationsSettingsPage() {
-  const { user, loading, enablePushNotifications, notificationPermission, authLoading, fcmToken } = useAuth();
+  const { user, loading, enablePushNotifications, notificationPermission, authLoading, fcmToken, updateUserProfile } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -36,6 +36,12 @@ export default function NotificationsSettingsPage() {
       navigator.clipboard.writeText(fcmToken);
       toast({ title: "Copied!", description: "FCM token copied to clipboard." });
     }
+  };
+
+  const handleSettingChange = async (key: string, value: boolean) => {
+    if (!user) return;
+    const newSettings = { ...user.notificationSettings, [key]: value };
+    await updateUserProfile({ notificationSettings: newSettings });
   };
 
   return (
@@ -94,7 +100,7 @@ export default function NotificationsSettingsPage() {
                     <h4>How to Test:</h4>
                     <ol className="list-decimal list-inside space-y-1">
                         <li>Go to your Firebase project and navigate to <strong>Engage &gt; Messaging</strong>.</li>
-                        <li>Click "Create your first campaign" or "New campaign", and select "Notifications".</li>
+                        <li>Click "Create your first campaign" or "New campaign", and select "Firebase Notification messages".</li>
                         <li>Enter a title and text for your test notification.</li>
                         <li>On the "Send test message" panel on the right, paste the token above into the "Add an FCM registration token" field and click "Test".</li>
                         <li>You should receive the notification on this device.</li>
@@ -112,22 +118,38 @@ export default function NotificationsSettingsPage() {
         <CardContent className="space-y-4">
             <div className="flex items-center justify-between p-2 rounded-lg">
                 <Label htmlFor="email-followers" className="font-normal">New Followers</Label>
-                <Switch id="email-followers" defaultChecked />
+                <Switch 
+                    id="email-followers" 
+                    checked={user?.notificationSettings?.emailOnNewFollower ?? true}
+                    onCheckedChange={(checked) => handleSettingChange('emailOnNewFollower', checked)}
+                />
             </div>
             <Separator />
              <div className="flex items-center justify-between p-2 rounded-lg">
                 <Label htmlFor="email-comments" className="font-normal">Comments and Replies</Label>
-                <Switch id="email-comments" defaultChecked />
+                <Switch 
+                    id="email-comments" 
+                    checked={user?.notificationSettings?.emailOnCommentReply ?? true}
+                    onCheckedChange={(checked) => handleSettingChange('emailOnCommentReply', checked)}
+                />
             </div>
              <Separator />
              <div className="flex items-center justify-between p-2 rounded-lg">
                 <Label htmlFor="email-letters" className="font-normal">New Letters & Responses</Label>
-                <Switch id="email-letters" defaultChecked />
+                <Switch 
+                    id="email-letters" 
+                    checked={user?.notificationSettings?.emailOnNewLetter ?? true}
+                    onCheckedChange={(checked) => handleSettingChange('emailOnNewLetter', checked)}
+                />
             </div>
             <Separator />
              <div className="flex items-center justify-between p-2 rounded-lg">
                 <Label htmlFor="email-announcements" className="font-normal">News and Announcements</Label>
-                <Switch id="email-announcements" />
+                <Switch 
+                    id="email-announcements"
+                    checked={user?.notificationSettings?.emailOnNews ?? false}
+                    onCheckedChange={(checked) => handleSettingChange('emailOnNews', checked)}
+                />
             </div>
         </CardContent>
       </Card>

@@ -34,6 +34,12 @@ export interface User {
   dataAiHint?: string; // Added for AI image hints
   isAnonymous?: boolean;
   isBanned?: boolean; // For user restrictions
+  notificationSettings?: {
+    emailOnNewFollower: boolean;
+    emailOnCommentReply: boolean;
+    emailOnNewLetter: boolean;
+    emailOnNews: boolean;
+  };
 }
 
 export interface UserSummary {

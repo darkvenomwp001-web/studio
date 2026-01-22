@@ -222,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               level: firestoreUserData.level || 1,
               xp: firestoreUserData.xp || 0,
               achievements: firestoreUserData.achievements || [],
+              notificationSettings: firestoreUserData.notificationSettings || { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false },
               profileSongUrl: firestoreUserData.profileSongUrl || '',
               profileSongNote: firestoreUserData.profileSongNote || '',
               followersCount: firestoreUserData.followersCount || 0,
@@ -260,6 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               level: 1,
               xp: 0,
               achievements: [],
+              notificationSettings: { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false },
               followersCount: 0,
               followingCount: 0,
               followingIds: [],
@@ -486,6 +488,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           level: 1,
           xp: 0,
           achievements: [],
+          notificationSettings: { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false },
           followersCount: 0,
           followingCount: 0,
           followingIds: [],
@@ -576,34 +579,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
-
-      // Build the update object explicitly to avoid issues with undefined properties
-      const dataToUpdate: { [key: string]: any } = {
-        updatedAt: serverTimestamp()
-      };
-      if (updates.displayName !== undefined) dataToUpdate.displayName = updates.displayName;
-      if (updates.username !== undefined) dataToUpdate.username = updates.username;
-      if (updates.bio !== undefined) dataToUpdate.bio = updates.bio;
-      if (updates.role !== undefined) dataToUpdate.role = updates.role;
-      if (updates.profileSongUrl !== undefined) dataToUpdate.profileSongUrl = updates.profileSongUrl;
-      if (updates.profileSongNote !== undefined) dataToUpdate.profileSongNote = updates.profileSongNote;
-      if (updates.avatarUrl !== undefined && updates.avatarUrl !== user?.avatarUrl) {
-          dataToUpdate.avatarUrl = updates.avatarUrl;
-      }
       
-      const firebaseProfileUpdates: { displayName?: string | null; photoURL?: string | null } = {};
-      if (updates.displayName !== undefined && updates.displayName !== auth.currentUser.displayName) {
-        firebaseProfileUpdates.displayName = updates.displayName;
-      }
-      if (updates.avatarUrl !== undefined && updates.avatarUrl !== auth.currentUser.photoURL) {
-        firebaseProfileUpdates.photoURL = updates.avatarUrl;
-      }
-
-      if (Object.keys(firebaseProfileUpdates).length > 0) {
-        await updateFirebaseProfile(auth.currentUser, firebaseProfileUpdates);
-      }
+      await updateDoc(userRef, { ...updates, updatedAt: serverTimestamp() });
       
-      await updateDoc(userRef, dataToUpdate);
+      if (updates.displayName || updates.avatarUrl) {
+        await updateFirebaseProfile(auth.currentUser, {
+          displayName: updates.displayName,
+          photoURL: updates.avatarUrl
+        });
+      }
       
       toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     }
@@ -1011,5 +995,3 @@ export function useAuth() {
   }
   return context;
 }
-
-    
