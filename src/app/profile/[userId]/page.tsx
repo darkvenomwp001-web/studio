@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, FormEvent, useMemo, useTransition } from 'react';
@@ -6,10 +7,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Music, PenSquare, Quote, Annoyed, Send, MoreHorizontal, Edit, Trash2, Mailbox, BarChart2, LayoutGrid, PlusCircle } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Music, PenSquare, Quote, Annoyed, Send, MoreHorizontal, Edit, Trash2, Mailbox, BarChart2, LayoutGrid } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Story, User as AppUser, Announcement, Question, Poll } from '@/types';
+import type { Story, User as AppUser, Announcement, Question } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -42,8 +43,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { updateAnnouncement, deleteAnnouncement } from '@/app/actions/announcementActions';
-import { askQuestion, answerQuestion, createPoll } from '@/app/actions/userActions';
-import PollCard from '@/components/polls/PollCard';
+import { askQuestion, answerQuestion } from '@/app/actions/userActions';
 import UserFeed from '@/components/threads/UserFeed';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -327,137 +327,6 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
   );
 }
 
-function PollsTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [polls, setPolls] = useState<Poll[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCreatingPoll, startCreatingPoll] = useTransition();
-
-  // For the creation dialog
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [pollQuestion, setPollQuestion] = useState("");
-  const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
-
-
-  useEffect(() => {
-    if (!profileUser.id) return;
-    setIsLoading(true);
-    const q = query(
-      collection(db, 'polls'),
-      where('authorId', '==', profileUser.id),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setPolls(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Poll)));
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching polls:", error);
-      toast({ title: 'Error loading polls', variant: 'destructive' });
-      setIsLoading(false);
-    });
-    return () => unsubscribe();
-  }, [profileUser.id, toast]);
-
-  const handleCreatePoll = async () => {
-    if (!user) return;
-    if (pollQuestion.trim().length < 5) {
-        toast({ title: "Question too short", variant: "destructive" });
-        return;
-    }
-    if (pollOptions.some(opt => opt.trim() === '') || pollOptions.length < 2) {
-        toast({ title: "Invalid options", description: "You need at least two non-empty options.", variant: "destructive" });
-        return;
-    }
-
-    startCreatingPoll(async () => {
-        const result = await createPoll(user.id, pollQuestion, pollOptions.filter(opt => opt.trim() !== ''));
-        if (result.success) {
-            toast({ title: "Poll created!" });
-            setIsCreateDialogOpen(false);
-            setPollQuestion("");
-            setPollOptions(['', '']);
-        } else {
-            toast({ title: "Error", description: result.error, variant: "destructive" });
-        }
-    });
-  }
-
-  const handleOptionChange = (index: number, value: string) => {
-      const newOptions = [...pollOptions];
-      newOptions[index] = value;
-      setPollOptions(newOptions);
-  }
-
-  const addOption = () => {
-      if (pollOptions.length < 5) {
-          setPollOptions([...pollOptions, '']);
-      }
-  }
-
-  const removeOption = (index: number) => {
-      if (pollOptions.length > 2) {
-          setPollOptions(pollOptions.filter((_, i) => i !== index));
-      }
-  }
-
-  return (
-    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-      <div className="max-w-2xl mx-auto space-y-6">
-        {isOwnProfile && (
-          <div className="text-right">
-            <DialogTrigger asChild>
-                <Button><PlusCircle className="mr-2 h-4 w-4" />Create Poll</Button>
-            </DialogTrigger>
-          </div>
-        )}
-
-        {isLoading ? (
-          <div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-        ) : polls.length > 0 ? (
-          polls.map(poll => <PollCard key={poll.id} poll={poll} />)
-        ) : (
-          <div className="text-center py-16 text-muted-foreground bg-card rounded-lg">
-            <p>{isOwnProfile ? "You haven't" : `${profileUser.displayName} hasn't`} created any polls yet.</p>
-          </div>
-        )}
-      </div>
-
-       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create a New Poll</DialogTitle>
-          <DialogDescription>Engage with your followers by asking a question.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-            <div className="space-y-2">
-                <Label htmlFor="poll-question">Question</Label>
-                <Textarea id="poll-question" value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} placeholder="What should I write about next?" />
-            </div>
-            <div className="space-y-2">
-                <Label>Options</Label>
-                {pollOptions.map((option, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                        <Input value={option} onChange={(e) => handleOptionChange(index, e.target.value)} placeholder={`Option ${index + 1}`} />
-                        {pollOptions.length > 2 && (
-                             <Button variant="ghost" size="icon" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        )}
-                    </div>
-                ))}
-                {pollOptions.length < 5 && <Button variant="outline" size="sm" onClick={addOption} className="w-full mt-2">Add Option</Button>}
-            </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild><Button variant="outline" disabled={isCreatingPoll}>Cancel</Button></DialogClose>
-          <Button onClick={handleCreatePoll} disabled={isCreatingPoll}>
-            {isCreatingPoll && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-            Create Poll
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function UserProfilePage() {
   const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading, signOutFirebase } = useAuth();
   const params = useParams();
@@ -633,11 +502,10 @@ export default function UserProfilePage() {
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8">
         <Tabs defaultValue={defaultTab} className="w-full">
-          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4 sm:grid-cols-5">
+          <TabsList className={cn("grid w-full max-w-2xl mx-auto", isOwnProfile ? "grid-cols-4" : "grid-cols-3")}>
             <TabsTrigger value="works"><PenSquare className="mr-2 h-4 w-4" />Works</TabsTrigger>
             <TabsTrigger value="feed"><LayoutGrid className="mr-2 h-4 w-4" />Feed</TabsTrigger>
             <TabsTrigger value="announcements"><Annoyed className="mr-2 h-4 w-4" />Announcements</TabsTrigger>
-             <TabsTrigger value="polls"><BarChart2 className="mr-2 h-4 w-4" />Polls</TabsTrigger>
             {isOwnProfile && <TabsTrigger value="analytics"><BarChart2 className="mr-2 h-4 w-4" />Analytics</TabsTrigger>}
           </TabsList>
           
@@ -692,9 +560,6 @@ export default function UserProfilePage() {
              <AnnouncementsTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
           </TabsContent>
 
-          <TabsContent value="polls" className="mt-6">
-             <PollsTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
-          </TabsContent>
           {isOwnProfile && (
             <TabsContent value="analytics" className="mt-6">
                 <div className="text-center py-16 text-muted-foreground bg-card rounded-lg">
@@ -709,4 +574,6 @@ export default function UserProfilePage() {
     </>
   );
 }
+    
+
     
