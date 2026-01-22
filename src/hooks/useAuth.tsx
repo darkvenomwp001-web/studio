@@ -69,6 +69,7 @@ interface AuthContextType {
   notifications: NotificationType[];
   requiresPasswordSetup: boolean;
   notificationPermission: NotificationPermission;
+  fcmToken: string | null;
   addNotification: (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
@@ -103,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [requiresPasswordSetup, setRequiresPasswordSetup] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -742,6 +744,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
 
             if (currentToken && user) {
+                setFcmToken(currentToken);
                 console.log('FCM Token:', currentToken);
                 const userRef = doc(db, 'users', user.id);
                 await updateDoc(userRef, {
@@ -956,6 +959,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         notifications,
         requiresPasswordSetup,
         notificationPermission,
+        fcmToken,
         addNotification,
         markNotificationAsRead,
         markAllNotificationsAsRead,

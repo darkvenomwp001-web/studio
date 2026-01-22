@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -9,10 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Loader2, ArrowLeft, Bell, CheckCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
 
 export default function NotificationsSettingsPage() {
-  const { user, loading, enablePushNotifications, notificationPermission, authLoading } = useAuth();
+  const { user, loading, enablePushNotifications, notificationPermission, authLoading, fcmToken } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
   if (loading && !user) {
     return (
@@ -26,6 +30,13 @@ export default function NotificationsSettingsPage() {
     router.push('/auth/signin');
     return null;
   }
+  
+  const copyToClipboard = () => {
+    if (fcmToken) {
+      navigator.clipboard.writeText(fcmToken);
+      toast({ title: "Copied!", description: "FCM token copied to clipboard." });
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 py-8">
@@ -65,6 +76,34 @@ export default function NotificationsSettingsPage() {
         </CardContent>
       </Card>
       
+      {fcmToken && (
+        <Card>
+            <CardHeader>
+                <CardTitle>Test Your Notifications</CardTitle>
+                <CardDescription>Use the token below to send a test push notification from the Firebase Console.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div>
+                    <Label htmlFor="fcm-token">Your Current FCM Token</Label>
+                    <div className="flex gap-2">
+                        <Input id="fcm-token" value={fcmToken} readOnly />
+                        <Button variant="outline" onClick={copyToClipboard}>Copy</Button>
+                    </div>
+                </div>
+                <div className="prose prose-sm dark:prose-invert text-muted-foreground">
+                    <h4>How to Test:</h4>
+                    <ol className="list-decimal list-inside space-y-1">
+                        <li>Go to your Firebase project and navigate to <strong>Engage &gt; Messaging</strong>.</li>
+                        <li>Click "Create your first campaign" or "New campaign", and select "Notifications".</li>
+                        <li>Enter a title and text for your test notification.</li>
+                        <li>On the "Send test message" panel on the right, paste the token above into the "Add an FCM registration token" field and click "Test".</li>
+                        <li>You should receive the notification on this device.</li>
+                    </ol>
+                </div>
+            </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
             <CardTitle>Email Notifications</CardTitle>
