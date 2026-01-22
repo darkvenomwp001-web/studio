@@ -14,6 +14,7 @@
           "followersCount": { "type": "number", "description": "Total number of followers." },
           "followingCount": { "type": "number", "description": "Total number of users they follow." },
           "followingIds": { "type": "array", "description": "An array of user IDs that this user follows." },
+          "fcmTokens": { "type": "array", "description": "Array of Firebase Cloud Messaging tokens for push notifications." },
           "readingList": { "type": "array", "description": "Array of story objects the user has saved." },
           "readChapters": { "type": "array", "description": "Array of chapter IDs the user has read." },
           "shelves": { "type": "array", "description": "Array of custom bookshelves." },
@@ -166,9 +167,6 @@
           "songLyricSnippet": { "type": "string", "description": "A snippet of lyrics from the attached song." },
           "reactionsCount": { "type": "number", "description": "Total number of reactions." },
           "commentsCount": { "type": "number", "description": "Total number of comments." },
-          "repostCount": { "type": "number", "description": "Total number of reposts." },
-          "type": { "type": "string", "description": "Type of post: 'original' or 'repost'." },
-          "originalPost": { "type": "map", "description": "A summary of the original post if this is a repost." },
           "timestamp": { "type": "timestamp", "description": "When the post was created." }
         },
         "subcollections": {

@@ -7,11 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, ArrowLeft, Bell } from 'lucide-react';
+import { Loader2, ArrowLeft, Bell, CheckCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 export default function NotificationsSettingsPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, enablePushNotifications, notificationPermission, authLoading } = useAuth();
   const router = useRouter();
 
   if (loading && !user) {
@@ -38,20 +38,30 @@ export default function NotificationsSettingsPage() {
         </h1>
         <p className="text-muted-foreground">Choose what you want to be notified about.</p>
       </header>
-      
+
       <Card>
         <CardHeader>
             <CardTitle>Push Notifications</CardTitle>
-            <CardDescription>Receive push notifications for important updates.</CardDescription>
+            <CardDescription>Receive real-time pop-up notifications outside the app, even when you're not on the site.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-             <div className="flex items-center justify-between p-4 border rounded-lg">
-                <Label htmlFor="push-everything" className="font-normal flex-1">
-                    Everything
-                    <p className="text-xs text-muted-foreground">Receive all notifications as push alerts.</p>
-                </Label>
-                <Switch id="push-everything" />
-            </div>
+        <CardContent>
+            {notificationPermission === 'granted' && (
+                 <div className="flex items-center gap-2 text-green-600 dark:text-green-500">
+                    <CheckCircle className="h-5 w-5" />
+                    <p>Push notifications are enabled on this device.</p>
+                </div>
+            )}
+             {notificationPermission === 'denied' && (
+                <div className="text-destructive">
+                    <p>You have blocked push notifications. You'll need to enable them in your browser settings to receive them.</p>
+                </div>
+            )}
+             {notificationPermission === 'default' && (
+                <Button onClick={enablePushNotifications} disabled={authLoading}>
+                    {authLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                    Enable Push Notifications
+                </Button>
+            )}
         </CardContent>
       </Card>
       

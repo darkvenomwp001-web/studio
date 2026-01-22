@@ -19,6 +19,7 @@ export interface User {
   followingCount?: number;
   followingIds?: string[];
   closeFriendIds?: string[]; // Added for Close Friends feature
+  fcmTokens?: string[]; // For Push Notifications
   writtenStories?: Story[]; // Changed to hold full story objects for attach feature
   readingList?: ReadingListItem[];
   readChapters?: { [storyId: string]: string[] }; // Track read chapters per story

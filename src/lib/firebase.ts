@@ -3,6 +3,7 @@ import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/a
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getMessaging, isSupported } from 'firebase/messaging';
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -26,4 +27,14 @@ if (!getApps().length) {
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Only initialize messaging on the client
+export const getMessagingInstance = async () => {
+    const isMessagingSupported = await isSupported();
+    if (typeof window !== 'undefined' && isMessagingSupported) {
+        return getMessaging(app);
+    }
+    return null;
+};
+
 export default app;

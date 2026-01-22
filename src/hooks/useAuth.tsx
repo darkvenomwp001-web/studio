@@ -7,6 +7,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import type { User as AppUserType, NotificationType, UserSummary, Story, ReadingListItem, Achievement } from '@/types';
 import { auth, db } from '@/lib/firebase';
 import { addNotification } from '@/app/actions/notificationActions';
+import { getMessagingInstance } from '@/lib/firebase';
+import { getToken, onMessage } from 'firebase/messaging';
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -66,9 +68,11 @@ interface AuthContextType {
   authLoading: boolean;
   notifications: NotificationType[];
   requiresPasswordSetup: boolean;
+  notificationPermission: NotificationPermission;
   addNotification: (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
+  enablePushNotifications: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signUpWithEmailPassword: (data: { username: string; email: string; passwordOne: string; }) => Promise<void>;
   signInWithEmailPassword: (data: { emailOrUsername: string; passwordOne: string; }) => Promise<void>;
@@ -98,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authLoading, setAuthLoading] = useState(false);
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [requiresPasswordSetup, setRequiresPasswordSetup] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -117,6 +122,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
       }
   }, [toast]);
+
+  useEffect(() => {
+    if ('Notification' in window) {
+        setNotificationPermission(Notification.permission);
+    }
+    
+    if ('serviceWorker' in navigator) {
+        const firebaseConfigQueryString = new URLSearchParams({
+            apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+            authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+            messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+            appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+            measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!,
+        }).toString();
+        
+        navigator.serviceWorker.register(`/firebase-messaging-sw.js?${firebaseConfigQueryString}`)
+            .then(registration => {
+                console.log('Service Worker registered with scope:', registration.scope);
+            }).catch(err => {
+                console.error('Service Worker registration failed:', err);
+            });
+    }
+  }, []);
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    if (user && !user.isAnonymous && notificationPermission === 'granted') {
+      getMessagingInstance().then(messaging => {
+        if (messaging) {
+          unsubscribe = onMessage(messaging, (payload) => {
+            console.log('Foreground message received.', payload);
+            toast({
+              title: payload.notification?.title || "New Notification",
+              description: payload.notification?.body,
+            });
+          });
+        }
+      });
+    }
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [user, notificationPermission, toast]);
 
 
   useEffect(() => {
@@ -173,6 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followersCount: firestoreUserData.followersCount || 0,
               followingCount: firestoreUserData.followingIds?.length || 0,
               followingIds: firestoreUserData.followingIds || [],
+              fcmTokens: firestoreUserData.fcmTokens || [],
               writtenStories: writtenStories,
               readingList: firestoreUserData.readingList || [],
               isAnonymous: firebaseUser.isAnonymous,
@@ -208,6 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followersCount: 0,
               followingCount: 0,
               followingIds: [],
+              fcmTokens: [],
               writtenStories: [],
               readingList: [],
               isAnonymous: isAnonymous,
@@ -433,6 +487,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           followersCount: 0,
           followingCount: 0,
           followingIds: [],
+          fcmTokens: [],
           writtenStories: [],
           readingList: [],
           isAnonymous: false,
@@ -663,6 +718,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
   };
+  
+  const enablePushNotifications = async () => {
+    const messaging = await getMessagingInstance();
+    if (!messaging) {
+        toast({ title: "Unsupported Browser", description: "Push notifications are not supported on this browser.", variant: "destructive" });
+        return;
+    }
+
+    setAuthLoading(true);
+
+    try {
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+
+        if (permission === 'granted') {
+            if (!process.env.NEXT_PUBLIC_VAPID_KEY) {
+                throw new Error("VAPID key is not configured. Please set NEXT_PUBLIC_VAPID_KEY in your environment variables.");
+            }
+            
+            const currentToken = await getToken(messaging, {
+                vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY,
+            });
+
+            if (currentToken && user) {
+                console.log('FCM Token:', currentToken);
+                const userRef = doc(db, 'users', user.id);
+                await updateDoc(userRef, {
+                    fcmTokens: arrayUnion(currentToken)
+                });
+                toast({ title: "Notifications Enabled", description: "You will now receive updates outside the app." });
+            } else if (!currentToken) {
+                toast({ title: "Could not get token", description: "Failed to retrieve the notification token.", variant: "destructive" });
+            }
+        } else {
+            toast({ title: "Permission Denied", description: "You won't receive push notifications.", variant: "default" });
+        }
+    } catch (err: any) {
+        console.error('An error occurred while enabling push notifications. ', err);
+        toast({ title: "Notification Error", description: err.message || "An unknown error occurred.", variant: "destructive" });
+    } finally {
+        setAuthLoading(false);
+    }
+  };
 
   const markNotificationAsRead = async (notificationId: string) => {
     if (!user) return;
@@ -857,9 +955,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         authLoading,
         notifications,
         requiresPasswordSetup,
+        notificationPermission,
         addNotification,
         markNotificationAsRead,
         markAllNotificationsAsRead,
+        enablePushNotifications,
         signInWithGoogle,
         signUpWithEmailPassword,
         signInWithEmailPassword,
