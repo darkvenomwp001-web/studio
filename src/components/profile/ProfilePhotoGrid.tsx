@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -7,7 +6,7 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import type { ThreadPost } from '@/types';
 import { Loader2, CameraOff } from 'lucide-react';
 import Image from 'next/image';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 interface ProfilePhotoGridProps {
@@ -105,6 +104,10 @@ export default function ProfilePhotoGrid({ userId }: ProfilePhotoGridProps) {
             
             <Dialog open={!!previewingImage} onOpenChange={(open) => !open && setPreviewingImage(null)}>
                 <DialogContent className="p-0 border-0 bg-transparent shadow-none w-full max-w-2xl h-auto">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>Image Preview</DialogTitle>
+                        <DialogDescription>A larger view of the selected image.</DialogDescription>
+                    </DialogHeader>
                     {previewingImage && (
                         <Image
                             src={previewingImage}
