@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useRef } from 'react';
@@ -264,6 +265,10 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
 
       <PreviewDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <PreviewDialogContent className="p-0 border-0 bg-transparent shadow-none max-w-2xl h-auto">
+            <DialogHeader className="sr-only">
+                <DialogTitle>Image Preview</DialogTitle>
+                <DialogDescription>A larger view of the selected image.</DialogDescription>
+            </DialogHeader>
             {imageUrlForPreview && <Image src={imageUrlForPreview} alt="Post preview" width={1200} height={1200} className="rounded-lg object-contain w-full h-auto" />}
         </PreviewDialogContent>
       </PreviewDialog>
