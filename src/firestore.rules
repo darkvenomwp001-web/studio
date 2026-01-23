@@ -72,7 +72,7 @@ service cloud.firestore {
     // Global Chat
     match /globalChatMessages/{messageId} {
       allow read: if true;
-      allow create: if isSignedIn() && !request.auth.token.isAnonymous;
+      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.author.id);
       allow update, delete: if false;
     }
 
@@ -114,18 +114,18 @@ service cloud.firestore {
     // Feed Posts
     match /feedPosts/{postId} {
       allow read: if true;
-      allow create: if isSignedIn() && !request.auth.token.isAnonymous;
+      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.author.id);
       
       allow update: if isSignedIn() && 
                     ( (isOwner(resource.data.author.id) && request.resource.data.content != resource.data.content)
-                      || (request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'repostCount'])) );
+                      || (request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'repostCount', 'isPinned'])) );
                       
       allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAdmin());
 
       // Feed Post Comments Subcollection
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if isSignedIn() && !request.auth.token.isAnonymous;
+        allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.user.id);
         allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
       }
       

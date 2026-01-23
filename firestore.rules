@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -36,30 +37,31 @@ service cloud.firestore {
     match /stories/{storyId} {
       allow read: if resource.data.visibility == 'Public' 
                     || (resource.data.visibility == 'Unlisted' && isSignedIn())
-                    || (isSignedIn() && 'author' in resource.data && 'id' in resource.data.author && resource.data.author.id == request.auth.uid)
+                    || (isSignedIn() && request.auth.uid == resource.data.author.id)
                     || (isSignedIn() && request.auth.uid in resource.data.collaboratorIds);
 
       allow create: if isWriter();
-      allow update: if isSignedIn() && (('author' in resource.data && 'id' in resource.data.author && resource.data.author.id == request.auth.uid) || request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if isSignedIn() && 'author' in resource.data && 'id' in resource.data.author && resource.data.author.id == request.auth.uid;
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.author.id;
     }
 
     // Comments Collection on Chapters
     match /comments/{commentId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && 'user' in resource.data && 'id' in resource.data.user && resource.data.user.id == request.auth.uid;
+      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.user.id;
     }
     
     // Notifications Collection
     match /notifications/{notificationId} {
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
       allow create: if isSignedIn(); // Can be created by server-side logic or trusted client actions
     }
 
     // Conversations & Messages
     match /conversations/{conversationId} {
-      allow read, create, update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow read, create: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
 
       match /messages/{messageId} {
         allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
@@ -70,77 +72,77 @@ service cloud.firestore {
     // Global Chat
     match /globalChatMessages/{messageId} {
       allow read: if true;
-      allow create: if isSignedIn() && !request.auth.token.isAnonymous;
+      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.author.id);
       allow update, delete: if false;
     }
 
     // Status Updates
     match /statusUpdates/{statusId} {
       allow read: if resource.data.status == 'published' && resource.data.expiresAt > request.time;
-      allow create: if isWriter() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.authorId == request.auth.uid; // For hiding
-      allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+      allow create: if isWriter() && request.auth.uid == request.resource.data.authorId;
+      allow update: if isSignedIn() && isOwner(resource.data.authorId); // For hiding
+      allow delete: if isSignedIn() && isOwner(resource.data.authorId);
     }
 
     // Prompts
     match /prompts/{promptId} {
       allow read: if resource.data.isArchived == false;
       allow create: if isWriter();
-      allow update, delete: if isSignedIn() && 'author' in resource.data && 'id' in resource.data.author && resource.data.author.id == request.auth.uid;
+      allow update, delete: if isSignedIn() && isOwner(resource.data.author.id);
     }
     
     // Letters
     match /letters/{letterId} {
-       allow read: if isSignedIn() && ( ('reader' in resource.data && 'id' in resource.data.reader && resource.data.reader.id == request.auth.uid) || resource.data.authorId == request.auth.uid );
+       allow read: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
        allow create: if isSignedIn();
-       allow update: if isSignedIn() && resource.data.authorId == request.auth.uid; // Only author can pin/respond
-       allow delete: if isSignedIn() && 'reader' in resource.data && 'id' in resource.data.reader && resource.data.reader.id == request.auth.uid; // Only reader can delete
+       allow update: if isSignedIn() && isOwner(resource.data.authorId); // Only author can pin/respond
+       allow delete: if isSignedIn() && isOwner(resource.data.reader.id); // Only reader can delete
     }
 
     // Annotations
     match /annotations/{annotationId} {
-      allow read, create, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, create, update, delete: if isSignedIn() && isOwner(resource.data.userId);
     }
 
     // Announcements by authors
     match /announcements/{announcementId} {
       allow read: if true;
-      allow create: if isWriter() && request.resource.data.author.id == request.auth.uid;
-      allow delete: if isSignedIn() && 'author' in resource.data && 'id' in resource.data.author && resource.data.author.id == request.auth.uid;
+      allow create: if isWriter() && isOwner(request.resource.data.author.id);
+      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
     }
     
     // Feed Posts
     match /feedPosts/{postId} {
       allow read: if true;
-      allow create: if isSignedIn() && !request.auth.token.isAnonymous;
+      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.author.id);
       
       allow update: if isSignedIn() && 
-                    ( ('author' in resource.data && 'id' in resource.data.author && resource.data.author.id == request.auth.uid && request.resource.data.content != resource.data.content)
-                      || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionsCount', 'repostCount'])) );
+                    ( (isOwner(resource.data.author.id) && request.resource.data.content != resource.data.content)
+                      || (request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'repostCount', 'isPinned'])) );
                       
-      allow delete: if isSignedIn() && ( ('author' in resource.data && 'id' in resource.data.author && resource.data.author.id == request.auth.uid) || isAdmin() );
+      allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAdmin());
 
       // Feed Post Comments Subcollection
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if isSignedIn() && !request.auth.token.isAnonymous;
-        allow update, delete: if isSignedIn() && 'user' in resource.data && 'id' in resource.data.user && resource.data.user.id == request.auth.uid;
+        allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.user.id);
+        allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
       }
       
       // Feed Post Reactions Subcollection
       match /reactions/{userId} {
         allow read: if true;
-        allow create, delete: if isSignedIn() && request.auth.uid == userId;
+        allow create, delete: if isSignedIn() && isOwner(userId);
         allow update: if false; // No updates allowed, only create/delete
       }
     }
     
     // Questions asked to authors
     match /questions/{questionId} {
-      allow read: if resource.data.status == 'answered' || (isSignedIn() && resource.data.authorId == request.auth.uid);
+      allow read: if resource.data.status == 'answered' || (isSignedIn() && isOwner(resource.data.authorId));
       allow create: if isSignedIn() && request.resource.data.asker.id == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.authorId == request.auth.uid; // Only the author can answer/update
-      allow delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || ('asker' in resource.data && 'id' in resource.data.asker && resource.data.asker.id == request.auth.uid) ); // Author or Asker can delete
+      allow update: if isSignedIn() && isOwner(resource.data.authorId); // Only the author can answer/update
+      allow delete: if isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.asker.id)); // Author or Asker can delete
     }
 
     // Polls created by authors
@@ -151,7 +153,7 @@ service cloud.firestore {
       allow update: if isSignedIn() 
                     && request.resource.data.question == resource.data.question
                     && request.resource.data.authorId == resource.data.authorId;
-      allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+      allow delete: if isSignedIn() && isOwner(resource.data.authorId);
     }
   }
 }

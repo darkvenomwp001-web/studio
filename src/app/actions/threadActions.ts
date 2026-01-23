@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import type { UserSummary, ThreadPost, ReactionType } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { addNotification } from './notificationActions';
 
 export async function sendGlobalChatMessage(
   author: UserSummary,
@@ -48,12 +49,14 @@ export async function sendGlobalChatMessage(
 
 export async function createThreadPost(postData: Omit<ThreadPost, 'id' | 'timestamp' | 'commentsCount'>): Promise<{ success: boolean; error?: string }> {
     const postCollectionRef = collection(db, 'feedPosts');
+    
     const finalPostData = {
         ...postData,
         reactionsCount: 0,
         commentsCount: 0,
         isPinned: false,
-        timestamp: serverTimestamp()
+        repostCount: 0,
+        timestamp: serverTimestamp(),
     };
 
     try {
