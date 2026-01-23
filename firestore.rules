@@ -115,12 +115,17 @@ service cloud.firestore {
     match /feedPosts/{postId} {
       allow read: if true;
       allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.author.id);
-      
-      allow update: if isSignedIn() && 
-                    ( (isOwner(resource.data.author.id) && request.resource.data.content != resource.data.content)
-                      || (request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'repostCount', 'isPinned'])) );
-                      
       allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAdmin());
+      
+      allow update: if isSignedIn() && (
+        // Owner can update content or isPinned
+        (isOwner(resource.data.author.id) && (request.resource.data.content != resource.data.content || request.resource.data.isPinned != resource.data.isPinned)) ||
+        // Anyone can update reaction counts, and only reaction counts
+        (
+            let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+            (changedKeys.size() == 1 && (changedKeys.has('reactionsCount') || changedKeys.has('repostCount')))
+        )
+      );
 
       // Feed Post Comments Subcollection
       match /comments/{commentId} {
