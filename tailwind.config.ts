@@ -108,6 +108,22 @@ export default {
           'from': { opacity: '1', transform: 'scale(1)' },
           'to': { opacity: '0', transform: 'scale(0.95)' },
         },
+        'splash-fade-out': {
+          '0%': { opacity: '1' },
+          '80%': { opacity: '1' },
+          '100%': { opacity: '0', visibility: 'hidden' },
+        },
+        'splash-logo-pulse': {
+          '0%': { transform: 'scale(0.8)', opacity: '0' },
+          '40%': { transform: 'scale(1.05)', opacity: '1' },
+          '60%': { transform: 'scale(1)', opacity: '1' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+        'splash-text-fade-in': {
+          '0%': { opacity: '0' },
+          '50%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -115,6 +131,9 @@ export default {
         'fade-in': 'fade-in 1.5s ease-in-out',
         'width-grow': 'width-grow 5s linear forwards',
         'fade-out': 'fade-out 0.3s ease-in-out forwards',
+        'splash-fade-out': 'splash-fade-out 2s ease-in-out forwards',
+        'splash-logo-pulse': 'splash-logo-pulse 2s cubic-bezier(0.5, 0, 0.1, 1) forwards',
+        'splash-text-fade-in': 'splash-text-fade-in 2s ease-in-out forwards',
       },
     },
   },
