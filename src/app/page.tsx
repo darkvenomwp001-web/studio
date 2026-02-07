@@ -144,47 +144,49 @@ function ForYouTabContent() {
     <div className="space-y-12 md:space-y-16">
         <section>
             <Carousel
-            opts={{
-                align: "start",
-            }}
-            className="w-full -mt-4"
-            >
-            <CarouselContent className="-ml-4">
-                {featuredStoriesForCarousel.map((story, index) => (
-                <CarouselItem key={story.id} className="basis-4/5 pl-4 sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
-                    <div className="p-1">
-                        <Link
-                            href={`/stories/${story.id}`}
-                            className="block overflow-hidden group relative rounded-lg aspect-[3/4] cursor-pointer bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 shadow-lg"
-                            aria-label={`View story: ${story.title}`}
-                        >
-                            <Image
-                                src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}-banner/600/800`} 
-                                alt={story.title}
-                                layout="fill"
-                                objectFit="cover"
-                                className="group-hover:scale-105 transition-transform duration-500 ease-in-out"
-                                data-ai-hint={story.dataAiHint || "story cover"}
-                                priority={index < 4}
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-4">
-                                <h3 className="text-lg font-headline font-bold text-white text-shadow-md line-clamp-2">{story.title}</h3>
-                                <p className="text-xs text-white/90 line-clamp-1">by {story.author.displayName || story.author.username}</p>
-                            </div>
-                        </Link>
-                    </div>
-                </CarouselItem>
-                ))}
-                {featuredStoriesForCarousel.length === 0 && (
-                    <CarouselItem className="basis-full">
-                        <div className="aspect-[12/5] bg-muted rounded-lg flex items-center justify-center">
-                            <p className="text-muted-foreground">No featured stories available.</p>
+                plugins={[Autoplay({ delay: 5000, stopOnInteraction: true })]}
+                opts={{
+                    align: "start",
+                    loop: true,
+                }}
+                className="w-full -mt-4"
+                >
+                <CarouselContent className="-ml-4">
+                    {featuredStoriesForCarousel.map((story, index) => (
+                    <CarouselItem key={story.id} className="pl-4 basis-full sm:basis-5/6 md:basis-3/4">
+                        <div className="p-1">
+                            <Link
+                                href={`/stories/${story.id}`}
+                                className="block overflow-hidden group relative rounded-lg aspect-[16/9] cursor-pointer bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 shadow-lg"
+                                aria-label={`View story: ${story.title}`}
+                            >
+                                <Image
+                                    src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}-banner/1600/900`} 
+                                    alt={story.title}
+                                    layout="fill"
+                                    objectFit="cover"
+                                    className="group-hover:scale-105 transition-transform duration-500 ease-in-out"
+                                    data-ai-hint={story.dataAiHint || "story cover"}
+                                    priority={index < 2}
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent flex flex-col justify-end p-6 md:p-8">
+                                    <h3 className="text-xl md:text-3xl font-headline font-bold text-white text-shadow-lg line-clamp-2">{story.title}</h3>
+                                    <p className="text-sm md:text-base text-white/90 text-shadow-md line-clamp-1">by {story.author.displayName || story.author.username}</p>
+                                </div>
+                            </Link>
                         </div>
                     </CarouselItem>
-                )}
-            </CarouselContent>
-            <CarouselPrevious className="absolute left-[-1rem] top-1/2 -translate-y-1/2 hidden sm:flex" />
-            <CarouselNext className="absolute right-[-1rem] top-1/2 -translate-y-1/2 hidden sm:flex" />
+                    ))}
+                    {featuredStoriesForCarousel.length === 0 && (
+                        <CarouselItem className="basis-full">
+                            <div className="aspect-[16/9] bg-muted rounded-lg flex items-center justify-center">
+                                <p className="text-muted-foreground">No featured stories available.</p>
+                            </div>
+                        </CarouselItem>
+                    )}
+                </CarouselContent>
+                <CarouselPrevious className="absolute left-[-1rem] top-1/2 -translate-y-1/2 hidden sm:flex" />
+                <CarouselNext className="absolute right-[-1rem] top-1/2 -translate-y-1/2 hidden sm:flex" />
             </Carousel>
       </section>
 
