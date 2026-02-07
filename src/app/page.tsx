@@ -55,13 +55,13 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import Autoplay from "embla-carousel-autoplay";
 import AnnotationFeed from '@/components/annotations/AnnotationFeed';
 import ThreadsFeed from '@/components/threads/ThreadsFeed';
+import Bookshelf from '@/components/shared/Bookshelf';
 
 
 function ForYouTabContent() {
   const { user, loading: authLoading } = useAuth();
   const [allStories, setAllStories] = useState<Story[]>([]);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [featuredAuthors, setFeaturedAuthors] = useState<(UserSummary & { bio?: string, followersCount?: number })[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   useEffect(() => {
@@ -96,14 +96,6 @@ function ForYouTabContent() {
     const unsubscribePrompts = onSnapshot(promptsQuery, (snapshot) => {
       setPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
     }, console.error);
-    
-    const authorsQuery = query(collection(db, 'users'), orderBy('followersCount', 'desc'), firestoreLimit(6));
-    const unsubscribeAuthors = onSnapshot(authorsQuery, (snapshot) => {
-      setFeaturedAuthors(snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      } as UserSummary & { bio?: string, followersCount?: number })));
-    }, console.error);
 
     const timer = setTimeout(() => setIsDataLoading(false), 1500);
 
@@ -111,26 +103,13 @@ function ForYouTabContent() {
       clearTimeout(timer);
       unsubscribeStories();
       unsubscribePrompts();
-      unsubscribeAuthors();
     };
   }, []);
-
-  const authorStoryCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    allStories.forEach(story => {
-        if (story.status !== 'Draft' && story.visibility === 'Public') {
-            const authorId = story.author.id;
-            counts.set(authorId, (counts.get(authorId) || 0) + 1);
-        }
-    });
-    return counts;
-  }, [allStories]);
 
   const featuredStoriesForCarousel = allStories.slice(0, 8);
   const popularStories = [...allStories].sort((a,b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
   const newReleases = [...allStories].sort((a,b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()).slice(0, 10);
   const communityPicks = [...allStories].sort(() => 0.5 - Math.random()).slice(0, 10);
-  const userReadingList: ReadingListItem[] = user?.readingList || [];
   
   if (isDataLoading) {
     return (
@@ -190,23 +169,9 @@ function ForYouTabContent() {
             </Carousel>
       </section>
 
-      {!authLoading && user && userReadingList.length > 0 && (
-        <section>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
-              <BookHeart className="text-accent h-5 w-5" /> Continue Reading
-            </h2>
-             <Link href="/library" passHref>
-                <Button variant="outline" className="text-sm">My Library<ArrowRight className="ml-2 h-4 w-4" /></Button>
-            </Link>
-          </div>
-          <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
-            {userReadingList.slice(0, 10).map(story => ( 
-                <YourStoryCard key={`yourstory-${story.id}`} story={story} />
-            ))}
-          </div>
-        </section>
-      )}
+      <section>
+        <Bookshelf />
+      </section>
 
       <section>
         <div className="flex justify-between items-center mb-4">
@@ -275,69 +240,6 @@ function ForYouTabContent() {
               </div>
           </div>
         </section>
-      )}
-
-      {featuredAuthors.length > 0 && (
-      <section>
-        <h2 className="text-xl font-headline font-bold text-accent mb-6 animate-fade-in">Featured Authors</h2>
-        <Carousel
-          opts={{
-            align: "start",
-            loop: featuredAuthors.length > 2,
-          }}
-          className="w-full max-w-6xl mx-auto"
-        >
-          <CarouselContent className="-ml-4">
-            {featuredAuthors.map((author, index) => (
-              <CarouselItem key={index} className="pl-4 md:basis-1/2 lg:basis-1/3">
-                <div className="p-1 h-full">
-                  <Card className="group overflow-hidden relative shadow-lg hover:shadow-2xl transition-shadow duration-300 h-full flex flex-col">
-                    <Link href={`/profile/${author.id}`} passHref className="flex flex-col h-full">
-                        <div className="cursor-pointer flex flex-col h-full">
-                            <div className="relative h-32 bg-muted flex-shrink-0">
-                                <Image
-                                    src={`https://picsum.photos/seed/${author.id}-banner/600/200`}
-                                    alt={`${author.displayName || author.username}'s banner`}
-                                    layout="fill"
-                                    objectFit="cover"
-                                    className="group-hover:scale-110 transition-transform duration-500"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                            </div>
-                            <div className="p-6 bg-card flex-grow flex flex-col">
-                                <div className="relative -mt-20">
-                                    <Avatar className="w-24 h-24 border-4 border-card bg-card shadow-md mx-auto">
-                                        <AvatarImage src={author.avatarUrl || `https://picsum.photos/seed/${author.id}/120/120`} alt={author.displayName || author.username} data-ai-hint="profile person" />
-                                        <AvatarFallback className="text-3xl">{author.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                    </Avatar>
-                                </div>
-                                <div className="text-center mt-4 flex-grow">
-                                    <h3 className="text-xl font-bold font-headline text-foreground group-hover:text-accent transition-colors">{author.displayName || author.username}</h3>
-                                    <p className="text-sm text-muted-foreground">@{author.username}</p>
-                                    <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{(author.bio || "Passionate Creator")}</p>
-                                </div>
-                                <div className="flex justify-center items-center text-xs text-muted-foreground mt-4 pt-4 border-t border-border/50 gap-4">
-                                    <div className="text-center">
-                                        <p className="font-bold text-foreground text-lg">{author.followersCount || 0}</p>
-                                        <p>Followers</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="font-bold text-foreground text-lg">{authorStoryCounts.get(author.id) || 0}</p>
-                                        <p>Stories</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </Link>
-                  </Card>
-                </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious className="absolute left-[-1.5rem] top-1/2 -translate-y-1/2" />
-          <CarouselNext className="absolute right-[-1.5rem] top-1/2 -translate-y-1/2" />
-        </Carousel>
-      </section>
       )}
     </div>
   );

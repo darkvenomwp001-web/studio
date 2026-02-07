@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { BookMarked, Users, Wand2, Star, Flame, Calendar, TrendingUp, BookHeart } from 'lucide-react';
-import CompactStoryCard from '@/components/shared/CompactStoryCard';
+import YourStoryCard from '@/components/shared/YourStoryCard';
 import type { Story, UserSummary, ReadingListItem } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
@@ -130,14 +130,14 @@ export default function Bookshelf() {
                
                 <section>
                      <div className="flex items-center gap-2 mb-4">
-                        <TrendingUp className="h-6 w-6 text-accent"/>
+                        <BookHeart className="h-6 w-6 text-accent"/>
                         <h3 className="text-2xl font-headline font-semibold">Continue Reading</h3>
                     </div>
                      {user.readingList && user.readingList.length > 0 ? (
                         <ScrollArea className="w-full whitespace-nowrap rounded-md">
                             <div className="flex space-x-4 pb-4">
                                 {user.readingList.map(story => (
-                                    <CompactStoryCard key={`continue-${story.id}`} story={story} />
+                                    <YourStoryCard key={`continue-${story.id}`} story={story} />
                                 ))}
                             </div>
                             <ScrollBar orientation="horizontal" />
