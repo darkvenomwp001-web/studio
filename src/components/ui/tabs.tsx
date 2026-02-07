@@ -57,7 +57,7 @@ TabsContent.displayName = TabsPrimitive.Content.displayName
 
 // New Animated Tabs
 interface AnimatedTabsProps {
-  tabs: { value: string; label: string }[];
+  tabs: { value: string; label: string, icon?: React.ReactNode }[];
   activeTab: string;
   className?: string;
 }
@@ -84,8 +84,9 @@ const AnimatedTabs: React.FC<AnimatedTabsProps> = ({ tabs, activeTab, className 
           key={tab.value}
           ref={el => tabsRef.current[i] = el}
           value={tab.value}
-          className="relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground"
+          className="relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground gap-2"
         >
+          {tab.icon}
           {tab.label}
         </TabsTrigger>
       ))}

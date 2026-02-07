@@ -274,9 +274,9 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState('for-you');
 
   const TABS = [
-    { value: 'for-you', label: 'For You' },
-    { value: 'annotations', label: 'Annotations', icon: <Quote className="mr-2 h-4 w-4" /> },
-    { value: 'feed', label: 'Feed', icon: <LayoutGrid className="mr-2 h-4 w-4" /> },
+    { value: 'for-you', label: 'For You', icon: <Sparkles className="h-4 w-4" /> },
+    { value: 'annotations', label: 'Annotations', icon: <Quote className="h-4 w-4" /> },
+    { value: 'feed', label: 'Feed', icon: <LayoutGrid className="h-4 w-4" /> },
   ];
   
   if (authLoading) {
