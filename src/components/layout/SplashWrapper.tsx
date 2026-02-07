@@ -5,38 +5,22 @@ import { useState, useEffect } from 'react';
 import SplashScreen from './SplashScreen';
 
 export function SplashWrapper({ children }: { children: React.ReactNode }) {
-    const [showSplash, setShowSplash] = useState(false);
-    const [isClient, setIsClient] = useState(false);
+    const [showSplash, setShowSplash] = useState(true);
 
     useEffect(() => {
-        // This runs only on the client-side
-        setIsClient(true);
-        if (sessionStorage.getItem('splashSeen') !== 'true') {
-            setShowSplash(true);
-            sessionStorage.setItem('splashSeen', 'true');
-        }
-    }, []);
+        // This timer should match the duration of the splash screen animation
+        const timer = setTimeout(() => {
+            setShowSplash(false);
+        }, 2500); // The animation in tailwind.config.ts is 2.5s
 
-    useEffect(() => {
-        // This effect manages the timer to hide the splash screen
-        if (showSplash) {
-            const timer = setTimeout(() => {
-                setShowSplash(false);
-            }, 2000); // 2-second splash
+        return () => clearTimeout(timer);
+    }, []); // The empty dependency array ensures this effect runs only once on mount
 
-            return () => clearTimeout(timer);
-        }
-    }, [showSplash]);
-
-    if (!isClient) {
-        // Render nothing on the server to avoid hydration mismatches with sessionStorage
-        return null;
-    }
-
+    // Render the splash screen initially
     if (showSplash) {
         return <SplashScreen />;
     }
     
-    // Once the splash is done (or was never shown), render the main app content
+    // After the timeout, render the main application content
     return <>{children}</>;
 }
