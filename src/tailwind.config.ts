@@ -1,4 +1,3 @@
-
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -108,14 +107,21 @@ export default {
           'from': { opacity: '1', transform: 'scale(1)' },
           'to': { opacity: '0', transform: 'scale(0.95)' },
         },
-        'logo-slide': {
-          '0%': { transform: 'translateX(-100%)', opacity: '0' },
-          '50%': { transform: 'translateX(0)', opacity: '1' },
-          '100%': { transform: 'translateX(100%)', opacity: '0' },
+        'splash-fade-out': {
+            '0%': { opacity: '1' },
+            '85%': { opacity: '1' },
+            '100%': { opacity: '0', visibility: 'hidden' },
         },
-        'text-fade-in': {
-            '0%, 50%': { opacity: '0' },
-            '100%': { opacity: '1' },
+        'splash-logo-pop': {
+            '0%': { transform: 'scale(0)', opacity: '0' },
+            '60%': { transform: 'scale(1.1)', opacity: '1' },
+            '80%': { transform: 'scale(0.95)' },
+            '100%': { transform: 'scale(1)' },
+        },
+        'splash-text-fade-in': {
+            '0%': { opacity: '0', transform: 'translateY(10px)' },
+            '50%': { opacity: '0', transform: 'translateY(10px)' },
+            '100%': { opacity: '1', transform: 'translateY(0)' },
         },
       },
       animation: {
@@ -124,8 +130,9 @@ export default {
         'fade-in': 'fade-in 1.5s ease-in-out',
         'width-grow': 'width-grow 5s linear forwards',
         'fade-out': 'fade-out 0.3s ease-in-out forwards',
-        'logo-slide': 'logo-slide 1s ease-in-out forwards',
-        'text-fade-in': 'text-fade-in 1s ease-in-out forwards',
+        'splash-fade-out': 'splash-fade-out 2.5s ease-in forwards',
+        'splash-logo-pop': 'splash-logo-pop 0.8s cubic-bezier(0.5, 0, 0.1, 1) 0.2s forwards',
+        'splash-text-fade-in': 'splash-text-fade-in 0.8s ease-out 0.5s forwards',
       },
     },
   },

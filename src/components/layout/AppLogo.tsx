@@ -9,15 +9,20 @@ export default function AppLogo({ className }: { className?: string }) {
       viewBox="0 0 48 48"
       xmlns="http://www.w3.org/2000/svg"
       className={cn("h-8 w-8", className)}
+      fill="none"
     >
-      <path
-        d="M12 8C12 5.79086 13.7909 4 16 4H38V44H16C13.7909 44 12 42.2091 12 40V8Z"
-        fill="hsl(var(--primary))"
-      />
-      <path
-        d="M12 8H4V40C4 42.2091 5.79086 44 8 44H12V8Z"
-        fill="hsl(var(--accent))"
-      />
+        <path
+            d="M14 4H30C34.4183 4 38 7.58172 38 12V36C38 40.4183 34.4183 44 30 44H14V4Z"
+            fill="hsl(var(--primary))"
+        />
+        <path
+            d="M14 4H10C7.79086 4 6 5.79086 6 8V40C6 42.2091 7.79086 44 10 44H14V4Z"
+            fill="hsl(var(--accent))"
+        />
+        <path
+            d="M26 14H22V34H26C28.2091 34 30 32.2091 30 30V18C30 15.7909 28.2091 14 26 14Z"
+            fill="hsl(var(--background))"
+        />
     </svg>
   );
 }
