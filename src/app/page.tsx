@@ -70,7 +70,7 @@ function ForYouTabContent() {
       collection(db, 'stories'),
       where('visibility', '==', 'Public'),
       orderBy('lastUpdated', 'desc'),
-      firestoreLimit(40) // Fetch more stories for variety
+      firestoreLimit(100) // Fetch more stories for variety
     );
     const unsubscribeStories = onSnapshot(storiesQuery, (snapshot) => {
       const fetchedStories = snapshot.docs.map(doc => {
@@ -106,9 +106,13 @@ function ForYouTabContent() {
   }, []);
 
   const featuredStoriesForCarousel = allStories.slice(0, 8);
-  const popularStories = [...allStories].sort((a,b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
+  const trendingStories = [...allStories].sort((a,b) => ((b.views || 0) + (b.rating || 0) * 50) - ((a.views || 0) + (a.rating || 0) * 50)).slice(0, 10);
   const newReleases = [...allStories].sort((a,b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()).slice(0, 10);
-  const communityPicks = [...allStories].sort(() => 0.5 - Math.random()).slice(0, 10);
+
+  const fantasyStories = allStories.filter(s => s.genre.toLowerCase() === 'fantasy').slice(0, 10);
+  const romanceStories = allStories.filter(s => s.genre.toLowerCase() === 'romance').slice(0, 10);
+  const scifiStories = allStories.filter(s => s.genre.toLowerCase() === 'sci-fi').slice(0, 10);
+
   
   if (isDataLoading) {
     return (
@@ -131,7 +135,7 @@ function ForYouTabContent() {
                 >
                 <CarouselContent className="-ml-4">
                     {featuredStoriesForCarousel.map((story, index) => (
-                    <CarouselItem key={story.id} className="pl-4 basis-full sm:basis-5/6 md:basis-3/4">
+                    <CarouselItem key={story.id} className="pl-4 md:basis-1/2 lg:basis-2/3">
                         <div className="p-1">
                             <Link
                                 href={`/stories/${story.id}`}
@@ -168,56 +172,80 @@ function ForYouTabContent() {
             </Carousel>
       </section>
 
-      <section>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
-            <TrendingUp className="text-accent h-5 w-5" /> Popular Stories
-          </h2>
-        </div>
-        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
-          {popularStories.length > 0 ? (
-            popularStories.map(story => (
-              <CompactStoryCard key={`popular-${story.id}`} story={story} />
-            ))
-          ) : (
-            <p className="text-muted-foreground">No popular stories to display.</p>
-          )}
-        </div>
-      </section>
+      {trendingStories.length > 0 && (
+        <section>
+            <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+                <TrendingUp className="text-accent h-5 w-5" /> Trending Now
+            </h2>
+            </div>
+            <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+            {trendingStories.map(story => (
+                <CompactStoryCard key={`trending-${story.id}`} story={story} />
+            ))}
+            </div>
+        </section>
+      )}
 
-      <section>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
-             <Sparkles className="text-accent h-5 w-5" /> New Releases
-          </h2>
-        </div>
-        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
-          {newReleases.length > 0 ? (
-            newReleases.map(story => (
-              <CompactStoryCard key={`new-${story.id}`} story={story} />
-            ))
-          ) : (
-            <p className="text-muted-foreground">No new releases to display.</p>
-          )}
-        </div>
-      </section>
-      
-      <section>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
-             <Users className="text-accent h-5 w-5" /> Community Picks
-          </h2>
-        </div>
-        <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
-          {communityPicks.length > 0 ? (
-            communityPicks.map(story => (
-              <CompactStoryCard key={`community-${story.id}`} story={story} />
-            ))
-          ) : (
-             <p className="text-muted-foreground">No community picks to display.</p>
-          )}
-        </div>
-      </section>
+      {newReleases.length > 0 && (
+        <section>
+            <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+                <Sparkles className="text-accent h-5 w-5" /> New Releases
+            </h2>
+            </div>
+            <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+            {newReleases.map(story => (
+                <CompactStoryCard key={`new-${story.id}`} story={story} />
+            ))}
+            </div>
+        </section>
+      )}
+
+      {fantasyStories.length > 0 && (
+        <section>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+              <BookHeart className="text-accent h-5 w-5" /> Fantasy
+            </h2>
+          </div>
+          <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+            {fantasyStories.map(story => (
+              <CompactStoryCard key={`fantasy-${story.id}`} story={story} />
+            ))}
+          </div>
+        </section>
+      )}
+
+       {romanceStories.length > 0 && (
+        <section>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+              <HeartIcon className="text-accent h-5 w-5" /> Romance
+            </h2>
+          </div>
+          <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+            {romanceStories.map(story => (
+              <CompactStoryCard key={`romance-${story.id}`} story={story} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {scifiStories.length > 0 && (
+        <section>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-headline font-semibold flex items-center gap-2 text-foreground animate-fade-in">
+              <Rocket className="text-accent h-5 w-5" /> Sci-Fi
+            </h2>
+          </div>
+          <div className="flex overflow-x-auto space-x-4 py-2 -mx-2 px-2 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent">
+            {scifiStories.map(story => (
+              <CompactStoryCard key={`scifi-${story.id}`} story={story} />
+            ))}
+          </div>
+        </section>
+      )}
 
        {prompts.length > 0 && (
         <section>
