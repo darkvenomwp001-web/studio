@@ -55,7 +55,6 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import Autoplay from "embla-carousel-autoplay";
 import AnnotationFeed from '@/components/annotations/AnnotationFeed';
 import ThreadsFeed from '@/components/threads/ThreadsFeed';
-import Bookshelf from '@/components/shared/Bookshelf';
 
 
 function ForYouTabContent() {
@@ -167,10 +166,6 @@ function ForYouTabContent() {
                 <CarouselPrevious className="absolute left-[-1rem] top-1/2 -translate-y-1/2 hidden sm:flex" />
                 <CarouselNext className="absolute right-[-1rem] top-1/2 -translate-y-1/2 hidden sm:flex" />
             </Carousel>
-      </section>
-
-      <section>
-        <Bookshelf />
       </section>
 
       <section>
