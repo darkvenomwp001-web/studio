@@ -52,7 +52,7 @@ const USER_CACHE_KEY = 'd4rkv3nom_user_cache';
 interface AppUser extends AppUserType {
   email?: string;
   displayName?: string;
-  role?: 'reader' | 'writer';
+  role?: 'reader' | 'writer' | 'moderator' | 'admin';
   followingIds?: string[];
   createdAt?: any; 
   updatedAt?: any; 
@@ -201,10 +201,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
 
-            const updates: { role?: 'writer'; isVerified?: boolean } = {};
+            const updates: { role?: 'admin'; isVerified?: boolean } = {};
             if (firestoreUserData.username === 'authorrafaelnv') {
-                if (firestoreUserData.role !== 'writer') {
-                    updates.role = 'writer';
+                if (firestoreUserData.role !== 'admin') {
+                    updates.role = 'admin';
                 }
                 if (!firestoreUserData.isVerified) {
                     updates.isVerified = true;
@@ -269,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: firebaseUser.email || '',
               avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`,
               bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse! Ready to explore.',
-              role: isOwner ? 'writer' : 'reader', // Default role for all new users
+              role: isOwner ? 'admin' : 'reader', // Default role for all new users
               isVerified: isOwner,
               level: 1,
               xp: 0,
@@ -498,7 +498,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: email,
           avatarUrl: `https://placehold.co/100x100.png?text=${username.charAt(0).toUpperCase()}`,
           bio: 'New to LitVerse! Ready to explore.',
-          role: isOwner ? 'writer' : 'reader', // Default role for all new users
+          role: isOwner ? 'admin' : 'reader', // Default role for all new users
           isVerified: isOwner,
           level: 1,
           xp: 0,

@@ -15,7 +15,7 @@ export interface User {
   bio?: string;
   avatarUrl?: string; // Sticking with avatarUrl for consistency with app code
   displayName?: string;
-  role?: 'reader' | 'writer' | 'moderator';
+  role?: 'reader' | 'writer' | 'moderator' | 'admin';
   followersCount?: number;
   followingCount?: number;
   followingIds?: string[];
