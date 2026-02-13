@@ -25,6 +25,7 @@ import {
   getAdditionalUserInfo,
   signInAnonymously,
   fetchSignInMethodsForEmail,
+  sendEmailVerification,
   type User as FirebaseUser,
   type AuthError
 } from 'firebase/auth';
@@ -51,6 +52,7 @@ const USER_CACHE_KEY = 'd4rkv3nom_user_cache';
 
 interface AppUser extends AppUserType {
   email?: string;
+  emailVerified?: boolean;
   displayName?: string;
   role?: 'reader' | 'writer' | 'moderator' | 'admin';
   followingIds?: string[];
@@ -74,6 +76,8 @@ interface AuthContextType {
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   enablePushNotifications: () => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
+  reloadUser: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signUpWithEmailPassword: (data: { username: string; email: string; passwordOne: string; }) => Promise<void>;
   signInWithEmailPassword: (data: { emailOrUsername: string; passwordOne: string; }) => Promise<void>;
@@ -92,7 +96,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
+const AUTH_ROUTES = ['/auth/signin', '/auth/signup', '/auth/verify-email'];
 const PUBLIC_ROUTES: string[] = ['/', '/stories', '/search', '/profile/', '/write/history', '/settings', '/library', '/admin'];
 const DEFAULT_REDIRECT_AUTHENTICATED = '/';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
@@ -176,7 +180,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | undefined;
     
-    // Attempt to load user from cache first for instant UI
     try {
         const cachedUser = sessionStorage.getItem(USER_CACHE_KEY);
         if (cachedUser) {
@@ -213,10 +216,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (Object.keys(updates).length > 0) {
                 await updateDoc(userRef, updates);
-                Object.assign(firestoreUserData, updates); // Apply updates to the local object too
+                Object.assign(firestoreUserData, updates);
             }
             
-            // Fetch the user's written stories to populate the `writtenStories` field
             const storiesQuery = query(collection(db, "stories"), where("author.id", "==", firebaseUser.uid));
             const storiesSnapshot = await getDocs(storiesQuery);
             const writtenStories = storiesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
@@ -224,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const fullUser: AppUser = {
               id: firebaseUser.uid,
               email: firebaseUser.email || firestoreUserData.email,
+              emailVerified: firebaseUser.emailVerified,
               username: firestoreUserData.username || 'User',
               displayName: firestoreUserData.displayName || firebaseUser.displayName || firestoreUserData.username,
               avatarUrl: firestoreUserData.avatarUrl || firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(firestoreUserData.username || 'U').charAt(0).toUpperCase()}`,
@@ -254,7 +257,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 handleAchievementUnlock(fullUser.achievements, oldAchievements);
             }
           } else {
-            // This logic runs once if the user document doesn't exist, e.g., on first sign-in
             const isAnonymous = firebaseUser.isAnonymous;
             const username = isAnonymous
                 ? `Guest${firebaseUser.uid.substring(0, 6)}`
@@ -267,9 +269,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               username: username,
               displayName: displayName,
               email: firebaseUser.email || '',
+              emailVerified: firebaseUser.emailVerified,
               avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`,
               bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse! Ready to explore.',
-              role: isOwner ? 'admin' : 'reader', // Default role for all new users
+              role: isOwner ? 'admin' : 'reader',
               isVerified: isOwner,
               level: 1,
               xp: 0,
@@ -297,10 +300,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         
       } else {
-        // No user is signed in, so sign them in anonymously
         signInAnonymously(auth).catch((error) => {
             console.error("Anonymous sign-in failed:", error);
-            // If even anonymous sign in fails, there's a deeper config issue.
             setUser(null);
             setLoading(false);
             sessionStorage.removeItem(USER_CACHE_KEY);
@@ -316,6 +317,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [handleAchievementUnlock]);
 
+  useEffect(() => {
+    if (loading) return;
+
+    if (user && !user.isAnonymous) {
+        const isEmailPasswordProvider = auth.currentUser?.providerData.some(
+            (provider) => provider.providerId === 'password'
+        );
+
+        if (isEmailPasswordProvider && !user.emailVerified) {
+            if (pathname !== '/auth/verify-email') {
+                router.push('/auth/verify-email');
+            }
+        } else {
+             if (AUTH_ROUTES.includes(pathname)) {
+                router.push(DEFAULT_REDIRECT_AUTHENTICATED);
+            }
+        }
+    } else {
+        const isAuthRoute = AUTH_ROUTES.includes(pathname);
+        const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
+        if (!isAuthRoute && !isPublicRoute) {
+            router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
+        }
+    }
+  }, [user, loading, pathname, router]);
 
   useEffect(() => {
     if (user?.id && !user.isAnonymous) {
@@ -323,7 +349,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         collection(db, 'notifications'),
         where('userId', '==', user.id),
         orderBy('timestamp', 'desc'),
-        limit(20) // Limit to recent notifications
+        limit(20)
       );
       const unsubscribeNotifications = onSnapshot(notificationsQuery, (querySnapshot) => {
         const fetchedNotifications = querySnapshot.docs.map(doc => ({
@@ -336,38 +362,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Error fetching notifications: ", error);
         toast({ 
             title: "Could Not Load Notifications", 
-            description: "There was an error fetching your notifications. This might be due to missing database indexes. Please check your browser's developer console for a link to create the required index in Firebase.",
+            description: "There was an error fetching your notifications. This might be due to missing database indexes.",
             variant: "destructive",
             duration: 10000 
         });
       });
       return () => unsubscribeNotifications();
     } else {
-      setNotifications([]); // Clear notifications if no user or user is anonymous
+      setNotifications([]);
     }
   }, [user, toast]);
 
-
-  useEffect(() => {
-    if (loading || user?.isAnonymous) return; // Don't route redirect for guests
-    const isAuthRoute = AUTH_ROUTES.includes(pathname);
-    const isPublicRouteAccessible = PUBLIC_ROUTES.some(route => {
-        if (route.endsWith('/')) {
-            return pathname.startsWith(route);
-        }
-        return route === pathname;
-    });
-
-    if (user) {
-      if (isAuthRoute) {
-        router.push(DEFAULT_REDIRECT_AUTHENTICATED);
-      }
-    } else {
-      if (!isAuthRoute && !isPublicRouteAccessible) {
-        router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
-      }
-    }
-  }, [user, loading, pathname, router]);
 
   const handleAuthError = (error: AuthError, operation?: string) => {
     console.error(`Firebase Auth Error during ${operation || 'operation'}:`, error.code, error.message);
@@ -436,6 +441,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     toast({ title: title, description: friendlyMessage, variant: "destructive" });
   };
+  
+  const sendVerificationEmail = async () => {
+    if (auth.currentUser) {
+      try {
+        await sendEmailVerification(auth.currentUser);
+        toast({ title: "Verification Email Sent", description: "A new verification link has been sent to your email address." });
+      } catch (error) {
+        handleAuthError(error as AuthError, "Send Verification Email");
+      }
+    }
+  };
+
+  const reloadUser = async () => {
+      if (auth.currentUser) {
+          await auth.currentUser.reload();
+          const refreshedUser = auth.currentUser;
+          if (refreshedUser?.emailVerified) {
+              setUser(prevUser => prevUser ? { ...prevUser, emailVerified: true } : null);
+              toast({ title: "Email Verified!", description: "Thank you for verifying your email." });
+              router.push('/');
+          } else {
+              toast({ title: "Not Yet Verified", description: "Please check your email and click the verification link.", variant: "destructive" });
+          }
+      }
+  };
 
   const signInWithGoogle = async () => {
     setAuthLoading(true);
@@ -460,7 +490,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUpWithEmailPassword = async ({ email, passwordOne, username }: { username: string; email: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
-        // Check if username is already taken
         const usernameQuery = query(collection(db, 'users'), where('username', '==', username.trim()));
         const usernameSnapshot = await getDocs(usernameQuery);
         if (!usernameSnapshot.empty) {
@@ -473,7 +502,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Check if email is already in use
         const signInMethods = await fetchSignInMethodsForEmail(auth, email);
         if (signInMethods.length > 0) {
             toast({
@@ -486,6 +514,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
   
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
+      await sendVerificationEmail();
       if (userCredential.user) {
         await updateFirebaseProfile(userCredential.user, { displayName: username });
         const userRef = doc(db, 'users', userCredential.user.uid);
@@ -496,9 +525,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           username: username,
           displayName: username,
           email: email,
+          emailVerified: userCredential.user.emailVerified,
           avatarUrl: `https://placehold.co/100x100.png?text=${username.charAt(0).toUpperCase()}`,
           bio: 'New to LitVerse! Ready to explore.',
-          role: isOwner ? 'admin' : 'reader', // Default role for all new users
+          role: isOwner ? 'admin' : 'reader',
           isVerified: isOwner,
           level: 1,
           xp: 0,
@@ -515,7 +545,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           updatedAt: serverTimestamp(),
         };
         await setDoc(userRef, newUserProfile, { merge: true });
-        toast({ title: "Sign Up Successful", description: "Your account has been created. Welcome!" });
+        toast({ title: "Sign Up Successful", description: "Your account has been created. Please check your email to verify your account." });
       }
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-Up");
@@ -529,7 +559,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let email = emailOrUsername.trim();
 
     try {
-      // If it's not an email, assume it's a username and fetch the email from Firestore
       if (!email.includes('@')) {
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("username", "==", email));
@@ -538,9 +567,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!querySnapshot.empty) {
           const userData = querySnapshot.docs[0].data();
           email = userData.email;
-        } else {
-          // To prevent user enumeration, we'll let the next step fail with a generic error
-          // by passing the non-email string to it.
         }
       }
 
@@ -563,7 +589,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
         } catch (fetchError) {
-           // This can happen if the email is invalid format, just fall through to generic handler
         }
       }
       
@@ -579,6 +604,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut(auth);
       sessionStorage.removeItem(USER_CACHE_KEY);
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
+      // Redirect to a public page after sign-out
+      router.push('/');
     } catch (error) {
       handleAuthError(error as AuthError, "Sign Out");
     } finally {
@@ -838,7 +865,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const batch = writeBatch(db);
 
-    // 1. Update the current user's `followingIds` list
     const newFollowingIds = Array.from(new Set([...(user.followingIds || []), targetUserId]));
     batch.update(currentUserRef, {
       followingIds: newFollowingIds,
@@ -846,7 +872,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updatedAt: serverTimestamp()
     });
 
-    // 2. Create a notification for the target user
     const targetUserData = targetUserDoc.data();
     if(targetUserData){
         const actorSummary: UserSummary = {
@@ -882,7 +907,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentUserRef = doc(db, "users", user.id);
     const batch = writeBatch(db);
 
-    // Update the current user's following list
     const newFollowingIds = (user.followingIds || []).filter(id => id !== targetUserId);
     batch.update(currentUserRef, {
         followingIds: newFollowingIds,
@@ -983,6 +1007,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         markNotificationAsRead,
         markAllNotificationsAsRead,
         enablePushNotifications,
+        sendVerificationEmail,
+        reloadUser,
         signInWithGoogle,
         signUpWithEmailPassword,
         signInWithEmailPassword,

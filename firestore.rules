@@ -22,20 +22,26 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-        return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == 'authorrafaelnv';
+        return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // A verified user is one who is signed in and has verified their email address.
+    function isVerifiedUser() {
+        return isSignedIn() && request.auth.token.email_verified == true;
     }
     
     // Users Collection
     match /users/{userId} {
       allow read: if true;
-      allow create: if isSignedIn() && isOwner(userId);
+      allow create: if isOwner(userId);
       // Admin can update any user's profile.
       // A regular user can update their own profile, but cannot change protected fields.
-      allow update: if isAdmin() || (isSignedIn() && isOwner(userId)
+      allow update: if isAdmin() || (isVerifiedUser() && isOwner(userId)
                     && !('isVerified' in request.resource.data.diff(resource.data).affectedKeys())
                     && !('isBanned' in request.resource.data.diff(resource.data).affectedKeys())
                     && !('role' in request.resource.data.diff(resource.data).affectedKeys()));
-      allow delete: if isAdmin(); // Only admin can delete users
+      // Admin can delete any user except themselves.
+      allow delete: if isAdmin() && request.auth.uid != userId;
     }
 
     // Stories Collection
@@ -45,31 +51,31 @@ service cloud.firestore {
                     || (isSignedIn() && request.auth.uid == resource.data.author.id)
                     || (isSignedIn() && request.auth.uid in resource.data.collaboratorIds);
 
-      allow create: if isWriter();
-      allow update: if isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
-      allow delete: if isSignedIn() && request.auth.uid == resource.data.author.id;
+      allow create: if isWriter() && isVerifiedUser();
+      allow update: if isVerifiedUser() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds);
+      allow delete: if isVerifiedUser() && request.auth.uid == resource.data.author.id;
     }
 
     // Comments Collection on Chapters
     match /comments/{commentId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.user.id;
+      allow create: if isVerifiedUser();
+      allow update, delete: if isVerifiedUser() && request.auth.uid == resource.data.user.id;
     }
     
     // Notifications Collection
     match /notifications/{notificationId} {
-      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
-      allow create: if isSignedIn(); // Can be created by server-side logic or trusted client actions
+      allow read, update, delete: if isVerifiedUser() && isOwner(resource.data.userId);
+      allow create: if isVerifiedUser(); // Can be created by server-side logic or trusted client actions
     }
 
     // Conversations & Messages
     match /conversations/{conversationId} {
-      allow read, create: if isSignedIn() && request.auth.uid in resource.data.participantIds;
-      allow update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow read, create: if isVerifiedUser() && request.auth.uid in resource.data.participantIds;
+      allow update: if isVerifiedUser() && request.auth.uid in resource.data.participantIds;
 
       match /messages/{messageId} {
-        allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow read, create: if isVerifiedUser() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
         allow update, delete: if false; // Messages are immutable
       }
     }
@@ -77,67 +83,67 @@ service cloud.firestore {
     // Global Chat
     match /globalChatMessages/{messageId} {
       allow read: if true;
-      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.author.id);
+      allow create: if isVerifiedUser() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.author.id);
       allow update, delete: if false;
     }
 
     // Status Updates
     match /statusUpdates/{statusId} {
       allow read: if resource.data.status == 'published' && resource.data.expiresAt > request.time;
-      allow create: if isWriter() && request.auth.uid == request.resource.data.authorId;
-      allow update: if isSignedIn() && isOwner(resource.data.authorId); // For hiding
-      allow delete: if isSignedIn() && isOwner(resource.data.authorId);
+      allow create: if isWriter() && isVerifiedUser() && request.auth.uid == request.resource.data.authorId;
+      allow update: if isVerifiedUser() && isOwner(resource.data.authorId); // For hiding
+      allow delete: if isVerifiedUser() && isOwner(resource.data.authorId);
     }
 
     // Prompts
     match /prompts/{promptId} {
       allow read: if resource.data.isArchived == false;
-      allow create: if isWriter();
-      allow update, delete: if isSignedIn() && isOwner(resource.data.author.id);
+      allow create: if isWriter() && isVerifiedUser();
+      allow update, delete: if isVerifiedUser() && isOwner(resource.data.author.id);
     }
     
     // Letters
     match /letters/{letterId} {
        allow read: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId));
-       allow create: if isSignedIn();
-       allow update: if isSignedIn() && isOwner(resource.data.authorId); // Only author can pin/respond
-       allow delete: if isSignedIn() && isOwner(resource.data.reader.id); // Only reader can delete
+       allow create: if isVerifiedUser();
+       allow update: if isVerifiedUser() && isOwner(resource.data.authorId); // Only author can pin/respond
+       allow delete: if isVerifiedUser() && isOwner(resource.data.reader.id); // Only reader can delete
     }
 
     // Annotations
     match /annotations/{annotationId} {
-      allow read, create, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      allow read, create, update, delete: if isVerifiedUser() && isOwner(resource.data.userId);
     }
 
     // Announcements by authors
     match /announcements/{announcementId} {
       allow read: if true;
-      allow create: if isWriter() && isOwner(request.resource.data.author.id);
-      allow delete: if isSignedIn() && isOwner(resource.data.author.id);
+      allow create: if isWriter() && isVerifiedUser() && isOwner(request.resource.data.author.id);
+      allow delete: if isVerifiedUser() && isOwner(resource.data.author.id);
     }
     
     // Feed Posts
     match /feedPosts/{postId} {
       allow read: if true;
-      allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.author.id);
+      allow create: if isVerifiedUser() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.author.id);
       
-      allow update: if isSignedIn() && 
+      allow update: if isVerifiedUser() && 
                     ( (isOwner(resource.data.author.id) && request.resource.data.content != resource.data.content)
                       || (request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'repostCount', 'isPinned'])) );
                       
-      allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAdmin());
+      allow delete: if isVerifiedUser() && (isOwner(resource.data.author.id) || isAdmin());
 
       // Feed Post Comments Subcollection
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.user.id);
-        allow update, delete: if isSignedIn() && isOwner(resource.data.user.id);
+        allow create: if isVerifiedUser() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.user.id);
+        allow update, delete: if isVerifiedUser() && isOwner(resource.data.user.id);
       }
       
       // Feed Post Reactions Subcollection
       match /reactions/{userId} {
         allow read: if true;
-        allow create, delete: if isSignedIn() && isOwner(userId);
+        allow create, delete: if isVerifiedUser() && isOwner(userId);
         allow update: if false; // No updates allowed, only create/delete
       }
     }
@@ -145,20 +151,19 @@ service cloud.firestore {
     // Questions asked to authors
     match /questions/{questionId} {
       allow read: if resource.data.status == 'answered' || (isSignedIn() && isOwner(resource.data.authorId));
-      allow create: if isSignedIn() && request.resource.data.asker.id == request.auth.uid;
-      allow update: if isSignedIn() && isOwner(resource.data.authorId); // Only the author can answer/update
-      allow delete: if isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.asker.id)); // Author or Asker can delete
+      allow create: if isVerifiedUser() && request.resource.data.asker.id == request.auth.uid;
+      allow update: if isVerifiedUser() && isOwner(resource.data.authorId); // Only the author can answer/update
+      allow delete: if isVerifiedUser() && (isOwner(resource.data.authorId) || isOwner(resource.data.asker.id)); // Author or Asker can delete
     }
 
     // Polls created by authors
     match /polls/{pollId} {
       allow read: if true;
-      allow create: if isWriter() && request.resource.data.authorId == request.auth.uid;
-      // Let the backend action handle the detailed vote logic. This rule ensures the poll question and author cannot be changed after creation.
-      allow update: if isSignedIn() 
+      allow create: if isWriter() && isVerifiedUser() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isVerifiedUser() 
                     && request.resource.data.question == resource.data.question
                     && request.resource.data.authorId == resource.data.authorId;
-      allow delete: if isSignedIn() && isOwner(resource.data.authorId);
+      allow delete: if isVerifiedUser() && isOwner(resource.data.authorId);
     }
   }
 }

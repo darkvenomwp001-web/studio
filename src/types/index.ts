@@ -12,6 +12,7 @@ export interface User {
   id: string; // Document ID from Firestore (auth UID)
   username: string;
   email?: string;
+  emailVerified?: boolean;
   bio?: string;
   avatarUrl?: string; // Sticking with avatarUrl for consistency with app code
   displayName?: string;
