@@ -34,12 +34,14 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if true;
       allow create: if isOwner(userId);
+
       // Admin can update any user's profile.
       // A regular user can update their own profile, but cannot change protected fields.
-      allow update: if isAdmin() || (isVerifiedUser() && isOwner(userId)
+      allow update: if isAdmin() || (isOwner(userId)
                     && !('isVerified' in request.resource.data.diff(resource.data).affectedKeys())
                     && !('isBanned' in request.resource.data.diff(resource.data).affectedKeys())
                     && !('role' in request.resource.data.diff(resource.data).affectedKeys()));
+
       // Admin can delete any user except themselves.
       allow delete: if isAdmin() && request.auth.uid != userId;
     }
