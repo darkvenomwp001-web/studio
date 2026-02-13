@@ -23,7 +23,9 @@
           "achievements": { "type": "array", "description": "Array of achievement objects the user has unlocked." },
           "createdAt": { "type": "timestamp", "description": "When the user account was created." },
           "updatedAt": { "type": "timestamp", "description": "When the user profile was last updated." },
-          "isAnonymous": { "type": "boolean", "description": "Flag for guest users." }
+          "isAnonymous": { "type": "boolean", "description": "Flag for guest users." },
+          "isBanned": { "type": "boolean", "description": "Flag for banned users." },
+          "isVerified": { "type": "boolean", "description": "Flag for verified users." }
         }
       },
       "stories": {

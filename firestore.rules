@@ -29,7 +29,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if true;
       allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
+      // Admin can update any user's profile.
+      // A regular user can update their own profile, but cannot change protected fields.
+      allow update: if isAdmin() || (isSignedIn() && isOwner(userId)
+                    && !('isVerified' in request.resource.data.diff(resource.data).affectedKeys())
+                    && !('isBanned' in request.resource.data.diff(resource.data).affectedKeys())
+                    && !('role' in request.resource.data.diff(resource.data).affectedKeys()));
       allow delete: if isAdmin(); // Only admin can delete users
     }
 
@@ -115,17 +120,12 @@ service cloud.firestore {
     match /feedPosts/{postId} {
       allow read: if true;
       allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.author.id);
-      allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAdmin());
       
-      allow update: if isSignedIn() && (
-        // Owner can update content or isPinned
-        (isOwner(resource.data.author.id) && (request.resource.data.content != resource.data.content || request.resource.data.isPinned != resource.data.isPinned)) ||
-        // Anyone can update reaction counts, and only reaction counts
-        (
-            let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-            (changedKeys.size() == 1 && (changedKeys.has('reactionsCount') || changedKeys.has('repostCount')))
-        )
-      );
+      allow update: if isSignedIn() && 
+                    ( (isOwner(resource.data.author.id) && request.resource.data.content != resource.data.content)
+                      || (request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'repostCount', 'isPinned'])) );
+                      
+      allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAdmin());
 
       // Feed Post Comments Subcollection
       match /comments/{commentId} {

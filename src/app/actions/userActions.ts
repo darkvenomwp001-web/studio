@@ -1,7 +1,7 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-server';
 import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where, getDocs, deleteDoc, arrayRemove, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { Achievement, User, UserSummary } from '@/types';
 import { addNotification } from './notificationActions';
@@ -120,6 +120,27 @@ export async function updateUserRole(adminId: string, targetUserId: string, newR
     } catch (error) {
         console.error('Error updating user role:', error);
         return { success: false, error: 'Could not update user role.' };
+    }
+}
+
+export async function toggleUserVerifiedStatus(adminId: string, targetUserId: string, newStatus: boolean): Promise<{ success: boolean; error?: string }> {
+    try {
+        const adminUserDoc = await getDoc(doc(db, 'users', adminId));
+        if (!adminUserDoc.exists() || adminUserDoc.data().username !== 'authorrafaelnv') {
+            return { success: false, error: 'Unauthorized operation. You are not an administrator.' };
+        }
+
+        if (!targetUserId) {
+            return { success: false, error: 'Target user ID is required.' };
+        }
+        
+        const targetUserRef = doc(db, 'users', targetUserId);
+        await updateDoc(targetUserRef, { isVerified: newStatus });
+        return { success: true };
+
+    } catch (error) {
+        console.error('Error updating user verified status:', error);
+        return { success: false, error: 'Could not update user verification status.' };
     }
 }
 

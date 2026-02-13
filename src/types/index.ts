@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface Achievement {
@@ -34,6 +35,7 @@ export interface User {
   dataAiHint?: string; // Added for AI image hints
   isAnonymous?: boolean;
   isBanned?: boolean; // For user restrictions
+  isVerified?: boolean; // For verified badge
   notificationSettings?: {
     emailOnNewFollower: boolean;
     emailOnCommentReply: boolean;

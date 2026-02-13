@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { Loader2, Shield, Users, Search, Trash2, UserX, UserCheck, MoreVertical, Edit } from 'lucide-react';
+import { Loader2, Shield, Users, Search, Trash2, UserX, UserCheck, MoreVertical, Edit, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { User as AppUser } from '@/types';
-import { updateUserRole, deleteUserPermanently, banUser } from '@/app/actions/userActions';
+import { updateUserRole, deleteUserPermanently, banUser, toggleUserVerifiedStatus } from '@/app/actions/userActions';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +51,18 @@ function UserRowActions({ user, adminId, onUserAction }: { user: AppUser, adminI
         });
     };
 
+    const handleVerifiedToggle = () => {
+        startTransition(async () => {
+            const result = await toggleUserVerifiedStatus(adminId, user.id, !user.isVerified);
+            if (result.success) {
+                toast({ title: 'Success', description: `${user.displayName} has been ${!user.isVerified ? 'verified' : 'unverified'}.` });
+                onUserAction();
+            } else {
+                toast({ title: 'Error', description: result.error, variant: 'destructive' });
+            }
+        });
+    };
+
     const handleDelete = () => {
         startTransition(async () => {
             const result = await deleteUserPermanently(adminId, user.id);
@@ -78,6 +90,10 @@ function UserRowActions({ user, adminId, onUserAction }: { user: AppUser, adminI
                     <DropdownMenuItem onSelect={() => handleRoleChange('writer')} disabled={user.role === 'writer'}>Writer</DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => handleRoleChange('moderator')} disabled={user.role === 'moderator'}>Moderator</DropdownMenuItem>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={handleVerifiedToggle} className={cn(user.isVerified && "text-blue-600 focus:text-blue-600")}>
+                        <ShieldCheck className="mr-2 h-4 w-4" />
+                        {user.isVerified ? 'Unverify User' : 'Verify User'}
+                    </DropdownMenuItem>
                     <DropdownMenuItem onSelect={handleBanToggle} className={cn(user.isBanned && "text-green-600 focus:text-green-600")}>
                         {user.isBanned ? <UserCheck className="mr-2 h-4 w-4" /> : <UserX className="mr-2 h-4 w-4" />}
                         {user.isBanned ? 'Unban User' : 'Ban User'}
@@ -127,7 +143,7 @@ function UserMobileCard({ user, adminId, onUserAction }: { user: AppUser, adminI
                     <AvatarFallback>{(user.displayName || user.username).charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 space-y-1">
-                    <h3 className="font-semibold">{user.displayName}</h3>
+                    <h3 className="font-semibold flex items-center gap-1.5">{user.displayName} {user.isVerified && <ShieldCheck className="h-4 w-4 text-primary" />}</h3>
                     <p className="text-sm text-muted-foreground">@{user.username}</p>
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                      <div className="flex items-center gap-2 pt-1">
@@ -251,7 +267,7 @@ export default function AdminPage() {
                                                             </Avatar>
                                                         </div>
                                                         <div className="ml-4">
-                                                            <div className="text-sm font-medium text-foreground">{u.displayName}</div>
+                                                            <div className="text-sm font-medium text-foreground flex items-center gap-1.5">{u.displayName} {u.isVerified && <ShieldCheck className="h-4 w-4 text-primary" />}</div>
                                                             <div className="text-sm text-muted-foreground">@{u.username}</div>
                                                         </div>
                                                     </div>
@@ -279,5 +295,3 @@ export default function AdminPage() {
         </div>
     );
 }
-
-    
