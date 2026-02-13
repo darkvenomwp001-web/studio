@@ -201,9 +201,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
 
-            if (firestoreUserData.username === 'authorrafaelnv' && firestoreUserData.role !== 'writer') {
-                await updateDoc(userRef, { role: 'writer' });
-                firestoreUserData.role = 'writer';
+            const updates: { role?: 'writer'; isVerified?: boolean } = {};
+            if (firestoreUserData.username === 'authorrafaelnv') {
+                if (firestoreUserData.role !== 'writer') {
+                    updates.role = 'writer';
+                }
+                if (!firestoreUserData.isVerified) {
+                    updates.isVerified = true;
+                }
+            }
+
+            if (Object.keys(updates).length > 0) {
+                await updateDoc(userRef, updates);
+                Object.assign(firestoreUserData, updates); // Apply updates to the local object too
             }
             
             // Fetch the user's written stories to populate the `writtenStories` field
@@ -232,6 +242,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               writtenStories: writtenStories,
               readingList: firestoreUserData.readingList || [],
               isAnonymous: firebaseUser.isAnonymous,
+              isVerified: firestoreUserData.isVerified,
+              isBanned: firestoreUserData.isBanned,
               createdAt: firestoreUserData.createdAt,
               updatedAt: firestoreUserData.updatedAt,
             };
@@ -258,6 +270,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`,
               bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse! Ready to explore.',
               role: isOwner ? 'writer' : 'reader', // Default role for all new users
+              isVerified: isOwner,
               level: 1,
               xp: 0,
               achievements: [],
@@ -476,6 +489,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userCredential.user) {
         await updateFirebaseProfile(userCredential.user, { displayName: username });
         const userRef = doc(db, 'users', userCredential.user.uid);
+        const isOwner = username === 'authorrafaelnv';
         
         const newUserProfile: AppUser = {
           id: userCredential.user.uid,
@@ -484,7 +498,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: email,
           avatarUrl: `https://placehold.co/100x100.png?text=${username.charAt(0).toUpperCase()}`,
           bio: 'New to LitVerse! Ready to explore.',
-          role: 'reader', // Default role for all new users
+          role: isOwner ? 'writer' : 'reader', // Default role for all new users
+          isVerified: isOwner,
           level: 1,
           xp: 0,
           achievements: [],
