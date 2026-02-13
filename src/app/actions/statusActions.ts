@@ -1,7 +1,7 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-server';
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc, Timestamp, addDoc, collection } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import type { StatusUpdate } from '@/types';
