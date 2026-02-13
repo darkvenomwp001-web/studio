@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Music, PenSquare, Quote, Annoyed, Send, MoreHorizontal, Edit, Trash2, Mailbox, BarChart2, LayoutGrid, Megaphone, ShieldCheck } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Music, PenSquare, Quote, Annoyed, Send, MoreHorizontal, Edit, Trash2, Mailbox, BarChart2, LayoutGrid, Megaphone } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Story, User as AppUser, Announcement, Question } from '@/types';
@@ -48,6 +48,7 @@ import { askQuestion, answerQuestion } from '@/app/actions/userActions';
 import ProfilePhotoGrid from '@/components/profile/ProfilePhotoGrid';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import VerifiedBadge from '@/components/icons/VerifiedBadge';
 
 
 interface ProfileStoryCardProps {
@@ -465,7 +466,7 @@ export default function UserProfilePage() {
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground flex items-center justify-center md:justify-start gap-2">
                 {displayName}
-                {profileUser.isVerified && <ShieldCheck className="h-7 w-7 text-primary" title="Verified User" />}
+                {profileUser.isVerified && <VerifiedBadge className="h-7 w-7" title="Verified User" />}
               </h1>
               <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
               {profileUser.bio && <p className="text-muted-foreground mt-2 max-w-xl">{profileUser.bio}</p>}
