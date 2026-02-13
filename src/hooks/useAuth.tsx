@@ -300,12 +300,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         
       } else {
-        signInAnonymously(auth).catch((error) => {
-            console.error("Anonymous sign-in failed:", error);
-            setUser(null);
-            setLoading(false);
-            sessionStorage.removeItem(USER_CACHE_KEY);
-        });
+        setUser(null);
+        setLoading(false);
+        sessionStorage.removeItem(USER_CACHE_KEY);
       }
     });
 
@@ -1036,3 +1033,5 @@ export function useAuth() {
   }
   return context;
 }
+
+    
