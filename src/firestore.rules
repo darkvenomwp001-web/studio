@@ -24,13 +24,25 @@ service cloud.firestore {
     function isAdmin() {
         return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == 'authorrafaelnv';
     }
-    
+
     // Users Collection
     match /users/{userId} {
       allow read: if true;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isAdmin(); // Only admin can delete users
+
+      // A user can create their own profile document, but only if the 'id' field in the
+      // new document matches their own user ID. This prevents spoofing.
+      allow create: if request.auth.uid != null && request.resource.data.id == request.auth.uid;
+
+      // An admin can update any user's profile.
+      // A regular user can update their own profile, but cannot change protected fields like 'role', 'isBanned', or 'isVerified'.
+      allow update: if (isSignedIn() && isOwner(userId) &&
+                        request.resource.data.role == resource.data.role &&
+                        request.resource.data.isBanned == resource.data.isBanned &&
+                        request.resource.data.isVerified == resource.data.isVerified)
+                    || isAdmin();
+
+      // Admin can delete any user except themselves.
+      allow delete: if isAdmin() && request.auth.uid != userId;
     }
 
     // Stories Collection
