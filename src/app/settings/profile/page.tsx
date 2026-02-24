@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export default function EditProfilePage() {
   const { user, loading: authLoadingGlobal, authLoading: specificAuthLoading, updateUserProfile } = useAuth();
@@ -170,7 +171,7 @@ export default function EditProfilePage() {
                     >
                         <UploadCloud className="text-white h-8 w-8" />
                     </button>
-                    <Input id="avatarUpload" type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" disabled={anySubmitting} />
+                    <input id="avatarUpload" type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" disabled={anySubmitting} />
                   </div>
                   <div className="flex-1 text-center sm:text-left space-y-2">
                     <h2 className="text-2xl font-bold font-headline">{displayName || 'Your Name'}</h2>
@@ -231,8 +232,8 @@ export default function EditProfilePage() {
                                 <SelectValue placeholder="Are you a reader or a writer?" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="reader" className="flex items-center gap-2">Reader</SelectItem>
-                                <SelectItem value="writer" className="flex items-center gap-2">Writer</SelectItem>
+                                <SelectItem value="reader">Reader</SelectItem>
+                                <SelectItem value="writer">Writer</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -246,7 +247,7 @@ export default function EditProfilePage() {
                         <Music className="h-5 w-5" />
                         <h3 className="text-lg font-headline">The Vibe</h3>
                     </div>
-                    <Card className="bg-muted/20 border-dashed border-2">
+                    <Card className="bg-muted/20 border-dashed border-2 shadow-none">
                         <CardContent className="p-4 space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="profileSongUrl" className="text-xs uppercase tracking-wider font-bold text-muted-foreground flex items-center gap-1.5">
