@@ -1,4 +1,3 @@
-
 'use client'; 
 
 import Link from 'next/link';
@@ -34,6 +33,7 @@ import Autoplay from "embla-carousel-autoplay";
 import AnnotationFeed from '@/components/annotations/AnnotationFeed';
 import ThreadsFeed from '@/components/threads/ThreadsFeed';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 function ForYouTabContent() {
   const [allStories, setAllStories] = useState<Story[]>([]);
