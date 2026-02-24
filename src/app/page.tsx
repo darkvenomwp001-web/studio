@@ -113,7 +113,7 @@ function ForYouTabContent() {
             {featuredStories.length > 0 ? featuredStories.map((story, index) => (
               <CarouselItem key={story.id} className="basis-full">
                 <Link href={`/stories/${story.id}`} className="block group">
-                  <div className="relative aspect-[21/9] w-full overflow-hidden rounded-xl bg-muted shadow-2xl transition-all duration-500 group-hover:shadow-primary/20">
+                  <div className="relative aspect-video sm:aspect-[21/9] w-full overflow-hidden rounded-xl bg-muted shadow-2xl transition-all duration-500 group-hover:shadow-primary/20">
                     <Image
                       src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/1600/900`}
                       alt={story.title}
@@ -122,20 +122,20 @@ function ForYouTabContent() {
                       data-ai-hint="story high resolution cover"
                       priority={index === 0}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent flex flex-col justify-end p-6 md:p-12 lg:p-16">
-                      <div className="space-y-2 max-w-2xl translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-                        <Badge className="bg-primary/90 text-primary-foreground backdrop-blur-md mb-2">Featured Spotlight</Badge>
-                        <h2 className="text-3xl md:text-5xl lg:text-6xl font-headline font-bold text-foreground drop-shadow-2xl line-clamp-2 leading-tight">
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent flex flex-col justify-end p-6 md:p-12 lg:p-16">
+                      <div className="space-y-2 max-w-2xl translate-y-4 group-hover:translate-y-0 transition-all duration-500">
+                        <Badge className="bg-primary text-primary-foreground mb-2">Featured</Badge>
+                        <h2 className="text-2xl md:text-5xl lg:text-6xl font-headline font-bold text-foreground drop-shadow-lg line-clamp-2 leading-tight">
                           {story.title}
                         </h2>
-                        <p className="text-lg md:text-xl text-muted-foreground font-medium flex items-center gap-2">
+                        <p className="text-base md:text-xl text-muted-foreground font-medium flex items-center gap-2">
                           by <span className="text-foreground">{story.author.displayName || story.author.username}</span>
                         </p>
                         <div className="pt-4 flex items-center gap-4">
                             <Button size="lg" className="rounded-full px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
                                 Start Reading
                             </Button>
-                            <Button variant="outline" size="lg" className="rounded-full border-foreground/20 bg-background/50 backdrop-blur-md hover:bg-background/80 transition-all">
+                            <Button variant="outline" size="lg" className="rounded-full border-foreground/20 bg-background/50 backdrop-blur-md hover:bg-background/80 transition-all hidden sm:flex">
                                 View Details
                             </Button>
                         </div>
@@ -262,7 +262,7 @@ export default function HomePage() {
   const TABS = [
     { value: 'for-you', label: 'For You', icon: <Sparkles className="h-4 w-4" /> },
     { value: 'annotations', label: 'Annotations', icon: <Quote className="h-4 w-4" /> },
-    { value: 'feed', label: 'Announcements', icon: <LayoutGrid className="h-4 w-4" /> },
+    { value: 'feed', label: 'Feed Updates', icon: <LayoutGrid className="h-4 w-4" /> },
   ];
   
   if (authLoading) {
