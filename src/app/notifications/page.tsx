@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Paperclip, Smile, Sparkles, HelpCircle, Vote, Award, MoreHorizontal, ArrowLeft } from 'lucide-react';
+import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Smile, Sparkles, ArrowLeft, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -97,7 +97,7 @@ function NotificationsList() {
             case 'mention': return <MessageSquare className="h-5 w-5 text-purple-500" />; 
             case 'new_letter': return <Mail className="h-5 w-5 text-cyan-500" />;
             case 'letter_response': return <MailCheck className="h-5 w-5 text-teal-500" />;
-            case 'achievement_unlocked': return <Award className="h-5 w-5 text-yellow-500" />;
+            case 'achievement_unlocked': return <Bell className="h-5 w-5 text-yellow-500" />;
             case 'announcement': return <Bell className="h-5 w-5 text-orange-500" />;
             default: return <Bell className="h-5 w-5 text-muted-foreground" />;
         }
@@ -264,7 +264,7 @@ function MessagesClient() {
       console.error("Error fetching conversations: ", error);
       toast({ 
           title: "Could Not Load Messages", 
-          description: "There was an error fetching your conversations. This is often due to missing database indexes. Please check your browser's developer console for a link to create the required index in Firebase.", 
+          description: "There was an error fetching your conversations. This is often due to missing database indexes.", 
           variant: "destructive",
           duration: 10000
       });

@@ -9,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Image as ImageIcon, Send, Loader2, Book, Music, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { db } from '@/lib/firebase';
@@ -17,10 +16,10 @@ import { collection, query, where, getDocs, limit, addDoc, serverTimestamp } fro
 import { useToast } from '@/hooks/use-toast';
 import type { Story, Song } from '@/types';
 import Image from 'next/image';
-import SongSearch from '../status/SongSearch';
 import { Separator } from '../ui/separator';
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const OWNER_USERNAME = 'authorrafaelnv';
 
 export default function CreatePostForm() {
     const { user } = useAuth();
@@ -30,8 +29,6 @@ export default function CreatePostForm() {
     
     // Attachments
     const [attachedStory, setAttachedStory] = useState<Story | null>(null);
-    const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
-    const [isSongModalOpen, setIsSongModalOpen] = useState(false);
     const [attachedImage, setAttachedImage] = useState<File | null>(null);
     const [attachedImagePreview, setAttachedImagePreview] = useState<string | null>(null);
     const [attachedSong, setAttachedSong] = useState<Song | null>(null);
@@ -43,6 +40,9 @@ export default function CreatePostForm() {
     const [isSearchingStories, setIsSearchingStories] = useState(false);
 
     const imageInputRef = useRef<HTMLInputElement>(null);
+
+    // Only allow the owner to see this form
+    if (!user || user.username !== OWNER_USERNAME) return null;
 
     const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -127,22 +127,23 @@ export default function CreatePostForm() {
             setAttachedImagePreview(null);
             setAttachedSong(null);
             setLyricSnippet(null);
-            toast({ title: 'Post Created!' });
+            toast({ title: 'Announcement Published!' });
         } catch (error) {
             console.error("Error creating post:", error);
-            toast({ title: "Failed to create post", variant: "destructive" });
+            toast({ title: "Failed to publish announcement", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
     };
     
-    if (!user) return null;
-
     const hasAttachment = attachedStory || attachedImagePreview || attachedSong;
 
     return (
         <Dialog>
           <Card className="mb-6 overflow-hidden">
+              <CardHeader className="px-4 pt-4 pb-0">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wider">New Announcement</p>
+              </CardHeader>
               <CardContent className="p-4">
                 <div className="flex gap-4">
                   <Avatar>
@@ -153,7 +154,7 @@ export default function CreatePostForm() {
                       <Textarea
                           value={content}
                           onChange={(e) => setContent(e.target.value)}
-                          placeholder={`What's on your mind, ${user.displayName}?`}
+                          placeholder="What's the latest update?"
                           className="bg-transparent border-0 focus-visible:ring-0 shadow-none resize-none p-0 min-h-[60px] text-base"
                       />
                   </div>
@@ -181,21 +182,6 @@ export default function CreatePostForm() {
                               </Button>
                           </div>
                       )}
-                      {attachedSong && (
-                          <div className="relative p-2 border rounded-md">
-                              <div className="flex items-center gap-2">
-                                <Image src={attachedSong.cover} alt={attachedSong.title} width={40} height={40} className="rounded-sm" />
-                                <div className="flex-1">
-                                      <p className="font-semibold text-sm">{attachedSong.title}</p>
-                                      <p className="text-xs text-muted-foreground">{attachedSong.artist}</p>
-                                </div>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setAttachedSong(null); setLyricSnippet(null); }}>
-                                      <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              {lyricSnippet && <p className="text-xs italic mt-2 p-2 bg-muted rounded">"{lyricSnippet}"</p>}
-                          </div>
-                      )}
                   </div>
                 )}
               </CardContent>
@@ -208,12 +194,10 @@ export default function CreatePostForm() {
                        <DialogTrigger asChild>
                            <Button variant="ghost" size="icon"><Book className="h-5 w-5 text-muted-foreground" /></Button>
                       </DialogTrigger>
-
-                      <Button variant="ghost" size="icon" onClick={() => { setIsSongModalOpen(true); }}><Music className="h-5 w-5 text-muted-foreground" /></Button>
                   </div>
                   <Button onClick={handleSubmit} disabled={isSubmitting || (!content.trim() && !hasAttachment)}>
                       {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Post
+                      Post Announcement
                   </Button>
               </CardFooter>
           </Card>
@@ -222,7 +206,7 @@ export default function CreatePostForm() {
           <DialogContent>
               <DialogHeader>
                   <DialogTitle>Attach a Story</DialogTitle>
-                  <DialogDescription>Search for a story to attach to your post.</DialogDescription>
+                  <DialogDescription>Search for one of your stories to attach to this announcement.</DialogDescription>
               </DialogHeader>
               <div className="flex gap-2">
                   <Input placeholder="Search story title..." value={storySearchTerm} onChange={e => setStorySearchTerm(e.target.value)} />
@@ -232,7 +216,10 @@ export default function CreatePostForm() {
                   {storySearchResults.map(story => (
                       <DialogClose asChild key={story.id}>
                         <div className="p-2 border-b flex items-center justify-between hover:bg-muted cursor-pointer" onClick={() => setAttachedStory(story)}>
-                            <span>{story.title}</span>
+                            <div className="flex items-center gap-3">
+                                <Image src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/80/120`} alt={story.title} width={30} height={45} className="rounded-sm object-cover" />
+                                <span>{story.title}</span>
+                            </div>
                             <Button size="sm" variant="outline">Attach</Button>
                         </div>
                       </DialogClose>

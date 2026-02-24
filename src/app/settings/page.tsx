@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ChevronRight, UserCog, KeyRound, Archive, Trash2, FileText, ShieldCheck, Info, Bell, MessageCircle, Settings, Palette, Sparkles, Wind, Mailbox } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, ChevronRight, UserCog, KeyRound, Sparkles, Bell, MessageCircle, Settings, Palette, Info, FileText, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 interface SettingsLinkProps {
@@ -63,7 +64,6 @@ export default function SettingsHubPage() {
             <CardContent className="p-2">
                 <SettingsLink href="/settings/profile" icon={UserCog} title="Edit Profile" description="Update your avatar, username, bio, and more." />
                 <SettingsLink href="/settings/account" icon={KeyRound} title="Account Details" description="Manage your email and password." />
-                 <SettingsLink href="/premium" icon={Sparkles} title="Premium" description="Unlock exclusive features and support authors." />
             </CardContent>
           </Card>
         </section>

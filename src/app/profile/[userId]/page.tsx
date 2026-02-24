@@ -1,17 +1,16 @@
 
-
 'use client';
 
-import { useEffect, useState, FormEvent, useMemo, useTransition } from 'react';
+import { useEffect, useState, FormEvent, useTransition } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, Users, ShieldAlert, Music, PenSquare, Quote, Annoyed, Send, MoreHorizontal, Edit, Trash2, Mailbox, BarChart2, LayoutGrid, Megaphone } from 'lucide-react';
+import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, ShieldAlert, PenSquare, Send, MoreHorizontal, Edit, Trash2, LayoutGrid, Megaphone } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Story, User as AppUser, Announcement, Question } from '@/types';
+import type { Story, User as AppUser, Announcement } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -22,33 +21,21 @@ import {
   query,
   where,
   orderBy,
-  limit,
-  type Unsubscribe,
-  getDoc,
-  Timestamp,
-  addDoc,
-  serverTimestamp,
   getDocs,
-  updateDoc
+  addDoc,
+  serverTimestamp
 } from 'firebase/firestore';
-import FollowerUserCard from '@/components/shared/FollowerUserCard';
-import placeholderImages from '@/app/lib/placeholder-images.json';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import StatusViewer from '@/components/status/StatusViewer';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDistanceToNow } from 'date-fns';
 import { addNotification } from '@/app/actions/notificationActions';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { updateAnnouncement, deleteAnnouncement } from '@/app/actions/announcementActions';
-import { askQuestion, answerQuestion } from '@/app/actions/userActions';
 import ProfilePhotoGrid from '@/components/profile/ProfilePhotoGrid';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import VerifiedBadge from '@/components/icons/VerifiedBadge';
 
 
 interface ProfileStoryCardProps {
@@ -466,7 +453,6 @@ export default function UserProfilePage() {
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground flex items-center justify-center md:justify-start gap-2">
                 {displayName}
-                {profileUser.isVerified && <VerifiedBadge className="h-7 w-7" title="Verified User" />}
               </h1>
               <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
               {profileUser.bio && <p className="text-muted-foreground mt-2 max-w-xl">{profileUser.bio}</p>}

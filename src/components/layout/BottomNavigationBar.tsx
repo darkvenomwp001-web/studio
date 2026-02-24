@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Library, Search, Bell, Mailbox, Sparkles } from 'lucide-react';
+import { Home, Library, Search, Bell, Mailbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth'; 
 
@@ -17,7 +17,7 @@ const navItems = [
 
 export default function BottomNavigationBar() {
   const pathname = usePathname();
-  const { user, notifications } = useAuth(); // Use notifications from useAuth
+  const { user, notifications } = useAuth();
 
   const unreadNotificationsCount = user ? notifications.filter(n => !n.isRead).length : 0;
 

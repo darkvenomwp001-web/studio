@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpenText, Home, Edit3, Brain, Library, Search, Bell, Shield } from 'lucide-react';
+import { Home, Edit3, Library, Search, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -42,7 +42,7 @@ export default function Header() {
   const displayName = user?.displayName || user?.username;
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Logo />
 
@@ -53,7 +53,6 @@ export default function Header() {
             <NavLink href="/search"><Search className="h-5 w-5" /> Search</NavLink>
             {user?.role === 'writer' && <NavLink href="/write"><Edit3 className="h-5 w-5" /> Write</NavLink>}
             <NavLink href="/notifications"><Bell className="h-5 w-5" /> Inbox</NavLink>
-            {user?.username === 'authorrafaelnv' && <NavLink href="/admin"><Shield className="h-5 w-5" /> Admin</NavLink>}
           </div>
           
           {loading ? (
@@ -76,11 +75,14 @@ export default function Header() {
               </Button>
             </Link>
           ) : (
-            <Link href="/auth/signin" passHref>
-              <Button>
-                Sign In
-              </Button>
-            </Link>
+            <div className="flex gap-2">
+                <Link href="/auth/signin" passHref>
+                    <Button variant="ghost">Sign In</Button>
+                </Link>
+                <Link href="/auth/signup" passHref>
+                    <Button>Get Started</Button>
+                </Link>
+            </div>
           )}
         </nav>
       </div>
