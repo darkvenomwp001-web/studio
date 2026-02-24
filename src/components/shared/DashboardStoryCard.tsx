@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -82,7 +81,7 @@ export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
                         {story.title}
                      </Link>
                      {isCollaborator && (
-                        <p className="text-xs text-muted-foreground">by {story.author.displayName || story.author.username}</p>
+                        <p className="text-xs text-muted-foreground">by @{story.author.username}</p>
                     )}
                 </div>
                  <DropdownMenu>

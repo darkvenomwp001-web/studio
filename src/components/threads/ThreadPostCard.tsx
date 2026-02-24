@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useRef } from 'react';
@@ -120,7 +119,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
             {isRepost && (
               <p className="text-xs text-muted-foreground font-semibold flex items-center gap-2 px-4 pt-3">
                 <Repeat className="h-3 w-3"/>
-                <Link href={`/profile/${post.author.id}`} className="hover:underline">{post.author.displayName}</Link> reposted
+                <Link href={`/profile/${post.author.id}`} className="hover:underline">@{post.author.username}</Link> reposted
               </p>
             )}
             <CardHeader className="flex flex-row items-center gap-3 space-y-0 p-4">
@@ -131,7 +130,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                 </Avatar>
               </Link>
               <div className="flex-1">
-                <Link href={`/profile/${mainAuthor.id}`} className="font-semibold hover:underline">{mainAuthor.displayName}</Link>
+                <Link href={`/profile/${mainAuthor.id}`} className="font-semibold hover:underline">@{mainAuthor.username}</Link>
                 <p className="text-xs text-muted-foreground">
                   {displayTimestamp?.toDate ? formatDistanceToNow(displayTimestamp.toDate(), { addSuffix: true }) : 'now'}
                 </p>
@@ -184,7 +183,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                                 <Image src={(isRepost ? post.originalPost!.storyCoverUrl : post.storyCoverUrl) || `https://picsum.photos/seed/${post.id}/512/800`} alt={(isRepost ? post.originalPost!.storyTitle : post.storyTitle) || ''} width={50} height={75} className="rounded-sm object-cover" />
                                 <div>
                                     <p className="font-bold">{(isRepost ? post.originalPost!.storyTitle : post.storyTitle)}</p>
-                                    <p className="text-sm text-muted-foreground">by {(isRepost ? post.originalPost!.author.displayName : post.author.displayName)}</p>
+                                    <p className="text-sm text-muted-foreground">by @{(isRepost ? post.originalPost!.author.username : post.author.username)}</p>
                                 </div>
                             </div>
                         </Link>
@@ -255,7 +254,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                 className="bg-destructive hover:bg-destructive/90"
                 onClick={handleDeletePost}
               >
-                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

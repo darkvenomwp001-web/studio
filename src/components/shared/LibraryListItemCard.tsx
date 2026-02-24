@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -55,7 +54,7 @@ export default function LibraryListItemCard({ story }: LibraryListItemCardProps)
               </div>
               {story.status && <Badge variant="outline" className={cn("text-xs capitalize ml-2 flex-shrink-0", getStatusBadgeClasses(story.status))}>{story.status}</Badge>}
             </div>
-            {story.author && <p className="text-sm text-muted-foreground mb-3">by {story.author.displayName || story.author.username}</p>}
+            {story.author && <p className="text-sm text-muted-foreground mb-3">by @{story.author.username}</p>}
             
             <div className="flex items-center text-xs text-muted-foreground gap-4">
               <div className="flex items-center gap-1.5">

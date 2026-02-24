@@ -129,7 +129,7 @@ function ForYouTabContent() {
                           {story.title}
                         </h2>
                         <p className="text-base md:text-xl text-muted-foreground font-medium flex items-center gap-2">
-                          by <span className="text-foreground">{story.author.displayName || story.author.username}</span>
+                          by <span className="text-foreground">@{story.author.username}</span>
                         </p>
                         <div className="pt-4 flex items-center gap-4">
                             <Button size="lg" className="rounded-full px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">

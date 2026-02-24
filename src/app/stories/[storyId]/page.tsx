@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -224,7 +223,7 @@ export default function StoryOverviewPage() {
             href={`/profile/${displayAuthor.id}`}
             className="inline-flex items-center gap-2.5 text-md text-muted-foreground hover:text-primary transition-colors group mt-1"
           >
-            <span className="font-medium group-hover:underline">{displayAuthor.displayName || displayAuthor.username}</span>
+            <span className="font-medium group-hover:underline">@{displayAuthor.username}</span>
           </Link>
         
           <div className="flex items-center gap-2 mt-3">

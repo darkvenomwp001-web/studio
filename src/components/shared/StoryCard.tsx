@@ -1,4 +1,3 @@
-
 'use client';
 
 import Image from 'next/image';
@@ -67,7 +66,7 @@ export default function StoryCard({ story }: StoryCardProps) {
           {story.title}
         </h3>
         <p className="text-[11px] text-muted-foreground font-semibold truncate uppercase tracking-tight">
-          {story.author.displayName || story.author.username}
+          @{story.author.username}
         </p>
         
         <div className="flex items-center gap-2 pt-1">
