@@ -44,6 +44,15 @@ export interface User {
     emailOnNewLetter: boolean;
     emailOnNews: boolean;
   };
+  appearanceSettings?: {
+    accentColor: 'default' | 'romance' | 'emerald' | 'amber' | 'midnight';
+    fontFamily: 'sans' | 'serif';
+    density: 'cozy' | 'compact';
+    glassmorphism: boolean;
+    oledMode: boolean;
+    motionLevel: 'full' | 'reduced';
+    autoDim: boolean;
+  };
 }
 
 export interface UserSummary {
