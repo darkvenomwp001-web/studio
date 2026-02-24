@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
@@ -235,6 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               level: firestoreUserData.level || 1,
               xp: firestoreUserData.xp || 0,
               achievements: firestoreUserData.achievements || [],
+              messagingPreference: firestoreUserData.messagingPreference || 'everyone',
               notificationSettings: firestoreUserData.notificationSettings || { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false },
               profileSongUrl: firestoreUserData.profileSongUrl || '',
               profileSongNote: firestoreUserData.profileSongNote || '',
@@ -274,6 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse! Ready to explore.',
               role: isOwner ? 'admin' : 'reader',
               isVerified: isOwner,
+              messagingPreference: 'everyone',
               level: 1,
               xp: 0,
               achievements: [],
@@ -527,6 +528,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           bio: 'New to LitVerse! Ready to explore.',
           role: isOwner ? 'admin' : 'reader',
           isVerified: isOwner,
+          messagingPreference: 'everyone',
           level: 1,
           xp: 0,
           achievements: [],
@@ -1033,5 +1035,3 @@ export function useAuth() {
   }
   return context;
 }
-
-    

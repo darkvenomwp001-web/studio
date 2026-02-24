@@ -37,6 +37,7 @@ export interface User {
   isAnonymous?: boolean;
   isBanned?: boolean; // For user restrictions
   isVerified?: boolean; // For verified badge
+  messagingPreference?: 'everyone' | 'following' | 'none';
   notificationSettings?: {
     emailOnNewFollower: boolean;
     emailOnCommentReply: boolean;
