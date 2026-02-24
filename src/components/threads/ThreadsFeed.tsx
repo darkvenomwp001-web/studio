@@ -4,11 +4,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, where, Timestamp } from 'firebase/firestore';
 import type { ThreadPost } from '@/types';
 import { Loader2 } from 'lucide-react';
 import CreatePostForm from './CreatePostForm';
 import ThreadPostCard from './ThreadPostCard';
+
+// Setting a reset date to clean the feed of old test posts
+const FEED_RESET_DATE = new Date('2025-05-21T00:00:00Z');
 
 export default function ThreadsFeed() {
   const { user, loading } = useAuth();
@@ -17,8 +20,11 @@ export default function ThreadsFeed() {
 
   useEffect(() => {
     setIsLoading(true);
+    
+    // Only fetch posts created after the reset date to provide a clean feed
     const postsQuery = query(
         collection(db, 'feedPosts'), 
+        where('timestamp', '>', Timestamp.fromDate(FEED_RESET_DATE)),
         orderBy('timestamp', 'desc')
     );
 
@@ -47,8 +53,9 @@ export default function ThreadsFeed() {
       )}
 
       {!isLoading && posts.length === 0 && (
-        <div className="text-center py-16 text-muted-foreground">
-          <p>No posts in the thread yet. Be the first to start a conversation!</p>
+        <div className="text-center py-16 text-muted-foreground bg-card rounded-lg border border-dashed">
+          <p className="text-lg font-medium text-foreground">Your feed is clean!</p>
+          <p className="text-sm">Be the first to start a fresh conversation and bring this space to life.</p>
         </div>
       )}
     </div>

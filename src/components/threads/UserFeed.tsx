@@ -1,11 +1,15 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, where, Timestamp } from 'firebase/firestore';
 import type { ThreadPost } from '@/types';
 import { Loader2 } from 'lucide-react';
 import ThreadPostCard from './ThreadPostCard';
+
+// Setting a reset date to clean the feed of old test posts
+const FEED_RESET_DATE = new Date('2025-05-21T00:00:00Z');
 
 interface UserFeedProps {
     userId: string;
@@ -21,9 +25,12 @@ export default function UserFeed({ userId }: UserFeedProps) {
         return;
     }
     setIsLoading(true);
+    
+    // Only fetch posts created after the reset date to provide a clean feed
     const postsQuery = query(
         collection(db, 'feedPosts'),
         where('author.id', '==', userId),
+        where('timestamp', '>', Timestamp.fromDate(FEED_RESET_DATE)),
         orderBy('timestamp', 'desc')
     );
 
@@ -49,8 +56,8 @@ export default function UserFeed({ userId }: UserFeedProps) {
   
   if(posts.length === 0) {
       return (
-          <div className="text-center py-16 text-muted-foreground bg-card rounded-lg">
-              <p>This user hasn't posted anything yet.</p>
+          <div className="text-center py-16 text-muted-foreground bg-card rounded-lg border border-dashed">
+              <p>No recent posts from this user.</p>
           </div>
       )
   }

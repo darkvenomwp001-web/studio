@@ -1,13 +1,17 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import type { ThreadPost } from '@/types';
 import { Loader2, CameraOff } from 'lucide-react';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+
+// Setting a reset date to clean the feed of old test posts
+const FEED_RESET_DATE = new Date('2025-05-21T00:00:00Z');
 
 interface ProfilePhotoGridProps {
     userId: string;
@@ -25,9 +29,12 @@ export default function ProfilePhotoGrid({ userId }: ProfilePhotoGridProps) {
             return;
         }
         setIsLoading(true);
+        
+        // Only fetch photo posts created after the reset date
         const postsQuery = query(
             collection(db, 'feedPosts'),
             where('author.id', '==', userId),
+            where('timestamp', '>', Timestamp.fromDate(FEED_RESET_DATE)),
             orderBy('timestamp', 'desc')
         );
 
@@ -71,9 +78,9 @@ export default function ProfilePhotoGrid({ userId }: ProfilePhotoGridProps) {
 
     if (posts.length === 0) {
         return (
-            <div className="text-center py-16 bg-card rounded-lg">
+            <div className="text-center py-16 bg-card rounded-lg border border-dashed">
                 <CameraOff className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 text-muted-foreground">No photos posted yet.</p>
+                <p className="mt-4 text-muted-foreground">No recent photos posted yet.</p>
             </div>
         );
     }
