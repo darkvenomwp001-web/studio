@@ -3,18 +3,15 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { 
-  ArrowRight, 
   BookHeart, 
   Loader2, 
-  Rocket, 
   Heart as HeartIcon, 
   Sparkles, 
   PenSquare, 
-  TrendingUp, 
-  Quote, 
-  LayoutGrid,
   ChevronRight,
-  Flame
+  Flame,
+  LayoutGrid,
+  Quote
 } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { useAuth } from '@/hooks/useAuth';
@@ -89,7 +86,6 @@ function ForYouTabContent() {
 
   const fantasyStories = allStories.filter(s => s.genre?.toLowerCase() === 'fantasy').slice(0, 10);
   const romanceStories = allStories.filter(s => s.genre?.toLowerCase() === 'romance').slice(0, 10);
-  const scifiStories = allStories.filter(s => s.genre?.toLowerCase() === 'sci-fi').slice(0, 10);
 
   if (isDataLoading) {
     return (
@@ -101,19 +97,19 @@ function ForYouTabContent() {
   }
 
   return (
-    <div className="space-y-12 pb-12 animate-in fade-in duration-700">
-      {/* Immersive Hero Carousel */}
-      <section className="relative -mx-4 md:mx-0">
+    <div className="pb-12 animate-in fade-in duration-700 space-y-12">
+      {/* Hero Carousel - Full Bleed on Mobile */}
+      <section className="w-full">
         <Carousel
           plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
           opts={{ align: "start", loop: true }}
           className="w-full"
         >
-          <CarouselContent>
+          <CarouselContent className="-ml-0">
             {featuredStories.length > 0 ? featuredStories.map((story, index) => (
-              <CarouselItem key={story.id} className="basis-full">
+              <CarouselItem key={story.id} className="pl-0 basis-full">
                 <Link href={`/stories/${story.id}`} className="block group">
-                  <div className="relative aspect-video sm:aspect-[21/9] w-full overflow-hidden rounded-xl bg-muted shadow-2xl transition-all duration-500 group-hover:shadow-primary/20">
+                  <div className="relative aspect-[4/5] sm:aspect-[21/9] w-full overflow-hidden bg-muted transition-all duration-500">
                     <Image
                       src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/1600/900`}
                       alt={story.title}
@@ -122,22 +118,24 @@ function ForYouTabContent() {
                       data-ai-hint="story high resolution cover"
                       priority={index === 0}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent flex flex-col justify-end p-6 md:p-12 lg:p-16">
-                      <div className="space-y-2 max-w-2xl translate-y-4 group-hover:translate-y-0 transition-all duration-500">
-                        <Badge className="bg-primary text-primary-foreground mb-2">Featured</Badge>
-                        <h2 className="text-2xl md:text-5xl lg:text-6xl font-headline font-bold text-foreground drop-shadow-lg line-clamp-2 leading-tight">
-                          {story.title}
-                        </h2>
-                        <p className="text-base md:text-xl text-muted-foreground font-medium flex items-center gap-2">
-                          by <span className="text-foreground">@{story.author.username}</span>
-                        </p>
-                        <div className="pt-4 flex items-center gap-4">
-                            <Button size="lg" className="rounded-full px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
-                                Start Reading
-                            </Button>
-                            <Button variant="outline" size="lg" className="rounded-full border-foreground/20 bg-background/50 backdrop-blur-md hover:bg-background/80 transition-all hidden sm:flex">
-                                View Details
-                            </Button>
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent flex flex-col justify-end p-6 md:p-12 lg:p-16">
+                      <div className="container mx-auto max-w-7xl px-0">
+                        <div className="space-y-2 max-w-2xl translate-y-4 group-hover:translate-y-0 transition-all duration-500">
+                          <Badge className="bg-primary text-primary-foreground mb-2">Featured</Badge>
+                          <h2 className="text-3xl md:text-5xl lg:text-6xl font-headline font-bold text-foreground drop-shadow-lg line-clamp-2 leading-tight">
+                            {story.title}
+                          </h2>
+                          <p className="text-base md:text-xl text-muted-foreground font-medium flex items-center gap-2">
+                            by <span className="text-foreground">@{story.author.username}</span>
+                          </p>
+                          <div className="pt-4 flex items-center gap-4">
+                              <Button size="lg" className="rounded-full px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
+                                  Start Reading
+                              </Button>
+                              <Button variant="outline" size="lg" className="rounded-full border-foreground/20 bg-background/50 backdrop-blur-md hover:bg-background/80 transition-all hidden sm:flex">
+                                  View Details
+                              </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -145,112 +143,115 @@ function ForYouTabContent() {
                 </Link>
               </CarouselItem>
             )) : (
-                <CarouselItem className="basis-full">
-                    <div className="aspect-[21/9] w-full rounded-xl bg-muted border-2 border-dashed flex items-center justify-center">
-                        <p className="text-muted-foreground">Welcome to D4RKV3NOM. Start creating stories to see them featured here.</p>
+                <CarouselItem className="pl-0 basis-full">
+                    <div className="aspect-[21/9] w-full bg-muted border-2 border-dashed flex items-center justify-center">
+                        <p className="text-muted-foreground px-4 text-center">Welcome to D4RKV3NOM. Start creating stories to see them featured here.</p>
                     </div>
                 </CarouselItem>
             )}
           </CarouselContent>
           <div className="hidden md:block">
-            <CarouselPrevious className="left-4 bg-background/50 backdrop-blur-md border-none hover:bg-background/80 transition-colors" />
-            <CarouselNext className="right-4 bg-background/50 backdrop-blur-md border-none hover:bg-background/80 transition-colors" />
+            <CarouselPrevious className="left-8 bg-background/50 backdrop-blur-md border-none hover:bg-background/80 transition-colors" />
+            <CarouselNext className="right-8 bg-background/50 backdrop-blur-md border-none hover:bg-background/80 transition-colors" />
           </div>
         </Carousel>
       </section>
 
-      {/* Trending Row */}
-      {trendingStories.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-                <div className="p-2 bg-orange-500/10 rounded-lg">
-                    <Flame className="text-orange-500 h-5 w-5 fill-orange-500" />
-                </div>
-                <h2 className="text-2xl font-headline font-bold">Trending Now</h2>
+      {/* Discovery Rows - Constrained Width */}
+      <div className="container mx-auto max-w-7xl px-4 space-y-12">
+        {/* Trending Row */}
+        {trendingStories.length > 0 && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                  <div className="p-2 bg-orange-500/10 rounded-lg">
+                      <Flame className="text-orange-500 h-5 w-5 fill-orange-500" />
+                  </div>
+                  <h2 className="text-2xl font-headline font-bold tracking-tight">Trending Now</h2>
+              </div>
+              <Link href="/stories" className="text-sm font-semibold text-primary hover:underline flex items-center gap-1 group">
+                  View All <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
             </div>
-            <Link href="/stories" className="text-sm font-medium text-primary hover:underline flex items-center gap-1 group">
-                View All <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
-          <div className="flex overflow-x-auto space-x-5 pb-6 -mx-4 px-4 scrollbar-hide md:scrollbar-thin scrollbar-thumb-primary/30">
-            {trendingStories.map(story => (
-              <CompactStoryCard key={`trend-${story.id}`} story={story} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* New Releases Row */}
-      {newReleases.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-                <div className="p-2 bg-blue-500/10 rounded-lg">
-                    <Sparkles className="text-blue-500 h-5 w-5" />
-                </div>
-                <h2 className="text-2xl font-headline font-bold">New Releases</h2>
+            <div className="flex overflow-x-auto space-x-5 pb-6 -mx-4 px-4 scrollbar-hide md:scrollbar-thin scrollbar-thumb-primary/30">
+              {trendingStories.map(story => (
+                <CompactStoryCard key={`trend-${story.id}`} story={story} />
+              ))}
             </div>
-          </div>
-          <div className="flex overflow-x-auto space-x-5 pb-6 -mx-4 px-4 scrollbar-hide md:scrollbar-thin scrollbar-thumb-primary/30">
-            {newReleases.map(story => (
-              <CompactStoryCard key={`new-${story.id}`} story={story} />
-            ))}
-          </div>
-        </section>
-      )}
+          </section>
+        )}
 
-      {/* Genre Spotlights */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {fantasyStories.length > 0 && (
-            <section className="space-y-4">
-                <h3 className="text-xl font-headline font-bold flex items-center gap-2">
-                    <BookHeart className="text-accent h-5 w-5" /> Fantasy Worlds
-                </h3>
-                <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-hide">
-                    {fantasyStories.map(story => (
-                        <CompactStoryCard key={`fant-${story.id}`} story={story} />
-                    ))}
-                </div>
-            </section>
-          )}
-          {romanceStories.length > 0 && (
-            <section className="space-y-4">
-                <h3 className="text-xl font-headline font-bold flex items-center gap-2">
-                    <HeartIcon className="text-red-500 h-5 w-5 fill-red-500" /> Heartfelt Romance
-                </h3>
-                <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-hide">
-                    {romanceStories.map(story => (
-                        <CompactStoryCard key={`rom-${story.id}`} story={story} />
-                    ))}
-                </div>
-            </section>
-          )}
+        {/* New Releases Row */}
+        {newReleases.length > 0 && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                  <div className="p-2 bg-blue-500/10 rounded-lg">
+                      <Sparkles className="text-blue-500 h-5 w-5" />
+                  </div>
+                  <h2 className="text-2xl font-headline font-bold tracking-tight">New Releases</h2>
+              </div>
+            </div>
+            <div className="flex overflow-x-auto space-x-5 pb-6 -mx-4 px-4 scrollbar-hide md:scrollbar-thin scrollbar-thumb-primary/30">
+              {newReleases.map(story => (
+                <CompactStoryCard key={`new-${story.id}`} story={story} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Genre Spotlights */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            {fantasyStories.length > 0 && (
+              <section className="space-y-4">
+                  <h3 className="text-xl font-headline font-bold flex items-center gap-2 px-1">
+                      <BookHeart className="text-accent h-5 w-5" /> Fantasy Worlds
+                  </h3>
+                  <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-hide">
+                      {fantasyStories.map(story => (
+                          <CompactStoryCard key={`fant-${story.id}`} story={story} />
+                      ))}
+                  </div>
+              </section>
+            )}
+            {romanceStories.length > 0 && (
+              <section className="space-y-4">
+                  <h3 className="text-xl font-headline font-bold flex items-center gap-2 px-1">
+                      <HeartIcon className="text-red-500 h-5 w-5 fill-red-500" /> Heartfelt Romance
+                  </h3>
+                  <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-hide">
+                      {romanceStories.map(story => (
+                          <CompactStoryCard key={`rom-${story.id}`} story={story} />
+                      ))}
+                  </div>
+              </section>
+            )}
+        </div>
+
+        {/* Community Prompts Grid */}
+        {prompts.length > 0 && (
+          <section className="bg-card/50 rounded-3xl p-6 md:p-10 border border-border/50 shadow-sm overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+              <div className="space-y-1">
+                  <h2 className="text-3xl font-headline font-bold text-primary flex items-center gap-3">
+                      <PenSquare className="h-7 w-7" />
+                      Community Prompts
+                  </h2>
+                  <p className="text-muted-foreground">Stuck on your next chapter? Let these sparks ignite your imagination.</p>
+              </div>
+              <Button variant="outline" className="w-fit rounded-full hover:bg-primary/10 hover:text-primary transition-all font-semibold">
+                  See All Prompts
+              </Button>
+            </div>
+            <div className="flex overflow-x-auto space-x-6 pb-4 -mx-4 px-4 scrollbar-hide">
+              {prompts.map(prompt => (
+                <PromptCard key={prompt.id} prompt={prompt} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
-
-      {/* Community Prompts Grid */}
-      {prompts.length > 0 && (
-        <section className="bg-card/50 rounded-2xl p-6 md:p-10 border border-border/50 shadow-sm overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-            <div className="space-y-1">
-                <h2 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
-                    <PenSquare className="h-7 w-7" />
-                    Community Writing Prompts
-                </h2>
-                <p className="text-muted-foreground">Stuck on your next chapter? Let these sparks ignite your imagination.</p>
-            </div>
-            <Button variant="outline" className="w-fit rounded-full hover:bg-primary/10 hover:text-primary transition-all">
-                See More Prompts
-            </Button>
-          </div>
-          <div className="flex overflow-x-auto space-x-6 pb-4 -mx-4 px-4 scrollbar-hide">
-            {prompts.map(prompt => (
-              <PromptCard key={prompt.id} prompt={prompt} />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
@@ -261,7 +262,7 @@ export default function HomePage() {
 
   const TABS = [
     { value: 'for-you', label: 'For You', icon: <Sparkles className="h-4 w-4" /> },
-    { value: 'annotations', label: 'Annotations', icon: <Quote className="h-4 w-4" /> },
+    { value: 'annotations', label: 'Highlights', icon: <Quote className="h-4 w-4" /> },
     { value: 'feed', label: 'Feed Updates', icon: <LayoutGrid className="h-4 w-4" /> },
   ];
   
@@ -276,38 +277,41 @@ export default function HomePage() {
   return (
     <>
       <Header />
-      <main className="container mx-auto px-4 pb-24 md:pb-12 pt-6">
-        <StatusFeature />
+      <main className="w-full pb-24 md:pb-12 pt-6 overflow-x-hidden">
+        <div className="container mx-auto max-w-7xl px-4">
+          <StatusFeature />
+        </div>
         
-        <div className="mt-8 mb-10">
-           <div className="flex justify-center">
-            <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-               <div className="flex justify-center mb-8">
-                    <AnimatedTabs tabs={TABS} activeTab={activeTab} />
-                </div>
-              <TabsContent value="for-you">
+        <div className="mt-8">
+           <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+              <div className="flex justify-center mb-8 px-4">
+                  <AnimatedTabs tabs={TABS} activeTab={activeTab} />
+              </div>
+              
+              <TabsContent value="for-you" className="focus-visible:outline-none">
                 <ForYouTabContent />
               </TabsContent>
-              <TabsContent value="annotations" className="animate-in slide-in-from-bottom-4 duration-500">
+              
+              <TabsContent value="annotations" className="animate-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none container mx-auto max-w-7xl px-4">
                 <div className="max-w-5xl mx-auto">
                     <div className="mb-8 text-center">
-                        <h2 className="text-3xl font-headline font-bold text-foreground">My Highlights</h2>
+                        <h2 className="text-3xl font-headline font-bold text-foreground tracking-tight">My Highlights</h2>
                         <p className="text-muted-foreground">Every line that left a mark on your journey.</p>
                     </div>
                     <AnnotationFeed />
                 </div>
               </TabsContent>
-              <TabsContent value="feed" className="animate-in slide-in-from-bottom-4 duration-500">
+              
+              <TabsContent value="feed" className="animate-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none container mx-auto max-w-7xl px-4">
                 <div className="max-w-2xl mx-auto">
                     <div className="mb-8 text-center">
-                        <h2 className="text-3xl font-headline font-bold text-foreground">The Author's Note</h2>
+                        <h2 className="text-3xl font-headline font-bold text-foreground tracking-tight">Feed Updates</h2>
                         <p className="text-muted-foreground">Stay updated with official announcements and latest news.</p>
                     </div>
                     <ThreadsFeed />
                 </div>
               </TabsContent>
-            </Tabs>
-           </div>
+           </Tabs>
         </div>
       </main>
       <BottomNavigationBar />

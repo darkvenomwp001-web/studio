@@ -1,10 +1,8 @@
-
-
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StatusUpdate, Poll, Story, Song, TextOverlayStyle, ThreadPost } from '@/types';
+import type { User, StatusUpdate, TextOverlayStyle, Song, Story } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, getDocs, limit } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -12,29 +10,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Camera, Send, X, Vote, Trash2, RotateCcw, Archive, Wand2, Music, Pause, Play, Feather, MessageSquare, ArrowRight, Link as LinkIcon, Save, Settings, Text, Image as ImageIcon, BarChart2, Users, BookOpen, CheckCircle, HelpCircle, Sparkles as SparklesIcon, PenSquare, Bold, Italic, Type, Palette, AlignLeft, AlignCenter, AlignRight, Volume2, VolumeX } from 'lucide-react';
+import { Loader2, Plus, X, Music, Pause, Play, ImageIcon, BarChart2, BookOpen, Sparkles as SparklesIcon, PenSquare, Type, Palette, AlignLeft, AlignCenter, AlignRight, Volume2, VolumeX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getStatusCaptions, getConversationStarters } from '@/app/actions/aiActions';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { useRouter } from 'next/navigation';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import StatusViewer from './StatusViewer';
-import { Textarea } from '../ui/textarea';
 import SongSearch, { LyricCarousel } from './SongSearch';
-import Link from 'next/link';
-import { Switch } from '../ui/switch';
-import { useRouter } from 'next/navigation';
-import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import VinylPlayer from './VinylPlayer';
+import { Textarea } from '../ui/textarea';
 import type { CarouselApi } from "@/components/ui/carousel"
 import { createThreadPost } from '@/app/actions/threadActions';
-
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
@@ -47,8 +39,7 @@ const gradientBackgrounds = [
   'bg-gradient-to-br from-sky-400 to-sky-200',
 ];
 
-
-function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, statuses: StatusUpdate[], onSelect: (user: User) => void, latestStatus: StatusUpdate | null }) {
+function StatusBubble({ user, onSelect, latestStatus }: { user: User, statuses: StatusUpdate[], onSelect: (user: User) => void, latestStatus: StatusUpdate | null }) {
   const { user: authUser } = useAuth();
   const isOwn = authUser?.id === user.id;
   const isNoteWithSong = latestStatus && (latestStatus.spotifyUrl);
@@ -80,7 +71,6 @@ function StatusBubble({ user, statuses, onSelect, latestStatus }: { user: User, 
   );
 }
 
-
 const photoFilters = [
     { name: 'None', style: 'filter-none' },
     { name: 'Noir', style: 'filter-grayscale-100 contrast-125' },
@@ -92,7 +82,6 @@ const photoFilters = [
 export default function StatusFeature() {
   const { user, loading: authLoading } = useAuth();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
-  const [draftStatuses, setDraftStatuses] = useState<StatusUpdate[]>([]);
   const [groupedStatuses, setGroupedStatuses] = useState<Map<string, {user: User, statuses: StatusUpdate[]}>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   
@@ -105,7 +94,6 @@ export default function StatusFeature() {
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [showPollCreator, setShowPollCreator] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
 
@@ -119,7 +107,6 @@ export default function StatusFeature() {
   
   const [carouselApi, setCarouselApi] = useState<CarouselApi>()
 
-  
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [selectedUserForViewing, setSelectedUserForViewing] = useState<User | null>(null);
   const [statusOrder, setStatusOrder] = useState<string[]>([]);
@@ -153,7 +140,7 @@ export default function StatusFeature() {
   
   const [postDestination, setPostDestination] = useState<'status' | 'feed'>('status');
 
-  const [textOverlayPosition, setTextOverlayPosition] = useState({ x: 50, y: 50 }); // Center in percentage
+  const [textOverlayPosition, setTextOverlayPosition] = useState({ x: 50, y: 50 });
   const [isDragging, setIsDragging] = useState(false);
   const mediaContainerRef = useRef<HTMLDivElement>(null);
   const textDraggableRef = useRef<HTMLDivElement>(null);
@@ -172,23 +159,14 @@ export default function StatusFeature() {
 
     const now = Timestamp.now();
 
-    // Query for published, non-hidden, non-expired statuses
     const publishedQuery = query(
       collection(db, 'statusUpdates'),
       where('status', '==', 'published'),
       where('isHidden', '==', false),
       where('expiresAt', '>', now),
-      orderBy('expiresAt', 'desc') // Example ordering
+      orderBy('expiresAt', 'desc')
     );
     
-    // Query for the current user's drafts
-    const draftsQuery = query(
-        collection(db, 'statusUpdates'),
-        where('authorId', '==', user.id),
-        where('status', '==', 'draft'),
-        orderBy('createdAt', 'desc')
-    );
-
     const unsubPublished = onSnapshot(publishedQuery, (snapshot) => {
         const liveStatuses = snapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate))
@@ -212,23 +190,13 @@ export default function StatusFeature() {
         setIsLoading(false);
     });
 
-    const unsubDrafts = onSnapshot(draftsQuery, (snapshot) => {
-        setDraftStatuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate)));
-    }, (error) => {
-        console.error("Error fetching draft statuses: ", error);
-    });
-
-    return () => {
-        unsubPublished();
-        unsubDrafts();
-    };
+    return () => unsubPublished();
   }, [user]);
 
   useEffect(() => {
     const groups = new Map<string, {user: User, statuses: StatusUpdate[]}>(new Map());
     const newStatusOrder: string[] = [];
 
-    // Prioritize current user's status bubble
     if (user && !user.isAnonymous) {
       const currentUserLive = allStatuses.filter(s => s.authorId === user.id);
       if (currentUserLive.length > 0) {
@@ -238,7 +206,7 @@ export default function StatusFeature() {
     }
     
     allStatuses.forEach(status => {
-        if (status.authorId === user?.id) return; // Already handled
+        if (status.authorId === user?.id) return;
         if (!groups.has(status.authorId)) {
             groups.set(status.authorId, { user: status.authorInfo as User, statuses: [] });
             newStatusOrder.push(status.authorId);
@@ -249,7 +217,6 @@ export default function StatusFeature() {
     setGroupedStatuses(groups);
     setStatusOrder(newStatusOrder);
   }, [allStatuses, user]);
-
 
   const handleSelectUser = (selectedUser: User) => {
     if (!user || user.isAnonymous) {
@@ -292,7 +259,6 @@ export default function StatusFeature() {
     setNoteContent('');
     setSelectedSong(null);
     setSongLyricSnippet(null);
-    setShowPollCreator(false);
     setPollQuestion('');
     setPollOptions(['', '']);
     setSuggestedCaptions([]);
@@ -402,7 +368,7 @@ export default function StatusFeature() {
         } else {
             toast({ title: "Failed to post to feed", description: result.error, variant: "destructive" });
         }
-    } else { // destination === 'status'
+    } else {
         const baseStatus = createBaseStatus(status);
         if (!baseStatus) {
              setIsSubmitting(false);
@@ -474,7 +440,6 @@ export default function StatusFeature() {
     await handleSubmit('status', status, data);
   }
 
-
   const handleMediaSubmit = async (status: 'published' | 'draft') => {
     if (!mediaFile && !editingDraft?.mediaUrl) {
       toast({title: "No Media", description: "Please select a file to submit.", variant: "destructive"});
@@ -488,7 +453,7 @@ export default function StatusFeature() {
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
         const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
         if (!cloudName || !uploadPreset) {
-            toast({ title: 'Configuration Error', description: 'Cloudinary environment variables are not set.', variant: 'destructive' });
+            toast({ title: 'Configuration Error', description: 'Cloudinary environment variables not set.', variant: 'destructive' });
             setIsSubmitting(false);
             return;
         }
@@ -537,7 +502,7 @@ export default function StatusFeature() {
     }
     const data: Record<string, any> = {
       sharedStoryId: attachedStory.id,
-      note: noteContent.trim() || '', // Optional note
+      note: noteContent.trim() || '',
       storyTitle: attachedStory.title,
       storyCoverUrl: attachedStory.coverImageUrl,
     };
@@ -596,7 +561,7 @@ export default function StatusFeature() {
   }
 
   const handleOpenUploader = (defaultTab: string) => {
-    setIsCreatorOpen(false); // Close the menu
+    setIsCreatorOpen(false);
     setActiveUploaderTab(defaultTab);
     setIsUploaderOpen(true);
   };
@@ -634,7 +599,6 @@ export default function StatusFeature() {
     let x = ((clientX - containerRect.left) / containerRect.width) * 100;
     let y = ((clientY - containerRect.top) / containerRect.height) * 100;
 
-    // Clamp values to be within the container
     x = Math.max(0, Math.min(100, x));
     y = Math.max(0, Math.min(100, y));
 
@@ -670,7 +634,6 @@ export default function StatusFeature() {
       </div>
     </DialogFooter>
   );
-
 
   const uploaderContent = () => {
     switch (activeUploaderTab) {
@@ -731,7 +694,6 @@ export default function StatusFeature() {
                 <Button variant="ghost" size="icon" className="text-white" onClick={handleGenerateStarters} disabled={isGeneratingStarters}>
                     {isGeneratingStarters ? <Loader2 className="h-4 w-4 animate-spin"/> : <SparklesIcon className="h-4 w-4" />}
                 </Button>
-                 <Button variant="ghost" size="icon" className="text-white" onClick={() => alert('Quote mode coming soon!')}><MessageSquare className="h-4 w-4"/></Button>
               </div>
             </div>
             <UploaderFooter
@@ -767,14 +729,12 @@ export default function StatusFeature() {
                     onTouchEnd={handleDragEnd}
                     onMouseLeave={handleDragEnd}
                 >
-                  {/* Media Preview */}
                   <div className="flex-grow relative flex items-center justify-center" onClick={() => mediaInputRef.current?.click()}>
                     {mediaType === 'video' ? (
                       <video ref={previewVideoRef} src={mediaPreview} className={cn("max-h-full max-w-full object-contain", selectedFilter)} loop playsInline autoPlay muted={isMuted} />
                     ) : (
                       <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" className={cn(selectedFilter)} />
                     )}
-                    {/* Draggable Text Overlay */}
                     <div
                       ref={textDraggableRef}
                       className="absolute cursor-move p-2"
@@ -797,7 +757,6 @@ export default function StatusFeature() {
                     </div>
                   </div>
 
-                  {/* Top Toolbar */}
                    <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
                      <Popover>
                         <PopoverTrigger asChild>
@@ -859,8 +818,6 @@ export default function StatusFeature() {
                       )}
                   </div>
 
-
-                  {/* Caption Suggestions */}
                   {suggestedCaptions.length > 0 && (
                        <div className="absolute bottom-16 left-0 right-0 w-full flex-shrink-0 p-2 z-20">
                         <ScrollArea>
@@ -884,7 +841,7 @@ export default function StatusFeature() {
                 >
                     <ImageIcon className="h-12 w-12 text-muted-foreground mb-2" />
                     <p className="text-muted-foreground">Select photo or video</p>
-                    <Input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/*" className="hidden" />
+                    <input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/*" className="hidden" />
                 </div>
               )}
             </div>
@@ -1089,7 +1046,7 @@ export default function StatusFeature() {
   };
   
   return (
-    <div className='py-4'>
+    <div className='py-4 -mx-4 px-4 md:mx-0 md:px-0'>
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-start space-x-4">
             {user && !user.isAnonymous && (
@@ -1137,7 +1094,7 @@ export default function StatusFeature() {
                   <DialogDescription>What would you like to share today?</DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-4 py-4">
-                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('text')}><Text className="h-6 w-6"/>Text</Button>
+                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('text')}><Type className="h-6 w-6"/>Text</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('media')}><ImageIcon className="h-6 w-6"/>Media</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('teaser')}><PenSquare className="h-6 w-6"/>Teaser</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('song')}><Music className="h-6 w-6"/>Song</Button>
@@ -1148,7 +1105,7 @@ export default function StatusFeature() {
       </Dialog>
 
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
-          <DialogContent className="p-0 m-0 border-0 w-screen h-[90vh] max-h-[700px] max-w-full sm:max-w-md flex flex-col gap-0 rounded-lg">
+          <DialogContent className="p-0 m-0 border-0 w-screen h-[90vh] max-h-[700px] max-w-full sm:max-w-md flex flex-col gap-0 rounded-lg overflow-hidden">
             <DialogHeader className="p-4 flex-row items-center justify-between border-b">
                 <DialogTitle>Create Post</DialogTitle>
                 <div className="flex items-center gap-1">
@@ -1161,7 +1118,7 @@ export default function StatusFeature() {
              <div className="p-2 border-t bg-background">
                 <Tabs value={activeUploaderTab} onValueChange={handleTabChange} className="w-full">
                     <TabsList className="grid w-full grid-cols-6">
-                        <TabsTrigger value="text"><Text className="h-5 w-5"/></TabsTrigger>
+                        <TabsTrigger value="text"><Type className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="media"><ImageIcon className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="teaser"><PenSquare className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="song"><Music className="h-5 w-5"/></TabsTrigger>
