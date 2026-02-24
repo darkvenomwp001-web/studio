@@ -35,15 +35,15 @@ service cloud.firestore {
       allow read: if true;
 
       // A user can create their own profile document
-      allow create: if request.auth.uid != null && request.resource.data.id == request.auth.uid;
+      allow create: if isSignedIn() && isOwner(userId);
 
       // Regular users can update their own profile, but cannot change protected fields.
       // The app owner has full update access.
-      allow update: if (isSignedIn() && isOwner(userId) &&
-                        request.resource.data.role == resource.data.role &&
-                        request.resource.data.isBanned == resource.data.isBanned &&
-                        request.resource.data.isVerified == resource.data.isVerified)
-                    || isAppOwner();
+      // Using affectedKeys() is more robust for updateDoc operations.
+      allow update: if isAppOwner() || (
+        isSignedIn() && isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isBanned', 'isVerified'])
+      );
 
       // Only the app owner can delete users.
       allow delete: if isAppOwner() && request.auth.uid != userId;
@@ -141,7 +141,7 @@ service cloud.firestore {
       match /comments/{commentId} {
         allow read: if true;
         allow create: if isSignedIn() && request.auth.token.firebase.sign_in_provider != "anonymous" && isOwner(request.resource.data.user.id);
-        allow update, delete: if isSignedIn() && (isOwner(resource.data.user.id) || isAppOwner());
+        allow update, delete: if isSignedIn() && (isOwner(request.resource.data.user.id) || isAppOwner());
       }
       
       // Feed Post Reactions Subcollection
