@@ -260,7 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const isAnonymous = firebaseUser.isAnonymous;
             const username = isAnonymous
                 ? `Guest${firebaseUser.uid.substring(0, 6)}`
-                : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.substring(0, 5)}`;
+                : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0].toLowerCase() || `user_${firebaseUser.uid.substring(0, 5)}`;
             const displayName = isAnonymous ? 'A Mysterious Guest' : (firebaseUser.displayName || username);
             const isOwner = username === 'authorrafaelnv';
 
@@ -488,7 +488,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUpWithEmailPassword = async ({ email, passwordOne, username }: { username: string; email: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
-        const usernameQuery = query(collection(db, 'users'), where('username', '==', username.trim()));
+        const usernameToSet = username.trim().toLowerCase();
+        const usernameRegex = /^[a-z0-9_]+$/;
+        
+        if (!usernameRegex.test(usernameToSet)) {
+            toast({
+                title: "Invalid Username",
+                description: "Usernames can only contain lowercase letters, numbers, and underscores.",
+                variant: "destructive"
+            });
+            setAuthLoading(false);
+            return;
+        }
+
+        const usernameQuery = query(collection(db, 'users'), where('username', '==', usernameToSet));
         const usernameSnapshot = await getDocs(usernameQuery);
         if (!usernameSnapshot.empty) {
             toast({
@@ -512,19 +525,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
   
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
-      await sendVerificationEmail();
+      await sendEmailVerification(userCredential.user);
       if (userCredential.user) {
-        await updateFirebaseProfile(userCredential.user, { displayName: username });
+        await updateFirebaseProfile(userCredential.user, { displayName: usernameToSet });
         const userRef = doc(db, 'users', userCredential.user.uid);
-        const isOwner = username === 'authorrafaelnv';
+        const isOwner = usernameToSet === 'authorrafaelnv';
         
         const newUserProfile: AppUser = {
           id: userCredential.user.uid,
-          username: username,
-          displayName: username,
+          username: usernameToSet,
+          displayName: usernameToSet,
           email: email,
           emailVerified: userCredential.user.emailVerified,
-          avatarUrl: `https://placehold.co/100x100.png?text=${username.charAt(0).toUpperCase()}`,
+          avatarUrl: `https://placehold.co/100x100.png?text=${usernameToSet.charAt(0).toUpperCase()}`,
           bio: 'New to LitVerse! Ready to explore.',
           role: isOwner ? 'admin' : 'reader',
           isVerified: isOwner,
@@ -555,7 +568,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmailPassword = async ({ emailOrUsername, passwordOne }: { emailOrUsername: string; passwordOne: string; }) => {
     setAuthLoading(true);
-    let email = emailOrUsername.trim();
+    let email = emailOrUsername.trim().toLowerCase();
 
     try {
       if (!email.includes('@')) {
@@ -603,7 +616,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut(auth);
       sessionStorage.removeItem(USER_CACHE_KEY);
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
-      // Redirect to a public page after sign-out
       router.push('/');
     } catch (error) {
       handleAuthError(error as AuthError, "Sign Out");
@@ -619,8 +631,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setAuthLoading(true);
     try {
+      if (updates.username && updates.username !== user?.username) {
+          const usernameToSet = updates.username.trim().toLowerCase();
+          const usernameRegex = /^[a-z0-9_]+$/;
+          
+          if (!usernameRegex.test(usernameToSet)) {
+              toast({
+                  title: "Invalid Username",
+                  description: "Usernames can only contain lowercase letters, numbers, and underscores.",
+                  variant: "destructive"
+              });
+              setAuthLoading(false);
+              return;
+          }
+
+          const usernameQuery = query(collection(db, 'users'), where('username', '==', usernameToSet));
+          const usernameSnapshot = await getDocs(usernameQuery);
+          if (!usernameSnapshot.empty) {
+              toast({
+                  title: "Username Taken",
+                  description: "This username is already in use by another explorer. Please choose a different handle.",
+                  variant: "destructive"
+              });
+              setAuthLoading(false);
+              return;
+          }
+          updates.username = usernameToSet;
+      }
+
       const userRef = doc(db, 'users', auth.currentUser.uid);
-      
       await updateDoc(userRef, { ...updates, updatedAt: serverTimestamp() });
       
       if (updates.displayName || updates.avatarUrl) {

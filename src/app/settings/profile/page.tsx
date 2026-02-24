@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
@@ -210,9 +211,17 @@ export default function EditProfilePage() {
                             <Label htmlFor="username" className="text-xs uppercase tracking-wider font-bold text-muted-foreground">Username</Label>
                             <div className="relative">
                                 <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Unique handle" className="pl-10 h-11" disabled={anySubmitting} />
+                                <Input 
+                                    id="username" 
+                                    value={username} 
+                                    onChange={(e) => setUsername(e.target.value.toLowerCase())} 
+                                    placeholder="Unique handle" 
+                                    className="pl-10 h-11" 
+                                    disabled={anySubmitting} 
+                                />
                             </div>
-                            <p className="text-[10px] text-muted-foreground mt-1 px-1">Unique URL: D4RKV3NOM.app/profile/{username || '...'}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1 px-1">Lowercases, numbers, and underscores only. This is your unique identifier.</p>
+                            <p className="text-[10px] text-muted-foreground px-1">Unique URL: D4RKV3NOM.app/profile/{username || '...'}</p>
                         </div>
                     </div>
                     <div className="space-y-2">
