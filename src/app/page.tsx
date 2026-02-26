@@ -1,3 +1,4 @@
+
 'use client'; 
 
 import Link from 'next/link';
@@ -129,7 +130,7 @@ function ForYouTabContent() {
                             by <span className="text-foreground font-semibold">@{story.author.username}</span>
                           </p>
                           <div className="pt-2 sm:pt-4 flex items-center gap-3">
-                              <Button size="sm" className="rounded-full px-4 sm:px-8 sm:size-lg bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
+                              <Button size="sm" className="rounded-full px-4 sm:px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
                                   Start Reading
                               </Button>
                               <Button variant="outline" size="sm" className="rounded-full border-foreground/20 bg-background/50 backdrop-blur-md hover:bg-background/80 transition-all hidden sm:flex">
