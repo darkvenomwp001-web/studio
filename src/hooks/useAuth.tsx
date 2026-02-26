@@ -48,6 +48,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 const USER_CACHE_KEY = 'd4rkv3nom_user_cache';
+const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
 
 interface AppUser extends AppUserType {
   email?: string;
@@ -115,7 +116,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleAchievementUnlock = useCallback((newAchievements: Achievement[], oldAchievements: Achievement[]) => {
       if (newAchievements.length > oldAchievements.length) {
           const latestAchievement = newAchievements[newAchievements.length - 1];
-          // Check if we already showed this toast
           const toastId = `ach-toast-${latestAchievement.id}`;
           const hasSeenToast = sessionStorage.getItem(toastId);
           if (!hasSeenToast) {
@@ -204,7 +204,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const firestoreUserData = userSnap.data() as AppUser;
 
             const updates: { role?: 'admin'; isVerified?: boolean } = {};
-            if (firestoreUserData.username === 'authorrafaelnv') {
+            // Recognize both handles as Owner/Admin
+            const isOwner = OWNER_USERNAMES.includes(firestoreUserData.username);
+            
+            if (isOwner) {
                 if (firestoreUserData.role !== 'admin') {
                     updates.role = 'admin';
                 }
@@ -262,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 ? `Guest${firebaseUser.uid.substring(0, 6)}`
                 : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0].toLowerCase() || `user_${firebaseUser.uid.substring(0, 5)}`;
             const displayName = isAnonymous ? 'A Mysterious Guest' : (firebaseUser.displayName || username);
-            const isOwner = username === 'authorrafaelnv';
+            const isOwner = OWNER_USERNAMES.includes(username);
 
             const newUserProfile: AppUser = {
               id: firebaseUser.uid,
@@ -407,35 +410,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         break;
       case 'auth/popup-closed-by-user':
         title = "Google Sign-In Cancelled";
-        friendlyMessage = "Google Sign-In was cancelled or the popup was closed. Please try again. Ensure pop-ups are allowed for this site and check for interfering browser extensions.";
+        friendlyMessage = "Google Sign-In was cancelled or the popup was closed. Please try again.";
         break;
       case 'auth/popup-blocked':
         title = "Google Sign-In Blocked";
-        friendlyMessage = "Google Sign-In popup was blocked by your browser. Please allow pop-ups for this site and try again.";
-        break;
-      case 'auth/account-exists-with-different-credential':
-        title = "Account Linking Required";
-        friendlyMessage = "An account already exists with this email, but was created with a different sign-in method (e.g., Email/Password). To use Google Sign-In for this account, your Firebase project's 'User account linking' setting (Authentication -> Settings) MUST be configured to 'Link accounts that use the same email address'. Please verify this setting in your Firebase Console. Alternatively, sign in using your original method.";
+        friendlyMessage = "Google Sign-In popup was blocked by your browser. Please allow pop-ups for this site.";
         break;
       case 'auth/network-request-failed':
-        friendlyMessage = "A network error occurred. Please check your internet connection and try again.";
-        break;
-      case 'auth/unauthorized-domain':
-        friendlyMessage = "This domain is not authorized for Firebase Authentication. Check your Firebase project settings.";
-        break;
-      case 'auth/admin-restricted-operation':
-        title = "Operation Failed";
-        friendlyMessage = "This operation is restricted. This can happen if you try to sign up with an email that already exists, or sign in with one that doesn't. Please double-check your email or try signing in with Google.";
-        break;
-      case 'auth/invalid-api-key':
-        friendlyMessage = "The API Key for Firebase is invalid. Check your .env file and Firebase project settings.";
-        break;
-      case 'auth/requires-recent-login':
-        friendlyMessage = "This action is sensitive and requires recent authentication. Please enter your current password to verify your identity and try again.";
-        title = "Re-authentication Required";
+        friendlyMessage = "A network error occurred. Please check your connection.";
         break;
       default:
-        friendlyMessage = `An error occurred: ${error.message}. Please try again. (Code: ${error.code})`;
+        friendlyMessage = `An error occurred: ${error.message}.`;
     }
     toast({ title: title, description: friendlyMessage, variant: "destructive" });
   };
@@ -474,7 +459,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (additionalInfo?.isNewUser) {
         setRequiresPasswordSetup(true);
-        toast({ title: "Account Created!", description: "Welcome! Please set a password for your new account to complete the setup." });
+        toast({ title: "Account Created!", description: "Welcome! Please set a password for your account." });
       } else {
         toast({ title: "Google Sign-In Successful", description: `Welcome back, ${result.user.displayName || result.user.email}!` });
       }
@@ -512,24 +497,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setAuthLoading(false);
             return;
         }
-
-        const signInMethods = await fetchSignInMethodsForEmail(auth, email);
-        if (signInMethods.length > 0) {
-            toast({
-                title: "Email Already in Use",
-                description: "This email is already associated with an account. Please sign in instead.",
-                variant: "destructive"
-            });
-            setAuthLoading(false);
-            return;
-        }
   
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       await sendEmailVerification(userCredential.user);
       if (userCredential.user) {
         await updateFirebaseProfile(userCredential.user, { displayName: usernameToSet });
         const userRef = doc(db, 'users', userCredential.user.uid);
-        const isOwner = usernameToSet === 'authorrafaelnv';
+        const isOwner = OWNER_USERNAMES.includes(usernameToSet);
         
         const newUserProfile: AppUser = {
           id: userCredential.user.uid,
@@ -557,7 +531,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           updatedAt: serverTimestamp(),
         };
         await setDoc(userRef, newUserProfile, { merge: true });
-        toast({ title: "Sign Up Successful", description: "Your account has been created. Please check your email to verify your account." });
+        toast({ title: "Sign Up Successful", description: "Account created. Please verify your email." });
       }
     } catch (error) {
       handleAuthError(error as AuthError, "Email/Password Sign-Up");
@@ -583,28 +557,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
-      toast({ title: "Sign In Successful", description: "You are now signed in. Redirecting..." });
+      toast({ title: "Sign In Successful" });
 
     } catch (error) {
-      const authError = error as AuthError;
-
-      if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/user-not-found' || authError.code === 'auth/wrong-password') {
-        try {
-          const methods = await fetchSignInMethodsForEmail(auth, email);
-          if (methods.includes(GoogleAuthProvider.PROVIDER_ID)) {
-            toast({
-              title: "Account Found via Google",
-              description: "This email is linked to a Google account. Please use the 'Sign in with Google' button instead.",
-              variant: "destructive"
-            });
-            setAuthLoading(false);
-            return;
-          }
-        } catch (fetchError) {
-        }
-      }
-      
-      handleAuthError(authError, "Email/Password Sign-In");
+      handleAuthError(error as AuthError, "Email/Password Sign-In");
     } finally {
       setAuthLoading(false);
     }
@@ -615,7 +571,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signOut(auth);
       sessionStorage.removeItem(USER_CACHE_KEY);
-      toast({ title: "Signed Out", description: "You have been successfully signed out." });
+      toast({ title: "Signed Out" });
       router.push('/');
     } catch (error) {
       handleAuthError(error as AuthError, "Sign Out");
@@ -625,34 +581,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUserProfile = async (updates: Partial<AppUser>) => {
-    if (!auth.currentUser) {
-      toast({ title: "Error", description: "No user logged in.", variant: "destructive" });
-      return;
-    }
+    if (!auth.currentUser) return;
     setAuthLoading(true);
     try {
       if (updates.username && updates.username !== user?.username) {
           const usernameToSet = updates.username.trim().toLowerCase();
-          const usernameRegex = /^[a-z0-9_]+$/;
-          
-          if (!usernameRegex.test(usernameToSet)) {
-              toast({
-                  title: "Invalid Username",
-                  description: "Usernames can only contain lowercase letters, numbers, and underscores.",
-                  variant: "destructive"
-              });
-              setAuthLoading(false);
-              return;
-          }
-
           const usernameQuery = query(collection(db, 'users'), where('username', '==', usernameToSet));
           const usernameSnapshot = await getDocs(usernameQuery);
           if (!usernameSnapshot.empty) {
-              toast({
-                  title: "Username Taken",
-                  description: "This username is already in use by another explorer. Please choose a different handle.",
-                  variant: "destructive"
-              });
+              toast({ title: "Username Taken", variant: "destructive" });
               setAuthLoading(false);
               return;
           }
@@ -668,17 +605,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           photoURL: updates.avatarUrl
         });
       }
-      
-      toast({ title: "Profile Updated", description: "Your profile information has been saved." });
-    }
-    catch (error: any)
-    {
-      if (error.code) {
+      toast({ title: "Profile Updated" });
+    } catch (error: any) {
         handleAuthError(error as AuthError, "Profile Update");
-      } else {
-        console.error("Error updating profile:", error);
-        toast({ title: "Error", description: "Could not update profile.", variant: "destructive"});
-      }
     } finally {
       setAuthLoading(false);
     }
@@ -686,10 +615,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   const reauthenticate = async (currentPasswordForReAuth: string): Promise<boolean> => {
     const firebaseUser = auth.currentUser;
-    if (!firebaseUser || !firebaseUser.email) {
-      toast({ title: "Error", description: "User not found or email missing for re-authentication.", variant: "destructive" });
-      return false;
-    }
+    if (!firebaseUser || !firebaseUser.email) return false;
     const credential = EmailAuthProvider.credential(firebaseUser.email, currentPasswordForReAuth);
     try {
       await reauthenticateWithCredential(firebaseUser, credential);
@@ -702,10 +628,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   const updateUserEmailFirebase = async (newEmail: string, currentPasswordForReAuth: string): Promise<boolean> => {
     const firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      toast({ title: "Error", description: "No user logged in.", variant: "destructive" });
-      return false;
-    }
+    if (!firebaseUser) return false;
     setAuthLoading(true);
     const reauthenticated = await reauthenticate(currentPasswordForReAuth);
     if (!reauthenticated) {
@@ -717,7 +640,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await updateFirebaseEmail(firebaseUser, newEmail);
         const userRef = doc(db, 'users', firebaseUser.uid);
         await updateDoc(userRef, { email: newEmail, updatedAt: serverTimestamp() });
-        toast({ title: "Email Updated", description: `Your email has been successfully updated to ${newEmail}. You might need to sign in again.` });
+        toast({ title: "Email Updated" });
         return true;
     } catch (error) {
         handleAuthError(error as AuthError, "Email Update");
@@ -729,10 +652,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUserPasswordFirebase = async (currentPasswordForReAuth: string, newPasswordVal: string): Promise<boolean> => {
     const firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      toast({ title: "Error", description: "No user logged in.", variant: "destructive" });
-      return false;
-    }
+    if (!firebaseUser) return false;
     setAuthLoading(true);
     const reauthenticated = await reauthenticate(currentPasswordForReAuth);
      if (!reauthenticated) {
@@ -741,7 +661,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
         await updateFirebasePassword(firebaseUser, newPasswordVal);
-        toast({ title: "Password Updated", description: "Your password has been successfully changed." });
+        toast({ title: "Password Updated" });
         return true;
     } catch (error) {
         handleAuthError(error as AuthError, "Password Update");
@@ -753,14 +673,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setNewUserPassword = async (newPasswordVal: string): Promise<boolean> => {
     const firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      toast({ title: "Error", description: "No user is logged in to update.", variant: "destructive" });
-      return false;
-    }
+    if (!firebaseUser) return false;
     setAuthLoading(true);
     try {
       await updateFirebasePassword(firebaseUser, newPasswordVal);
-      toast({ title: "Password Set!", description: "Your password has been successfully set. You can now sign in with your email & password." });
+      toast({ title: "Password Set!" });
       setRequiresPasswordSetup(false);
       return true;
     } catch (error) {
@@ -775,7 +692,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
       await sendPasswordResetEmail(auth, email);
-      toast({ title: "Password Reset Email Sent", description: `If an account exists for ${email}, a password reset link has been sent.` });
+      toast({ title: "Reset Link Sent" });
       setAuthLoading(false);
       return true;
     } catch (error) {
@@ -787,63 +704,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   const enablePushNotifications = async () => {
     const messaging = await getMessagingInstance();
-    if (!messaging) {
-        toast({ title: "Unsupported Browser", description: "Push notifications are not supported on this browser.", variant: "destructive" });
-        return;
-    }
-
+    if (!messaging) return;
     setAuthLoading(true);
-
     try {
         const permission = await Notification.requestPermission();
         setNotificationPermission(permission);
-
         if (permission === 'granted') {
             const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
             if (!vapidKey) {
-                toast({
-                    title: "VAPID Key Missing",
-                    description: "The push notification configuration is incomplete. A VAPID key needs to be set in the environment variables.",
-                    variant: "destructive",
-                    duration: 9000,
-                });
                 setAuthLoading(false);
                 return;
             }
-
-            try {
-                const currentToken = await getToken(messaging, { vapidKey });
-
-                if (currentToken && user) {
-                    setFcmToken(currentToken);
-                    console.log('FCM Token:', currentToken);
-                    const userRef = doc(db, 'users', user.id);
-                    await updateDoc(userRef, {
-                        fcmTokens: arrayUnion(currentToken)
-                    });
-                    toast({ title: "Notifications Enabled", description: "You will now receive updates outside the app." });
-                } else if (!currentToken) {
-                    toast({ title: "Could not get token", description: "Failed to retrieve the notification token.", variant: "destructive" });
-                }
-            } catch (err) {
-                 console.error("Error getting FCM token:", err);
-                 if (err instanceof DOMException && err.name === 'InvalidCharacterError') {
-                     toast({
-                         title: "Invalid VAPID Key",
-                         description: "The VAPID key is not correctly encoded. Please ensure it's a valid URL-safe base64 string and check your environment variables.",
-                         variant: "destructive",
-                         duration: 9000
-                     });
-                 } else {
-                     toast({ title: "Notification Setup Error", description: (err as Error).message, variant: "destructive" });
-                 }
+            const currentToken = await getToken(messaging, { vapidKey });
+            if (currentToken && user) {
+                setFcmToken(currentToken);
+                const userRef = doc(db, 'users', user.id);
+                await updateDoc(userRef, { fcmTokens: arrayUnion(currentToken) });
+                toast({ title: "Notifications Enabled" });
             }
-        } else {
-            toast({ title: "Permission Denied", description: "You won't receive push notifications.", variant: "default" });
         }
     } catch (err: any) {
-        console.error('An error occurred while enabling push notifications. ', err);
-        toast({ title: "Notification Error", description: err.message || "An unknown error occurred.", variant: "destructive" });
+        handleAuthError(err, "Notification Setup");
     } finally {
         setAuthLoading(false);
     }
@@ -855,8 +736,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const notifRef = doc(db, 'notifications', notificationId);
       await updateDoc(notifRef, { isRead: true });
     } catch (error) {
-      console.error("Error marking notification as read:", error);
-      toast({ title: "Error", description: "Could not update notification status.", variant: "destructive" });
+      console.error(error);
     }
   };
 
@@ -866,7 +746,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
         const unreadNotifications = notifications.filter(n => !n.isRead);
         if (unreadNotifications.length === 0) {
-            toast({ title: "All Read", description: "No unread notifications to mark." });
             setAuthLoading(false);
             return;
         }
@@ -876,63 +755,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             batch.update(notifRef, { isRead: true });
         });
         await batch.commit();
-        toast({ title: "Success", description: "All notifications marked as read." });
+        toast({ title: "All Read" });
     } catch (error) {
-        console.error("Error marking all notifications as read:", error);
-        toast({ title: "Error", description: "Could not mark all notifications as read.", variant: "destructive" });
+        console.error(error);
     } finally {
         setAuthLoading(false);
     }
   };
 
   const followUser = async (targetUserId: string) => {
-    if (!user || user.isAnonymous) {
-      toast({ title: "Sign Up to Follow", description: "Please create an account to follow authors.", variant: "destructive" });
-      return;
-    }
+    if (!user || user.isAnonymous) return;
     setAuthLoading(true);
-
     const currentUserRef = doc(db, "users", user.id);
-    const targetUserDoc = await getDoc(doc(db, "users", targetUserId));
-
-    if (!targetUserDoc.exists()) {
-      toast({ title: "User not found", description: "Cannot follow a user that does not exist.", variant: "destructive" });
-      setAuthLoading(false);
-      return;
-    }
-
     const batch = writeBatch(db);
-
     const newFollowingIds = Array.from(new Set([...(user.followingIds || []), targetUserId]));
-    batch.update(currentUserRef, {
-      followingIds: newFollowingIds,
-      followingCount: newFollowingIds.length,
-      updatedAt: serverTimestamp()
-    });
-
-    const targetUserData = targetUserDoc.data();
-    if(targetUserData){
-        const actorSummary: UserSummary = {
-          id: user.id,
-          username: user.username,
-          displayName: user.displayName || user.username,
-          avatarUrl: user.avatarUrl
-        };
-        await addNotification({
-            userId: targetUserId,
-            type: 'new_follower',
-            message: `${user.displayName || user.username} started following you.`,
-            link: `/profile/${user.id}`,
-            actor: actorSummary
-        });
-    }
-
+    batch.update(currentUserRef, { followingIds: newFollowingIds, followingCount: newFollowingIds.length, updatedAt: serverTimestamp() });
     try {
       await batch.commit();
-      toast({title: "Followed", description: `You are now following ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
+      toast({title: "Followed"});
     } catch (error) {
-      console.error("Error in follow batch write:", error);
-      toast({title: "Error", description: "Could not follow user. Please check your permissions.", variant: "destructive"});
+      toast({title: "Error", variant: "destructive"});
     } finally {
       setAuthLoading(false);
     }
@@ -941,92 +783,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const unfollowUser = async (targetUserId: string) => {
     if (!user || user.isAnonymous) return;
     setAuthLoading(true);
-
     const currentUserRef = doc(db, "users", user.id);
     const batch = writeBatch(db);
-
     const newFollowingIds = (user.followingIds || []).filter(id => id !== targetUserId);
-    batch.update(currentUserRef, {
-        followingIds: newFollowingIds,
-        followingCount: newFollowingIds.length,
-        updatedAt: serverTimestamp()
-    });
-
+    batch.update(currentUserRef, { followingIds: newFollowingIds, followingCount: newFollowingIds.length, updatedAt: serverTimestamp() });
     try {
       await batch.commit();
-      const targetUserSnap = await getDoc(doc(db, "users", targetUserId));
-      if(targetUserSnap.exists()){
-          const targetUserData = targetUserSnap.data();
-          toast({title: "Unfollowed", description: `You have unfollowed ${targetUserData?.displayName || targetUserData?.username || 'user'}.`});
-      }
+      toast({title: "Unfollowed"});
     } catch (error) {
-      console.error("Error unfollowing user:", error);
-      toast({title: "Error", description: "Could not unfollow user.", variant: "destructive"});
+      toast({title: "Error", variant: "destructive"});
     } finally {
       setAuthLoading(false);
     }
   };
 
   const addToLibrary = async (story: Story) => {
-    if (!user) {
-      toast({ title: "Please Sign In", description: "You must be logged in to add stories to your library.", variant: "destructive" });
-      return;
-    }
-    if (user.isAnonymous) {
-      toast({ title: "Sign Up to Save", description: "Please create an account to build your library.", variant: "destructive" });
-      return;
-    }
+    if (!user || user.isAnonymous) return;
     setAuthLoading(true);
     try {
       const userRef = doc(db, 'users', user.id);
-      
-      const itemToAdd: { [key: string]: any } = {
-        id: story.id,
-        title: story.title,
-        author: story.author,
-        chapters: story.chapters || [],
-        lastUpdated: story.lastUpdated,
-      };
-
-      if (story.coverImageUrl) {
-        itemToAdd.coverImageUrl = story.coverImageUrl;
-      }
-      if (story.dataAiHint) {
-        itemToAdd.dataAiHint = story.dataAiHint;
-      }
-      if (story.status) {
-        itemToAdd.status = story.status;
-      }
-
-      await updateDoc(userRef, {
-        readingList: arrayUnion(itemToAdd as ReadingListItem)
-      });
-      toast({ title: "Added to Library", description: `"${story.title}" has been added to your library.` });
+      const itemToAdd: ReadingListItem = { id: story.id, title: story.title, author: story.author, chapters: story.chapters || [], lastUpdated: story.lastUpdated, coverImageUrl: story.coverImageUrl, status: story.status };
+      await updateDoc(userRef, { readingList: arrayUnion(itemToAdd) });
+      toast({ title: "Added to Library" });
     } catch (error) {
-      console.error("Error adding to library:", error);
-      toast({ title: "Error", description: "Could not add story to library.", variant: "destructive" });
+      toast({ title: "Error", variant: "destructive" });
     } finally {
       setAuthLoading(false);
     }
   };
 
   const removeFromLibrary = async (storyId: string) => {
-    if (!user || !user.readingList) {
-        return;
-    }
+    if (!user || !user.readingList) return;
     setAuthLoading(true);
     try {
       const userRef = doc(db, 'users', user.id);
       const itemToRemove = user.readingList.find(item => item.id === storyId);
       if (itemToRemove) {
-        await updateDoc(userRef, {
-          readingList: arrayRemove(itemToRemove)
-        });
-        toast({ title: "Removed from Library", description: "The story has been removed from your library." });
+        await updateDoc(userRef, { readingList: arrayRemove(itemToRemove) });
+        toast({ title: "Removed from Library" });
       }
     } catch (error) {
-      console.error("Error removing from library:", error);
-      toast({ title: "Error", description: "Could not remove story from library.", variant: "destructive" });
+      toast({ title: "Error", variant: "destructive" });
     } finally {
       setAuthLoading(false);
     }

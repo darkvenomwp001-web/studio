@@ -10,22 +10,22 @@ import { Loader2 } from 'lucide-react';
 import CreatePostForm from './CreatePostForm';
 import ThreadPostCard from './ThreadPostCard';
 
-const OWNER_USERNAME = 'authorrafaelnv';
+const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
 
 export default function ThreadsFeed() {
   const { user, loading } = useAuth();
   const [posts, setPosts] = useState<ThreadPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const isOwner = user?.username === OWNER_USERNAME;
+  const isOwner = user && OWNER_USERNAMES.includes(user.username);
 
   useEffect(() => {
     setIsLoading(true);
     
-    // Main feed now only shows posts from the owner
+    // Main feed shows posts from any of the official handles
     const postsQuery = query(
         collection(db, 'feedPosts'), 
-        where('author.username', '==', OWNER_USERNAME),
+        where('author.username', 'in', OWNER_USERNAMES),
         orderBy('timestamp', 'desc')
     );
 
@@ -43,7 +43,6 @@ export default function ThreadsFeed() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Only the owner can post to the feed now */}
       {isOwner && <CreatePostForm />}
       
       {isLoading ? (

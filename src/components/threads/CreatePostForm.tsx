@@ -7,7 +7,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Image as ImageIcon, Send, Loader2, Book, Music, X } from 'lucide-react';
+import { Image as ImageIcon, Send, Loader2, Book, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -19,7 +19,7 @@ import Image from 'next/image';
 import { Separator } from '../ui/separator';
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
-const OWNER_USERNAME = 'authorrafaelnv';
+const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
 
 export default function CreatePostForm() {
     const { user } = useAuth();
@@ -41,14 +41,14 @@ export default function CreatePostForm() {
 
     const imageInputRef = useRef<HTMLInputElement>(null);
 
-    // Only allow the owner to see this form
-    if (!user || user.username !== OWNER_USERNAME) return null;
+    // Only allow official handles to post
+    if (!user || !OWNER_USERNAMES.includes(user.username)) return null;
 
     const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             if (file.size > MAX_IMAGE_SIZE_BYTES) {
-                toast({ title: 'Image Too Large', description: `Please select an image smaller than ${MAX_IMAGE_SIZE_BYTES / (1024*1024)}MB.`, variant: 'destructive' });
+                toast({ title: 'Image Too Large', variant: 'destructive' });
                 return;
             }
             setAttachedImage(file);
@@ -70,7 +70,6 @@ export default function CreatePostForm() {
             const querySnapshot = await getDocs(q);
             setStorySearchResults(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story)));
         } catch (error) {
-            console.error("Error searching stories:", error);
             toast({ title: "Search Failed", variant: "destructive" });
         } finally {
             setIsSearchingStories(false);
@@ -78,10 +77,7 @@ export default function CreatePostForm() {
     };
     
     const handleSubmit = async () => {
-        if (!user || (!content.trim() && !attachedStory && !attachedImage && !attachedSong)) {
-            toast({ title: 'Post is empty!', description: 'Please write something or add an attachment.', variant: 'destructive' });
-            return;
-        }
+        if (!user || (!content.trim() && !attachedStory && !attachedImage && !attachedSong)) return;
         setIsSubmitting(true);
         let imageUrl = '';
 
@@ -89,7 +85,6 @@ export default function CreatePostForm() {
             const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
             const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
             if (!cloudName || !uploadPreset) {
-                toast({ title: 'Configuration Error', variant: 'destructive' });
                 setIsSubmitting(false);
                 return;
             }
@@ -129,8 +124,7 @@ export default function CreatePostForm() {
             setLyricSnippet(null);
             toast({ title: 'Announcement Published!' });
         } catch (error) {
-            console.error("Error creating post:", error);
-            toast({ title: "Failed to publish announcement", variant: "destructive" });
+            toast({ title: "Failed to publish", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -190,7 +184,6 @@ export default function CreatePostForm() {
                   <div className="flex">
                       <input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
                       <Button variant="ghost" size="icon" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-5 w-5 text-muted-foreground" /></Button>
-                      
                        <DialogTrigger asChild>
                            <Button variant="ghost" size="icon"><Book className="h-5 w-5 text-muted-foreground" /></Button>
                       </DialogTrigger>
@@ -202,11 +195,10 @@ export default function CreatePostForm() {
               </CardFooter>
           </Card>
           
-          {/* Attach Story Modal */}
           <DialogContent>
               <DialogHeader>
                   <DialogTitle>Attach a Story</DialogTitle>
-                  <DialogDescription>Search for one of your stories to attach to this announcement.</DialogDescription>
+                  <DialogDescription>Search for one of your stories to attach.</DialogDescription>
               </DialogHeader>
               <div className="flex gap-2">
                   <Input placeholder="Search story title..." value={storySearchTerm} onChange={e => setStorySearchTerm(e.target.value)} />
