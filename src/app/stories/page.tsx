@@ -7,6 +7,7 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import type { Story } from '@/types';
 import StoryCard from '@/components/shared/StoryCard';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Loader2, BookOpen, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -150,9 +151,9 @@ export default function StoriesPage() {
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="trending">Trending</SelectItem>
-                  <SelectItem value="popular">Most Read</SelectItem>
-                  <SelectItem value="new">Newest</SelectItem>
+                  {['trending', 'popular', 'new'].map(s => (
+                    <SelectItem key={s} value={s} className="capitalize">{s === 'new' ? 'Newest' : (s === 'popular' ? 'Most Read' : 'Trending')}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
