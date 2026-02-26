@@ -98,7 +98,7 @@ function ForYouTabContent() {
 
   return (
     <div className="pb-12 animate-in fade-in duration-700 space-y-12">
-      {/* Hero Carousel - Full Bleed on Mobile */}
+      {/* Hero Carousel - Full Bleed on Mobile with Compact Aspect Ratio */}
       <section className="w-full">
         <Carousel
           plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
@@ -109,7 +109,7 @@ function ForYouTabContent() {
             {featuredStories.length > 0 ? featuredStories.map((story, index) => (
               <CarouselItem key={story.id} className="pl-0 basis-full">
                 <Link href={`/stories/${story.id}`} className="block group">
-                  <div className="relative aspect-[4/5] sm:aspect-[21/9] w-full overflow-hidden bg-muted transition-all duration-500">
+                  <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full overflow-hidden bg-muted transition-all duration-500">
                     <Image
                       src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/1600/900`}
                       alt={story.title}
@@ -118,21 +118,21 @@ function ForYouTabContent() {
                       data-ai-hint="story high resolution cover"
                       priority={index === 0}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent flex flex-col justify-end p-6 md:p-12 lg:p-16">
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent flex flex-col justify-end p-4 md:p-12 lg:p-16">
                       <div className="container mx-auto max-w-7xl px-0">
-                        <div className="space-y-2 max-w-2xl translate-y-4 group-hover:translate-y-0 transition-all duration-500">
-                          <Badge className="bg-primary text-primary-foreground mb-2">Featured</Badge>
-                          <h2 className="text-3xl md:text-5xl lg:text-6xl font-headline font-bold text-foreground drop-shadow-lg line-clamp-2 leading-tight">
+                        <div className="space-y-1 sm:space-y-2 max-w-2xl translate-y-2 sm:translate-y-4 group-hover:translate-y-0 transition-all duration-500">
+                          <Badge className="bg-primary text-primary-foreground mb-1 sm:mb-2 text-[10px] sm:text-xs">Featured</Badge>
+                          <h2 className="text-xl sm:text-4xl md:text-5xl lg:text-6xl font-headline font-bold text-foreground drop-shadow-lg line-clamp-2 leading-tight">
                             {story.title}
                           </h2>
-                          <p className="text-base md:text-xl text-muted-foreground font-medium flex items-center gap-2">
-                            by <span className="text-foreground">@{story.author.username}</span>
+                          <p className="text-xs sm:text-xl text-muted-foreground font-medium flex items-center gap-2">
+                            by <span className="text-foreground font-semibold">@{story.author.username}</span>
                           </p>
-                          <div className="pt-4 flex items-center gap-4">
-                              <Button size="lg" className="rounded-full px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
+                          <div className="pt-2 sm:pt-4 flex items-center gap-3">
+                              <Button size="sm" className="rounded-full px-4 sm:px-8 sm:size-lg bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
                                   Start Reading
                               </Button>
-                              <Button variant="outline" size="lg" className="rounded-full border-foreground/20 bg-background/50 backdrop-blur-md hover:bg-background/80 transition-all hidden sm:flex">
+                              <Button variant="outline" size="sm" className="rounded-full border-foreground/20 bg-background/50 backdrop-blur-md hover:bg-background/80 transition-all hidden sm:flex">
                                   View Details
                               </Button>
                           </div>
@@ -144,7 +144,7 @@ function ForYouTabContent() {
               </CarouselItem>
             )) : (
                 <CarouselItem className="pl-0 basis-full">
-                    <div className="aspect-[21/9] w-full bg-muted border-2 border-dashed flex items-center justify-center">
+                    <div className="aspect-[16/9] w-full bg-muted border-2 border-dashed flex items-center justify-center">
                         <p className="text-muted-foreground px-4 text-center">Welcome to D4RKV3NOM. Start creating stories to see them featured here.</p>
                     </div>
                 </CarouselItem>
