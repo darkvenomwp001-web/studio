@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useRef } from 'react';
@@ -26,6 +27,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   const { toast } = useToast();
   const [isProcessing, startProcessingTransition] = useTransition();
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handlePinPost = () => {
@@ -80,6 +82,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
         const result = await deleteThreadPost(post.id, user.id);
         if (result.success) {
             toast({ title: 'Post deleted' });
+            setIsDeleteDialogOpen(false);
         } else {
             toast({ title: 'Error', description: result.error, variant: 'destructive' });
         }
@@ -113,7 +116,6 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   return (
     <>
       <Dialog>
-        <AlertDialog>
           <Card className={cn("transition-opacity duration-300 relative")}>
             {post.isPinned && <Pin className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />}
             {isRepost && (
@@ -130,8 +132,8 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                 </Avatar>
               </Link>
               <div className="flex-1">
-                <Link href={`/profile/${mainAuthor.id}`} className="font-semibold hover:underline">@{mainAuthor.username}</Link>
-                <p className="text-xs text-muted-foreground">
+                <Link href={`/profile/${mainAuthor.id}`} className="font-semibold hover:underline text-sm md:text-base">@{mainAuthor.username}</Link>
+                <p className="text-[10px] md:text-xs text-muted-foreground">
                   {displayTimestamp?.toDate ? formatDistanceToNow(displayTimestamp.toDate(), { addSuffix: true }) : 'now'}
                 </p>
               </div>
@@ -160,12 +162,10 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                     <EyeOff className="mr-2 h-4 w-4" /> Hide Post
                   </DropdownMenuItem>
                   {user?.id === post.author.id && (
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onSelect={(e) => { e.preventDefault(); setIsDeleteDialogOpen(true); }}>
                         <Trash2 className="mr-2 h-4 w-4"/>
                         Delete Post
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
+                    </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -173,35 +173,36 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
             <CardContent className="p-4 pt-0">
                 <div className="space-y-4">
                     { isRepost ? 
-                        (post.originalPost?.content && <p className="whitespace-pre-line">{post.originalPost.content}</p>) : 
-                        (post.content && <p className="whitespace-pre-line">{post.content}</p>)
+                        (post.originalPost?.content && <p className="whitespace-pre-line text-sm md:text-base leading-relaxed">{post.originalPost.content}</p>) : 
+                        (post.content && <p className="whitespace-pre-line text-sm md:text-base leading-relaxed">{post.content}</p>)
                     }
                     
                     { (isRepost ? post.originalPost?.storyId : post.storyId) && (
                         <Link href={`/stories/${isRepost ? post.originalPost!.storyId : post.storyId}`}>
-                            <div className="border rounded-lg p-3 flex gap-3 hover:bg-muted/50 transition-colors">
-                                <Image src={(isRepost ? post.originalPost!.storyCoverUrl : post.storyCoverUrl) || `https://picsum.photos/seed/${post.id}/512/800`} alt={(isRepost ? post.originalPost!.storyTitle : post.storyTitle) || ''} width={50} height={75} className="rounded-sm object-cover" />
-                                <div>
-                                    <p className="font-bold">{(isRepost ? post.originalPost!.storyTitle : post.storyTitle)}</p>
-                                    <p className="text-sm text-muted-foreground">by @{(isRepost ? post.originalPost!.author.username : post.author.username)}</p>
+                            <div className="border rounded-lg p-3 flex gap-3 hover:bg-muted/50 transition-colors shadow-sm bg-card/50">
+                                <Image src={(isRepost ? post.originalPost!.storyCoverUrl : post.storyCoverUrl) || `https://picsum.photos/seed/${post.id}/512/800`} alt={(isRepost ? post.originalPost!.storyTitle : post.storyTitle) || ''} width={50} height={75} className="rounded-sm object-cover shadow-sm" />
+                                <div className="flex-1 overflow-hidden">
+                                    <p className="font-bold text-sm truncate">{(isRepost ? post.originalPost!.storyTitle : post.storyTitle)}</p>
+                                    <p className="text-xs text-muted-foreground">by @{(isRepost ? post.originalPost!.author.username : post.author.username)}</p>
                                 </div>
                             </div>
                         </Link>
                     )}
                     {imageUrlForPreview && (
                         <div 
-                            className="relative aspect-video rounded-lg overflow-hidden cursor-pointer"
+                            className="relative aspect-video rounded-lg overflow-hidden cursor-pointer shadow-sm border"
                             onMouseDown={handlePressStart}
                             onMouseUp={handlePressEnd}
                             onMouseLeave={handlePressEnd}
                             onTouchStart={handlePressStart}
                             onTouchEnd={handlePressEnd}
+                            onClick={() => setIsPreviewOpen(true)}
                         >
                             <Image src={imageUrlForPreview} alt="Post image" layout="fill" objectFit="cover" />
                         </div>
                     )}
                     {(isRepost ? post.originalPost?.songUrl : post.songUrl) && (
-                        <div>
+                        <div className="rounded-xl overflow-hidden shadow-sm">
                             <SpotifyPlayer trackUrl={(isRepost ? post.originalPost!.songUrl : post.songUrl)} />
                         </div>
                     )}
@@ -210,24 +211,24 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
             <CardFooter className="p-2 border-t flex items-center justify-between">
               <ReactionButton postId={post.id} initialReactionsCount={post.reactionsCount || 0} />
               <DialogTrigger asChild>
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
                   <MessageCircle className="mr-2 h-4 w-4" /> {post.commentsCount || 0} Comments
                 </Button>
               </DialogTrigger>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
                     <Repeat className="mr-2 h-4 w-4" />{post.repostCount || 0} Reposts
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={handleRepost} disabled={isProcessing}>
                     {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Repeat className="mr-2 h-4 w-4" />}
-                    Repost
+                    Repost to my feed
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleCopyLink}>
                     <LinkIcon className="mr-2 h-4 w-4" />
-                    Copy Link
+                    Copy Post Link
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -241,25 +242,25 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
             <ThreadPostComments postId={post.id} />
           </DialogContent>
 
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Post?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete this post.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
-                className="bg-destructive hover:bg-destructive/90"
-                onClick={handleDeletePost}
-              >
-                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        
-        </AlertDialog>
+          <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this post?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This post and its comments will be permanently removed from D4RKV3NOM.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  className="bg-destructive hover:bg-destructive/90"
+                  onClick={handleDeletePost}
+                >
+                  {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete Permanently'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
       </Dialog>
 
       <PreviewDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
@@ -268,7 +269,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                 <DialogTitle>Image Preview</DialogTitle>
                 <DialogDescription>A larger view of the selected image.</DialogDescription>
             </DialogHeader>
-            {imageUrlForPreview && <Image src={imageUrlForPreview} alt="Post preview" width={1200} height={1200} className="rounded-lg object-contain w-full h-auto" />}
+            {imageUrlForPreview && <Image src={imageUrlForPreview} alt="Post preview" width={1200} height={1200} className="rounded-lg object-contain w-full h-auto shadow-2xl" />}
         </PreviewDialogContent>
       </PreviewDialog>
     </>

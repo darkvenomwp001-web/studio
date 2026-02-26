@@ -103,8 +103,11 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
   const [editingPost, setEditingPost] = useState<Announcement | null>(null);
   const [editedContent, setEditedContent] = useState("");
   const [isUpdating, startUpdateTransition] = useTransition();
+  
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -132,7 +135,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
     try {
       const authorSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
       
-      const docRef = await addDoc(collection(db, 'announcements'), {
+      await addDoc(collection(db, 'announcements'), {
         author: authorSummary,
         content: newAnnouncement.trim(),
         timestamp: serverTimestamp()
@@ -171,6 +174,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
       const result = await updateAnnouncement(editingPost.id, editedContent, user.id);
       if (result.success) {
         toast({ title: "Update saved!" });
+        setIsEditDialogOpen(false);
         setEditingPost(null);
       } else {
         toast({ title: "Error", description: result.error, variant: 'destructive' });
@@ -184,6 +188,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
       const result = await deleteAnnouncement(deletingPostId, user.id);
       if (result.success) {
         toast({ title: "Update deleted" });
+        setIsDeleteDialogOpen(false);
       } else {
         toast({ title: "Error", description: result.error, variant: 'destructive' });
       }
@@ -198,8 +203,6 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
   }
 
   return (
-     <Dialog onOpenChange={(open) => !open && setEditingPost(null)}>
-        <AlertDialog onOpenChange={(open) => !open && setDeletingPostId(null)}>
     <div className="max-w-2xl mx-auto space-y-6">
       {isOwnProfile && (
         <form onSubmit={handlePostAnnouncement}>
@@ -217,10 +220,12 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
                   className="bg-transparent border-0 focus-visible:ring-0 shadow-none resize-none p-0"
                   disabled={isPosting}
                 />
-                 <Button disabled={isPosting || !newAnnouncement.trim()}>
-                    {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
-                    Post
-                </Button>
+                 <div className="flex justify-end">
+                    <Button disabled={isPosting || !newAnnouncement.trim()} size="sm">
+                        {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
+                        Post Update
+                    </Button>
+                 </div>
               </div>
             </CardContent>
           </Card>
@@ -240,40 +245,36 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
                   </Avatar>
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
-                    <p className="font-semibold">{post.author.displayName}</p>
-                     {isOwnProfile ? (
+                    <p className="font-semibold text-sm">@{post.author.username}</p>
+                     {isOwnProfile && (
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={() => { setEditingPost(post); setEditedContent(post.content); }}>
-                                        <Edit className="mr-2 h-4 w-4"/>Edit
-                                    </DropdownMenuItem>
-                                </DialogTrigger>
-                                <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem className="text-destructive" onSelect={() => setDeletingPostId(post.id)}>
-                                        <Trash2 className="mr-2 h-4 w-4"/>Delete
-                                    </DropdownMenuItem>
-                                </AlertDialogTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setEditingPost(post); setEditedContent(post.content); setIsEditDialogOpen(true); }}>
+                                    <Edit className="mr-2 h-4 w-4"/>Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onSelect={(e) => { e.preventDefault(); setDeletingPostId(post.id); setIsDeleteDialogOpen(true); }}>
+                                    <Trash2 className="mr-2 h-4 w-4"/>Delete
+                                </DropdownMenuItem>
                             </DropdownMenuContent>
                          </DropdownMenu>
-                     ) : <p className="text-xs text-muted-foreground">{getFormattedTimestamp(post.timestamp)}</p> }
+                     )}
                   </div>
-                   {!isOwnProfile && <p className="text-xs text-muted-foreground -mt-1 mb-2">{getFormattedTimestamp(post.timestamp)}</p>}
-                  <p className="whitespace-pre-line mt-2">{post.content}</p>
+                  <p className="text-xs text-muted-foreground -mt-0.5 mb-2">{getFormattedTimestamp(post.timestamp)}</p>
+                  <p className="whitespace-pre-line text-sm leading-relaxed">{post.content}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         ))
       ) : (
-        <div className="text-center py-16 text-muted-foreground bg-card rounded-lg">
+        <div className="text-center py-16 text-muted-foreground bg-card rounded-lg border border-dashed">
           <p>{isOwnProfile ? "You haven't" : `${profileUser.displayName} hasn't`} posted any updates yet.</p>
         </div>
       )}
-    </div>
 
-        {/* Edit Dialog */}
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Update</DialogTitle>
@@ -292,25 +293,27 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
             </Button>
           </DialogFooter>
         </DialogContent>
+      </Dialog>
 
-        {/* Delete Alert Dialog */}
+      {/* Delete Alert Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this update?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your update.
+              This action cannot be undone. Your followers will no longer be able to see this announcement.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteAnnouncement} className="bg-destructive hover:bg-destructive/90">
               {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Delete
+              Delete Update
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-        </AlertDialog>
-    </Dialog>
+      </AlertDialog>
+    </div>
   );
 }
 
@@ -541,7 +544,7 @@ export default function UserProfilePage() {
           </TabsContent>
           
           <TabsContent value="feed" className="mt-6">
-            <ProfilePhotoGrid userId={profileUser.id} />
+            <ProfilePhotoGrid userId={profileUser.id} isOwnProfile={isOwnProfile} />
           </TabsContent>
 
           <TabsContent value="announcements" className="mt-6">
