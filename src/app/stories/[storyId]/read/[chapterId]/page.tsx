@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -498,7 +496,7 @@ export default function StoryReaderPage() {
                     <Palette className="h-5 w-5" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80">
+            <PopoverContent className="w-80 bg-background/80 backdrop-blur-lg border-border/50 shadow-2xl">
                 <ScrollArea className="max-h-[80vh]">
                 <div className="grid gap-4 p-1">
                     <div className="space-y-2">
@@ -507,13 +505,13 @@ export default function StoryReaderPage() {
                             Customize the look of the reader.
                         </p>
                     </div>
-                     <div className="flex items-center space-x-2 p-2 rounded-md border">
+                     <div className="flex items-center space-x-2 p-2 rounded-md border border-border/50 bg-background/40">
                         <Label htmlFor="freeze-mode" className="flex-grow">Freeze Mode</Label>
                         <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} disabled={!isAuthorOrCollaborator} />
                         <Snowflake className="h-4 w-4 text-muted-foreground" />
                      </div>
                      <Tabs defaultValue="theme">
-                        <TabsList className="grid w-full grid-cols-3">
+                        <TabsList className="grid w-full grid-cols-3 bg-muted/50">
                             <TabsTrigger value="theme">Theme</TabsTrigger>
                             <TabsTrigger value="text">Text</TabsTrigger>
                             <TabsTrigger value="layout">Layout</TabsTrigger>
@@ -521,33 +519,33 @@ export default function StoryReaderPage() {
                         <TabsContent value="theme" className="pt-2">
                             <div className="grid gap-2">
                                 <RadioGroup defaultValue={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
-                                    <Label htmlFor="light" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="light" id="light" className="sr-only" /><Sun className="h-5 w-5" /></Label>
-                                    <Label htmlFor="dark" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="dark" id="dark" className="sr-only" /><Moon className="h-5 w-5" /></Label>
-                                    <Label htmlFor="system" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="system" id="system" className="sr-only" /><Monitor className="h-5 w-5" /></Label>
+                                    <Label htmlFor="light" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover/50 p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="light" id="light" className="sr-only" /><Sun className="h-5 w-5" /></Label>
+                                    <Label htmlFor="dark" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover/50 p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="dark" id="dark" className="sr-only" /><Moon className="h-5 w-5" /></Label>
+                                    <Label htmlFor="system" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover/50 p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="system" id="system" className="sr-only" /><Monitor className="h-5 w-5" /></Label>
                                 </RadioGroup>
-                                <Button variant="outline" size="sm" onClick={() => setIsNightPortalActive(!isNightPortalActive)}><Moon className="mr-2 h-4 w-4" /> Night Portal</Button>
+                                <Button variant="outline" size="sm" className="bg-background/40" onClick={() => setIsNightPortalActive(!isNightPortalActive)}><Moon className="mr-2 h-4 w-4" /> Night Portal</Button>
                             </div>
                         </TabsContent>
                          <TabsContent value="text" className="pt-2 space-y-4">
                             <div className="grid gap-2">
                                 <Label>Font Size</Label>
                                 <RadioGroup defaultValue={fontSize} onValueChange={(v) => setFontSize(v as FontSize)} className="grid grid-cols-4 gap-2">
-                                    {fontSizes.map(size => <Label key={size} htmlFor={`font-${size}`} className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer capitalize"><RadioGroupItem value={size} id={`font-${size}`} className="sr-only" /><TextIcon className="h-4 w-4" />{size}</Label>)}
+                                    {fontSizes.map(size => <Label key={size} htmlFor={`font-${size}`} className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover/50 p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer capitalize text-[10px]"><RadioGroupItem value={size} id={`font-${size}`} className="sr-only" /><TextIcon className="h-3 w-3 mb-1" />{size}</Label>)}
                                 </RadioGroup>
                             </div>
                              <div className="grid gap-2">
                                 <Label>Font Family</Label>
                                 <RadioGroup defaultValue={fontFamily} onValueChange={(v) => setFontFamily(v as FontFamily)} className="grid grid-cols-2 gap-2">
-                                    <Label htmlFor="font-sans" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer font-sans"><RadioGroupItem value="sans" id="font-sans" className="sr-only" />Sans-Serif</Label>
-                                    <Label htmlFor="font-serif" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer font-serif"><RadioGroupItem value="serif" id="font-serif" className="sr-only" />Serif</Label>
+                                    <Label htmlFor="font-sans" className="rounded-md border-2 border-muted bg-popover/50 p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer font-sans text-xs"><RadioGroupItem value="sans" id="font-sans" className="sr-only" />Sans-Serif</Label>
+                                    <Label htmlFor="font-serif" className="rounded-md border-2 border-muted bg-popover/50 p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer font-serif text-xs"><RadioGroupItem value="serif" id="font-serif" className="sr-only" />Serif</Label>
                                 </RadioGroup>
                             </div>
                              <div className="grid gap-2">
                                 <Label>Line Height</Label>
                                 <RadioGroup defaultValue={lineHeight} onValueChange={(v) => setLineHeight(v as LineHeight)} className="grid grid-cols-3 gap-2">
-                                    <Label htmlFor="lh-tight" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="tight" id="lh-tight" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
-                                    <Label htmlFor="lh-normal" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="normal" id="lh-normal" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
-                                    <Label htmlFor="lh-loose" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="loose" id="lh-loose" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                    <Label htmlFor="lh-tight" className="rounded-md border-2 border-muted bg-popover/50 p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="tight" id="lh-tight" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                    <Label htmlFor="lh-normal" className="rounded-md border-2 border-muted bg-popover/50 p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="normal" id="lh-normal" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                    <Label htmlFor="lh-loose" className="rounded-md border-2 border-muted bg-popover/50 p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="loose" id="lh-loose" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
                                 </RadioGroup>
                             </div>
                          </TabsContent>
@@ -555,13 +553,13 @@ export default function StoryReaderPage() {
                              <div className="grid gap-2">
                                 <Label>Layout Width</Label>
                                 <RadioGroup defaultValue={layoutWidth} onValueChange={(v) => setLayoutWidth(v as LayoutWidth)} className="grid grid-cols-2 gap-2">
-                                   <Label htmlFor="lw-normal" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="normal" id="lw-normal" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
-                                   <Label htmlFor="lw-wide" className="rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="wide" id="lw-wide" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
+                                   <Label htmlFor="lw-normal" className="rounded-md border-2 border-muted bg-popover/50 p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="normal" id="lw-normal" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
+                                   <Label htmlFor="lw-wide" className="rounded-md border-2 border-muted bg-popover/50 p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="wide" id="lw-wide" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
                                 </RadioGroup>
                             </div>
                          </TabsContent>
                      </Tabs>
-                    <Button variant="ghost" size="sm" onClick={resetAppearanceSettings}><RotateCcw className="mr-2 h-4 w-4" /> Reset</Button>
+                    <Button variant="ghost" size="sm" className="hover:bg-destructive/10 hover:text-destructive" onClick={resetAppearanceSettings}><RotateCcw className="mr-2 h-4 w-4" /> Reset</Button>
                 </div>
                 </ScrollArea>
             </PopoverContent>
@@ -831,4 +829,3 @@ export default function StoryReaderPage() {
     </>
   );
 }
-
