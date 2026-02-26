@@ -3,9 +3,9 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader2, Mailbox, Inbox, Send } from 'lucide-react';
+import { Loader2, Mailbox, Inbox, Send, Search } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import type { Letter as LetterType } from '@/types';
 import { db } from '@/lib/firebase';
@@ -13,6 +13,7 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { useToast } from '@/hooks/use-toast';
 import LetterCard from '@/components/letters/LetterCard';
 import ComposeLetterDialog from '@/components/letters/ComposeLetterDialog';
+import { Input } from '@/components/ui/input';
 
 export default function LettersPage() {
   const { user, loading } = useAuth();
@@ -20,6 +21,7 @@ export default function LettersPage() {
   const [receivedLetters, setReceivedLetters] = useState<LetterType[]>([]);
   const [sentLetters, setSentLetters] = useState<LetterType[]>([]);
   const [isLoadingLetters, setIsLoadingLetters] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (!user) {
@@ -39,7 +41,7 @@ export default function LettersPage() {
       setIsLoadingLetters(false);
     }, (error) => {
       console.error("Error fetching received letters: ", error);
-      toast({ title: "Error", description: "Could not load received letters.", variant: "destructive" });
+      setIsLoadingLetters(false);
     });
 
     const sentQuery = query(
@@ -51,7 +53,6 @@ export default function LettersPage() {
       setSentLetters(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LetterType)));
     }, (error) => {
       console.error("Error fetching sent letters: ", error);
-      toast({ title: "Error", description: "Could not load sent letters.", variant: "destructive" });
     });
 
     return () => {
@@ -70,72 +71,94 @@ export default function LettersPage() {
 
   if (!user) {
     return (
-      <div className="text-center py-10">
-        <Mailbox className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-        <h1 className="text-2xl font-headline">Your Mailbox</h1>
-        <p className="text-muted-foreground">
-          <Link href="/auth/signin" className="text-primary hover:underline">Sign in</Link> to send and receive letters from authors and readers.
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-4">
+        <Mailbox className="h-20 w-20 text-muted-foreground/30 mb-6" />
+        <h1 className="text-2xl font-headline font-bold">Your Mailbox</h1>
+        <p className="text-muted-foreground max-w-sm mt-2">
+          Sign in to connect with authors and readers through heartfelt letters.
         </p>
+        <Link href="/auth/signin" className="mt-6">
+            <Button>Sign In to Continue</Button>
+        </Link>
       </div>
     );
   }
 
+  const filterLetters = (letters: LetterType[]) => {
+    if (!searchTerm.trim()) return letters;
+    const term = searchTerm.toLowerCase();
+    return letters.filter(l => 
+        l.storyTitle.toLowerCase().includes(term) || 
+        l.content.toLowerCase().includes(term) ||
+        l.reader.username.toLowerCase().includes(term) ||
+        l.author.username.toLowerCase().includes(term)
+    );
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary flex items-center justify-center gap-2">
-            <Mailbox className="h-8 w-8 md:h-10 md:w-10" />
-            Mailbox
-        </h1>
-        <p className="text-muted-foreground text-sm md:text-base">Heartfelt messages from readers and authors.</p>
-        <div className="flex justify-center pt-2">
+    <div className="max-w-5xl mx-auto space-y-6 pb-20">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-16 z-20 bg-background/80 backdrop-blur-md py-4 border-b">
+        <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-headline font-bold">Mailbox</h1>
+            <div className="relative flex-1 md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="Search letters..." 
+                    className="pl-9 bg-muted/50 border-none h-9 rounded-full focus-visible:ring-primary"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+        </div>
+        <div className="flex items-center gap-2">
             <ComposeLetterDialog />
         </div>
-      </div>
+      </header>
 
       <Tabs defaultValue="received" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="received">
-            <Inbox className="mr-2 h-4 w-4" /> Received ({receivedLetters.length})
+        <TabsList className="grid w-full grid-cols-2 max-w-xs mb-6">
+          <TabsTrigger value="received" className="flex items-center gap-2">
+            <Inbox className="h-4 w-4" /> Received
           </TabsTrigger>
-          <TabsTrigger value="sent">
-            <Send className="mr-2 h-4 w-4" /> Sent ({sentLetters.length})
+          <TabsTrigger value="sent" className="flex items-center gap-2">
+            <Send className="h-4 w-4" /> Sent
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="received" className="mt-4">
-          <Card>
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-lg">Received Letters</CardTitle>
-              <CardDescription className="text-sm">Letters sent to you by readers of your stories.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-2 sm:p-4 space-y-2">
-              {isLoadingLetters ? (
-                 <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
-              ) : receivedLetters.length > 0 ? (
-                receivedLetters.map(letter => <LetterCard key={letter.id} letter={letter} isAuthorView={true} />)
-              ) : (
-                <p className="text-center text-muted-foreground py-6">No letters received yet.</p>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="received" className="mt-0 focus-visible:outline-none">
+            {isLoadingLetters ? (
+                <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : filterLetters(receivedLetters).length > 0 ? (
+                <div className="grid gap-px bg-border border rounded-xl overflow-hidden shadow-sm">
+                    {filterLetters(receivedLetters).map(letter => (
+                        <LetterCard key={letter.id} letter={letter} isAuthorView={true} />
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-24 bg-card rounded-xl border-2 border-dashed">
+                    <Inbox className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="font-semibold text-lg">No received letters</h3>
+                    <p className="text-muted-foreground">Letters from readers will appear here.</p>
+                </div>
+            )}
         </TabsContent>
-        <TabsContent value="sent" className="mt-4">
-           <Card>
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-lg">Sent Letters</CardTitle>
-              <CardDescription className="text-sm">Letters you've sent to authors.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-2 sm:p-4 space-y-2">
-              {isLoadingLetters ? (
-                 <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
-              ) : sentLetters.length > 0 ? (
-                sentLetters.map(letter => <LetterCard key={letter.id} letter={letter} isAuthorView={false} />)
-              ) : (
-                <p className="text-center text-muted-foreground py-6">You haven't sent any letters yet.</p>
-              )}
-            </CardContent>
-          </Card>
+
+        <TabsContent value="sent" className="mt-0 focus-visible:outline-none">
+            {isLoadingLetters ? (
+                <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : filterLetters(sentLetters).length > 0 ? (
+                <div className="grid gap-px bg-border border rounded-xl overflow-hidden shadow-sm">
+                    {filterLetters(sentLetters).map(letter => (
+                        <LetterCard key={letter.id} letter={letter} isAuthorView={false} />
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-24 bg-card rounded-xl border-2 border-dashed">
+                    <Send className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="font-semibold text-lg">Your Outbox is Empty</h3>
+                    <p className="text-muted-foreground">Start composing to send a letter to your favorite author.</p>
+                </div>
+            )}
         </TabsContent>
       </Tabs>
     </div>
