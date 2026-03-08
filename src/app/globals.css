@@ -65,20 +65,20 @@ body.night-portal {
   }
 
   .dark {
-    --background: 210 10% 8%; /* Very dark blue-grey, Wattpad-like */
+    --background: 210 10% 8%; /* Very dark blue-grey */
     --foreground: 210 15% 92%; /* Light grey/blue for high contrast */
 
-    --muted: 210 10% 18%; /* Darker muted */
-    --muted-foreground: 210 15% 65%; /* Muted text, legible */
+    --muted: 210 10% 18%; 
+    --muted-foreground: 210 15% 65%; 
 
-    --popover: 210 10% 8%; /* Consistent with dark background */
+    --popover: 210 10% 8%; 
     --popover-foreground: 210 15% 92%;
 
-    --card: 210 10% 11%; /* Slightly lighter than background for depth */
+    --card: 210 10% 11%; 
     --card-foreground: 210 15% 92%;
 
-    --border: 210 10% 25%; /* Darker border */
-    --input: 210 10% 22%; /* Darker input */
+    --border: 210 10% 25%; 
+    --input: 210 10% 22%; 
 
     --primary: 210 60% 55%; 
     --primary-foreground: 210 60% 10%; 
@@ -93,22 +93,47 @@ body.night-portal {
     --destructive-foreground: 0 0% 98%;
 
     --ring: 210 60% 55%;
-    
-    --chart-1: 210 60% 55%;
-    --chart-2: 180 50% 45%;
-    --chart-3: 25 70% 50%;
-    --chart-4: 280 60% 55%;
-    --chart-5: 340 70% 50%;
-
-    --sidebar-background: 210 10% 7%; 
-    --sidebar-foreground: 210 15% 90%;
-    --sidebar-primary: 210 60% 55%;
-    --sidebar-primary-foreground: 210 60% 10%;
-    --sidebar-accent: 180 50% 45%;
-    --sidebar-accent-foreground: 180 50% 10%;
-    --sidebar-border: 210 10% 28%;
-    --sidebar-ring: 210 60% 55%;
   }
+
+  /* OLED Mode */
+  .oled-mode.dark {
+    --background: 0 0% 0%;
+    --card: 0 0% 2%;
+    --popover: 0 0% 2%;
+    --border: 0 0% 15%;
+  }
+
+  /* Accent Color Variants */
+  [data-accent="romance"] {
+    --primary: 340 70% 55%;
+    --accent: 340 70% 45%;
+    --ring: 340 70% 55%;
+  }
+  [data-accent="emerald"] {
+    --primary: 160 60% 45%;
+    --accent: 160 60% 35%;
+    --ring: 160 60% 45%;
+  }
+  [data-accent="amber"] {
+    --primary: 35 80% 55%;
+    --accent: 35 80% 45%;
+    --ring: 35 80% 55%;
+  }
+  [data-accent="midnight"] {
+    --primary: 240 60% 60%;
+    --accent: 240 60% 50%;
+    --ring: 240 60% 60%;
+  }
+
+  /* Glassmorphism Classes */
+  .glass-enabled header,
+  .glass-enabled .glass-card {
+    @apply backdrop-blur-md bg-opacity-70;
+  }
+
+  /* Font Families */
+  .font-sans-pref { font-family: var(--font-inter), sans-serif; }
+  .font-serif-pref { font-family: var(--font-space-grotesk), serif; }
 }
 
 @layer base {
@@ -118,12 +143,5 @@ body.night-portal {
   body {
     @apply bg-background text-foreground scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent;
     font-feature-settings: "rlig" 1, "calt" 1;
-  }
-   /* Custom prose styles for tighter paragraph spacing */
-  .prose-reading p {
-    @apply my-2; /* Reduced vertical margin for paragraphs */
-  }
-  .prose-reading h2 {
-    @apply text-center;
   }
 }

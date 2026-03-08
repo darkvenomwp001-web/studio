@@ -12,6 +12,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { StoryPreviewProvider } from '@/context/StoryPreviewProvider';
 import StoryPreviewDrawer from '@/components/story/StoryPreviewDrawer';
 import FirebaseErrorListener from '@/components/FirebaseErrorListener';
+import AppearanceManager from '@/components/layout/AppearanceManager';
 
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -32,9 +33,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        
-      </head>
       <body 
         className={cn(
           "min-h-screen bg-background font-body antialiased",
@@ -49,6 +47,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
           <AuthProvider>
+            <AppearanceManager />
             <SplashWrapper>
                 <StoryPreviewProvider>
                   <FirebaseErrorListener />
