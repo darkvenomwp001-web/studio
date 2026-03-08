@@ -28,7 +28,10 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   const [isProcessing, startProcessingTransition] = useTransition();
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const isOwner = user && OWNER_USERNAMES.includes(user.username);
+  const isPostAuthor = user?.id === post.author.id;
+  const canManage = isPostAuthor || isOwner;
 
   const handlePinPost = () => {
       if (!user) return;
@@ -107,7 +110,6 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   const mainAuthor = isRepost ? post.originalPost!.author : post.author;
   const displayTimestamp = isRepost ? post.originalPost!.timestamp : post.timestamp;
   const imageUrlForPreview = isRepost ? post.originalPost?.imageUrl : post.imageUrl;
-  const isOwner = user && OWNER_USERNAMES.includes(user.username);
 
   return (
     <>
@@ -140,7 +142,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  {user?.id === post.author.id && post.type === 'original' && (
+                  {canManage && post.type === 'original' && (
                     <>
                       <DropdownMenuItem onClick={handlePinPost} className="gap-2">
                         {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pin className="h-4 w-4" />}
@@ -157,7 +159,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                   <DropdownMenuItem onClick={handleHidePost} className="gap-2">
                     <EyeOff className="h-4 w-4" /> Hide Post
                   </DropdownMenuItem>
-                  {user?.id === post.author.id && (
+                  {canManage && (
                     <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2" onSelect={(e) => { e.preventDefault(); setIsDeleteDialogOpen(true); }}>
                         <Trash2 className="mr-2 h-4 w-4"/>
                         Delete Post
