@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, ChangeEvent, FormEvent, useRef, useCallback } from 'react';
+import { useState, useEffect, ChangeEvent, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -16,17 +16,19 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud, CheckCircle, AlertCircle, FileText, Star, BarChartBig, ListChecks, Sparkles, UserPlus, Lock } from 'lucide-react';
+import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud, CheckCircle, AlertCircle, FileText, Star, ListChecks, Sparkles, UserPlus, Lock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; 
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, deleteDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, deleteDoc, Timestamp } from 'firebase/firestore';
 import type { Story, Chapter, UserSummary, User as AppUser, AllowedUser } from '@/types';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/placeholder-data'; 
 import { Separator } from '@/components/ui/separator';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const AUTOSAVE_DELAY = 2000; // 2 seconds
 const MAX_COVER_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -110,11 +112,13 @@ export default function EditStoryDetailsPage() {
           router.push('/write');
         }
         setIsLoading(false);
-      }, (error) => {
-        console.error("Error fetching story:", error);
-        toast({ title: "Error", description: "Could not load story details.", variant: "destructive" });
+      }, async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: storyDocRef.path,
+            operation: 'get',
+        });
+        errorEmitter.emit('permission-error', permissionError);
         setIsLoading(false);
-        router.push('/write');
       });
     } else if (user && !queryStoryId) { 
       setIsLoading(true);
@@ -138,11 +142,16 @@ export default function EditStoryDetailsPage() {
         collaboratorIds: [],
         views: 0,
       };
-      setDoc(doc(db, 'stories', newStoryId), newStoryData).then(() => {
+      const storyRef = doc(db, 'stories', newStoryId);
+      setDoc(storyRef, newStoryData).then(() => {
         router.replace(`/write/edit-details?storyId=${newStoryId}`, { scroll: false });
-      }).catch(error => {
-        console.error("Error creating new story document:", error);
-        toast({ title: "Error", description: "Could not create new story.", variant: "destructive" });
+      }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: storyRef.path,
+            operation: 'write',
+            requestResourceData: newStoryData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
         router.push('/write');
         setIsLoading(false);
       });
@@ -189,15 +198,18 @@ export default function EditStoryDetailsPage() {
       lastUpdated: serverTimestamp(),
     };
 
-    try {
-      const storyDocRef = doc(db, 'stories', story.id);
-      await updateDoc(storyDocRef, storyDataToUpdate);
-      setAutoSaveStatus('Saved');
-    } catch (error) {
-      console.error("Error auto-saving story details:", error);
-      setAutoSaveStatus('Error');
-      toast({ title: "Auto-save Failed", description: "Could not save changes.", variant: "destructive" });
-    }
+    const storyDocRef = doc(db, 'stories', story.id);
+    updateDoc(storyDocRef, storyDataToUpdate)
+      .then(() => setAutoSaveStatus('Saved'))
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: storyDocRef.path,
+          operation: 'update',
+          requestResourceData: storyDataToUpdate,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setAutoSaveStatus('Error');
+      });
   }, [story, user, storyTitle, summary, genre, tags, language, isMature, visibility, toast, initialLoadComplete, isUploadingCover]);
 
   useEffect(() => {
@@ -286,7 +298,15 @@ export default function EditStoryDetailsPage() {
             if (data.secure_url) {
                 const downloadURL = data.secure_url;
                 const storyDocRef = doc(db, 'stories', story.id);
-                await updateDoc(storyDocRef, { coverImageUrl: downloadURL, lastUpdated: serverTimestamp() });
+                updateDoc(storyDocRef, { coverImageUrl: downloadURL, lastUpdated: serverTimestamp() })
+                  .catch(async (serverError) => {
+                    const permissionError = new FirestorePermissionError({
+                        path: storyDocRef.path,
+                        operation: 'update',
+                        requestResourceData: { coverImageUrl: downloadURL },
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
+                  });
                 setCoverImageFile(null);
                 toast({ title: "Cover Image Updated!" });
                 setAutoSaveStatus('Saved');
@@ -312,21 +332,28 @@ export default function EditStoryDetailsPage() {
     setAutoSaveStatus('Saving');
     const updatedChapters = story.chapters.filter(ch => ch.id !== chapter.id)
                                        .map((ch, index) => ({ ...ch, order: index + 1 }));
-    try {
-      const storyDocRef = doc(db, 'stories', story.id);
-      await updateDoc(storyDocRef, { chapters: updatedChapters, lastUpdated: serverTimestamp() });
-      toast({title: "Chapter Deleted", description: `Chapter "${chapter.title}" has been removed.`});
-      setAutoSaveStatus('Saved');
-    } catch (error) {
-      console.error("Error deleting chapter:", error);
-      toast({title: "Error", description: "Failed to delete chapter.", variant: "destructive"});
-      setAutoSaveStatus('Error');
-    } finally {
-      setChapterToDelete(null);
-      if (originalAutoSaveStatus !== 'Saving' && originalAutoSaveStatus !== 'Error') {
-          setTimeout(() => setAutoSaveStatus(originalAutoSaveStatus), 500);
-      }
-    }
+    
+    const storyDocRef = doc(db, 'stories', story.id);
+    updateDoc(storyDocRef, { chapters: updatedChapters, lastUpdated: serverTimestamp() })
+      .then(() => {
+        toast({title: "Chapter Deleted", description: `Chapter "${chapter.title}" has been removed.`});
+        setAutoSaveStatus('Saved');
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: storyDocRef.path,
+          operation: 'update',
+          requestResourceData: { chapters: 'filtered' },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setAutoSaveStatus('Error');
+      })
+      .finally(() => {
+        setChapterToDelete(null);
+        if (originalAutoSaveStatus !== 'Saving' && originalAutoSaveStatus !== 'Error') {
+            setTimeout(() => setAutoSaveStatus(originalAutoSaveStatus), 500);
+        }
+      });
   };
 
   const handleAddCollaborator = async () => {
@@ -371,10 +398,17 @@ export default function EditStoryDetailsPage() {
       const updatedCollaborators = [...(story.collaborators || []), newCollaborator];
       const updatedCollaboratorIds = [...(story.collaboratorIds || []), newCollaborator.id];
       const storyDocRef = doc(db, 'stories', story.id);
-      await updateDoc(storyDocRef, { 
+      updateDoc(storyDocRef, { 
           collaborators: updatedCollaborators,
           collaboratorIds: updatedCollaboratorIds,
           lastUpdated: serverTimestamp()
+      }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: storyDocRef.path,
+            operation: 'update',
+            requestResourceData: { collaboratorIds: updatedCollaboratorIds },
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
       setCollaboratorUsername('');
       toast({ title: "Collaborator Added", description: `${newCollaborator.displayName || newCollaborator.username} can now contribute.` });
@@ -395,20 +429,24 @@ export default function EditStoryDetailsPage() {
     setIsProcessingCollaboration(true);
     const updatedCollaborators = story.collaborators?.filter(c => c.id !== collaboratorId);
     const updatedCollaboratorIds = story.collaboratorIds?.filter(id => id !== collaboratorId);
-    try {
-        const storyDocRef = doc(db, 'stories', story.id);
-        await updateDoc(storyDocRef, { 
-            collaborators: updatedCollaborators,
-            collaboratorIds: updatedCollaboratorIds,
-            lastUpdated: serverTimestamp() 
-        });
+    
+    const storyDocRef = doc(db, 'stories', story.id);
+    updateDoc(storyDocRef, { 
+        collaborators: updatedCollaborators,
+        collaboratorIds: updatedCollaboratorIds,
+        lastUpdated: serverTimestamp() 
+    }).then(() => {
         toast({ title: "Collaborator Removed" });
-    } catch (error) {
-        console.error("Error removing collaborator:", error);
-        toast({title: "Error", description: "Could not remove collaborator. Please try again.", variant: "destructive"});
-    } finally {
+    }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: storyDocRef.path,
+            operation: 'update',
+            requestResourceData: { collaboratorIds: updatedCollaboratorIds },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    }).finally(() => {
         setIsProcessingCollaboration(false);
-    }
+    });
   };
 
   const handleDeleteStory = async () => {
@@ -416,16 +454,22 @@ export default function EditStoryDetailsPage() {
       toast({ title: "Unauthorized", description: "Only the story author can delete it.", variant: "destructive" });
       return;
     }
-    try {
-      await deleteDoc(doc(db, 'stories', story.id));
-      toast({ title: "Story Deleted", description: `"${story.title}" has been permanently deleted.` });
-      router.push('/write');
-    } catch (error) {
-      console.error("Error deleting story:", error);
-      toast({ title: "Error", description: "Could not delete the story.", variant: "destructive" });
-    } finally {
-      setStoryToDelete(null);
-    }
+    const storyDocRef = doc(db, 'stories', story.id);
+    deleteDoc(storyDocRef)
+      .then(() => {
+        toast({ title: "Story Deleted", description: `"${story.title}" has been permanently deleted.` });
+        router.push('/write');
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: storyDocRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setStoryToDelete(null);
+      });
   };
 
   const handleGrantPremiumAccess = async () => {
@@ -434,7 +478,6 @@ export default function EditStoryDetailsPage() {
     setIsProcessingPremium(true);
 
     try {
-        // Find user by username
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('username', '==', premiumUsername.trim()));
         const userSnapshot = await getDocs(q);
@@ -448,7 +491,7 @@ export default function EditStoryDetailsPage() {
         const targetUser = userSnapshot.docs[0];
         const targetUserId = targetUser.id;
 
-        const chapters = story.chapters || [];
+        const chapters = [...(story.chapters || [])];
         const chapterIndex = chapters.findIndex(c => c.id === premiumAccessChapter.id);
 
         if (chapterIndex === -1) {
@@ -476,22 +519,31 @@ export default function EditStoryDetailsPage() {
         chapters[chapterIndex].accessType = 'premium';
 
         const storyDocRef = doc(db, 'stories', story.id);
-        await updateDoc(storyDocRef, { chapters });
+        updateDoc(storyDocRef, { chapters })
+          .then(async () => {
+            await addNotification({
+                userId: targetUserId,
+                type: 'premium_access',
+                message: `You've been granted premium access to a chapter in "${story.title}" by ${story.author.displayName || story.author.username}!`,
+                link: `/stories/${story.id}/read/${premiumAccessChapter.id}`,
+                actor: story.author
+            });
+            toast({ title: "Access Granted!", description: `@${premiumUsername} can now view "${premiumAccessChapter.title}".`});
+            setPremiumUsername('');
+          })
+          .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: storyDocRef.path,
+                operation: 'update',
+                requestResourceData: { chapters: 'updated with premium' },
+            });
+            errorEmitter.emit('permission-error', permissionError);
+          })
+          .finally(() => setIsProcessingPremium(false));
 
-        await addNotification({
-            userId: targetUserId,
-            type: 'premium_access',
-            message: `You've been granted premium access to a chapter in "${story.title}" by ${story.author.displayName || story.author.username}!`,
-            link: `/stories/${story.id}/read/${premiumAccessChapter.id}`,
-            actor: story.author
-        });
-
-        toast({ title: "Access Granted!", description: `@${premiumUsername} can now view "${premiumAccessChapter.title}".`});
-        setPremiumUsername('');
     } catch(error) {
         console.error("Error granting premium access:", error);
         toast({title: "Error", description: "Could not grant premium access.", variant: "destructive"});
-    } finally {
         setIsProcessingPremium(false);
     }
   };

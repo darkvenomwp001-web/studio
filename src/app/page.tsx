@@ -99,7 +99,7 @@ function ForYouTabContent() {
 
   return (
     <div className="pb-12 animate-in fade-in duration-700 space-y-12">
-      {/* Hero Carousel - Full Bleed on Mobile with Compact Aspect Ratio */}
+      {/* Hero Carousel - Edge-to-Edge landscape ratio */}
       <section className="w-full">
         <Carousel
           plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
@@ -158,7 +158,7 @@ function ForYouTabContent() {
         </Carousel>
       </section>
 
-      {/* Discovery Rows - Constrained Width */}
+      {/* Discovery Rows */}
       <div className="container mx-auto max-w-7xl px-4 space-y-12">
         {/* Trending Row */}
         {trendingStories.length > 0 && (
@@ -307,7 +307,7 @@ export default function HomePage() {
                 <div className="max-w-2xl mx-auto">
                     <div className="mb-8 text-center">
                         <h2 className="text-3xl font-headline font-bold text-foreground tracking-tight">Feed Updates</h2>
-                        <p className="text-muted-foreground">Stay updated with official announcements and latest news.</p>
+                        <p className="text-muted-foreground">Stay updated with official announcements and latest news from the owner.</p>
                     </div>
                     <ThreadsFeed />
                 </div>

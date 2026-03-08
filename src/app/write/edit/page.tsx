@@ -3,9 +3,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Save, History, EyeOff, Brain, CheckCircle, AlertTriangle, Maximize, Minimize, Send, FileText, Settings, Loader2, Eye, Undo, Redo, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Highlighter } from 'lucide-react';
+import { Save, History, EyeOff, Brain, CheckCircle, AlertTriangle, Maximize, Minimize, Send, FileText, Settings, Loader2, Eye, Undo, Redo, Bold, Italic, Underline, Highlighter, Snowflake } from 'lucide-react';
 import AiAssistantPanel from '@/components/writing/AiAssistantPanel';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -24,11 +23,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { BubbleMenu, Editor, EditorContent, useEditor } from '@tiptap/react'
+import { BubbleMenu, EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
 import CharacterCount from '@tiptap/extension-character-count'
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const VersionHistoryManager = {
   getKey: (storyId: string, chapterId: string) => `versionHistory-${storyId}-${chapterId}`,
@@ -81,7 +82,7 @@ export default function WriteEditorPage() {
   const [isDistractionFree, setIsDistractionFree] = useState(false);
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
   const [wordCount, setWordCount] = useState(0);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving...' | 'Error' | 'No Changes'>('No Changes');
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving...' | 'Error' | 'No Changes' | 'Typing'>('No Changes');
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -148,10 +149,12 @@ export default function WriteEditorPage() {
           router.push('/write'); 
           setIsLoading(false);
         }
-      }, (error) => {
-        console.error("Error fetching story for chapter edit:", error);
-        toast({ title: "Error", description: "Could not load story details for chapter editing.", variant: "destructive" });
-        router.push('/write');
+      }, async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'stories/' + queryStoryId,
+            operation: 'get',
+        });
+        errorEmitter.emit('permission-error', permissionError);
         setIsLoading(false);
       });
     } else {
@@ -171,7 +174,7 @@ export default function WriteEditorPage() {
     setWordCount(editor.storage.characterCount.words());
   }, [editor?.state, editor?.storage.characterCount]);
 
-  const handleSaveDraft = useCallback(async (showToast: boolean = true) => {
+  const handleSaveDraft = useCallback((showToast: boolean = true) => {
     if (!storyDetails || !currentChapter || !user || !editor) {
       if (showToast) toast({ title: "Error", description: "Cannot save draft. Story or chapter context missing.", variant: "destructive" });
       return;
@@ -201,19 +204,23 @@ export default function WriteEditorPage() {
       chapters: updatedChapters.sort((a, b) => a.order - b.order),
     };
 
-    try {
-      const storyDocRef = doc(db, 'stories', storyDetails.id);
-      await updateDoc(storyDocRef, storyUpdateData);
-      
-      setCurrentChapter(updatedChapter);
+    const storyDocRef = doc(db, 'stories', storyDetails.id);
+    updateDoc(storyDocRef, storyUpdateData)
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: storyDocRef.path,
+          operation: 'update',
+          requestResourceData: storyUpdateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setAutoSaveStatus('Error');
+      });
+    
+    // Proceed optimistically
+    setCurrentChapter(updatedChapter);
+    setAutoSaveStatus('Saved');
+    if (showToast) toast({ title: "Draft Saved!", description: "Your chapter changes have been saved." });
 
-      setAutoSaveStatus('Saved');
-      if (showToast) toast({ title: "Draft Saved!", description: "Your chapter changes have been saved." });
-    } catch (error) {
-      console.error("Error saving draft:", error);
-      setAutoSaveStatus('Error');
-      if (showToast) toast({ title: "Save Failed", description: "Could not save draft.", variant: "destructive" });
-    }
   }, [storyDetails, currentChapter, user, chapterTitle, editor, toast]);
 
   useEffect(() => {
@@ -269,30 +276,34 @@ export default function WriteEditorPage() {
         chapters: updatedChapters.sort((a,b) => a.order - b.order),
     };
 
-    try {
-        const storyDocRef = doc(db, 'stories', storyDetails.id);
-        await updateDoc(storyDocRef, storyUpdateData);
-        
-        setCurrentChapter(updatedChapterData);
-        
-        setAutoSaveStatus('Saved');
-        toast({ title: "Chapter Published!", description: `Chapter "${chapterTitle}" is now live.` });
-        
+    const storyDocRef = doc(db, 'stories', storyDetails.id);
+    updateDoc(storyDocRef, storyUpdateData)
+      .then(() => {
         if (user.id === storyDetails.author.id) {
             addNotification({
-            type: 'new_chapter',
-            userId: user.id, // In a real app, this would iterate over followers
-            message: `${user.displayName || user.username} published a new chapter "${chapterTitle}" for "${storyDetails.title}".`,
-            link: `/stories/${storyDetails.id}/read/${updatedChapterData.id}`,
-            actor: {id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl }
+                type: 'new_chapter',
+                userId: user.id,
+                message: `${user.displayName || user.username} published a new chapter "${chapterTitle}" for "${storyDetails.title}".`,
+                link: `/stories/${storyDetails.id}/read/${updatedChapterData.id}`,
+                actor: {id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl }
             });
         }
         router.push(`/write/edit-details?storyId=${storyDetails.id}`);
-    } catch (error) {
-        console.error("Error publishing chapter:", error);
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: storyDocRef.path,
+            operation: 'update',
+            requestResourceData: storyUpdateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
         setAutoSaveStatus('Error');
-        toast({ title: "Publish Failed", description: "Could not publish chapter.", variant: "destructive"});
-    }
+      });
+    
+    // Proceed optimistically
+    setCurrentChapter(updatedChapterData);
+    setAutoSaveStatus('Saved');
+    toast({ title: "Chapter Published!", description: `Chapter "${chapterTitle}" is now live.` });
   };
 
 
