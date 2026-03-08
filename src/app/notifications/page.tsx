@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -7,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Smile, Sparkles, ArrowLeft, MoreHorizontal, CheckCheck } from 'lucide-react';
+import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Smile, Sparkles, ArrowLeft, MoreHorizontal, CheckCheck, Plus, Users } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
