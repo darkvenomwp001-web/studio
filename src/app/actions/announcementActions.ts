@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase-server';
@@ -11,6 +10,14 @@ import {
 } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
+const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
+
+async function checkIsAppOwner(userId: string) {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const username = userDoc.data()?.username;
+    return OWNER_USERNAMES.includes(username);
+}
+
 export async function updateAnnouncement(
   announcementId: string,
   newContent: string,
@@ -22,12 +29,18 @@ export async function updateAnnouncement(
   const announcementRef = doc(db, 'announcements', announcementId);
   try {
     const announcementSnap = await getDoc(announcementRef);
-    if (!announcementSnap.exists() || announcementSnap.data().author.id !== userId) {
+    if (!announcementSnap.exists()) {
+        return { success: false, error: 'Announcement not found.' };
+    }
+    
+    const isOwner = await checkIsAppOwner(userId);
+    if (announcementSnap.data().author.id !== userId && !isOwner) {
       return { success: false, error: 'You do not have permission to edit this announcement.' };
     }
+    
     await updateDoc(announcementRef, {
       content: newContent,
-      updatedAt: serverTimestamp(), // Optional: to track edits
+      updatedAt: serverTimestamp(),
     });
     revalidatePath(`/profile/${userId}`);
     return { success: true };
@@ -50,9 +63,12 @@ export async function deleteAnnouncement(
     if (!announcementSnap.exists()) {
         return { success: true }; // Already deleted
     }
-    if (announcementSnap.data().author.id !== userId) {
+    
+    const isOwner = await checkIsAppOwner(userId);
+    if (announcementSnap.data().author.id !== userId && !isOwner) {
       return { success: false, error: 'You do not have permission to delete this announcement.' };
     }
+    
     await deleteDoc(announcementRef);
     revalidatePath(`/profile/${userId}`);
     return { success: true };

@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState, FormEvent, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { Story, User as AppUser } from '@/types'; 
 import StoryCard from '@/components/shared/StoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';

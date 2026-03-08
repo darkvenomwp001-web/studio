@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase-server';
@@ -17,6 +16,14 @@ import {
 import type { UserSummary, ThreadPost, ReactionType } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { addNotification } from './notificationActions';
+
+const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
+
+async function checkIsAppOwner(userId: string) {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const username = userDoc.data()?.username;
+    return OWNER_USERNAMES.includes(username);
+}
 
 export async function sendGlobalChatMessage(
   author: UserSummary,
@@ -87,9 +94,12 @@ export async function updateThreadPost(postId: string, newContent: string, userI
       if (!postSnap.exists()) {
           return { success: false, error: 'Post not found.' };
       }
-      if (postSnap.data().author.id !== userId) {
+      
+      const isOwner = await checkIsAppOwner(userId);
+      if (postSnap.data().author.id !== userId && !isOwner) {
           return { success: false, error: 'You do not have permission to edit this post.' };
       }
+      
       await updateDoc(postRef, updateData);
       revalidatePath('/');
       revalidatePath(`/threads/edit/${postId}`);
@@ -132,7 +142,8 @@ export async function deleteThreadPost(postId: string, userId: string): Promise<
       return { success: true };
     }
 
-    if (postSnap.data().author.id !== userId) {
+    const isOwner = await checkIsAppOwner(userId);
+    if (postSnap.data().author.id !== userId && !isOwner) {
       return { success: false, error: 'You do not have permission to delete this post.' };
     }
 

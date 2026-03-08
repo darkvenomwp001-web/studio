@@ -1,4 +1,3 @@
-
 {
   "indexes": [
     {
@@ -169,6 +168,14 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "author.id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feedPosts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "author.username", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     }

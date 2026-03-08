@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useState, useRef, ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -14,9 +13,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import type { Story, Song } from '@/types';
+import type { Story, Song, ThreadPost } from '@/types';
 import Image from 'next/image';
 import { Separator } from '../ui/separator';
+import { createThreadPost } from '@/app/actions/threadActions';
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
@@ -103,28 +103,33 @@ export default function CreatePostForm() {
         }
         
         try {
-            await addDoc(collection(db, 'feedPosts'), {
+            const postData = {
                 author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
                 content: content.trim(),
-                storyId: attachedStory?.id || null,
-                storyTitle: attachedStory?.title || null,
-                storyCoverUrl: attachedStory?.coverImageUrl || null,
-                imageUrl: imageUrl || null,
-                songUrl: attachedSong ? `https://open.spotify.com/track/${attachedSong.id}` : null,
-                songLyricSnippet: lyricSnippet || null,
-                reactionsCount: 0,
-                commentsCount: 0,
-                timestamp: serverTimestamp()
-            });
-            setContent('');
-            setAttachedStory(null);
-            setAttachedImage(null);
-            setAttachedImagePreview(null);
-            setAttachedSong(null);
-            setLyricSnippet(null);
-            toast({ title: 'Announcement Published!' });
+                type: 'original' as const,
+                storyId: attachedStory?.id || undefined,
+                storyTitle: attachedStory?.title || undefined,
+                storyCoverUrl: attachedStory?.coverImageUrl || undefined,
+                imageUrl: imageUrl || undefined,
+                songUrl: attachedSong ? `https://open.spotify.com/track/${attachedSong.id}` : undefined,
+                songLyricSnippet: lyricSnippet || undefined,
+            };
+
+            const result = await createThreadPost(postData as Omit<ThreadPost, 'id' | 'timestamp' | 'commentsCount'>);
+
+            if (result.success) {
+                setContent('');
+                setAttachedStory(null);
+                setAttachedImage(null);
+                setAttachedImagePreview(null);
+                setAttachedSong(null);
+                setLyricSnippet(null);
+                toast({ title: 'Announcement Published!' });
+            } else {
+                toast({ title: "Failed to publish", description: result.error, variant: "destructive" });
+            }
         } catch (error) {
-            toast({ title: "Failed to publish", variant: "destructive" });
+            toast({ title: "Unexpected Error", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
