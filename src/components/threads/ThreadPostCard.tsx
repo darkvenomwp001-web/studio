@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useRef } from 'react';
@@ -15,12 +14,13 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '../shared/SpotifyPlayer';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, Dialog as PreviewDialog, DialogContent as PreviewDialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ThreadPostComments from './ThreadPostComments';
 import ReactionButton from './ReactionButton';
 import { deleteThreadPost, pinThreadPost, hideThreadPost, repostThreadPost } from '@/app/actions/threadActions';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 
+const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
 
 export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   const { user } = useAuth();
@@ -88,6 +88,16 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
         }
     });
   };
+
+  const formatPostDate = (timestamp: any) => {
+    if (!timestamp) return 'now';
+    try {
+        const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+        return formatDistanceToNow(date, { addSuffix: true });
+    } catch (e) {
+        return 'recently';
+    }
+  };
   
   if (post.isHidden) {
     return null;
@@ -97,72 +107,58 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   const mainAuthor = isRepost ? post.originalPost!.author : post.author;
   const displayTimestamp = isRepost ? post.originalPost!.timestamp : post.timestamp;
   const imageUrlForPreview = isRepost ? post.originalPost?.imageUrl : post.imageUrl;
-
-  const handlePressStart = () => {
-    if (imageUrlForPreview) {
-        timerRef.current = setTimeout(() => {
-            setIsPreviewOpen(true);
-        }, 2000);
-    }
-  };
-
-  const handlePressEnd = () => {
-    if (timerRef.current) {
-        clearTimeout(timerRef.current);
-    }
-  };
-
+  const isOwner = user && OWNER_USERNAMES.includes(user.username);
 
   return (
     <>
       <Dialog>
-          <Card className={cn("transition-opacity duration-300 relative")}>
-            {post.isPinned && <Pin className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />}
+          <Card className={cn("transition-opacity duration-300 relative border-border/40 shadow-sm")}>
+            {post.isPinned && <Pin className="absolute top-3 left-3 h-4 w-4 text-primary" />}
             {isRepost && (
-              <p className="text-xs text-muted-foreground font-semibold flex items-center gap-2 px-4 pt-3">
+              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider flex items-center gap-2 px-4 pt-3">
                 <Repeat className="h-3 w-3"/>
                 <Link href={`/profile/${post.author.id}`} className="hover:underline">@{post.author.username}</Link> reposted
               </p>
             )}
             <CardHeader className="flex flex-row items-center gap-3 space-y-0 p-4">
               <Link href={`/profile/${mainAuthor.id}`}>
-                <Avatar>
+                <Avatar className="border border-border/20">
                   <AvatarImage src={mainAuthor.avatarUrl} alt={mainAuthor.displayName} data-ai-hint="profile person" />
                   <AvatarFallback>{mainAuthor.username.substring(0, 1).toUpperCase()}</AvatarFallback>
                 </Avatar>
               </Link>
               <div className="flex-1">
-                <Link href={`/profile/${mainAuthor.id}`} className="font-semibold hover:underline text-sm md:text-base">@{mainAuthor.username}</Link>
+                <Link href={`/profile/${mainAuthor.id}`} className="font-bold hover:underline text-sm md:text-base text-foreground">@{mainAuthor.username}</Link>
                 <p className="text-[10px] md:text-xs text-muted-foreground">
-                  {displayTimestamp?.toDate ? formatDistanceToNow(displayTimestamp.toDate(), { addSuffix: true }) : 'now'}
+                  {formatPostDate(displayTimestamp)}
                 </p>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="w-48">
                   {user?.id === post.author.id && post.type === 'original' && (
                     <>
-                      <DropdownMenuItem onClick={handlePinPost}>
-                        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pin className="mr-2 h-4 w-4" />}
+                      <DropdownMenuItem onClick={handlePinPost} className="gap-2">
+                        {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pin className="h-4 w-4" />}
                         {post.isPinned ? 'Unpin Post' : 'Pin Post'}
                       </DropdownMenuItem>
                       <Link href={`/threads/edit/${post.id}`}>
-                        <DropdownMenuItem>
-                          <Edit className="mr-2 h-4 w-4" />
+                        <DropdownMenuItem className="gap-2">
+                          <Edit className="h-4 w-4" />
                           Edit Post
                         </DropdownMenuItem>
                       </Link>
                     </>
                   )}
-                  <DropdownMenuItem onClick={handleHidePost}>
-                    <EyeOff className="mr-2 h-4 w-4" /> Hide Post
+                  <DropdownMenuItem onClick={handleHidePost} className="gap-2">
+                    <EyeOff className="h-4 w-4" /> Hide Post
                   </DropdownMenuItem>
                   {user?.id === post.author.id && (
-                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onSelect={(e) => { e.preventDefault(); setIsDeleteDialogOpen(true); }}>
+                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2" onSelect={(e) => { e.preventDefault(); setIsDeleteDialogOpen(true); }}>
                         <Trash2 className="mr-2 h-4 w-4"/>
                         Delete Post
                     </DropdownMenuItem>
@@ -173,61 +169,60 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
             <CardContent className="p-4 pt-0">
                 <div className="space-y-4">
                     { isRepost ? 
-                        (post.originalPost?.content && <p className="whitespace-pre-line text-sm md:text-base leading-relaxed">{post.originalPost.content}</p>) : 
-                        (post.content && <p className="whitespace-pre-line text-sm md:text-base leading-relaxed">{post.content}</p>)
+                        (post.originalPost?.content && <p className="whitespace-pre-line text-sm md:text-base leading-relaxed text-foreground/90">{post.originalPost.content}</p>) : 
+                        (post.content && <p className="whitespace-pre-line text-sm md:text-base leading-relaxed text-foreground/90">{post.content}</p>)
                     }
                     
                     { (isRepost ? post.originalPost?.storyId : post.storyId) && (
                         <Link href={`/stories/${isRepost ? post.originalPost!.storyId : post.storyId}`}>
-                            <div className="border rounded-lg p-3 flex gap-3 hover:bg-muted/50 transition-colors shadow-sm bg-card/50">
-                                <Image src={(isRepost ? post.originalPost!.storyCoverUrl : post.storyCoverUrl) || `https://picsum.photos/seed/${post.id}/512/800`} alt={(isRepost ? post.originalPost!.storyTitle : post.storyTitle) || ''} width={50} height={75} className="rounded-sm object-cover shadow-sm" />
-                                <div className="flex-1 overflow-hidden">
-                                    <p className="font-bold text-sm truncate">{(isRepost ? post.originalPost!.storyTitle : post.storyTitle)}</p>
-                                    <p className="text-xs text-muted-foreground">by @{(isRepost ? post.originalPost!.author.username : post.author.username)}</p>
+                            <div className="border rounded-xl p-3 flex gap-3 hover:bg-muted/50 transition-all shadow-sm bg-muted/20 group/story">
+                                <div className="relative w-[50px] h-[75px] rounded-sm overflow-hidden flex-shrink-0">
+                                    <Image src={(isRepost ? post.originalPost!.storyCoverUrl : post.storyCoverUrl) || `https://picsum.photos/seed/${post.id}/512/800`} alt={(isRepost ? post.originalPost!.storyTitle : post.storyTitle) || ''} layout="fill" className="object-cover group-hover/story:scale-105 transition-transform" />
+                                </div>
+                                <div className="flex-1 overflow-hidden flex flex-col justify-center">
+                                    <p className="font-bold text-sm truncate group-hover/story:text-primary transition-colors">{(isRepost ? post.originalPost!.storyTitle : post.storyTitle)}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-tight font-semibold">by @{(isRepost ? post.originalPost!.author.username : post.author.username)}</p>
                                 </div>
                             </div>
                         </Link>
                     )}
                     {imageUrlForPreview && (
                         <div 
-                            className="relative aspect-video rounded-lg overflow-hidden cursor-pointer shadow-sm border"
-                            onMouseDown={handlePressStart}
-                            onMouseUp={handlePressEnd}
-                            onMouseLeave={handlePressEnd}
-                            onTouchStart={handlePressStart}
-                            onTouchEnd={handlePressEnd}
+                            className="relative aspect-video rounded-xl overflow-hidden cursor-pointer shadow-sm border border-border/40 group/image"
                             onClick={() => setIsPreviewOpen(true)}
                         >
-                            <Image src={imageUrlForPreview} alt="Post image" layout="fill" objectFit="cover" />
+                            <Image src={imageUrlForPreview} alt="Post image" layout="fill" className="object-cover group-hover/image:scale-[1.02] transition-transform duration-500" />
                         </div>
                     )}
                     {(isRepost ? post.originalPost?.songUrl : post.songUrl) && (
-                        <div className="rounded-xl overflow-hidden shadow-sm">
+                        <div className="rounded-xl overflow-hidden shadow-sm border border-border/40">
                             <SpotifyPlayer trackUrl={(isRepost ? post.originalPost!.songUrl : post.songUrl)} />
                         </div>
                     )}
                 </div>
             </CardContent>
-            <CardFooter className="p-2 border-t flex items-center justify-between">
+            <CardFooter className="p-2 border-t border-border/40 flex items-center justify-between">
               <ReactionButton postId={post.id} initialReactionsCount={post.reactionsCount || 0} />
               <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                  <MessageCircle className="mr-2 h-4 w-4" /> {post.commentsCount || 0} Comments
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary transition-colors gap-2">
+                  <MessageCircle className="h-4 w-4" /> 
+                  <span className="text-xs font-semibold">{post.commentsCount || 0}</span>
                 </Button>
               </DialogTrigger>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                    <Repeat className="mr-2 h-4 w-4" />{post.repostCount || 0} Reposts
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-accent transition-colors gap-2">
+                    <Repeat className="h-4 w-4" />
+                    <span className="text-xs font-semibold">{post.repostCount || 0}</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleRepost} disabled={isProcessing}>
-                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Repeat className="mr-2 h-4 w-4" />}
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={handleRepost} disabled={isProcessing} className="gap-2">
+                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Repeat className="h-4 w-4" />}
                     Repost to my feed
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleCopyLink}>
-                    <LinkIcon className="mr-2 h-4 w-4" />
+                  <DropdownMenuItem onClick={handleCopyLink} className="gap-2">
+                    <LinkIcon className="h-4 w-4" />
                     Copy Post Link
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -235,19 +230,21 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
             </CardFooter>
           </Card>
           
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Comments</DialogTitle>
+          <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
+            <DialogHeader className="p-4 border-b bg-muted/30">
+              <DialogTitle className="text-lg font-headline">Conversation</DialogTitle>
             </DialogHeader>
-            <ThreadPostComments postId={post.id} />
+            <div className="p-4">
+                <ThreadPostComments postId={post.id} />
+            </div>
           </DialogContent>
 
           <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete this post?</AlertDialogTitle>
+                <AlertDialogTitle>Delete this update?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This post and its comments will be permanently removed from D4RKV3NOM.
+                  This action is permanent and cannot be undone. The post and all of its comments will be removed from D4RKV3NOM.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -263,15 +260,22 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
           </AlertDialog>
       </Dialog>
 
-      <PreviewDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <PreviewDialogContent className="p-0 border-0 bg-transparent shadow-none max-w-2xl h-auto">
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="p-0 border-0 bg-transparent shadow-none max-w-4xl h-auto">
             <DialogHeader className="sr-only">
                 <DialogTitle>Image Preview</DialogTitle>
-                <DialogDescription>A larger view of the selected image.</DialogDescription>
+                <DialogDescription>Full-screen view of the post image.</DialogDescription>
             </DialogHeader>
-            {imageUrlForPreview && <Image src={imageUrlForPreview} alt="Post preview" width={1200} height={1200} className="rounded-lg object-contain w-full h-auto shadow-2xl" />}
-        </PreviewDialogContent>
-      </PreviewDialog>
+            {imageUrlForPreview && (
+                <div className="relative w-full h-auto flex items-center justify-center p-4">
+                    <Image src={imageUrlForPreview} alt="Post preview" width={1600} height={1600} className="rounded-2xl object-contain w-full h-auto shadow-2xl ring-1 ring-white/10" />
+                    <Button variant="ghost" size="icon" onClick={() => setIsPreviewOpen(false)} className="absolute top-6 right-6 bg-black/40 hover:bg-black/60 text-white rounded-full">
+                        <X className="h-6 w-6" />
+                    </Button>
+                </div>
+            )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

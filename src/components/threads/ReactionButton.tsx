@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -6,13 +5,12 @@ import { useAuth } from '@/hooks/useAuth';
 import Lottie from 'lottie-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Reaction, ReactionType, UserSummary } from '@/types';
+import { ReactionType, UserSummary } from '@/types';
 import { toggleReaction } from '@/app/actions/threadActions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Heart } from 'lucide-react';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { loveAnimation } from './reactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -23,13 +21,6 @@ interface ReactionButtonProps {
     postId: string;
     initialReactionsCount: number;
 }
-
-const reactionConfig = {
-    love: {
-        animation: loveAnimation,
-        label: 'Love'
-    }
-};
 
 function ReactorsList({ postId }: { postId: string }) {
     const [reactors, setReactors] = useState<UserSummary[]>([]);
@@ -53,23 +44,26 @@ function ReactorsList({ postId }: { postId: string }) {
     }, [postId]);
 
     if (isLoading) {
-        return <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+        return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     }
     
     if (reactors.length === 0) {
-        return <p className="p-4 text-center text-sm text-muted-foreground">No reactions yet.</p>;
+        return <p className="p-8 text-center text-sm text-muted-foreground">No loves yet.</p>;
     }
 
     return (
-        <ScrollArea className="max-h-64">
-            <div className="space-y-2 p-4">
+        <ScrollArea className="max-h-80">
+            <div className="space-y-1 p-2">
                 {reactors.map(user => (
-                     <Link href={`/profile/${user.id}`} key={user.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted">
-                        <Avatar className="h-8 w-8">
+                     <Link href={`/profile/${user.id}`} key={user.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors group">
+                        <Avatar className="h-10 w-10 border border-border/20 group-hover:border-primary/30 transition-colors">
                             <AvatarImage src={user.avatarUrl} alt={user.displayName} />
                             <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        <span className="font-semibold">{user.displayName || user.username}</span>
+                        <div className="flex-1">
+                            <p className="font-bold text-sm text-foreground">@{user.username}</p>
+                            <p className="text-[10px] text-muted-foreground font-medium">{user.displayName || user.username}</p>
+                        </div>
                     </Link>
                 ))}
             </div>
@@ -139,16 +133,16 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
     };
     
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
              <Dialog>
                 <DialogTrigger asChild>
-                    <button disabled={reactionsCount === 0} className="text-sm text-muted-foreground hover:underline disabled:no-underline disabled:cursor-not-allowed">
-                        {reactionsCount > 0 && <span>{reactionsCount} {reactionsCount === 1 ? 'love' : 'loves'}</span>}
+                    <button disabled={reactionsCount === 0} className="text-xs font-bold text-muted-foreground hover:text-red-500 transition-colors px-2 disabled:opacity-50 disabled:hover:text-muted-foreground">
+                        {reactionsCount > 0 ? reactionsCount : ''}
                     </button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-xs sm:max-w-sm rounded-2xl">
                      <DialogHeader>
-                        <DialogTitle>Reactions</DialogTitle>
+                        <DialogTitle className="font-headline">Loves</DialogTitle>
                     </DialogHeader>
                     <ReactorsList postId={postId} />
                 </DialogContent>
@@ -156,24 +150,27 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
             <Button
                 variant="ghost"
                 size="icon"
-                className="group h-8 w-8"
+                className="group h-10 w-10 rounded-full"
                 disabled={isProcessing}
                 onClick={() => handleReaction('love')}
             >
                 {isProcessing ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin text-red-500" />
                 ) : (
-                    <div className="w-8 h-8 relative">
+                    <div className="w-10 h-10 relative flex items-center justify-center">
                         <Lottie 
                             animationData={loveAnimation}
                             loop={false}
-                            autoplay={false}
-                            className={cn("absolute inset-0 w-16 h-16 -top-4 -left-4 transition-opacity", userReaction === 'love' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}
-                            style={{
-                                transform: userReaction === 'love' ? 'scale(1)' : 'scale(0.8)'
-                            }}
+                            autoplay={userReaction === 'love'}
+                            className={cn(
+                                "absolute inset-0 w-20 h-20 -top-5 -left-5 transition-opacity pointer-events-none", 
+                                userReaction === 'love' ? 'opacity-100' : 'opacity-0'
+                            )}
                         />
-                         <Heart className={cn("w-5 h-5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all", userReaction === 'love' ? "text-red-500 fill-red-500" : "text-muted-foreground group-hover:text-red-500")} />
+                         <Heart className={cn(
+                             "w-5 h-5 transition-all duration-300", 
+                             userReaction === 'love' ? "text-red-500 fill-red-500 scale-110" : "text-muted-foreground group-hover:text-red-500 group-hover:scale-110"
+                         )} />
                     </div>
                 )}
             </Button>

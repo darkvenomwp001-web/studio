@@ -1,4 +1,3 @@
-
 'use client'; 
 
 import Link from 'next/link';
@@ -99,7 +98,7 @@ function ForYouTabContent() {
 
   return (
     <div className="pb-12 animate-in fade-in duration-700 space-y-12">
-      {/* Hero Carousel - Edge-to-Edge landscape ratio */}
+      {/* Hero Carousel - Refined Aspect Ratio */}
       <section className="w-full">
         <Carousel
           plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
@@ -110,7 +109,7 @@ function ForYouTabContent() {
             {featuredStories.length > 0 ? featuredStories.map((story, index) => (
               <CarouselItem key={story.id} className="pl-0 basis-full">
                 <Link href={`/stories/${story.id}`} className="block group">
-                  <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full overflow-hidden bg-muted transition-all duration-500">
+                  <div className="relative aspect-[16/9] md:aspect-[21/9] w-full overflow-hidden bg-muted transition-all duration-500">
                     <Image
                       src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/1600/900`}
                       alt={story.title}
@@ -120,13 +119,13 @@ function ForYouTabContent() {
                       priority={index === 0}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent flex flex-col justify-end p-4 md:p-12 lg:p-16">
-                      <div className="container mx-auto max-w-7xl px-0">
+                      <div className="container mx-auto max-w-7xl px-4 md:px-0">
                         <div className="space-y-1 sm:space-y-2 max-w-2xl translate-y-2 sm:translate-y-4 group-hover:translate-y-0 transition-all duration-500">
                           <Badge className="bg-primary text-primary-foreground mb-1 sm:mb-2 text-[10px] sm:text-xs">Featured</Badge>
                           <h2 className="text-xl sm:text-4xl md:text-5xl lg:text-6xl font-headline font-bold text-foreground drop-shadow-lg line-clamp-2 leading-tight">
                             {story.title}
                           </h2>
-                          <p className="text-xs sm:text-xl text-muted-foreground font-medium flex items-center gap-2">
+                          <p className="text-xs sm:text-lg text-muted-foreground font-medium flex items-center gap-2">
                             by <span className="text-foreground font-semibold">@{story.author.username}</span>
                           </p>
                           <div className="pt-2 sm:pt-4 flex items-center gap-3">
@@ -185,13 +184,11 @@ function ForYouTabContent() {
         {/* New Releases Row */}
         {newReleases.length > 0 && (
           <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                  <div className="p-2 bg-blue-500/10 rounded-lg">
-                      <Sparkles className="text-blue-500 h-5 w-5" />
-                  </div>
-                  <h2 className="text-2xl font-headline font-bold tracking-tight">New Releases</h2>
-              </div>
+            <div className="flex items-center gap-2">
+                <div className="p-2 bg-blue-500/10 rounded-lg">
+                    <Sparkles className="text-blue-500 h-5 w-5" />
+                </div>
+                <h2 className="text-2xl font-headline font-bold tracking-tight">New Releases</h2>
             </div>
             <div className="flex overflow-x-auto space-x-5 pb-6 -mx-4 px-4 scrollbar-hide md:scrollbar-thin scrollbar-thumb-primary/30">
               {newReleases.map(story => (

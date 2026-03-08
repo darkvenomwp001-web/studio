@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -42,7 +41,7 @@ export default function ThreadsFeed() {
   }, []);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="w-full max-w-2xl mx-auto space-y-6">
       {isOwner && <CreatePostForm />}
       
       {isLoading ? (
@@ -54,9 +53,9 @@ export default function ThreadsFeed() {
             {posts.map(post => <ThreadPostCard key={post.id} post={post} />)}
             
             {posts.length === 0 && (
-                <div className="text-center py-16 text-muted-foreground bg-card rounded-lg border border-dashed">
-                <p className="text-lg font-medium text-foreground">No announcements yet.</p>
-                <p className="text-sm">Stay tuned for updates from the author.</p>
+                <div className="text-center py-16 text-muted-foreground bg-card rounded-2xl border border-dashed border-border/60">
+                    <p className="text-lg font-medium text-foreground">No announcements yet.</p>
+                    <p className="text-sm">Stay tuned for official updates.</p>
                 </div>
             )}
         </div>
