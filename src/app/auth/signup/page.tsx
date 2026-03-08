@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { UserPlus, Loader2 } from "lucide-react"
+import { UserPlus, Loader2, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth";
 import { FormEvent, useState } from "react";
@@ -23,7 +23,14 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [passwordOne, setPasswordOne] = useState('');
   const [passwordTwo, setPasswordTwo] = useState('');
+  const [showPasswordOne, setShowPasswordOne] = useState(false);
+  const [showPasswordTwo, setShowPasswordTwo] = useState(false);
   const { toast } = useToast();
+
+  const isAlphanumeric = (str: string) => {
+    // Requires at least one letter and one number
+    return /[a-zA-Z]/.test(str) && /[0-9]/.test(str);
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -37,6 +44,14 @@ export default function SignUpPage() {
     }
     if (passwordOne.length < 6) {
         toast({ title: "Weak Password", description: "Password should be at least 6 characters long.", variant: "destructive" });
+        return;
+    }
+    if (!isAlphanumeric(passwordOne)) {
+        toast({ 
+            title: "Data Integrity Violation", 
+            description: "For security, passwords must be alphanumeric (contain both letters and numbers).", 
+            variant: "destructive" 
+        });
         return;
     }
     await signUpWithEmailPassword({ username, email, passwordOne });
@@ -79,29 +94,56 @@ export default function SignUpPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input 
-              id="password" 
-              name="password" 
-              type="password" 
-              placeholder="•••••••• (min. 6 characters)" 
-              required 
-              value={passwordOne}
-              onChange={(e) => setPasswordOne(e.target.value)}
-              disabled={isAnyLoading} 
-            />
+            <div className="relative">
+              <Input 
+                id="password" 
+                name="password" 
+                type={showPasswordOne ? "text" : "password"}
+                placeholder="•••••••• (min. 6 characters)" 
+                required 
+                value={passwordOne}
+                onChange={(e) => setPasswordOne(e.target.value)}
+                disabled={isAnyLoading} 
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowPasswordOne(!showPasswordOne)}
+                disabled={isAnyLoading}
+              >
+                {showPasswordOne ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Requirements: 6+ chars, alphanumeric.</p>
           </div>
            <div className="space-y-2">
             <Label htmlFor="confirm-password">Confirm Password</Label>
-            <Input 
-              id="confirm-password" 
-              name="confirmPassword" 
-              type="password" 
-              placeholder="••••••••" 
-              required 
-              value={passwordTwo}
-              onChange={(e) => setPasswordTwo(e.target.value)}
-              disabled={isAnyLoading} 
-            />
+            <div className="relative">
+              <Input 
+                id="confirm-password" 
+                name="confirmPassword" 
+                type={showPasswordTwo ? "text" : "password"}
+                placeholder="••••••••" 
+                required 
+                value={passwordTwo}
+                onChange={(e) => setPasswordTwo(e.target.value)}
+                disabled={isAnyLoading} 
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowPasswordTwo(!showPasswordTwo)}
+                disabled={isAnyLoading}
+              >
+                {showPasswordTwo ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+              </Button>
+            </div>
           </div>
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6" disabled={isAnyLoading}>
             {authLoading && !initialAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <><UserPlus className="mr-2 h-5 w-5" /> Sign Up with Email</>}

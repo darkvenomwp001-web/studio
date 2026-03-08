@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Save, KeyRound, Mail, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { Loader2, Save, KeyRound, Mail, ArrowLeft, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -22,9 +22,17 @@ export default function AccountSettingsPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
+  // Visibility toggles
+  const [showPw1, setShowPw1] = useState(false);
+  const [showPw2, setShowPw2] = useState(false);
+  const [showPw3, setShowPw3] = useState(false);
+  const [showPw4, setShowPw4] = useState(false);
+
   const [isEmailUpdating, setIsEmailUpdating] = useState(false);
   const [isPasswordUpdating, setIsPasswordUpdating] = useState(false);
   
+  const isAlphanumeric = (str: string) => /[a-zA-Z]/.test(str) && /[0-9]/.test(str);
+
   const handleEmailUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newEmail.trim()) {
@@ -55,6 +63,10 @@ export default function AccountSettingsPage() {
     }
     if (newPassword.length < 6) {
         toast({title: "Weak Password", description: "New password must be at least 6 characters.", variant: "destructive"});
+        return;
+    }
+    if (!isAlphanumeric(newPassword)) {
+        toast({ title: "Complexity Error", description: "New password must be alphanumeric (letters & numbers).", variant: "destructive"});
         return;
     }
     setIsPasswordUpdating(true);
@@ -112,9 +124,17 @@ export default function AccountSettingsPage() {
                     <Label htmlFor="newEmail">New Email Address</Label>
                     <Input id="newEmail" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="your.new.email@example.com" disabled={anySubmitting}/>
                   </div>
-                  <div>
+                  <div className="space-y-2">
                     <Label htmlFor="currentPasswordForEmail">Current Password (for verification)</Label>
-                    <Input id="currentPasswordForEmail" type="password" value={currentPasswordForEmail} onChange={(e) => setCurrentPasswordForEmail(e.target.value)} placeholder="Enter current password" disabled={anySubmitting} />
+                    <div className="relative">
+                        <Input id="currentPasswordForEmail" type={showPw1 ? "text" : "password"} value={currentPasswordForEmail} onChange={(e) => setCurrentPasswordForEmail(e.target.value)} placeholder="Enter current password" disabled={anySubmitting} className="pr-10" />
+                        <Button
+                            type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPw1(!showPw1)}
+                        >
+                            {showPw1 ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                        </Button>
+                    </div>
                   </div>
                 </CardContent>
                 <CardFooter>
@@ -130,20 +150,35 @@ export default function AccountSettingsPage() {
               <form onSubmit={handlePasswordUpdate}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-accent" /> Change Password</CardTitle>
-                  <CardDescription>Update your account password. This requires your current password.</CardDescription>
+                  <CardDescription>Update your account password. Must be 6+ chars and alphanumeric.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
+                  <div className="space-y-2">
                     <Label htmlFor="currentPasswordForPwChange">Current Password</Label>
-                    <Input id="currentPasswordForPwChange" type="password" value={currentPasswordForPwChange} onChange={(e) => setCurrentPasswordForPwChange(e.target.value)} placeholder="••••••••" disabled={anySubmitting} />
+                    <div className="relative">
+                        <Input id="currentPasswordForPwChange" type={showPw2 ? "text" : "password"} value={currentPasswordForPwChange} onChange={(e) => setCurrentPasswordForPwChange(e.target.value)} placeholder="••••••••" disabled={anySubmitting} className="pr-10" />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPw2(!showPw2)}>
+                            {showPw2 ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                        </Button>
+                    </div>
                   </div>
-                  <div>
+                  <div className="space-y-2">
                     <Label htmlFor="newPassword">New Password</Label>
-                    <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password (min. 6 characters)" disabled={anySubmitting} />
+                    <div className="relative">
+                        <Input id="newPassword" type={showPw3 ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password (min. 6 characters)" disabled={anySubmitting} className="pr-10" />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPw3(!showPw3)}>
+                            {showPw3 ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                        </Button>
+                    </div>
                   </div>
-                  <div>
+                  <div className="space-y-2">
                     <Label htmlFor="confirmNewPassword">Confirm New Password</Label>
-                    <Input id="confirmNewPassword" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} placeholder="Confirm new password" disabled={anySubmitting} />
+                    <div className="relative">
+                        <Input id="confirmNewPassword" type={showPw4 ? "text" : "password"} value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} placeholder="Confirm new password" disabled={anySubmitting} className="pr-10" />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPw4(!showPw4)}>
+                            {showPw4 ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                        </Button>
+                    </div>
                   </div>
                 </CardContent>
                 <CardFooter>
