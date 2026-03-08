@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Smile, Sparkles, ArrowLeft, MoreHorizontal } from 'lucide-react';
+import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Smile, Sparkles, ArrowLeft, MoreHorizontal, CheckCheck } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -45,6 +45,7 @@ import {
 import { getConversationStarters } from '@/app/actions/aiActions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import StatusFeature from '@/components/status/StatusFeature';
+import { Separator } from '@/components/ui/separator';
 
 // Debounce function
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -59,7 +60,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
 }
 
 function NotificationsList() {
-    const { user, notifications, markNotificationAsRead, markAllNotificationsAsRead, loading, authLoading } = useAuth();
+    const { user, notifications, markNotificationAsRead, markAllNotificationsAsRead, authLoading } = useAuth();
     const router = useRouter();
     const { toast } = useToast();
 
@@ -128,79 +129,76 @@ function NotificationsList() {
 
     if (authLoading && notifications.length === 0) {
         return (
-             <div className="text-center py-10 text-muted-foreground flex items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-primary mr-3" />
-                Loading notifications...
+             <div className="text-center py-20 text-muted-foreground flex flex-col items-center justify-center">
+                <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+                <p className="font-headline font-semibold">Updating activity feed...</p>
             </div>
         );
     }
     
     return (
-        <Card className="shadow-lg bg-transparent border-0 max-w-3xl mx-auto">
+        <Card className="shadow-none bg-transparent border-0 max-w-3xl mx-auto">
             <CardHeader className="flex flex-row justify-between items-center px-4 pt-4 pb-2 md:px-6">
-                <CardTitle className="text-2xl font-headline">Activity</CardTitle>
+                <CardTitle className="text-2xl font-headline font-bold">Activity</CardTitle>
                 {notifications.some(n => !n.isRead) && (
-                    <Button variant="link" size="sm" onClick={handleMarkAllRead} disabled={authLoading}>
+                    <Button variant="ghost" size="sm" onClick={handleMarkAllRead} disabled={authLoading} className="text-primary hover:text-primary/80">
                         Mark all as read
                     </Button>
                 )}
             </CardHeader>
             <CardContent className="p-0">
                 {notifications.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-6 pb-20">
                         {Object.entries(groupedNotifications).map(([group, notifs]) => 
                          notifs.length > 0 && (
                             <div key={group}>
-                                <h3 className="font-semibold text-sm text-muted-foreground px-4 md:px-6 mb-2">{group}</h3>
-                                <ul className="space-y-0.5">
+                                <h3 className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground/60 px-4 md:px-6 mb-3">{group}</h3>
+                                <div className="space-y-1">
                                     {notifs.map((notif) => (
-                                        <li
+                                        <div
                                             key={notif.id}
                                             onClick={() => handleNotificationClick(notif)}
                                             className={cn(
-                                                `p-3 mx-2 rounded-lg cursor-pointer transition-all hover:bg-muted/60 flex items-center gap-4`,
-                                                !notif.isRead && 'bg-primary/10'
+                                                "p-4 mx-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-4 group",
+                                                !notif.isRead ? 'bg-primary/5 hover:bg-primary/10 border border-primary/10' : 'hover:bg-muted/50 border border-transparent'
                                             )}
                                         >
                                         <div className="relative flex-shrink-0">
-                                            {notif.actor?.avatarUrl ? (
-                                                <Avatar className="h-10 w-10">
-                                                    <AvatarImage src={notif.actor.avatarUrl} alt={notif.actor.username} data-ai-hint="profile person"/>
-                                                    <AvatarFallback>{notif.actor.username.substring(0, 1).toUpperCase()}</AvatarFallback>
-                                                </Avatar>
-                                            ) : (
-                                                <div className="h-10 w-10 bg-muted rounded-full flex items-center justify-center">
-                                                    {getNotificationIcon(notif.type)}
-                                                </div>
-                                            )}
-                                             <div className="absolute -bottom-1 -right-1 bg-card p-0.5 rounded-full">
+                                            <Avatar className="h-12 w-12 border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
+                                                <AvatarImage src={notif.actor.avatarUrl} alt={notif.actor.username} data-ai-hint="profile person"/>
+                                                <AvatarFallback className="bg-muted text-primary font-bold">{notif.actor.username.substring(0, 1).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                             <div className="absolute -bottom-1 -right-1 bg-card p-1 rounded-full shadow-sm ring-2 ring-background">
                                                 {getNotificationIcon(notif.type)}
                                             </div>
                                         </div>
                                         <div className="flex-1">
                                             <p className="text-sm leading-snug text-foreground/90">
-                                                <span className="font-semibold">{notif.actor.displayName || notif.actor.username}</span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
+                                                <span className="font-bold text-foreground">@{notif.actor.username}</span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
                                             </p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                            <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-tighter mt-1">
                                             {notif.timestamp ? formatDistanceToNow(new Date(notif.timestamp), { addSuffix: true }) : 'A while ago'}
                                             </p>
                                         </div>
                                         {!notif.isRead && (
                                             <div className="flex-shrink-0 self-center ml-auto">
-                                                <div className="w-2 h-2 bg-primary rounded-full" title="Unread"></div>
+                                                <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" title="Unread"></div>
                                             </div>
                                         )}
-                                        </li>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
                          )
                         )}
                     </div>
                 ) : (
-                    <div className="text-center py-16 text-muted-foreground space-y-3">
-                        <Bell className="h-12 w-12 mx-auto" />
-                        <p>No notifications yet.</p>
+                    <div className="text-center py-24 text-muted-foreground space-y-4">
+                        <div className="bg-muted/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Bell className="h-10 w-10 text-muted-foreground/40" />
+                        </div>
+                        <h3 className="font-headline text-lg font-bold text-foreground">All caught up!</h3>
+                        <p className="text-sm max-w-[200px] mx-auto">No new activity to show right now. Go explore some stories!</p>
                     </div>
                 )}
             </CardContent>
@@ -262,17 +260,11 @@ function MessagesClient() {
       setIsLoadingConversations(false);
     }, (error) => {
       console.error("Error fetching conversations: ", error);
-      toast({ 
-          title: "Could Not Load Messages", 
-          description: "There was an error fetching your conversations. This is often due to missing database indexes.", 
-          variant: "destructive",
-          duration: 10000
-      });
       setIsLoadingConversations(false);
     });
 
     return () => unsubscribe();
-  }, [currentUser, toast, authLoading]);
+  }, [currentUser, authLoading]);
 
   useEffect(() => {
     if (!activeConversation?.id) {
@@ -296,12 +288,11 @@ function MessagesClient() {
       setIsLoadingMessages(false);
     }, (error) => {
       console.error(`Error fetching messages for ${activeConversation.id}: `, error);
-      toast({ title: "Error fetching messages", description: error.message, variant: "destructive" });
       setIsLoadingMessages(false);
     });
 
     return () => unsubscribe();
-  }, [activeConversation, toast]);
+  }, [activeConversation]);
 
   const handleSelectConversation = (conversation: Conversation) => {
     setActiveConversation(conversation);
@@ -370,13 +361,12 @@ function MessagesClient() {
       setSearchedUsers(Array.from(uniqueUsers.values()));
     } catch (error) {
       console.error("Error searching users:", error);
-      toast({ title: "Search Error", description: "Could not perform user search. Ensure Firestore indexes are set up.", variant: "destructive" });
     } finally {
       setIsSearchingUsers(false);
     }
   };
   
-  const debouncedSearch = useCallback(debounce(performUserSearch, 500), [currentUser, toast]);
+  const debouncedSearch = useCallback(debounce(performUserSearch, 500), [currentUser]);
 
   useEffect(() => {
     if (searchUsername.trim().length > 0) {
@@ -408,7 +398,7 @@ function MessagesClient() {
         setSearchedUsers([]);
       } else {
         const newConversationRef = doc(collection(db, 'conversations'));
-        const currentUserSummary: AppUserType = {
+        const currentUserSummary: UserSummary = {
             id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName || currentUser.username, avatarUrl: currentUser.avatarUrl,
         };
         const newConversationData: Omit<Conversation, 'id'> = {
@@ -489,16 +479,16 @@ function MessagesClient() {
             if (!isOpen) { setSearchUsername(''); setSearchedUsers([]); }
         }}>
         <TooltipProvider>
-        <div className="flex h-[calc(100vh-12rem)] md:h-auto md:min-h-[600px] border bg-card rounded-lg shadow-xl overflow-hidden">
+        <div className="flex h-[calc(100vh-12rem)] md:h-auto md:min-h-[700px] border rounded-3xl bg-card shadow-2xl overflow-hidden mb-10">
             <aside className={cn(
-                "w-full md:w-[320px] lg:w-[380px] border-r flex flex-col bg-background/50 transition-all duration-300",
+                "w-full md:w-[340px] lg:w-[400px] border-r flex flex-col bg-background/40 backdrop-blur-xl transition-all duration-300",
                 mobileView === 'chat' ? 'hidden md:flex' : 'flex'
             )}>
-                <div className="p-4 border-b">
-                    <div className="flex justify-between items-center mb-3">
-                        <h2 className="text-2xl font-headline font-bold">{currentUser?.displayName || 'Messages'}</h2>
+                <div className="p-6 border-b space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-headline font-bold tracking-tight">Messages</h2>
                         <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="outline" size="icon" className="rounded-full shadow-sm hover:bg-primary hover:text-primary-foreground transition-all">
                                 <UserPlus className="h-5 w-5" />
                                 <span className="sr-only">New Message</span>
                             </Button>
@@ -506,69 +496,78 @@ function MessagesClient() {
                     </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search messages..." className="pl-10 h-9 rounded-full bg-muted border-none" />
+                        <Input placeholder="Search people..." className="pl-10 h-10 rounded-full bg-muted/50 border-none focus-visible:ring-primary/50" />
                     </div>
                 </div>
-                 <div className="p-2 border-b">
+                 <div className="p-2 px-4 border-b">
                    <StatusFeature />
                 </div>
                 <ScrollArea className="flex-1">
                     {isLoadingConversations ? (
-                        <div className="p-4 text-center text-muted-foreground flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading...</div>
+                        <div className="p-10 text-center text-muted-foreground flex flex-col items-center justify-center gap-3">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <span className="text-xs font-bold uppercase tracking-widest opacity-50">Syncing inbox...</span>
+                        </div>
                     ) : conversations.length === 0 ? (
-                        <div className="p-8 text-center text-muted-foreground space-y-3">
-                            <MessageSquare className="h-10 w-10 mx-auto"/>
-                            <h3 className="font-semibold text-foreground">No conversations yet</h3>
-                            <p className="text-sm">Start a new message to begin a conversation.</p>
+                        <div className="p-12 text-center text-muted-foreground space-y-4">
+                            <div className="bg-muted/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+                                <MessageSquare className="h-8 w-8 text-muted-foreground/40"/>
+                            </div>
+                            <h3 className="font-headline font-bold text-foreground">No chats yet</h3>
+                            <p className="text-sm">Start a new message to begin a conversation with your community.</p>
                         </div>
                     ) : (
-                    conversations.map(conv => {
-                        const otherParticipant = getOtherParticipant(conv);
-                        const lastMessageTimestampServer = conv.lastMessage?.timestamp as any; 
-                        let lastMessageDisplayTime = '';
-                        if (lastMessageTimestampServer && typeof lastMessageTimestampServer.toDate === 'function') {
-                            lastMessageDisplayTime = formatDistanceToNow(lastMessageTimestampServer.toDate(), { addSuffix: true });
-                        }
-                        const isActive = activeConversation?.id === conv.id;
-                        const isUnread = conv.lastMessage?.senderId !== currentUser?.id && !conv.lastMessage?.isRead;
+                    <div className="space-y-0.5 p-2">
+                        {conversations.map(conv => {
+                            const otherParticipant = getOtherParticipant(conv);
+                            const lastMessageTimestampServer = conv.lastMessage?.timestamp as any; 
+                            let lastMessageDisplayTime = '';
+                            if (lastMessageTimestampServer && typeof lastMessageTimestampServer.toDate === 'function') {
+                                lastMessageDisplayTime = formatDistanceToNow(lastMessageTimestampServer.toDate(), { addSuffix: true });
+                            }
+                            const isActive = activeConversation?.id === conv.id;
+                            const isUnread = conv.lastMessage?.senderId !== currentUser?.id && !conv.lastMessage?.isRead;
 
-                        return (
-                        <div 
-                            key={conv.id} 
-                            className={cn( `flex items-start gap-3 p-3 cursor-pointer border-l-4`, 
-                            isActive ? 'bg-primary/10 border-primary' : 'border-transparent hover:bg-muted/50'
-                            )}
-                            onClick={() => handleSelectConversation(conv)}
-                        >
-                            <div className="relative">
-                                {otherParticipant && (
-                                    <Avatar className="h-14 w-14 border-2 border-background shadow-sm">
-                                    <AvatarImage src={otherParticipant.avatarUrl} alt={otherParticipant.username} data-ai-hint="profile person" />
-                                    <AvatarFallback>{otherParticipant.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                                    </Avatar>
+                            return (
+                            <div 
+                                key={conv.id} 
+                                className={cn( 
+                                    "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative", 
+                                    isActive ? 'bg-primary/10' : 'hover:bg-muted/50'
                                 )}
-                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background"></div>
-                            </div>
-                            <div className="flex-1 overflow-hidden">
-                                <div className="flex justify-between items-center">
-                                    <h3 className={cn(`font-semibold truncate`, isActive ? 'text-primary' : 'text-foreground')}>
-                                        {otherParticipant?.displayName || otherParticipant?.username || 'Unknown User'}
-                                    </h3>
-                                    <span className={cn(`text-xs whitespace-nowrap`, isUnread ? 'text-primary font-bold' : 'text-muted-foreground')}>
-                                        {lastMessageDisplayTime}
-                                    </span>
+                                onClick={() => handleSelectConversation(conv)}
+                            >
+                                <div className="relative">
+                                    {otherParticipant && (
+                                        <Avatar className="h-14 w-14 border-2 border-background shadow-md group-hover:scale-105 transition-transform">
+                                            <AvatarImage src={otherParticipant.avatarUrl} alt={otherParticipant.username} data-ai-hint="profile person" />
+                                            <AvatarFallback className="bg-muted text-primary font-bold">{otherParticipant.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+                                        </Avatar>
+                                    )}
+                                    <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm"></div>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                    <p className={cn(`text-sm truncate`, isUnread ? 'text-foreground font-semibold' : 'text-muted-foreground')}>
-                                        {conv.lastMessage?.senderId === currentUser?.id && conv.lastMessage?.content && "You: "}
-                                        {conv.lastMessage?.content || 'No messages yet.'}
-                                    </p>
-                                    {isUnread && <div className="w-2.5 h-2.5 bg-primary rounded-full flex-shrink-0 ml-2"></div>}
+                                <div className="flex-1 overflow-hidden">
+                                    <div className="flex justify-between items-center mb-0.5">
+                                        <h3 className={cn("font-bold truncate text-sm", isActive ? 'text-primary' : 'text-foreground')}>
+                                            {otherParticipant?.displayName || `@${otherParticipant?.username}` || 'Unknown User'}
+                                        </h3>
+                                        <span className={cn("text-[10px] font-semibold uppercase tracking-tighter", isUnread ? 'text-primary' : 'text-muted-foreground/60')}>
+                                            {lastMessageDisplayTime}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <p className={cn("text-xs truncate", isUnread ? 'text-foreground font-bold' : 'text-muted-foreground')}>
+                                            {conv.lastMessage?.senderId === currentUser?.id && <span className="font-bold opacity-50 mr-1">You:</span>}
+                                            {conv.lastMessage?.content || 'Started a conversation'}
+                                        </p>
+                                        {isUnread && <div className="w-2.5 h-2.5 bg-primary rounded-full flex-shrink-0 ml-2 shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>}
+                                    </div>
                                 </div>
+                                {isActive && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-l-full"></div>}
                             </div>
-                        </div>
-                        );
-                    })
+                            );
+                        })}
+                    </div>
                     )}
                 </ScrollArea>
             </aside>
@@ -579,137 +578,218 @@ function MessagesClient() {
             )}>
                 {activeConversation ? (
                     <>
-                    <header className="p-3 border-b bg-card flex items-center justify-between gap-3 shadow-sm">
-                        <div className="flex items-center gap-3">
-                             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileView('list')}>
+                    <header className="p-4 border-b bg-card/50 backdrop-blur-md flex items-center justify-between gap-3 shadow-sm z-10">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                             <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => setMobileView('list')}>
                                 <ArrowLeft className="h-5 w-5" />
                             </Button>
                             {getOtherParticipant(activeConversation) && (
-                                <Avatar>
-                                    <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
-                                    <AvatarFallback>{getOtherParticipant(activeConversation)!.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                                </Avatar>
+                                <Link href={`/profile/${getOtherParticipant(activeConversation)!.id}`}>
+                                    <Avatar className="h-10 w-10 border shadow-sm hover:scale-105 transition-transform">
+                                        <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
+                                        <AvatarFallback className="bg-muted text-primary font-bold">{getOtherParticipant(activeConversation)!.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                                    </Avatar>
+                                </Link>
                             )}
-                            <div>
-                                <h3 className="font-semibold text-lg">{getOtherParticipant(activeConversation)?.displayName || getOtherParticipant(activeConversation)?.username || 'Unknown User'}</h3>
-                                <p className="text-xs text-green-500 font-medium">Online</p>
+                            <div className="truncate">
+                                <h3 className="font-bold text-base truncate">
+                                    {getOtherParticipant(activeConversation)?.displayName || `@${getOtherParticipant(activeConversation)?.username}` || 'Unknown User'}
+                                </h3>
+                                <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> Online
+                                </p>
                             </div>
                         </div>
-                        <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-5 w-5" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
+                                <MoreHorizontal className="h-5 w-5" />
+                            </Button>
+                        </div>
                     </header>
                     
-                    <ScrollArea className="flex-1 p-4 space-y-4">
-                        {isLoadingMessages ? (
-                            <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-                        ) : messages.length === 0 ? (
-                            <div className="text-center py-10 flex flex-col items-center gap-4 text-muted-foreground">
-                                <MessageSquare className="w-16 h-16"/>
-                                <h3 className="font-semibold text-lg text-foreground">Start the Conversation</h3>
-                                <p>No messages here yet. Break the ice!</p>
-                                <Button onClick={handleGenerateStarters} disabled={isGeneratingStarters}>
-                                    {isGeneratingStarters ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Sparkles className="h-4 w-4 mr-2" />}
-                                    Get Conversation Starters
-                                </Button>
-                                {conversationStarters.length > 0 && (
-                                    <div className="mt-4 space-y-2 text-left">
-                                        {conversationStarters.map((starter, i) => (
-                                            <Button key={i} variant="outline" size="sm" className="w-full text-wrap h-auto" onClick={() => setNewMessageContent(starter)}>{starter}</Button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                        messages.map(msg => {
-                            const senderInfo = msg.senderId && activeConversation.participantInfo ? activeConversation.participantInfo[msg.senderId] : undefined;
-                            const isCurrentUserSender = msg.senderId === currentUser?.id;
-                            
-                            return (
-                            <div key={msg.id} className={cn("flex items-end gap-2 max-w-[80%] sm:max-w-[70%]", isCurrentUserSender ? "self-end flex-row-reverse" : "self-start")}>
-                                {!isCurrentUserSender && senderInfo && (
-                                    <Avatar className="h-8 w-8 self-end">
-                                        <AvatarImage src={senderInfo?.avatarUrl} data-ai-hint="profile person" />
-                                        <AvatarFallback>{senderInfo?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                                    </Avatar>
-                                )}
-                                <div className={cn("p-3 rounded-2xl shadow-sm", isCurrentUserSender ? "rounded-br-none bg-primary text-primary-foreground" : "rounded-bl-none bg-card text-foreground")}>
-                                <p className="text-sm whitespace-pre-line">{msg.content}</p>
+                    <ScrollArea className="flex-1 p-6">
+                        <div className="space-y-6">
+                            {isLoadingMessages ? (
+                                <div className="flex justify-center items-center h-40">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                 </div>
+                            ) : messages.length === 0 ? (
+                                <div className="text-center py-20 flex flex-col items-center gap-6 text-muted-foreground">
+                                    <div className="bg-muted/20 p-6 rounded-full">
+                                        <Sparkles className="w-12 h-12 text-primary/40"/>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h3 className="font-headline text-xl font-bold text-foreground">Start the Conversation</h3>
+                                        <p className="text-sm max-w-xs mx-auto">Don't be shy! Send a message or use AI to break the ice.</p>
+                                    </div>
+                                    <Button onClick={handleGenerateStarters} disabled={isGeneratingStarters} className="rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+                                        {isGeneratingStarters ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Sparkles className="h-4 w-4 mr-2" />}
+                                        Get AI Icebreakers
+                                    </Button>
+                                    {conversationStarters.length > 0 && (
+                                        <div className="mt-4 grid gap-2 w-full max-w-sm">
+                                            {conversationStarters.map((starter, i) => (
+                                                <Button key={i} variant="outline" size="sm" className="w-full text-wrap h-auto text-left justify-start p-3 rounded-2xl hover:bg-primary/5 transition-all" onClick={() => setNewMessageContent(starter)}>
+                                                    "{starter}"
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                            <div className="flex flex-col gap-4">
+                                {messages.map((msg, index) => {
+                                    const senderInfo = msg.senderId && activeConversation.participantInfo ? activeConversation.participantInfo[msg.senderId] : undefined;
+                                    const isCurrentUserSender = msg.senderId === currentUser?.id;
+                                    const isNextSameSender = messages[index + 1]?.senderId === msg.senderId;
+                                    
+                                    return (
+                                    <div key={msg.id} className={cn(
+                                        "flex items-end gap-2 max-w-[85%] sm:max-w-[70%]", 
+                                        isCurrentUserSender ? "self-end flex-row-reverse" : "self-start",
+                                        !isNextSameSender ? "mb-4" : "mb-0.5"
+                                    )}>
+                                        {!isCurrentUserSender && !isNextSameSender && senderInfo && (
+                                            <Avatar className="h-8 w-8 self-end flex-shrink-0 shadow-sm">
+                                                <AvatarImage src={senderInfo?.avatarUrl} data-ai-hint="profile person" />
+                                                <AvatarFallback className="bg-muted text-[10px] font-bold">{senderInfo?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                                            </Avatar>
+                                        )}
+                                        {(!isCurrentUserSender && isNextSameSender) && <div className="w-8" />}
+                                        <div className={cn(
+                                            "p-3.5 rounded-2xl shadow-sm text-sm whitespace-pre-line leading-relaxed", 
+                                            isCurrentUserSender 
+                                                ? "bg-primary text-primary-foreground rounded-br-none" 
+                                                : "bg-muted text-foreground rounded-bl-none"
+                                        )}>
+                                            {msg.content}
+                                            <div className={cn(
+                                                "text-[9px] font-bold uppercase tracking-tighter mt-1 opacity-60 flex items-center justify-end gap-1",
+                                                isCurrentUserSender ? "text-primary-foreground" : "text-muted-foreground"
+                                            )}>
+                                                {msg.timestamp?.toDate ? formatDistanceToNow(msg.timestamp.toDate(), { addSuffix: false }) : 'Now'}
+                                                {isCurrentUserSender && <CheckCheck className="h-3 w-3" />}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    );
+                                })}
                             </div>
-                            );
-                        })
-                        )}
-                        {/* Typing indicator could go here */}
-                        <div ref={messagesEndRef} />
+                            )}
+                            <div ref={messagesEndRef} />
+                        </div>
                     </ScrollArea>
 
-                    <footer className="p-2 border-t bg-card">
-                        <div className="flex items-center gap-2">
-                           {/* AI Suggestions Button */}
+                    <footer className="p-4 border-t bg-card/50 backdrop-blur-md">
+                        <div className="flex items-center gap-3">
                            <Tooltip>
                               <TooltipTrigger asChild>
-                                 <Button type="button" variant="ghost" size="icon"><Sparkles className="h-5 w-5 text-muted-foreground" /></Button>
+                                 <Button type="button" variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary"><Sparkles className="h-5 w-5" /></Button>
                               </TooltipTrigger>
-                              <TooltipContent><p>AI Reply Suggestions</p></TooltipContent>
+                              <TooltipContent className="bg-primary text-primary-foreground font-bold">AI Reply Magic</TooltipContent>
                            </Tooltip>
-                           <div className="relative flex-1">
-                              <Input type="text" placeholder="Type a message..." className="flex-1 bg-background focus-visible:ring-primary rounded-full px-4 pr-10" value={newMessageContent} onChange={(e) => setNewMessageContent(e.target.value)} disabled={isSendingMessage} onKeyDown={(e) => e.key === 'Enter' && !isSendingMessage && handleSendMessage()} />
-                              <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => toast({title: "Emoji picker coming soon!"})}><Smile className="h-5 w-5 text-muted-foreground" /></Button>
+                           <div className="relative flex-1 group">
+                              <Input 
+                                type="text" 
+                                placeholder="Write something amazing..." 
+                                className="flex-1 bg-background focus-visible:ring-primary/20 rounded-2xl px-5 pr-12 h-12 border-none shadow-inner" 
+                                value={newMessageContent} 
+                                onChange={(e) => setNewMessageContent(e.target.value)} 
+                                disabled={isSendingMessage} 
+                                onKeyDown={(e) => e.key === 'Enter' && !isSendingMessage && handleSendMessage()} 
+                              />
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary" onClick={() => toast({title: "Visual selector coming soon!"})}><Smile className="h-5 w-5" /></Button>
+                              </div>
                            </div>
-                           <Button type="button" size="icon" className="bg-primary hover:bg-primary/90 rounded-full flex-shrink-0" disabled={isSendingMessage || !newMessageContent.trim()} onClick={handleSendMessage}>
+                           <Button 
+                            type="button" 
+                            size="icon" 
+                            className="bg-primary hover:bg-primary/90 rounded-full h-12 w-12 flex-shrink-0 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95" 
+                            disabled={isSendingMessage || !newMessageContent.trim()} 
+                            onClick={handleSendMessage}
+                           >
                               {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                            </Button>
                         </div>
                     </footer>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-background">
-                    <MessageSquare className="h-24 w-24 text-muted-foreground/30 mb-6" />
-                    <h2 className="text-2xl font-headline font-semibold mb-2">Select a Conversation</h2>
-                    <p className="text-muted-foreground">Select a conversation from the list or start a new one.</p>
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-background/20 backdrop-blur-sm">
+                        <div className="relative mb-8">
+                            <div className="absolute inset-0 bg-primary/10 rounded-full blur-2xl animate-pulse"></div>
+                            <MessageSquare className="h-24 w-24 text-primary/30 relative z-10" />
+                        </div>
+                        <h2 className="text-3xl font-headline font-bold mb-3 tracking-tight">Your Direct Feed</h2>
+                        <p className="text-muted-foreground max-w-sm leading-relaxed">Select a thread from the sidebar to view your messages and reconnect with fellow writers.</p>
+                        <DialogTrigger asChild>
+                            <Button className="mt-8 rounded-full px-8 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20">
+                                <Plus className="mr-2 h-5 w-5" /> Start a New Thread
+                            </Button>
+                        </DialogTrigger>
                     </div>
                 )}
             </main>
         </div>
         </TooltipProvider>
-        <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-            <DialogTitle>Start New Conversation</DialogTitle>
-            <DialogDescription>Type a username to find users and start messaging.</DialogDescription>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none rounded-3xl shadow-2xl">
+            <DialogHeader className="p-6 bg-muted/30 border-b">
+                <DialogTitle className="text-2xl font-headline font-bold">New Thread</DialogTitle>
+                <DialogDescription className="text-sm">Connect with anyone on the platform by their unique handle.</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-            <div className="flex items-center gap-2">
-                <Input
-                id="search-username" value={searchUsername} onChange={(e) => setSearchUsername(e.target.value)}
-                placeholder="Enter username..." disabled={isCreatingConversation} className="flex-grow"
-                />
-                {isSearchingUsers && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
-            </div>
-            </div>
-            {searchedUsers.length > 0 && (
-            <ScrollArea className="max-h-60 mt-2">
-                <div className="space-y-2">
-                {searchedUsers.map(user => (
-                    <div 
-                    key={user.id} className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/50 cursor-pointer"
-                    onClick={() => !isCreatingConversation && handleStartNewConversation(user)} aria-disabled={isCreatingConversation}
-                    >
-                    <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8"><AvatarImage src={user.avatarUrl} alt={user.username} data-ai-hint="profile person" /><AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback></Avatar>
-                        <span>{user.displayName || user.username}</span>
-                    </div>
-                    {isCreatingConversation ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4 text-primary" />}
-                    </div>
-                ))}
+            <div className="p-6 space-y-6">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                        id="search-username" 
+                        value={searchUsername} 
+                        onChange={(e) => setSearchUsername(e.target.value)}
+                        placeholder="Search by username..." 
+                        disabled={isCreatingConversation} 
+                        className="pl-10 h-12 rounded-2xl bg-muted/50 border-none"
+                    />
+                    {isSearchingUsers && <div className="absolute right-3 top-1/2 -translate-y-1/2"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}
                 </div>
-            </ScrollArea>
-            )}
-            {searchUsername.trim().length > 0 && !isSearchingUsers && searchedUsers.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center">No users found matching "{searchUsername}".</p>
-            )}
-            <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline" disabled={isCreatingConversation}>Close</Button></DialogClose>
+                
+                <ScrollArea className="max-h-[300px] -mx-2 px-2">
+                    {searchedUsers.length > 0 ? (
+                        <div className="space-y-2">
+                            {searchedUsers.map(u => (
+                                <div 
+                                    key={u.id} 
+                                    className="flex items-center justify-between p-3 rounded-2xl border border-transparent hover:border-primary/20 hover:bg-primary/5 cursor-pointer transition-all group"
+                                    onClick={() => !isCreatingConversation && handleStartNewConversation(u)}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
+                                            <AvatarImage src={u.avatarUrl} alt={u.username} data-ai-hint="profile person" />
+                                            <AvatarFallback className="bg-muted font-bold text-primary">{u.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-bold text-sm">@{u.username}</p>
+                                            <p className="text-xs text-muted-foreground">{u.displayName}</p>
+                                        </div>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="rounded-full group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                                        {isCreatingConversation ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : searchUsername.trim().length > 0 && !isSearchingUsers ? (
+                        <div className="py-10 text-center text-muted-foreground italic">
+                            No users found matching "@{searchUsername}"
+                        </div>
+                    ) : (
+                        <div className="py-10 text-center text-muted-foreground flex flex-col items-center gap-3">
+                            <Users className="h-10 w-10 opacity-20" />
+                            <p className="text-xs font-bold uppercase tracking-widest opacity-40">Search for contributors</p>
+                        </div>
+                    )}
+                </ScrollArea>
+            </div>
+            <DialogFooter className="p-4 bg-muted/20 border-t">
+                <DialogClose asChild><Button type="button" variant="outline" className="rounded-full px-6" disabled={isCreatingConversation}>Close</Button></DialogClose>
             </DialogFooter>
         </DialogContent>
         </Dialog>
@@ -720,13 +800,13 @@ export default function UnifiedInboxPage() {
     const { user, loading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const defaultTab = searchParams.get('tab') || 'messages'; // Default to messages
+    const defaultTab = searchParams.get('tab') || 'messages'; 
 
     if (loading && !user) {
         return (
-            <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
+            <div className="flex flex-col justify-center items-center min-h-[calc(100vh-12rem)] gap-4">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="ml-4 text-muted-foreground">Loading Inbox...</p>
+                <p className="font-headline font-bold text-xl animate-pulse">Syncing your literary universe...</p>
             </div>
         );
     }
@@ -741,16 +821,26 @@ export default function UnifiedInboxPage() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto space-y-4">
+        <div className="max-w-7xl mx-auto space-y-6 pt-6">
              <Tabs defaultValue={defaultTab} className="w-full" onValueChange={handleTabChange}>
-                <TabsList className="grid w-full grid-cols-2 max-w-lg mx-auto">
-                    <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" /> Messages</TabsTrigger>
-                    <TabsTrigger value="notifications"><Bell className="mr-2 h-4 w-4" /> Activity</TabsTrigger>
-                </TabsList>
-                <TabsContent value="notifications" className="mt-4">
+                <div className="flex justify-center mb-6">
+                    <TabsList className="grid grid-cols-2 w-full max-w-[400px] h-12 bg-muted/50 rounded-full p-1 border shadow-sm">
+                        <TabsTrigger value="messages" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
+                            <MessageSquare className="h-4 w-4" /> 
+                            Threads
+                        </TabsTrigger>
+                        <TabsTrigger value="notifications" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
+                            <Bell className="h-4 w-4" /> 
+                            Activity
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
+                
+                <TabsContent value="notifications" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
                     <NotificationsList />
                 </TabsContent>
-                <TabsContent value="messages" className="mt-4">
+                
+                <TabsContent value="messages" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
                     <MessagesClient />
                 </TabsContent>
             </Tabs>
