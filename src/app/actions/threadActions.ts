@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase-server';
@@ -17,12 +18,12 @@ import type { UserSummary, ThreadPost, ReactionType } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { addNotification } from './notificationActions';
 
-const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
 
 async function checkIsAppOwner(userId: string) {
     const userDoc = await getDoc(doc(db, 'users', userId));
     const username = userDoc.data()?.username;
-    return OWNER_USERNAMES.includes(username);
+    return OWNER_HANDLES.includes(username);
 }
 
 export async function sendGlobalChatMessage(

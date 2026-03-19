@@ -99,7 +99,7 @@ function ForYouTabContent() {
 
   return (
     <div className="pb-12 animate-in fade-in duration-700 space-y-12">
-      {/* Hero Carousel - Refined Aspect Ratio */}
+      {/* Hero Carousel */}
       <section className="w-full">
         <Carousel
           plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
@@ -282,7 +282,7 @@ export default function HomePage() {
         </div>
         
         <div className="mt-8">
-           <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="flex justify-center mb-8 px-4">
                   <AnimatedTabs tabs={TABS} activeTab={activeTab} />
               </div>

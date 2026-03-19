@@ -50,13 +50,13 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const USER_CACHE_KEY = 'd4rkv3nom_user_cache';
-const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
 
 interface AppUser extends AppUserType {
   email?: string;
   emailVerified?: boolean;
   displayName?: string;
-  role?: 'reader' | 'writer' | 'moderator' | 'admin';
+  role?: 'reader' | 'writer' | 'moderator';
   followingIds?: string[];
   createdAt?: any; 
   updatedAt?: any; 
@@ -204,16 +204,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
 
-            const updates: { role?: 'admin'; isVerified?: boolean } = {};
-            const isOwner = OWNER_USERNAMES.includes(firestoreUserData.username);
+            const updates: { isVerified?: boolean } = {};
+            const isOwner = OWNER_HANDLES.includes(firestoreUserData.username);
             
-            if (isOwner) {
-                if (firestoreUserData.role !== 'admin') {
-                    updates.role = 'admin';
-                }
-                if (!firestoreUserData.isVerified) {
-                    updates.isVerified = true;
-                }
+            if (isOwner && !firestoreUserData.isVerified) {
+                updates.isVerified = true;
             }
 
             if (Object.keys(updates).length > 0) {
@@ -272,7 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 ? `Guest${firebaseUser.uid.substring(0, 6)}`
                 : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0].toLowerCase() || `user_${firebaseUser.uid.substring(0, 5)}`;
             const displayName = isAnonymous ? 'A Mysterious Guest' : (firebaseUser.displayName || username);
-            const isOwner = OWNER_USERNAMES.includes(username);
+            const isOwner = OWNER_HANDLES.includes(username);
 
             const newUserProfile: AppUser = {
               id: firebaseUser.uid,
@@ -282,7 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               emailVerified: firebaseUser.emailVerified,
               avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`,
               bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse! Ready to explore.',
-              role: isOwner ? 'admin' : 'reader',
+              role: 'reader',
               isVerified: isOwner,
               messagingPreference: 'everyone',
               level: 1,
@@ -516,7 +511,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userCredential.user) {
         await updateFirebaseProfile(userCredential.user, { displayName: usernameToSet });
         const userRef = doc(db, 'users', userCredential.user.uid);
-        const isOwner = OWNER_USERNAMES.includes(usernameToSet);
+        const isOwner = OWNER_HANDLES.includes(usernameToSet);
         
         const newUserProfile: AppUser = {
           id: userCredential.user.uid,
@@ -526,7 +521,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           emailVerified: userCredential.user.emailVerified,
           avatarUrl: `https://placehold.co/100x100.png?text=${usernameToSet.charAt(0).toUpperCase()}`,
           bio: 'New to LitVerse! Ready to explore.',
-          role: isOwner ? 'admin' : 'reader',
+          role: 'reader',
           isVerified: isOwner,
           messagingPreference: 'everyone',
           level: 1,

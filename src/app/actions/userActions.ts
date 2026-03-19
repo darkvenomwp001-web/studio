@@ -6,7 +6,7 @@ import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where
 import type { Achievement, User, UserSummary } from '@/types';
 import { addNotification } from './notificationActions';
 
-const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
 
 const XP_AMOUNTS = {
   vote: 10,
@@ -26,6 +26,12 @@ const ACHIEVEMENTS = {
     description: 'You posted your first comment.',
   },
 };
+
+async function checkIsAppOwner(userId: string) {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const username = userDoc.data()?.username;
+    return OWNER_HANDLES.includes(username);
+}
 
 export async function awardXP(userId: string, action: keyof typeof XP_AMOUNTS): Promise<void> {
   if (!userId) return;
@@ -72,8 +78,8 @@ export async function unlockAchievement(userId: string, achievementKey: keyof ty
 
 export async function updateUserRole(adminId: string, targetUserId: string, newRole: 'reader' | 'writer' | 'moderator'): Promise<{ success: boolean; error?: string }> {
     try {
-        const adminUserDoc = await getDoc(doc(db, 'users', adminId));
-        if (!adminUserDoc.exists() || !OWNER_USERNAMES.includes(adminUserDoc.data().username)) {
+        const isOwner = await checkIsAppOwner(adminId);
+        if (!isOwner) {
             return { success: false, error: 'Unauthorized operation.' };
         }
         const targetUserRef = doc(db, 'users', targetUserId);
@@ -86,8 +92,8 @@ export async function updateUserRole(adminId: string, targetUserId: string, newR
 
 export async function toggleUserVerifiedStatus(adminId: string, targetUserId: string, newStatus: boolean): Promise<{ success: boolean; error?: string }> {
     try {
-        const adminUserDoc = await getDoc(doc(db, 'users', adminId));
-        if (!adminUserDoc.exists() || !OWNER_USERNAMES.includes(adminUserDoc.data().username)) {
+        const isOwner = await checkIsAppOwner(adminId);
+        if (!isOwner) {
             return { success: false, error: 'Unauthorized operation.' };
         }
         const targetUserRef = doc(db, 'users', targetUserId);
@@ -100,8 +106,8 @@ export async function toggleUserVerifiedStatus(adminId: string, targetUserId: st
 
 export async function banUser(adminId: string, targetUserId: string, banStatus: boolean): Promise<{ success: boolean; error?: string }> {
     try {
-        const adminUserDoc = await getDoc(doc(db, 'users', adminId));
-        if (!adminUserDoc.exists() || !OWNER_USERNAMES.includes(adminUserDoc.data().username)) {
+        const isOwner = await checkIsAppOwner(adminId);
+        if (!isOwner) {
             return { success: false, error: 'Unauthorized operation.' };
         }
         const targetUserRef = doc(db, 'users', targetUserId);
@@ -114,8 +120,8 @@ export async function banUser(adminId: string, targetUserId: string, banStatus: 
 
 export async function deleteUserPermanently(adminId: string, targetUserId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const adminUserDoc = await getDoc(doc(db, 'users', adminId));
-    if (!adminUserDoc.exists() || !OWNER_USERNAMES.includes(adminUserDoc.data().username)) {
+    const isOwner = await checkIsAppOwner(adminId);
+    if (!isOwner) {
         return { success: false, error: 'Unauthorized operation.' };
     }
     const targetUserRef = doc(db, 'users', targetUserId);
@@ -172,6 +178,9 @@ export async function answerQuestion(answerer: User, questionId: string, answerT
 
 export async function createPoll(authorId: string, question: string, options: string[]): Promise<{ success: boolean, error?: string }> {
     try {
+        const isOwner = await checkIsAppOwner(authorId);
+        if (!isOwner) return { success: false, error: 'Unauthorized operation.' };
+        
         await addDoc(collection(db, 'polls'), {
             authorId,
             question,

@@ -33,8 +33,6 @@ service cloud.firestore {
     // Users Collection
     match /users/{userId} {
       allow read: if true;
-
-      // A user can create their own profile document
       allow create: if isSignedIn() && isOwner(userId);
 
       // Regular users can update their own profile, but cannot change protected fields.
@@ -44,7 +42,6 @@ service cloud.firestore {
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isBanned', 'isVerified'])
       );
 
-      // Only the app owner can delete users.
       allow delete: if isAppOwner() && request.auth.uid != userId;
     }
 
@@ -126,7 +123,7 @@ service cloud.firestore {
       allow delete: if isAppOwner();
     }
     
-    // Feed Posts
+    // Feed Posts (Community Feed)
     match /feedPosts/{postId} {
       allow read: if true;
       
@@ -136,7 +133,7 @@ service cloud.firestore {
       // Allow the author or the app owner to update the post content.
       // Also allow any user to update metadata keys (interactions) like reactionsCount and commentsCount.
       allow update: if isAppOwner() || isOwner(resource.data.author.id) || (
-        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionsCount', 'commentsCount', 'repostCount'])
+        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'commentsCount', 'repostCount'])
       );
                       
       // Allow the author or the app owner to delete the post.
