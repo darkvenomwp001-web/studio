@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, ChangeEvent } from 'react';
@@ -11,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Story, Song, ThreadPost } from '@/types';
 import Image from 'next/image';
@@ -19,7 +20,6 @@ import { Separator } from '../ui/separator';
 import { createThreadPost } from '@/app/actions/threadActions';
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
-const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
 
 export default function CreatePostForm() {
     const { user } = useAuth();
@@ -41,8 +41,7 @@ export default function CreatePostForm() {
 
     const imageInputRef = useRef<HTMLInputElement>(null);
 
-    // Only allow official handles to post
-    if (!user || !OWNER_USERNAMES.includes(user.username)) return null;
+    if (!user) return null;
 
     const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -62,6 +61,7 @@ export default function CreatePostForm() {
         try {
             const q = query(
                 collection(db, 'stories'), 
+                where('author.id', '==', user.id),
                 where('visibility', '==', 'Public'), 
                 where('title', '>=', storySearchTerm), 
                 where('title', '<=', storySearchTerm + '\uf8ff'),
@@ -124,7 +124,7 @@ export default function CreatePostForm() {
                 setAttachedImagePreview(null);
                 setAttachedSong(null);
                 setLyricSnippet(null);
-                toast({ title: 'Announcement Published!' });
+                toast({ title: 'Post Published!' });
             } else {
                 toast({ title: "Failed to publish", description: result.error, variant: "destructive" });
             }
@@ -141,7 +141,7 @@ export default function CreatePostForm() {
         <Dialog>
           <Card className="mb-6 overflow-hidden">
               <CardHeader className="px-4 pt-4 pb-0">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-wider">New Announcement</p>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wider">New Community Post</p>
               </CardHeader>
               <CardContent className="p-4">
                 <div className="flex gap-4">
@@ -153,7 +153,7 @@ export default function CreatePostForm() {
                       <Textarea
                           value={content}
                           onChange={(e) => setContent(e.target.value)}
-                          placeholder="What's the latest update?"
+                          placeholder="What's on your mind?"
                           className="bg-transparent border-0 focus-visible:ring-0 shadow-none resize-none p-0 min-h-[60px] text-base"
                       />
                   </div>
@@ -187,30 +187,30 @@ export default function CreatePostForm() {
               <Separator />
               <CardFooter className="p-2 flex justify-between items-center">
                   <div className="flex">
-                      <input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
+                      <input type="file" min="1" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
                       <Button variant="ghost" size="icon" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-5 w-5 text-muted-foreground" /></Button>
                        <DialogTrigger asChild>
-                           <Button variant="ghost" size="icon"><Book className="h-5 w-5 text-muted-foreground" /></Button>
+                           <Button variant="ghost" size="icon" title="Share one of your stories"><Book className="h-5 w-5 text-muted-foreground" /></Button>
                       </DialogTrigger>
                   </div>
                   <Button onClick={handleSubmit} disabled={isSubmitting || (!content.trim() && !hasAttachment)}>
                       {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Post Announcement
+                      Post to Feed
                   </Button>
               </CardFooter>
           </Card>
           
           <DialogContent>
               <DialogHeader>
-                  <DialogTitle>Attach a Story</DialogTitle>
-                  <DialogDescription>Search for one of your stories to attach.</DialogDescription>
+                  <DialogTitle>Share Your Story</DialogTitle>
+                  <DialogDescription>Select one of your public stories to attach to this post.</DialogDescription>
               </DialogHeader>
               <div className="flex gap-2">
-                  <Input placeholder="Search story title..." value={storySearchTerm} onChange={e => setStorySearchTerm(e.target.value)} />
+                  <Input placeholder="Search your stories..." value={storySearchTerm} onChange={e => setStorySearchTerm(e.target.value)} />
                   <Button onClick={handleSearchStories} disabled={isSearchingStories}>{isSearchingStories ? <Loader2 className="animate-spin h-4 w-4" /> : 'Search'}</Button>
               </div>
               <ScrollArea className="h-60 mt-4">
-                  {storySearchResults.map(story => (
+                  {storySearchResults.length > 0 ? storySearchResults.map(story => (
                       <DialogClose asChild key={story.id}>
                         <div className="p-2 border-b flex items-center justify-between hover:bg-muted cursor-pointer" onClick={() => setAttachedStory(story)}>
                             <div className="flex items-center gap-3">
@@ -220,7 +220,9 @@ export default function CreatePostForm() {
                             <Button size="sm" variant="outline">Attach</Button>
                         </div>
                       </DialogClose>
-                  ))}
+                  )) : (
+                      <p className="text-center text-sm text-muted-foreground py-10">No public stories found. Start writing first!</p>
+                  )}
               </ScrollArea>
           </DialogContent>
         </Dialog>

@@ -1,3 +1,4 @@
+
 'use client'; 
 
 import Link from 'next/link';
@@ -261,7 +262,7 @@ export default function HomePage() {
   const TABS = [
     { value: 'for-you', label: 'For You', icon: <Sparkles className="h-4 w-4" /> },
     { value: 'annotations', label: 'Highlights', icon: <Quote className="h-4 w-4" /> },
-    { value: 'feed', label: 'Feed Updates', icon: <LayoutGrid className="h-4 w-4" /> },
+    { value: 'feed', label: 'Community Feed', icon: <LayoutGrid className="h-4 w-4" /> },
   ];
   
   if (authLoading) {
@@ -303,8 +304,8 @@ export default function HomePage() {
               <TabsContent value="feed" className="animate-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none container mx-auto max-w-7xl px-4">
                 <div className="max-w-2xl mx-auto">
                     <div className="mb-8 text-center">
-                        <h2 className="text-3xl font-headline font-bold text-foreground tracking-tight">Feed Updates</h2>
-                        <p className="text-muted-foreground">Stay updated with official announcements and latest news from the owner.</p>
+                        <h2 className="text-3xl font-headline font-bold text-foreground tracking-tight">Community Feed</h2>
+                        <p className="text-muted-foreground">Catch up with the community and share your own updates.</p>
                     </div>
                     <ThreadsFeed />
                 </div>
