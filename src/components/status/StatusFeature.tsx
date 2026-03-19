@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StatusUpdate, TextOverlayStyle, Song, Story } from '@/types';
+import type { User, StatusUpdate, TextOverlayStyle, Song, Story, ThreadPost } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, getDocs, limit } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, X, Music, Pause, Play, ImageIcon, BarChart2, BookOpen, Sparkles as SparklesIcon, PenSquare, Type, Palette, AlignLeft, AlignCenter, AlignRight, Volume2, VolumeX } from 'lucide-react';
+import { Loader2, Plus, X, Music, Pause, Play, ImageIcon, BarChart2, BookOpen, Sparkles as SparklesIcon, PenSquare, Type, Palette, AlignLeft, AlignCenter, AlignRight, Volume2, VolumeX, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -27,6 +27,7 @@ import VinylPlayer from './VinylPlayer';
 import { Textarea } from '../ui/textarea';
 import type { CarouselApi } from "@/components/ui/carousel"
 import { createThreadPost } from '@/app/actions/threadActions';
+import { getStatusCaptions, getConversationStarters } from '@/app/actions/aiActions';
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 

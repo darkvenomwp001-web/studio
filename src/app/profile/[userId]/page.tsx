@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, FormEvent, useTransition } from 'react';
@@ -36,6 +35,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { updateAnnouncement, deleteAnnouncement } from '@/app/actions/announcementActions';
 import ProfilePhotoGrid from '@/components/profile/ProfilePhotoGrid';
+import VerifiedBadge from '@/components/icons/VerifiedBadge';
 
 
 interface ProfileStoryCardProps {
@@ -456,6 +456,7 @@ export default function UserProfilePage() {
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground flex items-center justify-center md:justify-start gap-2">
                 {displayName}
+                {profileUser.isVerified && <VerifiedBadge className="h-6 w-6" />}
               </h1>
               <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
               {profileUser.bio && <p className="text-muted-foreground mt-2 max-w-xl">{profileUser.bio}</p>}
