@@ -32,7 +32,10 @@ import {
   Image as ImageIcon,
   Mic,
   FileUp,
-  MoreVertical
+  MoreVertical,
+  Link2 as LinkIcon,
+  Repeat,
+  Check
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -887,8 +890,13 @@ function MessagesClient() {
                                 <h3 className="font-bold text-base truncate">
                                     {getOtherParticipant(activeConversation)?.displayName || `@${getOtherParticipant(activeConversation)?.username}` || 'Unknown User'}
                                 </h3>
-                                {userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? (
+                                {otherUserTyping ? (
+                                    <p className="text-[10px] text-primary font-bold uppercase tracking-widest animate-pulse">
+                                        Typing...
+                                    </p>
+                                ) : userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? (
                                     <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                                         Online Now
                                     </p>
                                 ) : (
