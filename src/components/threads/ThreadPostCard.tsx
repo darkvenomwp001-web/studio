@@ -1,25 +1,28 @@
 
 'use client';
 
-import { useState, useTransition, useRef } from 'react';
-import type { ThreadPost } from '@/types';
+import { useState, useTransition } from 'react';
+import type { ThreadPost, UserSummary } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, MoreHorizontal, EyeOff, Loader2, Edit, Pin, Share2, Link as LinkIcon, Trash2, Repeat, X } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '../shared/SpotifyPlayer';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ThreadPostComments from './ThreadPostComments';
 import ReactionButton from './ReactionButton';
-import { deleteThreadPost, pinThreadPost, hideThreadPost, repostThreadPost } from '@/app/actions/threadActions';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { db } from '@/lib/firebase';
+import { doc, deleteDoc, updateDoc, serverTimestamp, runTransaction, collection, increment } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
 
@@ -36,14 +39,19 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
 
   const handlePinPost = () => {
       if (!user) return;
-      startProcessingTransition(async () => {
-          const result = await pinThreadPost(post.id, user.id);
-          if (result.success) {
-              toast({ title: post.isPinned ? 'Post Unpinned' : 'Post Pinned!' });
-          } else {
-              toast({ title: 'Error', description: result.error, variant: 'destructive' });
-          }
-      });
+      const postRef = doc(db, 'feedPosts', post.id);
+      const newPinStatus = !post.isPinned;
+      
+      updateDoc(postRef, { isPinned: newPinStatus })
+        .then(() => toast({ title: newPinStatus ? 'Post Pinned!' : 'Post Unpinned' }))
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: postRef.path,
+                operation: 'update',
+                requestResourceData: { isPinned: newPinStatus },
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        });
   }
 
   const handleRepost = () => {
@@ -51,27 +59,64 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
         toast({title: "Please sign in to repost.", variant: "destructive"});
         return;
       };
+      
       const originalPostId = post.type === 'repost' ? post.originalPost!.id : post.id;
-      startProcessingTransition(async () => {
-          const result = await repostThreadPost(originalPostId, user);
-          if (result.success) {
-              toast({ title: 'Reposted!' });
-          } else {
-              toast({ title: 'Error', description: result.error, variant: 'destructive' });
-          }
+      const originalPostRef = doc(db, 'feedPosts', originalPostId);
+      const newPostRef = doc(collection(db, 'feedPosts'));
+
+      runTransaction(db, async (transaction) => {
+          const originalPostDoc = await transaction.get(originalPostRef);
+          if (!originalPostDoc.exists()) throw "Original post not found.";
+
+          const originalData = originalPostDoc.data() as ThreadPost;
+          const newPostData = {
+              author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
+              content: '',
+              timestamp: serverTimestamp(),
+              type: 'repost',
+              commentsCount: 0,
+              reactionsCount: 0,
+              repostCount: 0,
+              originalPost: {
+                  id: originalPostDoc.id,
+                  author: originalData.author,
+                  content: originalData.content,
+                  timestamp: originalData.timestamp,
+                  storyId: originalData.storyId,
+                  storyTitle: originalData.storyTitle,
+                  storyCoverUrl: originalData.storyCoverUrl,
+                  imageUrl: originalData.imageUrl,
+                  songUrl: originalData.songUrl,
+              },
+          };
+
+          transaction.set(newPostRef, newPostData);
+          transaction.update(originalPostRef, { repostCount: increment(1) });
+      })
+      .then(() => toast({ title: 'Reposted!' }))
+      .catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+              path: 'feedPosts',
+              operation: 'create',
+              requestResourceData: { type: 'repost' },
+          } satisfies SecurityRuleContext);
+          errorEmitter.emit('permission-error', permissionError);
       });
   }
 
   const handleHidePost = () => {
       if (!user) return;
-      startProcessingTransition(async () => {
-          const result = await hideThreadPost(post.id, user.id);
-          if (result.success) {
-              toast({ title: 'Post Hidden' });
-          } else {
-              toast({ title: 'Error', description: result.error, variant: 'destructive' });
-          }
-      });
+      const postRef = doc(db, 'feedPosts', post.id);
+      updateDoc(postRef, { isHidden: true })
+        .then(() => toast({ title: 'Post Hidden' }))
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: postRef.path,
+                operation: 'update',
+                requestResourceData: { isHidden: true },
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        });
   };
 
   const handleCopyLink = () => {
@@ -82,15 +127,19 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
 
   const handleDeletePost = () => {
     if (!user) return;
-    startProcessingTransition(async () => {
-        const result = await deleteThreadPost(post.id, user.id);
-        if (result.success) {
+    const postRef = doc(db, 'feedPosts', post.id);
+    deleteDoc(postRef)
+        .then(() => {
             toast({ title: 'Post deleted' });
             setIsDeleteDialogOpen(false);
-        } else {
-            toast({ title: 'Error', description: result.error, variant: 'destructive' });
-        }
-    });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: postRef.path,
+                operation: 'delete',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        });
   };
 
   const formatPostDate = (timestamp: any) => {
@@ -146,7 +195,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                   {canManage && post.type === 'original' && (
                     <>
                       <DropdownMenuItem onClick={handlePinPost} className="gap-2">
-                        {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pin className="h-4 w-4" />}
+                        <Pin className="h-4 w-4" />
                         {post.isPinned ? 'Unpin Post' : 'Pin Post'}
                       </DropdownMenuItem>
                       <Link href={`/threads/edit/${post.id}`}>
@@ -220,8 +269,8 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={handleRepost} disabled={isProcessing} className="gap-2">
-                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Repeat className="h-4 w-4" />}
+                  <DropdownMenuItem onClick={handleRepost} className="gap-2">
+                    <Repeat className="h-4 w-4" />
                     Repost to my feed
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleCopyLink} className="gap-2">
@@ -256,7 +305,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                   className="bg-destructive hover:bg-destructive/90"
                   onClick={handleDeletePost}
                 >
-                  {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete Permanently'}
+                  Delete Permanently
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

@@ -12,12 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Story, Song, ThreadPost } from '@/types';
 import Image from 'next/image';
 import { Separator } from '../ui/separator';
-import { createThreadPost } from '@/app/actions/threadActions';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
@@ -70,7 +71,7 @@ export default function CreatePostForm() {
             const querySnapshot = await getDocs(q);
             setStorySearchResults(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story)));
         } catch (error) {
-            toast({ title: "Search Failed", variant: "destructive" });
+            // handle error if needed
         } finally {
             setIsSearchingStories(false);
         }
@@ -102,22 +103,26 @@ export default function CreatePostForm() {
             }
         }
         
-        try {
-            const postData = {
-                author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
-                content: content.trim(),
-                type: 'original' as const,
-                storyId: attachedStory?.id || undefined,
-                storyTitle: attachedStory?.title || undefined,
-                storyCoverUrl: attachedStory?.coverImageUrl || undefined,
-                imageUrl: imageUrl || undefined,
-                songUrl: attachedSong ? `https://open.spotify.com/track/${attachedSong.id}` : undefined,
-                songLyricSnippet: lyricSnippet || undefined,
-            };
+        const postData = {
+            author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
+            content: content.trim(),
+            type: 'original' as const,
+            storyId: attachedStory?.id || undefined,
+            storyTitle: attachedStory?.title || undefined,
+            storyCoverUrl: attachedStory?.coverImageUrl || undefined,
+            imageUrl: imageUrl || undefined,
+            songUrl: attachedSong ? `https://open.spotify.com/track/${attachedSong.id}` : undefined,
+            songLyricSnippet: lyricSnippet || undefined,
+            reactionsCount: 0,
+            commentsCount: 0,
+            repostCount: 0,
+            isPinned: false,
+            timestamp: serverTimestamp(),
+        };
 
-            const result = await createThreadPost(postData as Omit<ThreadPost, 'id' | 'timestamp' | 'commentsCount'>);
-
-            if (result.success) {
+        const postCollectionRef = collection(db, 'feedPosts');
+        addDoc(postCollectionRef, postData)
+            .then(() => {
                 setContent('');
                 setAttachedStory(null);
                 setAttachedImage(null);
@@ -125,14 +130,18 @@ export default function CreatePostForm() {
                 setAttachedSong(null);
                 setLyricSnippet(null);
                 toast({ title: 'Post Published!' });
-            } else {
-                toast({ title: "Failed to publish", description: result.error, variant: "destructive" });
-            }
-        } catch (error) {
-            toast({ title: "Unexpected Error", variant: "destructive" });
-        } finally {
-            setIsSubmitting(false);
-        }
+            })
+            .catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: 'feedPosts',
+                    operation: 'create',
+                    requestResourceData: postData,
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+            })
+            .finally(() => {
+                setIsSubmitting(false);
+            });
     };
     
     const hasAttachment = attachedStory || attachedImagePreview || attachedSong;
@@ -187,7 +196,7 @@ export default function CreatePostForm() {
               <Separator />
               <CardFooter className="p-2 flex justify-between items-center">
                   <div className="flex">
-                      <input type="file" min="1" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
+                      <input type="file" ref={imageInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
                       <Button variant="ghost" size="icon" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-5 w-5 text-muted-foreground" /></Button>
                        <DialogTrigger asChild>
                            <Button variant="ghost" size="icon" title="Share one of your stories"><Book className="h-5 w-5 text-muted-foreground" /></Button>

@@ -9,6 +9,8 @@ import type { ThreadPost } from '@/types';
 import { Loader2 } from 'lucide-react';
 import CreatePostForm from './CreatePostForm';
 import ThreadPostCard from './ThreadPostCard';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 export default function ThreadsFeed() {
   const { user, loading } = useAuth();
@@ -24,14 +26,23 @@ export default function ThreadsFeed() {
         orderBy('timestamp', 'desc')
     );
 
-    const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
-      const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ThreadPost));
-      setPosts(fetchedPosts);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching feed posts:", error);
-      setIsLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      postsQuery, 
+      (snapshot) => {
+        const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ThreadPost));
+        setPosts(fetchedPosts);
+        setIsLoading(false);
+      }, 
+      async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'feedPosts',
+          operation: 'list',
+        } satisfies SecurityRuleContext);
+        
+        errorEmitter.emit('permission-error', permissionError);
+        setIsLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, []);

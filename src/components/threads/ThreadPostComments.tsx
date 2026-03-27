@@ -15,7 +15,6 @@ import {
   query,
   orderBy,
   onSnapshot,
-  addDoc,
   serverTimestamp,
   doc,
   runTransaction,
@@ -23,6 +22,8 @@ import {
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 interface ThreadPostCommentsProps {
     postId: string;
@@ -47,18 +48,25 @@ export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) 
             orderBy('timestamp', 'asc')
         );
 
-        const unsubscribe = onSnapshot(commentsQuery, (querySnapshot) => {
-            const fetchedComments = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-            } as CommentType));
-            setComments(fetchedComments);
-            setIsLoadingComments(false);
-        }, (error) => {
-            console.error("Error fetching comments: ", error);
-            toast({ title: "Error loading comments", variant: "destructive" });
-            setIsLoadingComments(false);
-        });
+        const unsubscribe = onSnapshot(
+            commentsQuery, 
+            (querySnapshot) => {
+                const fetchedComments = querySnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                } as CommentType));
+                setComments(fetchedComments);
+                setIsLoadingComments(false);
+            }, 
+            async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: `feedPosts/${postId}/comments`,
+                    operation: 'list',
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+                setIsLoadingComments(false);
+            }
+        );
 
         return () => unsubscribe();
     }, [postId, toast]);
@@ -79,28 +87,33 @@ export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) 
             timestamp: serverTimestamp(),
         };
 
-        try {
-            const postRef = doc(db, 'feedPosts', postId);
-            const commentsRef = collection(postRef, 'comments');
-            
-            await runTransaction(db, async (transaction) => {
-                const postDoc = await transaction.get(postRef);
-                if (!postDoc.exists()) {
-                    throw "Post does not exist.";
-                }
-                const newCommentsCount = (postDoc.data().commentsCount || 0) + 1;
-                transaction.update(postRef, { commentsCount: newCommentsCount });
-                transaction.set(doc(commentsRef), commentData);
-            });
-
+        const postRef = doc(db, 'feedPosts', postId);
+        const commentsRef = collection(postRef, 'comments');
+        
+        runTransaction(db, async (transaction) => {
+            const postDoc = await transaction.get(postRef);
+            if (!postDoc.exists()) {
+                throw "Post does not exist.";
+            }
+            const newCommentsCount = (postDoc.data().commentsCount || 0) + 1;
+            transaction.update(postRef, { commentsCount: newCommentsCount });
+            transaction.set(doc(commentsRef), commentData);
+        })
+        .then(() => {
             setNewComment('');
             toast({ title: "Comment posted!" });
-        } catch (error) {
-            console.error("Error posting comment: ", error);
-            toast({ title: "Error posting comment", description: (error as Error).message, variant: "destructive"});
-        } finally {
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `feedPosts/${postId}/comments`,
+                operation: 'create',
+                requestResourceData: commentData,
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
             setIsPostingComment(false);
-        }
+        });
     };
     
     return (

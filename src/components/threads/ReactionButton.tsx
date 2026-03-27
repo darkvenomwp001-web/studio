@@ -1,21 +1,23 @@
+
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Lottie from 'lottie-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ReactionType, UserSummary } from '@/types';
-import { toggleReaction } from '@/app/actions/threadActions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Heart } from 'lucide-react';
-import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, onSnapshot, runTransaction, serverTimestamp, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { loveAnimation } from './reactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ScrollArea } from '../ui/scroll-area';
 import Link from 'next/link';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 interface ReactionButtonProps {
     postId: string;
@@ -28,17 +30,28 @@ function ReactorsList({ postId }: { postId: string }) {
 
     useEffect(() => {
         const reactionsColRef = collection(db, 'feedPosts', postId, 'reactions');
-        const unsubscribe = onSnapshot(reactionsColRef, (snapshot) => {
-            const users: UserSummary[] = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                if(data.user) {
-                    users.push(data.user);
-                }
-            });
-            setReactors(users);
-            setIsLoading(false);
-        });
+        const unsubscribe = onSnapshot(
+            reactionsColRef, 
+            (snapshot) => {
+                const users: UserSummary[] = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if(data.user) {
+                        users.push(data.user);
+                    }
+                });
+                setReactors(users);
+                setIsLoading(false);
+            },
+            async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: `feedPosts/${postId}/reactions`,
+                    operation: 'list',
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+                setIsLoading(false);
+            }
+        );
 
         return () => unsubscribe();
     }, [postId]);
@@ -77,29 +90,45 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
     const { toast } = useToast();
     const [userReaction, setUserReaction] = useState<ReactionType | null>(null);
     const [reactionsCount, setReactionsCount] = useState(initialReactionsCount);
-    const [isProcessing, startTransition] = useTransition();
+    const [isProcessing, setIsProcessing] = useState(false);
 
     useEffect(() => {
         if (!user || !postId) return;
         const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
-        const unsubscribe = onSnapshot(reactionRef, (doc) => {
-            if (doc.exists()) {
-                setUserReaction(doc.data().type as ReactionType);
-            } else {
-                setUserReaction(null);
+        const unsubscribe = onSnapshot(
+            reactionRef, 
+            (doc) => {
+                if (doc.exists()) {
+                    setUserReaction(doc.data().type as ReactionType);
+                } else {
+                    setUserReaction(null);
+                }
+            },
+            async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: reactionRef.path,
+                    operation: 'get',
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
             }
-        });
+        );
         return () => unsubscribe();
     }, [postId, user]);
 
     useEffect(() => {
         if (!postId) return;
         const postRef = doc(db, 'feedPosts', postId);
-        const unsubscribe = onSnapshot(postRef, (doc) => {
-            if (doc.exists()) {
-                setReactionsCount(doc.data().reactionsCount || 0);
+        const unsubscribe = onSnapshot(
+            postRef, 
+            (doc) => {
+                if (doc.exists()) {
+                    setReactionsCount(doc.data().reactionsCount || 0);
+                }
+            },
+            async (serverError) => {
+                // Ignore general read errors here as they are handled by the main feed listener
             }
-        });
+        );
         return () => unsubscribe();
     }, [postId]);
 
@@ -109,26 +138,52 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
             return;
         }
         
-        startTransition(async () => {
-            const oldReaction = userReaction;
+        setIsProcessing(true);
+        const oldReaction = userReaction;
+        
+        // Optimistic UI updates (visual only)
+        setUserReaction(oldReaction === reactionType ? null : reactionType);
+
+        const plainUser: UserSummary = {
+            id: user.id,
+            username: user.username,
+            displayName: user.displayName,
+            avatarUrl: user.avatarUrl,
+        };
+
+        const postRef = doc(db, 'feedPosts', postId);
+        const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
+
+        runTransaction(db, async (transaction) => {
+            const reactionDoc = await transaction.get(reactionRef);
             
-            // Optimistic UI updates
-            setUserReaction(oldReaction === reactionType ? null : reactionType);
-
-            const plainUser: UserSummary = {
-                id: user.id,
-                username: user.username,
-                displayName: user.displayName,
-                avatarUrl: user.avatarUrl,
-            };
-
-            const result = await toggleReaction(postId, plainUser, reactionType);
-
-            if (!result.success) {
-                // Revert on failure
-                setUserReaction(oldReaction);
-                toast({ title: 'Error', description: result.error, variant: 'destructive' });
+            if (reactionDoc.exists()) {
+                transaction.delete(reactionRef);
+                transaction.update(postRef, { reactionsCount: increment(-1) });
+            } else {
+                const reactionData = { 
+                    userId: user.id, 
+                    type: reactionType,
+                    timestamp: serverTimestamp(),
+                    user: plainUser
+                };
+                transaction.set(reactionRef, reactionData);
+                transaction.update(postRef, { reactionsCount: increment(1) });
             }
+        })
+        .catch(async (serverError) => {
+            // Revert optimistic state
+            setUserReaction(oldReaction);
+            
+            const permissionError = new FirestorePermissionError({
+                path: reactionRef.path,
+                operation: 'write',
+                requestResourceData: { type: reactionType },
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setIsProcessing(false);
         });
     };
     
