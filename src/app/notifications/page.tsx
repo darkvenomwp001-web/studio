@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Search, Sparkles, ArrowLeft, CheckCheck, Plus, Users, Phone, Video, Info, Smile } from 'lucide-react';
+import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Search, Sparkles, ArrowLeft, CheckCheck, Plus, Users, Phone, Video, Info, Smile, Send } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -31,7 +31,7 @@ import {
   getDoc
 } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
