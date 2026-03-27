@@ -210,7 +210,9 @@ export interface Message {
     senderId: string;
     content: string;
     timestamp: any;
-    type?: 'text' | 'poll' | 'question';
+    type?: 'text' | 'poll' | 'question' | 'image' | 'video' | 'file' | 'audio';
+    mediaUrl?: string;
+    fileName?: string;
     poll?: Poll;
     question?: Question;
 }

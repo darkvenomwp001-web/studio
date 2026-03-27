@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useTransition, useMemo } from 'react';
@@ -39,7 +40,13 @@ import {
   VideoOff,
   Volume2,
   BellOff,
-  SearchCode
+  SearchCode,
+  Square,
+  FileText,
+  X,
+  Play,
+  Pause,
+  Music
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -105,6 +112,7 @@ import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import Image from 'next/image';
 
 // Debounce function
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -360,11 +368,24 @@ function MessagesClient() {
 
   const [isDeletingThread, setIsDeletingThread] = useState(false);
 
+  // Attachment states
+  const [pendingMedia, setPendingMedia] = useState<File | null>(null);
+  const [pendingMediaPreview, setPendingMediaPreview] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioURL, setAudioURL] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, otherUserTyping]);
 
   // Real-time Status Sync from RTDB
   useEffect(() => {
@@ -458,46 +479,86 @@ function MessagesClient() {
     setMobileView('chat');
   };
 
+  const uploadFileToCloudinary = async (file: File | Blob, resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto'): Promise<string> => {
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName || !uploadPreset) throw new Error("Cloudinary not configured");
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType === 'auto' ? 'video' : resourceType}/upload`, {
+        method: 'POST',
+        body: formData,
+    });
+    const data = await response.json();
+    if (data.secure_url) return data.secure_url;
+    throw new Error(data.error?.message || "Upload failed");
+  };
+
   const handleSendMessage = async (contentInput?: string) => {
     const finalContent = contentInput || newMessageContent;
-    if (!currentUser || !activeConversation || !finalContent.trim()) return;
+    const hasAttachments = pendingMedia || pendingFile || audioBlob;
+    
+    if (!currentUser || !activeConversation || (!finalContent.trim() && !hasAttachments)) return;
 
     setIsSendingMessage(true);
-    const messageData = {
-      senderId: currentUser.id,
-      content: finalContent.trim(),
-      timestamp: serverTimestamp(),
-    };
+    let mediaUrl = '';
+    let type: Message['type'] = 'text';
+    let fileName = '';
 
-    // Clean up typing status immediately
-    const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
-    remove(typingRef);
+    try {
+        if (pendingMedia) {
+            const isVideo = pendingMedia.type.startsWith('video/');
+            mediaUrl = await uploadFileToCloudinary(pendingMedia, isVideo ? 'video' : 'image');
+            type = isVideo ? 'video' : 'image';
+        } else if (pendingFile) {
+            mediaUrl = await uploadFileToCloudinary(pendingFile, 'auto');
+            type = 'file';
+            fileName = pendingFile.name;
+        } else if (audioBlob) {
+            mediaUrl = await uploadFileToCloudinary(audioBlob, 'video');
+            type = 'audio';
+        }
 
-    addDoc(collection(db, 'conversations', activeConversation.id, 'messages'), messageData)
-      .then((messageRef) => {
-        updateDoc(doc(db, 'conversations', activeConversation.id), {
-          lastMessage: {
-            id: messageRef.id,
-            content: messageData.content,
-            senderId: messageData.senderId,
-            timestamp: serverTimestamp(), 
-            isRead: false
-          },
-          updatedAt: serverTimestamp(),
+        const messageData: Partial<Message> = {
+            senderId: currentUser.id,
+            content: finalContent.trim(),
+            timestamp: serverTimestamp(),
+            type,
+            mediaUrl: mediaUrl || undefined,
+            fileName: fileName || undefined,
+        };
+
+        // Clean up typing status immediately
+        const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
+        remove(typingRef);
+
+        const messageRef = await addDoc(collection(db, 'conversations', activeConversation.id, 'messages'), messageData);
+        await updateDoc(doc(db, 'conversations', activeConversation.id), {
+            lastMessage: {
+                id: messageRef.id,
+                content: type === 'text' ? messageData.content : `Sent a ${type}`,
+                senderId: currentUser.id,
+                timestamp: serverTimestamp(), 
+                isRead: false
+            },
+            updatedAt: serverTimestamp(),
         });
+
         setNewMessageContent('');
-      })
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: `conversations/${activeConversation.id}/messages`,
-          operation: 'create',
-          requestResourceData: messageData,
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-      })
-      .finally(() => {
+        setPendingMedia(null);
+        setPendingMediaPreview(null);
+        setPendingFile(null);
+        setAudioBlob(null);
+        setAudioURL(null);
+    } catch (error) {
+        console.error("Failed to send message:", error);
+        toast({ title: "Send Failed", description: "Could not upload attachments or send message.", variant: "destructive" });
+    } finally {
         setIsSendingMessage(false);
-      });
+    }
   };
   
   const getOtherParticipant = (conversation: Conversation): AppUserType | undefined => {
@@ -651,6 +712,62 @@ function MessagesClient() {
         });
   };
 
+  const handleGallerySelect = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        setPendingMedia(file);
+        setPendingMediaPreview(URL.createObjectURL(file));
+        setPendingFile(null);
+        setAudioBlob(null);
+    }
+  };
+
+  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        setPendingFile(file);
+        setPendingMedia(null);
+        setPendingMediaPreview(null);
+        setAudioBlob(null);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = recorder;
+        const chunks: Blob[] = [];
+
+        recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'audio/webm' });
+            setAudioBlob(blob);
+            setAudioURL(URL.createObjectURL(blob));
+            stream.getTracks().forEach(track => track.stop());
+        };
+
+        recorder.start();
+        setIsRecording(true);
+        setRecordingDuration(0);
+        recordingTimerRef.current = setInterval(() => {
+            setRecordingDuration(d => d + 1);
+        }, 1000);
+        setPendingMedia(null);
+        setPendingFile(null);
+    } catch (err) {
+        toast({ title: "Microphone Access Denied", variant: "destructive" });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop();
+        setIsRecording(false);
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    }
+  };
+
 
   useEffect(() => {
     const startConversationWithId = searchParams.get('startConversationWith');
@@ -697,6 +814,56 @@ function MessagesClient() {
         return <div className="text-[10px] text-muted-foreground/60 mt-1 self-end mr-1 flex items-center gap-1 animate-in fade-in duration-500">Sent <CheckCheck className="h-2.5 w-2.5 text-primary" /></div>;
     };
 
+    const renderMessageContent = (msg: Message) => {
+        switch (msg.type) {
+            case 'image':
+                return (
+                    <div className="space-y-2">
+                        {msg.mediaUrl && (
+                            <div className="relative aspect-square w-full max-w-[300px] rounded-xl overflow-hidden shadow-sm bg-muted">
+                                <Image src={msg.mediaUrl} alt="Shared photo" layout="fill" objectFit="cover" />
+                            </div>
+                        )}
+                        {msg.content && <p className="text-sm">{msg.content}</p>}
+                    </div>
+                );
+            case 'video':
+                return (
+                    <div className="space-y-2">
+                        {msg.mediaUrl && (
+                            <video src={msg.mediaUrl} controls className="max-w-full rounded-xl shadow-sm bg-black" />
+                        )}
+                        {msg.content && <p className="text-sm">{msg.content}</p>}
+                    </div>
+                );
+            case 'audio':
+                return (
+                    <div className="space-y-2 py-1">
+                        {msg.mediaUrl && (
+                            <audio src={msg.mediaUrl} controls className="h-8 max-w-[200px]" />
+                        )}
+                        <div className="flex items-center gap-2 text-[10px] opacity-70">
+                            <Music className="h-3 w-3" /> <span>Voice Note</span>
+                        </div>
+                    </div>
+                );
+            case 'file':
+                return (
+                    <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-card/20 rounded-xl hover:bg-card/40 transition-colors border border-white/10">
+                        <div className="bg-primary/20 p-2 rounded-lg">
+                            <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold truncate">{msg.fileName || 'Shared file'}</p>
+                            <p className="text-[10px] uppercase tracking-widest opacity-60">Tap to download</p>
+                        </div>
+                    </a>
+                );
+            default:
+                return <p className="text-sm whitespace-pre-line leading-relaxed">{msg.content}</p>;
+        }
+    };
+
     const renderMessageList = () => {
         const elements: JSX.Element[] = [];
         let lastDateString = "";
@@ -741,14 +908,14 @@ function MessagesClient() {
                     
                     <div className="flex flex-col">
                         <div className={cn(
-                            "p-3 rounded-2xl shadow-sm text-sm whitespace-pre-line leading-relaxed transition-all", 
+                            "p-3 rounded-2xl shadow-sm text-sm transition-all", 
                             isCurrentUserSender 
                                 ? "bg-primary text-primary-foreground rounded-br-none" 
                                 : "bg-muted text-foreground rounded-bl-none",
                             !isLastInGroup && (isCurrentUserSender ? "rounded-br-2xl" : "rounded-bl-2xl"),
                             !isPrevSameSender && (isCurrentUserSender ? "rounded-tr-2xl" : "rounded-tl-2xl")
                         )}>
-                            {msg.content}
+                            {renderMessageContent(msg)}
                         </div>
                         {isCurrentUserSender && index === messages.length - 1 && renderMessageStatus(msg, true)}
                     </div>
@@ -1039,6 +1206,37 @@ function MessagesClient() {
 
                     <footer className="p-4 border-t bg-card/50 backdrop-blur-md">
                         <div className="flex flex-col gap-3">
+                            {(pendingMediaPreview || pendingFile || audioURL) && (
+                                <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-2xl border border-dashed border-primary/20 animate-in slide-in-from-bottom-2">
+                                    {pendingMediaPreview && (
+                                        <div className="relative h-16 w-16 rounded-xl overflow-hidden shadow-sm">
+                                            {pendingMedia?.type.startsWith('video/') ? (
+                                                <div className="w-full h-full bg-black flex items-center justify-center"><Video className="h-6 w-6 text-white"/></div>
+                                            ) : (
+                                                <Image src={pendingMediaPreview} alt="Preview" layout="fill" objectFit="cover" />
+                                            )}
+                                            <Button variant="destructive" size="icon" className="absolute top-0 right-0 h-5 w-5 rounded-bl-xl rounded-tr-none" onClick={() => { setPendingMedia(null); setPendingMediaPreview(null); }}>
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                    {pendingFile && (
+                                        <div className="flex items-center gap-2 p-2 bg-card rounded-xl border">
+                                            <FileText className="h-5 w-5 text-primary" />
+                                            <span className="text-xs font-bold truncate max-w-[100px]">{pendingFile.name}</span>
+                                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setPendingFile(null)}><X className="h-3 w-3"/></Button>
+                                        </div>
+                                    )}
+                                    {audioURL && (
+                                        <div className="flex items-center gap-2 flex-1">
+                                            <audio src={audioURL} controls className="h-8 flex-1" />
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { setAudioBlob(null); setAudioURL(null); }}><X className="h-4 w-4"/></Button>
+                                        </div>
+                                    )}
+                                    <div className="text-[10px] font-bold uppercase tracking-widest text-primary/60">Ready to send</div>
+                                </div>
+                            )}
+
                             {conversationStarters.length > 0 && messages.length > 0 && (
                                 <ScrollArea className="w-full whitespace-nowrap">
                                     <div className="flex gap-2 pb-2">
@@ -1053,9 +1251,12 @@ function MessagesClient() {
                             )}
                             <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-1">
+                                    <input type="file" ref={galleryInputRef} className="hidden" accept="image/*,video/*" onChange={handleGallerySelect} />
+                                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
+                                    
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => toast({ title: "Coming Soon", description: "Rich media sharing is being prepared." })}>
+                                            <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => galleryInputRef.current?.click()}>
                                                 <ImageIcon className="h-5 w-5" />
                                             </Button>
                                         </TooltipTrigger>
@@ -1063,7 +1264,7 @@ function MessagesClient() {
                                     </Tooltip>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => toast({ title: "Coming Soon", description: "File sharing is being prepared." })}>
+                                            <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => fileInputRef.current?.click()}>
                                                 <FileUp className="h-5 w-5" />
                                             </Button>
                                         </TooltipTrigger>
@@ -1071,21 +1272,26 @@ function MessagesClient() {
                                     </Tooltip>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => toast({ title: "Coming Soon", description: "Voice recording is being prepared." })}>
-                                                <Mic className="h-5 w-5" />
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className={cn("rounded-full transition-colors", isRecording ? "text-destructive animate-pulse bg-destructive/10" : "text-primary hover:bg-primary/10")} 
+                                                onClick={isRecording ? stopRecording : startRecording}
+                                            >
+                                                {isRecording ? <Square className="h-5 w-5 fill-current" /> : <Mic className="h-5 w-5" />}
                                             </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent className="text-[10px] font-bold uppercase">Voice Note</TooltipContent>
+                                        <TooltipContent className="text-[10px] font-bold uppercase">{isRecording ? `Stop (${recordingDuration}s)` : 'Voice Note'}</TooltipContent>
                                     </Tooltip>
                                 </div>
                                 <div className="relative flex-1 group">
                                     <Input 
                                         type="text" 
-                                        placeholder="Type a message..." 
+                                        placeholder={isRecording ? `Recording... ${recordingDuration}s` : "Type a message..."} 
                                         className="flex-1 bg-background focus-visible:ring-primary/20 rounded-full px-5 pr-12 h-11 border-none shadow-inner" 
                                         value={newMessageContent} 
                                         onChange={(e) => handleInputChange(e.target.value)} 
-                                        disabled={isSendingMessage} 
+                                        disabled={isSendingMessage || isRecording} 
                                         onKeyDown={(e) => e.key === 'Enter' && !isSendingMessage && handleSendMessage()} 
                                     />
                                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -1105,7 +1311,7 @@ function MessagesClient() {
                                     type="button" 
                                     size="icon" 
                                     className="bg-primary hover:bg-primary/90 rounded-full h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95" 
-                                    disabled={isSendingMessage || !newMessageContent.trim()} 
+                                    disabled={isSendingMessage || isRecording || (!newMessageContent.trim() && !pendingMedia && !pendingFile && !audioBlob)} 
                                     onClick={() => handleSendMessage()}
                                 >
                                     {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
