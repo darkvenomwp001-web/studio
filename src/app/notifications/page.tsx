@@ -12,7 +12,8 @@ import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'd
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { db } from '@/lib/firebase';
+import { db, rtdb } from '@/lib/firebase';
+import { ref, onValue } from 'firebase/database';
 import {
   collection,
   query,
@@ -232,12 +233,27 @@ function MessagesClient() {
   const [conversationStarters, setConversationStarters] = useState<string[]>([]);
 
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+  const [userStatuses, setUserStatuses] = useState<Record<string, 'online' | 'offline'>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Real-time Status Sync from RTDB
+  useEffect(() => {
+    const statusRef = ref(rtdb, 'status');
+    const unsubscribe = onValue(statusRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        const statuses: Record<string, 'online' | 'offline'> = {};
+        Object.keys(data).forEach(uid => {
+            statuses[uid] = data[uid].state;
+        });
+        setUserStatuses(statuses);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!currentUser?.id) {
@@ -610,6 +626,7 @@ function MessagesClient() {
                             }
                             const isActive = activeConversation?.id === conv.id;
                             const isUnread = conv.lastMessage?.senderId !== currentUser?.id && !conv.lastMessage?.isRead;
+                            const isOnline = otherParticipant ? userStatuses[otherParticipant.id] === 'online' : false;
 
                             return (
                             <div 
@@ -627,7 +644,7 @@ function MessagesClient() {
                                             <AvatarFallback className="bg-muted text-primary font-bold">{otherParticipant.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
                                         </Avatar>
                                     )}
-                                    <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse"></div>
+                                    {isOnline && <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse"></div>}
                                 </div>
                                 <div className="flex-1 overflow-hidden">
                                     <div className="flex justify-between items-center mb-0.5">
@@ -673,7 +690,9 @@ function MessagesClient() {
                                             <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
                                             <AvatarFallback className="bg-muted text-primary font-bold">{getOtherParticipant(activeConversation)!.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
                                         </Avatar>
-                                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background animate-pulse"></div>
+                                        {userStatuses[getOtherParticipant(activeConversation)!.id] === 'online' && (
+                                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background animate-pulse"></div>
+                                        )}
                                     </div>
                                 </Link>
                             )}
@@ -681,9 +700,11 @@ function MessagesClient() {
                                 <h3 className="font-bold text-base truncate">
                                     {getOtherParticipant(activeConversation)?.displayName || `@${getOtherParticipant(activeConversation)?.username}` || 'Unknown User'}
                                 </h3>
-                                <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                                    Online
-                                </p>
+                                {userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' && (
+                                    <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                        Online
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <div className="flex items-center gap-1">

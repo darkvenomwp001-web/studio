@@ -1,20 +1,45 @@
 {
   "rules": {
+    /* 
+      D4RKV3NOM Realtime Database Security Rules
+      -----------------------------------------
+      Zero-trust policy: Deny all by default.
+    */
+    ".read": false,
+    ".write": false,
+
+    /* User Presence & Connection State */
     "status": {
+      /* All authenticated users can see who is online for social features */
+      ".read": "auth != null",
       "$uid": {
-        ".read": "auth != null",
-        ".write": "auth != null && auth.uid == $uid"
+        /* Only the specific user can update their own presence status */
+        ".write": "auth != null && auth.uid === $uid",
+        /* Data validation: Ensure the payload contains required fields and valid states */
+        ".validate": "newData.hasChildren(['state', 'last_changed'])",
+        "state": {
+          ".validate": "newData.isString() && (newData.val() === 'online' || newData.val() === 'offline')"
+        },
+        "last_changed": {
+          ".validate": "newData.isNumber()"
+        },
+        /* Prevent accidental addition of unauthorized fields */
+        "$other": { ".validate": false }
       }
     },
+
+    /* Real-time Typing Indicators */
     "typing": {
       "$conversationId": {
+        /* Participants in a thread can see when others are typing */
+        ".read": "auth != null",
         "$uid": {
-          ".read": "auth != null",
-          ".write": "auth != null && auth.uid == $uid"
+          /* Users can only flag their own typing status */
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isBoolean()",
+          "$other": { ".validate": false }
         }
       }
-    },
-    ".read": false,
-    ".write": false
+    }
   }
 }

@@ -3,9 +3,10 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { User as AppUserType, NotificationType, Story, ReadingListItem, Achievement } from '@/types';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, rtdb } from '@/lib/firebase';
 import { getMessagingInstance } from '@/lib/firebase';
 import { getToken } from 'firebase/messaging';
+import { ref, onValue, onDisconnect, set, serverTimestamp as rtdbTimestamp } from 'firebase/database';
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -126,6 +127,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setNotificationPermission(Notification.permission);
     }
   }, []);
+
+  // Presence Tracking Logic
+  useEffect(() => {
+    if (!user || user.isAnonymous) return;
+
+    const userStatusRef = ref(rtdb, `/status/${user.id}`);
+    const connectedRef = ref(rtdb, '.info/connected');
+
+    const unsubscribeConnected = onValue(connectedRef, (snap) => {
+      if (snap.val() === false) return;
+
+      // When the client disconnects (tab closed, internet lost)
+      onDisconnect(userStatusRef).set({
+        state: 'offline',
+        last_changed: rtdbTimestamp(),
+      }).then(() => {
+        // While connected, mark as online
+        set(userStatusRef, {
+          state: 'online',
+          last_changed: rtdbTimestamp(),
+        });
+      });
+    });
+
+    return () => {
+      unsubscribeConnected();
+      // Try a graceful offline set on cleanup
+      set(userStatusRef, {
+        state: 'offline',
+        last_changed: rtdbTimestamp(),
+      });
+    };
+  }, [user]);
 
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | undefined;
@@ -462,6 +496,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOutFirebase = async () => {
     setAuthLoading(true);
     try {
+      if (user) {
+        const userStatusRef = ref(rtdb, `/status/${user.id}`);
+        await set(userStatusRef, {
+          state: 'offline',
+          last_changed: rtdbTimestamp(),
+        });
+      }
       await signOut(auth);
       sessionStorage.removeItem(USER_CACHE_KEY);
       toast({ title: "Signed Out" });
