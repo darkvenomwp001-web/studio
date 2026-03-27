@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -30,9 +29,10 @@ service cloud.firestore {
         return isSignedIn() && (getRole(request.auth.uid) == 'writer' || isAppOwner());
     }
 
-    // A verified user is one who is signed in and has verified their email address.
+    // Relaxed verification check: Now trusts signed-in status primarily.
+    // We removed the hard block on non-verified emails to improve UX as requested.
     function isVerifiedUser() {
-        return isSignedIn() && request.auth.token.email_verified == true;
+        return isSignedIn();
     }
 
     // --- Collection Rules ---

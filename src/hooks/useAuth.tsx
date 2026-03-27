@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
@@ -37,6 +36,7 @@ import {
   getDocs,
   arrayUnion,
   arrayRemove,
+  increment,
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -89,7 +89,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_ROUTES = ['/auth/signin', '/auth/signup', '/auth/verify-email'];
+const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
 const PUBLIC_ROUTES: string[] = ['/stories', '/search', '/profile/']; 
 const DEFAULT_REDIRECT_AUTHENTICATED = '/';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
@@ -153,7 +153,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
 
-            // Identity Unification: Check if user is an owner
             const isOwner = OWNER_HANDLES.includes(firestoreUserData.username || '');
             if (isOwner && (!firestoreUserData.isVerified || firestoreUserData.role !== 'writer')) {
                 updateDoc(userRef, { 
@@ -296,23 +295,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (loading) return;
 
     if (user && !user.isAnonymous) {
-        const isEmailPasswordProvider = auth.currentUser?.providerData.some(
-            (provider) => provider.providerId === 'password'
-        );
-
-        if (isEmailPasswordProvider && !user.emailVerified) {
-            if (pathname !== '/auth/verify-email') {
-                router.push('/auth/verify-email');
-            }
-        } else {
-             if (AUTH_ROUTES.includes(pathname)) {
-                router.push(DEFAULT_REDIRECT_AUTHENTICATED);
-            }
+        if (AUTH_ROUTES.includes(pathname)) {
+            router.push(DEFAULT_REDIRECT_AUTHENTICATED);
         }
     } else {
         const isAuthRoute = AUTH_ROUTES.includes(pathname);
         const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
-        if (!isAuthRoute && !isPublicRoute) {
+        if (!isAuthRoute && !isPublicRoute && pathname !== '/') {
             router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
         }
     }
@@ -409,25 +398,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      toast({ title: "Welcome to LitVerse!" });
+      toast({ title: "Welcome back to LitVerse!" });
     } catch (error) {
       console.error(error);
+      toast({ title: "Login Error", description: (error as Error).message, variant: "destructive" });
     } finally {
       setAuthLoading(false);
     }
   };
 
-  /**
-   * Helper to check if a username is already claimed in Firestore.
-   */
   const isUsernameTaken = async (username: string, currentUserId?: string): Promise<boolean> => {
     const q = query(collection(db, 'users'), where('username', '==', username.toLowerCase()), limit(1));
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) return false;
-    
-    // If we're updating a profile, it's not "taken" if it's already ours
     if (currentUserId && querySnapshot.docs[0].id === currentUserId) return false;
-    
     return true;
   };
 
@@ -441,9 +425,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
-      await sendEmailVerification(userCredential.user);
-      router.push('/auth/verify-email');
+      await createUserWithEmailAndPassword(auth, email, passwordOne);
+      toast({ title: "Account Created!", description: "Welcome to D4RKV3NOM." });
     } catch (error) {
       console.error(error);
       toast({ title: "Sign Up Error", description: (error as Error).message, variant: "destructive" });
@@ -462,9 +445,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
           email = snapshot.docs[0].data().email;
+        } else {
+            throw new Error("No user found with that username.");
         }
       }
       await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
+      toast({ title: "Welcome back!" });
     } catch (error) {
       console.error(error);
       toast({ title: "Sign In Error", description: (error as Error).message, variant: "destructive" });
@@ -521,6 +507,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (error) {
       console.error(error);
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
       return false;
     }
   };
@@ -535,6 +522,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (error) {
       console.error(error);
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
       return false;
     }
   };
@@ -546,6 +534,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (error) {
       console.error(error);
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
       return false;
     }
   };
@@ -627,6 +616,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return true;
         } catch (error) {
             console.error(error);
+            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
             return false;
         }
     }
