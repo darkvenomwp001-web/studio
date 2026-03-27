@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2, BarChart2, Book, Feather, ShieldAlert, PenSquare, Brain } from 'lucide-react';
+import { PlusCircle, Loader2, Book, Feather, ShieldAlert, PenSquare } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState, useEffect, useMemo } from 'react';
@@ -146,11 +146,6 @@ export default function WriteDashboardPage() {
           <p className="text-muted-foreground">Your creative space. Manage all your stories and drafts here.</p>
         </div>
         <div className="flex items-center gap-2">
-            <Link href="/ai-assistant" passHref>
-                <Button variant="outline" size="icon" title="AI Assistant">
-                    <Brain className="h-5 w-5" />
-                </Button>
-            </Link>
             <Link href="/" passHref>
                 <Button variant="outline" size="icon" title="Community Prompts">
                     <Book className="h-5 w-5" />

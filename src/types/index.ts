@@ -82,6 +82,7 @@ export interface Story {
   collaboratorIds?: string[];
   dataAiHint?: string;
   rating?: number;
+  notes?: string;
 }
 
 export interface Chapter {

@@ -4,8 +4,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Save, History, EyeOff, Brain, CheckCircle, AlertTriangle, Maximize, Minimize, Send, FileText, Settings, Loader2, Eye, Undo, Redo, Bold, Italic, Underline, Highlighter, Snowflake } from 'lucide-react';
-import AiAssistantPanel from '@/components/writing/AiAssistantPanel';
+import { Save, History, EyeOff, BookOpen, CheckCircle, AlertTriangle, Maximize, Minimize, Send, FileText, Settings, Loader2, Eye, Undo, Redo, Bold, Italic, Underline, Highlighter, Snowflake } from 'lucide-react';
+import StoryCompendium from '@/components/writing/StoryCompendium';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -80,7 +80,7 @@ export default function WriteEditorPage() {
   });
 
   const [isDistractionFree, setIsDistractionFree] = useState(false);
-  const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+  const [isCompendiumOpen, setIsCompendiumOpen] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving...' | 'Error' | 'No Changes' | 'Typing'>('No Changes');
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -506,14 +506,14 @@ export default function WriteEditorPage() {
                   <Button
                       variant="outline"
                       className="w-full"
-                      onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
+                      onClick={() => setIsCompendiumOpen(!isCompendiumOpen)}
                   >
-                      <Brain className="mr-2 h-4 w-4" /> AI Writing Assistant {isAiPanelOpen ? '(Hide)' : '(Show)'}
+                      <BookOpen className="mr-2 h-4 w-4" /> Story Compendium {isCompendiumOpen ? '(Hide)' : '(Show)'}
                   </Button>
               </div>
           </div>
 
-          {isAiPanelOpen && editor && <AiAssistantPanel initialText={editor.getText()} onApplySuggestion={(text) => editor.chain().focus().insertContent(text).run()} />}
+          {isCompendiumOpen && <StoryCompendium storyId={storyDetails.id} initialNotes={storyDetails.notes} />}
 
         </aside>
 
