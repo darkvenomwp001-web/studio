@@ -98,7 +98,7 @@ export default function StatusFeature() {
   const [isLoading, setIsLoading] = useState(true);
   
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
-  const [isUploaderOpen, setIsUploaderOpen] = useState(false);
+  const [isUploaderOpen, setIsUploaderOpen] = useState(open => { resetUploader(); return false; });
   
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
@@ -198,11 +198,6 @@ export default function StatusFeature() {
         setAllStatuses(liveStatuses);
         setIsLoading(false);
     }, (error) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'statusUpdates',
-            operation: 'list',
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
         setIsLoading(false);
     });
 
@@ -266,7 +261,7 @@ export default function StatusFeature() {
     }
   }
 
-  const resetUploader = () => {
+  function resetUploader() {
     setMediaFile(null);
     setMediaPreview(null);
     setTextOverlay('');
@@ -990,7 +985,7 @@ export default function StatusFeature() {
                             {isSearchingStories ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
                         </Button>
                     </div>
-                    <ScrollArea className="flex-grow border rounded-md">
+                    <ScrollArea className="flex-grow flex flex-col gap-2 border rounded-md">
                         <div className="p-2 space-y-1">
                             {(storySearchResults.length > 0 ? storySearchResults : user?.writtenStories || []).map(story => (
                                 <div key={story.id} className={cn("p-2 rounded-md flex items-center gap-3 cursor-pointer", attachedStory?.id === story.id ? 'bg-primary/20' : 'hover:bg-muted')} onClick={() => setAttachedStory(story)}>

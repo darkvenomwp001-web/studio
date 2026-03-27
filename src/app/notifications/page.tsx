@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useTransition, useMemo } from 'react';
@@ -35,7 +34,12 @@ import {
   MoreVertical,
   Link2 as LinkIcon,
   Repeat,
-  Check
+  Check,
+  PhoneOff,
+  VideoOff,
+  Volume2,
+  BellOff,
+  SearchCode
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -549,7 +553,6 @@ function MessagesClient() {
     setIsCreatingConversation(true);
 
     try {
-      // Securely check for existing 1-on-1 thread using a query
       const q = query(
         collection(db, 'conversations'),
         where('participantIds', 'array-contains', currentUser.id)
@@ -756,6 +759,8 @@ function MessagesClient() {
         return elements;
     };
 
+    const isOtherParticipantOnline = activeConversation ? userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' : false;
+
     return (
         <Dialog open={isNewConversationDialogOpen} onOpenChange={(isOpen) => {
             setIsNewConversationDialogOpen(isOpen);
@@ -880,7 +885,7 @@ function MessagesClient() {
                                             <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
                                             <AvatarFallback className="bg-muted text-primary font-bold">{getOtherParticipant(activeConversation)!.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
                                         </Avatar>
-                                        {userStatuses[getOtherParticipant(activeConversation)!.id] === 'online' && (
+                                        {isOtherParticipantOnline && (
                                             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background animate-pulse"></div>
                                         )}
                                     </div>
@@ -894,7 +899,7 @@ function MessagesClient() {
                                     <p className="text-[10px] text-primary font-bold uppercase tracking-widest animate-pulse">
                                         Typing...
                                     </p>
-                                ) : userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? (
+                                ) : isOtherParticipantOnline ? (
                                     <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                                         Online Now
@@ -907,12 +912,32 @@ function MessagesClient() {
                             </div>
                         </div>
                         <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-primary">
-                                <Phone className="h-5 w-5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-primary">
-                                <Video className="h-5 w-5" />
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className={cn("rounded-full h-10 w-10", isOtherParticipantOnline ? "text-primary" : "text-muted-foreground/40")}
+                                        onClick={() => !isOtherParticipantOnline && toast({ title: "User is away", description: "You can call them once they are back online." })}
+                                    >
+                                        {isOtherParticipantOnline ? <Phone className="h-5 w-5" /> : <PhoneOff className="h-5 w-5" />}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="text-[10px] font-bold uppercase">Audio Call</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className={cn("rounded-full h-10 w-10", isOtherParticipantOnline ? "text-primary" : "text-muted-foreground/40")}
+                                        onClick={() => !isOtherParticipantOnline && toast({ title: "User is away", description: "You can video call them once they are back online." })}
+                                    >
+                                        {isOtherParticipantOnline ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="text-[10px] font-bold uppercase">Video Call</TooltipContent>
+                            </Tooltip>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
@@ -926,7 +951,7 @@ function MessagesClient() {
                                         <User className="mr-2 h-4 w-4" /> View Profile
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => toast({ title: "Muted", description: "You won't receive notifications for this chat." })}>
-                                        <Bell className="mr-2 h-4 w-4" /> Mute Notifications
+                                        <BellOff className="mr-2 h-4 w-4" /> Mute Notifications
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <AlertDialog>
@@ -1028,15 +1053,30 @@ function MessagesClient() {
                             )}
                             <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-1">
-                                    <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" title="Send Photos/Videos" onClick={() => toast({ title: "Coming Soon", description: "Rich media sharing is being prepared." })}>
-                                        <ImageIcon className="h-5 w-5" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" title="Send Files" onClick={() => toast({ title: "Coming Soon", description: "File sharing is being prepared." })}>
-                                        <FileUp className="h-5 w-5" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" title="Voice Message" onClick={() => toast({ title: "Coming Soon", description: "Voice recording is being prepared." })}>
-                                        <Mic className="h-5 w-5" />
-                                    </Button>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => toast({ title: "Coming Soon", description: "Rich media sharing is being prepared." })}>
+                                                <ImageIcon className="h-5 w-5" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="text-[10px] font-bold uppercase">Gallery</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => toast({ title: "Coming Soon", description: "File sharing is being prepared." })}>
+                                                <FileUp className="h-5 w-5" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="text-[10px] font-bold uppercase">Upload File</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => toast({ title: "Coming Soon", description: "Voice recording is being prepared." })}>
+                                                <Mic className="h-5 w-5" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="text-[10px] font-bold uppercase">Voice Note</TooltipContent>
+                                    </Tooltip>
                                 </div>
                                 <div className="relative flex-1 group">
                                     <Input 
