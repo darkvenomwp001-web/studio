@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -621,7 +622,7 @@ function MessagesClient() {
                                         <h3 className="font-headline text-xl font-bold text-foreground">Start the Conversation</h3>
                                         <p className="text-sm max-w-xs mx-auto">Don't be shy! Send a message or use AI to break the ice.</p>
                                     </div>
-                                    <Button onClick={handleGenerateStarters} disabled={isGeneratingStarters} className="rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+                                    <Button onClick={handleGenerateStarters} disabled={isGeneratingStarters} className="rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
                                         {isGeneratingStarters ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Sparkles className="h-4 w-4 mr-2" />}
                                         Get AI Icebreakers
                                     </Button>
