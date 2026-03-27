@@ -4,6 +4,7 @@
 
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getDatabase } from 'firebase/database';
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,3 +26,4 @@ if (!getApps().length) {
 }
 
 export const db = getFirestore(app);
+export const rtdb = getDatabase(app);
