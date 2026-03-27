@@ -43,11 +43,12 @@ import {
   writeBatch,
   getDocs,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  Timestamp
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const USER_CACHE_KEY = 'd4rkv3nom_user_cache';
 const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
@@ -134,51 +135,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if ('Notification' in window) {
         setNotificationPermission(Notification.permission);
     }
-    
-    if ('serviceWorker' in navigator) {
-        const firebaseConfigQueryString = new URLSearchParams({
-            apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-            authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-            messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-            appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
-            measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!,
-        }).toString();
-        
-        navigator.serviceWorker.register(`/firebase-messaging-sw.js?${firebaseConfigQueryString}`)
-            .then(registration => {
-                console.log('Service Worker registered with scope:', registration.scope);
-            }).catch(err => {
-                console.error('Service Worker registration failed:', err);
-            });
-    }
   }, []);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    if (user && !user.isAnonymous && notificationPermission === 'granted') {
-      getMessagingInstance().then(messaging => {
-        if (messaging) {
-          unsubscribe = onMessage(messaging, (payload) => {
-            toast({
-              title: payload.notification?.title || "New Notification",
-              description: payload.notification?.body,
-            });
-          });
-        }
-      });
-    }
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [user, notificationPermission, toast]);
-
-
-  useEffect(() => {
     let unsubscribeUserDoc: (() => void) | undefined;
+    let unsubscribeNotifs: (() => void) | undefined;
     
     try {
         const cachedUser = sessionStorage.getItem(USER_CACHE_KEY);
@@ -189,11 +150,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn("Could not read user cache from sessionStorage", e);
     }
 
-
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-      if (unsubscribeUserDoc) {
-        unsubscribeUserDoc();
-      }
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
+      if (unsubscribeNotifs) unsubscribeNotifs();
 
       if (firebaseUser) {
         setLoading(true);
@@ -212,14 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (Object.keys(updates).length > 0) {
-                updateDoc(userRef, updates).catch(async (serverError) => {
-                    const permissionError = new FirestorePermissionError({
-                        path: userRef.path,
-                        operation: 'update',
-                        requestResourceData: updates,
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
+                updateDoc(userRef, updates);
                 Object.assign(firestoreUserData, updates);
             }
             
@@ -235,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               displayName: firestoreUserData.displayName || firebaseUser.displayName || firestoreUserData.username,
               avatarUrl: firestoreUserData.avatarUrl || firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(firestoreUserData.username || 'U').charAt(0).toUpperCase()}`,
               bio: firestoreUserData.bio || 'No bio yet.',
-              role: firestoreUserData.role || 'reader',
+              role: (firestoreUserData.role === ('admin' as any)) ? 'writer' : (firestoreUserData.role || 'reader'),
               level: firestoreUserData.level || 1,
               xp: firestoreUserData.xp || 0,
               achievements: firestoreUserData.achievements || [],
@@ -295,14 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               updatedAt: serverTimestamp(),
             };
             
-            setDoc(userRef, newUserProfile, { merge: true }).catch(async (serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: userRef.path,
-                    operation: 'write',
-                    requestResourceData: newUserProfile,
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            });
+            setDoc(userRef, newUserProfile, { merge: true });
             setUser(newUserProfile); 
             sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(newUserProfile));
           }
@@ -312,19 +257,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(null);
             setLoading(false);
         });
+
+        // Notifications listener
+        const notifsQuery = query(
+            collection(db, 'notifications'),
+            where('userId', '==', firebaseUser.uid),
+            orderBy('timestamp', 'desc'),
+            limit(50)
+        );
+        unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
+            setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType)));
+        });
         
       } else {
         setUser(null);
         setLoading(false);
+        setNotifications([]);
         sessionStorage.removeItem(USER_CACHE_KEY);
       }
     });
 
     return () => {
       unsubscribeAuth();
-      if (unsubscribeUserDoc) {
-        unsubscribeUserDoc();
-      }
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
+      if (unsubscribeNotifs) unsubscribeNotifs();
     };
   }, [handleAchievementUnlock]);
 
@@ -354,202 +310,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, loading, pathname, router]);
 
-  useEffect(() => {
-    if (user?.id && !user.isAnonymous) {
-      const notificationsQuery = query(
-        collection(db, 'notifications'),
-        where('userId', '==', user.id),
-        orderBy('timestamp', 'desc'),
-        limit(20)
-      );
-      const unsubscribeNotifications = onSnapshot(notificationsQuery, (querySnapshot) => {
-        const fetchedNotifications = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp: (doc.data().timestamp as any)?.toDate ? (doc.data().timestamp as any).toDate().toISOString() : new Date().toISOString()
-        } as NotificationType));
-        setNotifications(fetchedNotifications);
-      }, async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'notifications',
-            operation: 'list',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      });
-      return () => unsubscribeNotifications();
-    } else {
-      setNotifications([]);
-    }
-  }, [user, toast]);
-
-
-  const handleAuthError = (error: AuthError, operation?: string) => {
-    console.error(`Firebase Auth Error during ${operation || 'operation'}:`, error.code, error.message);
-    let friendlyMessage = "An unexpected error occurred. Please try again.";
-    let title = "Authentication Error";
-
-    switch (error.code) {
-      case 'auth/email-already-in-use':
-        friendlyMessage = "This email address is already in use by another account.";
-        title = "Sign-Up Failed";
-        break;
-      case 'auth/invalid-email':
-        friendlyMessage = "The email address format is not valid. Please check the email you entered.";
-        title = "Invalid Email Format";
-        break;
-      case 'auth/operation-not-allowed':
-        friendlyMessage = "Email/password accounts are not enabled. Please contact support.";
-        break;
-      case 'auth/weak-password':
-        friendlyMessage = "The password is too weak. Please choose a stronger password of at least 6 characters.";
-        title = "Sign-Up Failed";
-        break;
-      case 'auth/user-disabled':
-        friendlyMessage = "This user account has been disabled.";
-        break;
-      case 'auth/user-not-found':
-        friendlyMessage = "No account found with this email/username. Please check your credentials or sign up.";
-        title = "Sign-In Failed";
-        break;
-      case 'auth/wrong-password':
-      case 'auth/invalid-credential':
-        friendlyMessage = "Invalid email/username or password. Please check your credentials.";
-        title = "Sign-In Failed";
-        break;
-      case 'auth/popup-closed-by-user':
-        title = "Google Sign-In Cancelled";
-        friendlyMessage = "Google Sign-In was cancelled or the popup was closed. Please try again.";
-        break;
-      case 'auth/popup-blocked':
-        title = "Google Sign-In Blocked";
-        friendlyMessage = "Google Sign-In popup was blocked by your browser. Please allow pop-ups for this site.";
-        break;
-      case 'auth/network-request-failed':
-        friendlyMessage = "A network error occurred. Please check your connection.";
-        break;
-      default:
-        friendlyMessage = `An error occurred: ${error.message}.`;
-    }
-    toast({ title: title, description: friendlyMessage, variant: "destructive" });
+  const addNotification = async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
+    await addNotificationAction(notificationData);
   };
-  
+
+  const markNotificationAsRead = async (notificationId: string) => {
+    const notifRef = doc(db, 'notifications', notificationId);
+    updateDoc(notifRef, { isRead: true });
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    if (!user) return;
+    const batch = writeBatch(db);
+    const unreadQuery = query(collection(db, 'notifications'), where('userId', '==', user.id), where('isRead', '==', false));
+    const snapshot = await getDocs(unreadQuery);
+    snapshot.forEach(doc => {
+        batch.update(doc.ref, { isRead: true });
+    });
+    await batch.commit();
+  };
+
+  const enablePushNotifications = async () => {
+    if (!('Notification' in window)) return;
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    if (permission === 'granted' && user) {
+        const messaging = await getMessagingInstance();
+        if (messaging) {
+            const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY });
+            if (token) {
+                setFcmToken(token);
+                await updateDoc(doc(db, 'users', user.id), {
+                    fcmTokens: arrayUnion(token)
+                });
+            }
+        }
+    }
+  };
+
   const sendVerificationEmail = async () => {
     if (auth.currentUser) {
-      try {
         await sendEmailVerification(auth.currentUser);
-        toast({ title: "Verification Email Sent", description: "A new verification link has been sent to your email address." });
-      } catch (error) {
-        handleAuthError(error as AuthError, "Send Verification Email");
-      }
+        toast({ title: "Email Sent", description: "Verification email has been sent." });
     }
   };
 
   const reloadUser = async () => {
-      if (auth.currentUser) {
-          await auth.currentUser.reload();
-          const refreshedUser = auth.currentUser;
-          if (refreshedUser?.emailVerified) {
-              setUser(prevUser => prevUser ? { ...prevUser, emailVerified: true } : null);
-              toast({ title: "Email Verified!", description: "Thank you for verifying your email." });
-              router.push('/');
-          } else {
-              toast({ title: "Not Yet Verified", description: "Please check your email and click the verification link.", variant: "destructive" });
-          }
-      }
+    if (auth.currentUser) {
+        await auth.currentUser.reload();
+        onAuthStateChanged(auth, () => {}); 
+    }
   };
 
   const signInWithGoogle = async () => {
     setAuthLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, provider);
-      const additionalInfo = getAdditionalUserInfo(result);
-      
-      if (additionalInfo?.isNewUser) {
-        setRequiresPasswordSetup(true);
-        toast({ title: "Account Created!", description: "Welcome! Please set a password for your account." });
-      } else {
-        toast({ title: "Google Sign-In Successful", description: `Welcome back, ${result.user.displayName || result.user.email}!` });
-      }
+      await signInWithPopup(auth, provider);
+      toast({ title: "Welcome to D4RKV3NOM!" });
     } catch (error) {
-      handleAuthError(error as AuthError, "Google Sign-In");
+      console.error(error);
     } finally {
       setAuthLoading(false);
     }
   };
 
-  const signUpWithEmailPassword = async ({ email, passwordOne, username }: { username: string; email: string; passwordOne: string; }) => {
+  const signUpWithEmailPassword = async ({ username, email, passwordOne }: { username: string; email: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
-        const usernameToSet = username.trim().toLowerCase();
-        const usernameRegex = /^[a-z0-9_]+$/;
-        
-        if (!usernameRegex.test(usernameToSet)) {
-            toast({
-                title: "Invalid Username",
-                description: "Usernames can only contain lowercase letters, numbers, and underscores.",
-                variant: "destructive"
-            });
-            setAuthLoading(false);
-            return;
-        }
-
-        const usernameQuery = query(collection(db, 'users'), where('username', '==', usernameToSet));
-        const usernameSnapshot = await getDocs(usernameQuery);
-        if (!usernameSnapshot.empty) {
-            toast({
-                title: "Username Taken",
-                description: "This username is already in use. Please choose another one.",
-                variant: "destructive"
-            });
-            setAuthLoading(false);
-            return;
-        }
-  
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       await sendEmailVerification(userCredential.user);
-      if (userCredential.user) {
-        await updateFirebaseProfile(userCredential.user, { displayName: usernameToSet });
-        const userRef = doc(db, 'users', userCredential.user.uid);
-        const isOwner = OWNER_HANDLES.includes(usernameToSet);
-        
-        const newUserProfile: AppUser = {
-          id: userCredential.user.uid,
-          username: usernameToSet,
-          displayName: usernameToSet,
-          email: email,
-          emailVerified: userCredential.user.emailVerified,
-          avatarUrl: `https://placehold.co/100x100.png?text=${usernameToSet.charAt(0).toUpperCase()}`,
-          bio: 'New to LitVerse! Ready to explore.',
-          role: 'reader',
-          isVerified: isOwner,
-          messagingPreference: 'everyone',
-          level: 1,
-          xp: 0,
-          achievements: [],
-          notificationSettings: { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false },
-          followersCount: 0,
-          followingCount: 0,
-          followingIds: [],
-          fcmTokens: [],
-          writtenStories: [],
-          readingList: [],
-          isAnonymous: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-        setDoc(userRef, newUserProfile, { merge: true }).catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: userRef.path,
-                operation: 'write',
-                requestResourceData: newUserProfile,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        });
-        toast({ title: "Sign Up Successful", description: "Account created. Please verify your email." });
-      }
+      router.push('/auth/verify-email');
     } catch (error) {
-      handleAuthError(error as AuthError, "Email/Password Sign-Up");
+      console.error(error);
     } finally {
       setAuthLoading(false);
     }
@@ -557,25 +390,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmailPassword = async ({ emailOrUsername, passwordOne }: { emailOrUsername: string; passwordOne: string; }) => {
     setAuthLoading(true);
-    let email = emailOrUsername.trim().toLowerCase();
-
     try {
-      if (!email.includes('@')) {
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("username", "==", email));
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          const userData = querySnapshot.docs[0].data();
-          email = userData.email;
+      let email = emailOrUsername;
+      if (!emailOrUsername.includes('@')) {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('username', '==', emailOrUsername.toLowerCase()));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          email = snapshot.docs[0].data().email;
         }
       }
-
       await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
-      toast({ title: "Sign In Successful" });
-
     } catch (error) {
-      handleAuthError(error as AuthError, "Email/Password Sign-In");
+      console.error(error);
     } finally {
       setAuthLoading(false);
     }
@@ -589,300 +416,116 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "Signed Out" });
       router.push('/');
     } catch (error) {
-      handleAuthError(error as AuthError, "Sign Out");
+      console.error(error);
     } finally {
       setAuthLoading(false);
     }
   };
 
   const updateUserProfile = async (updates: Partial<AppUser>) => {
-    if (!auth.currentUser) return;
-    setAuthLoading(true);
-    try {
-      if (updates.username && updates.username !== user?.username) {
-          const usernameToSet = updates.username.trim().toLowerCase();
-          const usernameQuery = query(collection(db, 'users'), where('username', '==', usernameToSet));
-          const usernameSnapshot = await getDocs(usernameQuery);
-          if (!usernameSnapshot.empty) {
-              toast({ title: "Username Taken", variant: "destructive" });
-              setAuthLoading(false);
-              return;
-          }
-          updates.username = usernameToSet;
-      }
-
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const dataToUpdate = { ...updates, updatedAt: serverTimestamp() };
-      
-      updateDoc(userRef, dataToUpdate).catch(async (serverError) => {
-          const permissionError = new FirestorePermissionError({
-              path: userRef.path,
-              operation: 'update',
-              requestResourceData: dataToUpdate,
-          });
-          errorEmitter.emit('permission-error', permissionError);
-      });
-      
-      if (updates.displayName || updates.avatarUrl) {
-        await updateFirebaseProfile(auth.currentUser, {
-          displayName: updates.displayName,
-          photoURL: updates.avatarUrl
-        });
-      }
-      toast({ title: "Profile Updated" });
-    } catch (error: any) {
-        handleAuthError(error as AuthError, "Profile Update");
-    } finally {
-      setAuthLoading(false);
-    }
+    if (!user) return;
+    const userRef = doc(db, 'users', user.id);
+    updateDoc(userRef, { ...updates, updatedAt: serverTimestamp() });
   };
-  
-  const reauthenticate = async (currentPasswordForReAuth: string): Promise<boolean> => {
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser || !firebaseUser.email) return false;
-    const credential = EmailAuthProvider.credential(firebaseUser.email, currentPasswordForReAuth);
+
+  const updateUserEmailFirebase = async (newEmail: string, currentPasswordForReAuth: string) => {
+    if (!auth.currentUser || !auth.currentUser.email) return false;
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPasswordForReAuth);
     try {
-      await reauthenticateWithCredential(firebaseUser, credential);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updateFirebaseEmail(auth.currentUser, newEmail);
+      await updateUserProfile({ email: newEmail });
+      toast({ title: "Email Updated" });
       return true;
     } catch (error) {
-      handleAuthError(error as AuthError, "Re-authentication");
+      console.error(error);
       return false;
     }
   };
-  
-  const updateUserEmailFirebase = async (newEmail: string, currentPasswordForReAuth: string): Promise<boolean> => {
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) return false;
-    setAuthLoading(true);
-    const reauthenticated = await reauthenticate(currentPasswordForReAuth);
-    if (!reauthenticated) {
-        setAuthLoading(false);
-        return false;
-    }
-    
-    try {
-        await updateFirebaseEmail(firebaseUser, newEmail);
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const updateData = { email: newEmail, updatedAt: serverTimestamp() };
-        updateDoc(userRef, updateData).catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: userRef.path,
-                operation: 'update',
-                requestResourceData: updateData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        });
-        toast({ title: "Email Updated" });
-        return true;
-    } catch (error) {
-        handleAuthError(error as AuthError, "Email Update");
-        return false;
-    } finally {
-      setAuthLoading(false);
-    }
-  };
 
-  const updateUserPasswordFirebase = async (currentPasswordForReAuth: string, newPasswordVal: string): Promise<boolean> => {
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) return false;
-    setAuthLoading(true);
-    const reauthenticated = await reauthenticate(currentPasswordForReAuth);
-     if (!reauthenticated) {
-        setAuthLoading(false);
-        return false;
-    }
+  const updateUserPasswordFirebase = async (currentPasswordForReAuth: string, newPasswordVal: string) => {
+    if (!auth.currentUser || !auth.currentUser.email) return false;
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPasswordForReAuth);
     try {
-        await updateFirebasePassword(firebaseUser, newPasswordVal);
-        toast({ title: "Password Updated" });
-        return true;
-    } catch (error) {
-        handleAuthError(error as AuthError, "Password Update");
-        return false;
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const setNewUserPassword = async (newPasswordVal: string): Promise<boolean> => {
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) return false;
-    setAuthLoading(true);
-    try {
-      await updateFirebasePassword(firebaseUser, newPasswordVal);
-      toast({ title: "Password Set!" });
-      setRequiresPasswordSetup(false);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updateFirebasePassword(auth.currentUser, newPasswordVal);
+      toast({ title: "Password Updated" });
       return true;
     } catch (error) {
-      handleAuthError(error as AuthError, "Set New Password");
+      console.error(error);
       return false;
-    } finally {
-      setAuthLoading(false);
     }
   };
 
-  const sendPasswordResetFirebase = async (email: string): Promise<boolean> => {
-    setAuthLoading(true);
+  const sendPasswordResetFirebase = async (email: string) => {
     try {
       await sendPasswordResetEmail(auth, email);
-      toast({ title: "Reset Link Sent" });
-      setAuthLoading(false);
+      toast({ title: "Reset Link Sent", description: "Please check your inbox." });
       return true;
     } catch (error) {
-      handleAuthError(error as AuthError, "Password Reset");
-      setAuthLoading(false);
+      console.error(error);
       return false;
-    }
-  };
-  
-  const enablePushNotifications = async () => {
-    const messaging = await getMessagingInstance();
-    if (!messaging) return;
-    setAuthLoading(true);
-    try {
-        const permission = await Notification.requestPermission();
-        setNotificationPermission(permission);
-        if (permission === 'granted') {
-            const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
-            if (!vapidKey) {
-                setAuthLoading(false);
-                return;
-            }
-            const currentToken = await getToken(messaging, { vapidKey });
-            if (currentToken && user) {
-                setFcmToken(currentToken);
-                const userRef = doc(db, 'users', user.id);
-                const updateData = { fcmTokens: arrayUnion(currentToken) };
-                updateDoc(userRef, updateData).catch(async (serverError) => {
-                    const permissionError = new FirestorePermissionError({
-                        path: userRef.path,
-                        operation: 'update',
-                        requestResourceData: updateData,
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
-                toast({ title: "Notifications Enabled" });
-            }
-        }
-    } catch (err: any) {
-        handleAuthError(err, "Notification Setup");
-    } finally {
-        setAuthLoading(false);
-    }
-  };
-
-  const markNotificationAsRead = async (notificationId: string) => {
-    if (!user) return;
-    const notifRef = doc(db, 'notifications', notificationId);
-    updateDoc(notifRef, { isRead: true }).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: notifRef.path,
-            operation: 'update',
-            requestResourceData: { isRead: true },
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
-  };
-
-  const markAllNotificationsAsRead = async () => {
-    if (!user) return;
-    setAuthLoading(true);
-    try {
-        const unreadNotifications = notifications.filter(n => !n.isRead);
-        if (unreadNotifications.length === 0) {
-            setAuthLoading(false);
-            return;
-        }
-        const batch = writeBatch(db);
-        unreadNotifications.forEach(n => {
-            const notifRef = doc(db, 'notifications', n.id);
-            batch.update(notifRef, { isRead: true });
-        });
-        await batch.commit();
-        toast({ title: "All Read" });
-    } catch (error) {
-        console.error(error);
-    } finally {
-        setAuthLoading(false);
     }
   };
 
   const followUser = async (targetUserId: string) => {
-    if (!user || user.isAnonymous) return;
-    setAuthLoading(true);
-    const currentUserRef = doc(db, "users", user.id);
+    if (!user) return;
     const batch = writeBatch(db);
-    const newFollowingIds = Array.from(new Set([...(user.followingIds || []), targetUserId]));
-    batch.update(currentUserRef, { followingIds: newFollowingIds, followingCount: newFollowingIds.length, updatedAt: serverTimestamp() });
-    try {
-      await batch.commit();
-      toast({title: "Followed"});
-    } catch (error) {
-      toast({title: "Error", variant: "destructive"});
-    } finally {
-      setAuthLoading(false);
-    }
+    batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
+    batch.update(doc(db, 'users', targetUserId), { followersCount: increment(1) });
+    await batch.commit();
   };
 
   const unfollowUser = async (targetUserId: string) => {
-    if (!user || user.isAnonymous) return;
-    setAuthLoading(true);
-    const currentUserRef = doc(db, "users", user.id);
+    if (!user) return;
     const batch = writeBatch(db);
-    const newFollowingIds = (user.followingIds || []).filter(id => id !== targetUserId);
-    batch.update(currentUserRef, { followingIds: newFollowingIds, followingCount: newFollowingIds.length, updatedAt: serverTimestamp() });
-    try {
-      await batch.commit();
-      toast({title: "Unfollowed"});
-    } catch (error) {
-      toast({title: "Error", variant: "destructive"});
-    } finally {
-      setAuthLoading(false);
-    }
+    batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
+    batch.update(doc(db, 'users', targetUserId), { followersCount: increment(-1) });
+    await batch.commit();
   };
 
   const addToLibrary = async (story: Story) => {
-    if (!user || user.isAnonymous) return;
-    setAuthLoading(true);
-    const userRef = doc(db, 'users', user.id);
-    const itemToAdd: ReadingListItem = { id: story.id, title: story.title, author: story.author, chapters: story.chapters || [], lastUpdated: story.lastUpdated, coverImageUrl: story.coverImageUrl, status: story.status };
-    updateDoc(userRef, { readingList: arrayUnion(itemToAdd) })
-      .then(() => toast({ title: "Added to Library" }))
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'update',
-            requestResourceData: { readingList: 'arrayUnion(...)' },
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      })
-      .finally(() => setAuthLoading(false));
+    if (!user) return;
+    const item: ReadingListItem = {
+        id: story.id,
+        title: story.title,
+        author: story.author,
+        chapters: story.chapters,
+        lastUpdated: story.lastUpdated,
+        coverImageUrl: story.coverImageUrl,
+        status: story.status,
+    };
+    updateDoc(doc(db, 'users', user.id), { readingList: arrayUnion(item) });
   };
 
   const removeFromLibrary = async (storyId: string) => {
-    if (!user || !user.readingList) return;
-    setAuthLoading(true);
-    const userRef = doc(db, 'users', user.id);
-    const itemToRemove = user.readingList.find(item => item.id === storyId);
+    if (!user) return;
+    const itemToRemove = user.readingList?.find(i => i.id === storyId);
     if (itemToRemove) {
-      updateDoc(userRef, { readingList: arrayRemove(itemToRemove) })
-        .then(() => toast({ title: "Removed from Library" }))
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: userRef.path,
-                operation: 'update',
-                requestResourceData: { readingList: 'arrayRemove(...)' },
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        })
-        .finally(() => setAuthLoading(false));
-    } else {
-        setAuthLoading(false);
+        updateDoc(doc(db, 'users', user.id), { readingList: arrayRemove(itemToRemove) });
     }
   };
 
-  const addNotification = async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
-      // Proxy to server action
-      await addNotificationAction(notificationData);
+  const setNewUserPassword = async (password: string) => {
+    if (auth.currentUser) {
+        try {
+            await updateFirebasePassword(auth.currentUser, password);
+            setRequiresPasswordSetup(false);
+            toast({ title: "Password Set Successfully" });
+            return true;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    }
+    return false;
+  };
+
+  function increment(val: number) {
+      return {
+          '__op': 'increment',
+          'n': val
+      } as any;
   }
 
   return (

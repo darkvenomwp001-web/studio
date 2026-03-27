@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Logo from './Logo';
 
+const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
+
 const NavLink = ({ href, children, icon }: { href: string; children: React.ReactNode; icon?: React.ReactNode }) => (
   <Link href={href} passHref>
     <Button variant="ghost" className="flex items-center gap-2 text-sm hover:bg-accent/50 hover:text-accent-foreground">
@@ -40,7 +42,8 @@ export default function Header() {
   }
 
   const displayName = user?.displayName || user?.username;
-  const isWriter = user?.role === 'writer' || user?.role === 'admin';
+  const isOwner = user && OWNER_HANDLES.includes(user.username);
+  const isWriter = user?.role === 'writer' || isOwner;
 
   return (
     <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">

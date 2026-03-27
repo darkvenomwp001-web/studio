@@ -9,23 +9,23 @@ export interface Achievement {
 }
 
 export interface User {
-  id: string; // Document ID from Firestore (auth UID)
+  id: string; 
   username: string;
   email?: string;
   emailVerified?: boolean;
   bio?: string;
-  avatarUrl?: string; // Sticking with avatarUrl for consistency with app code
+  avatarUrl?: string; 
   displayName?: string;
-  role?: 'reader' | 'writer' | 'moderator' | 'admin';
+  role?: 'reader' | 'writer' | 'moderator';
   followersCount?: number;
   followingCount?: number;
   followingIds?: string[];
-  closeFriendIds?: string[]; // Added for Close Friends feature
-  fcmTokens?: string[]; // For Push Notifications
-  writtenStories?: Story[]; // Changed to hold full story objects for attach feature
+  closeFriendIds?: string[]; 
+  fcmTokens?: string[]; 
+  writtenStories?: Story[]; 
   readingList?: ReadingListItem[];
-  readChapters?: { [storyId: string]: string[] }; // Track read chapters per story
-  shelves?: Shelf[]; // For custom bookshelves
+  readChapters?: { [storyId: string]: string[] }; 
+  shelves?: Shelf[]; 
   level?: number;
   xp?: number;
   achievements?: Achievement[];
@@ -33,10 +33,10 @@ export interface User {
   profileSongNote?: string;
   createdAt?: any;
   updatedAt?: any;
-  dataAiHint?: string; // Added for AI image hints
+  dataAiHint?: string; 
   isAnonymous?: boolean;
-  isBanned?: boolean; // For user restrictions
-  isVerified?: boolean; // For verified badge
+  isBanned?: boolean; 
+  isVerified?: boolean; 
   messagingPreference?: 'everyone' | 'following' | 'none';
   notificationSettings?: {
     emailOnNewFollower: boolean;
@@ -67,12 +67,12 @@ export interface Story {
   id: string;
   author: UserSummary;
   title: string;
-  summary: string; // Changed from description for consistency
+  summary: string; 
   genre: string;
   chapters: Chapter[];
   status: 'Ongoing' | 'Completed' | 'Draft';
   visibility: 'Public' | 'Private' | 'Unlisted';
-  lastUpdated: any; // Can be serverTimestamp or string
+  lastUpdated: any; 
   coverImageUrl?: string;
   language?: string;
   isMature?: boolean;
@@ -101,7 +101,7 @@ export interface Chapter {
 export interface AllowedUser {
   userId: string;
   username: string;
-  expiresAt: any; // Can be Timestamp
+  expiresAt: any; 
 }
 
 export interface Comment {
@@ -110,7 +110,7 @@ export interface Comment {
   storyId: string;
   chapterId: string;
   content: string; 
-  timestamp: any; // Can be serverTimestamp or Timestamp
+  timestamp: any; 
   parentId?: string | null;
   likes?: number;
   quote?: string;
@@ -139,8 +139,8 @@ export interface Annotation {
     userId: string;
     storyId: string;
     chapterId: string;
-    storyTitle: string; // denormalized for easy display
-    chapterTitle: string; // denormalized for easy display
+    storyTitle: string; 
+    chapterTitle: string; 
     highlightedText: string;
     highlightColor: string;
     note?: string;
@@ -154,8 +154,8 @@ export interface NotificationType {
     message: string;
     link: string;
     isRead: boolean;
-    timestamp: any; // Can be serverTimestamp or string from converted date
-    actor: UserSummary; // The user who performed the action
+    timestamp: any; 
+    actor: UserSummary; 
 }
 
 export interface Letter {
@@ -218,7 +218,7 @@ export interface GlobalChatMessage {
     id: string;
     author: UserSummary;
     content: string;
-    timestamp: any; // Can be serverTimestamp or Timestamp
+    timestamp: any; 
 }
 
 export interface Poll {
@@ -232,7 +232,7 @@ export interface Poll {
 export type ReactionType = 'like' | 'love';
 
 export interface Reaction {
-    id: string; // userId
+    id: string; 
     type: ReactionType;
     timestamp: any;
     user: UserSummary;

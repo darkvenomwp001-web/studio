@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useRef } from 'react';
@@ -20,7 +21,7 @@ import ReactionButton from './ReactionButton';
 import { deleteThreadPost, pinThreadPost, hideThreadPost, repostThreadPost } from '@/app/actions/threadActions';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 
-const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
 
 export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   const { user } = useAuth();
@@ -29,7 +30,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const isOwner = user && OWNER_USERNAMES.includes(user.username);
+  const isOwner = user && OWNER_HANDLES.includes(user.username);
   const isPostAuthor = user?.id === post.author.id;
   const canManage = isPostAuthor || isOwner;
 

@@ -182,51 +182,6 @@ function ForYouTabContent() {
           </section>
         )}
 
-        {/* New Releases Row */}
-        {newReleases.length > 0 && (
-          <section className="space-y-4">
-            <div className="flex items-center gap-2">
-                <div className="p-2 bg-blue-500/10 rounded-lg">
-                    <Sparkles className="text-blue-500 h-5 w-5" />
-                </div>
-                <h2 className="text-2xl font-headline font-bold tracking-tight">New Releases</h2>
-            </div>
-            <div className="flex overflow-x-auto space-x-5 pb-6 -mx-4 px-4 scrollbar-hide md:scrollbar-thin scrollbar-thumb-primary/30">
-              {newReleases.map(story => (
-                <CompactStoryCard key={`new-${story.id}`} story={story} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Genre Spotlights */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {fantasyStories.length > 0 && (
-              <section className="space-y-4">
-                  <h3 className="text-xl font-headline font-bold flex items-center gap-2 px-1">
-                      <BookHeart className="text-accent h-5 w-5" /> Fantasy Worlds
-                  </h3>
-                  <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-hide">
-                      {fantasyStories.map(story => (
-                          <CompactStoryCard key={`fant-${story.id}`} story={story} />
-                      ))}
-                  </div>
-              </section>
-            )}
-            {romanceStories.length > 0 && (
-              <section className="space-y-4">
-                  <h3 className="text-xl font-headline font-bold flex items-center gap-2 px-1">
-                      <HeartIcon className="text-red-500 h-5 w-5 fill-red-500" /> Heartfelt Romance
-                  </h3>
-                  <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-hide">
-                      {romanceStories.map(story => (
-                          <CompactStoryCard key={`rom-${story.id}`} story={story} />
-                      ))}
-                  </div>
-              </section>
-            )}
-        </div>
-
         {/* Community Prompts Grid */}
         {prompts.length > 0 && (
           <section className="bg-card/50 rounded-3xl p-6 md:p-10 border border-border/50 shadow-sm overflow-hidden relative">
@@ -305,7 +260,7 @@ export default function HomePage() {
                 <div className="max-w-2xl mx-auto">
                     <div className="mb-8 text-center">
                         <h2 className="text-3xl font-headline font-bold text-foreground tracking-tight">Community Feed</h2>
-                        <p className="text-muted-foreground">Catch up with the community and share your own updates.</p>
+                        <p className="text-muted-foreground">Share updates, photos, and stories with the whole community.</p>
                     </div>
                     <ThreadsFeed />
                 </div>
