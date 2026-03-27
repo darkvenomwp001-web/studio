@@ -7,7 +7,32 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Search, Sparkles, ArrowLeft, CheckCheck, Plus, Users, Phone, Video, Info, Smile, Send } from 'lucide-react';
+import { 
+  Bell, 
+  MessageSquare, 
+  Loader2, 
+  UserPlus, 
+  BookOpenText, 
+  Mail, 
+  MailCheck, 
+  Search, 
+  Sparkles, 
+  ArrowLeft, 
+  CheckCheck, 
+  Plus, 
+  Users, 
+  Phone, 
+  Video, 
+  Info, 
+  Smile, 
+  Send,
+  Trash2,
+  User,
+  Image as ImageIcon,
+  Mic,
+  FileUp,
+  MoreVertical
+} from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -28,7 +53,8 @@ import {
   limit,
   getDocs,
   setDoc,
-  getDoc
+  getDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -43,11 +69,34 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { getConversationStarters } from '@/app/actions/aiActions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import StatusFeature from '@/components/status/StatusFeature';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 // Debounce function
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -274,6 +323,7 @@ function NotificationsList() {
 function MessagesClient() {
   const { user: currentUser, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -299,6 +349,8 @@ function MessagesClient() {
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const [userStatuses, setUserStatuses] = useState<Record<string, 'online' | 'offline'>>({});
   const [otherUserTyping, setOtherUserTyping] = useState<boolean>(false);
+
+  const [isDeletingThread, setIsDeletingThread] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -552,6 +604,31 @@ function MessagesClient() {
         set(typingRef, true);
     } else {
         remove(typingRef);
+    }
+  };
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    handleInputChange(newMessageContent + emojiData.emoji);
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!activeConversation || !currentUser) return;
+    setIsDeletingThread(true);
+    const convRef = doc(db, 'conversations', activeConversation.id);
+    
+    try {
+        await deleteDoc(convRef);
+        toast({ title: "Conversation deleted" });
+        setActiveConversation(null);
+        setMobileView('list');
+    } catch (error) {
+        const permissionError = new FirestorePermissionError({
+            path: convRef.path,
+            operation: 'delete',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    } finally {
+        setIsDeletingThread(false);
     }
   };
 
@@ -815,9 +892,46 @@ function MessagesClient() {
                             <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-primary">
                                 <Video className="h-5 w-5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
-                                <Info className="h-5 w-5" />
-                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
+                                        <Info className="h-5 w-5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56 rounded-xl">
+                                    <DropdownMenuLabel>Thread Options</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => router.push(`/profile/${getOtherParticipant(activeConversation)?.id}`)}>
+                                        <User className="mr-2 h-4 w-4" /> View Profile
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => toast({ title: "Muted", description: "You won't receive notifications for this chat." })}>
+                                        <Bell className="mr-2 h-4 w-4" /> Mute Notifications
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onSelect={(e) => e.preventDefault()}>
+                                                <Trash2 className="mr-2 h-4 w-4" /> Delete Conversation
+                                            </DropdownMenuItem>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent className="rounded-2xl">
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Delete this entire thread?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will permanently remove the conversation and its history for you. This action cannot be undone.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={handleDeleteConversation} disabled={isDeletingThread} className="bg-destructive hover:bg-destructive/90 rounded-full px-6">
+                                                    {isDeletingThread ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                                                    Delete Thread
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </header>
                     
@@ -892,14 +1006,17 @@ function MessagesClient() {
                                 </ScrollArea>
                             )}
                             <div className="flex items-center gap-3">
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button type="button" variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={handleGenerateStarters} disabled={isGeneratingStarters}>
-                                            {isGeneratingStarters ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="bg-primary text-primary-foreground font-bold">AI Reply Suggestions</TooltipContent>
-                                </Tooltip>
+                                <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" title="Send Photos/Videos" onClick={() => toast({ title: "Coming Soon", description: "Rich media sharing is being prepared." })}>
+                                        <ImageIcon className="h-5 w-5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" title="Send Files" onClick={() => toast({ title: "Coming Soon", description: "File sharing is being prepared." })}>
+                                        <FileUp className="h-5 w-5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" title="Voice Message" onClick={() => toast({ title: "Coming Soon", description: "Voice recording is being prepared." })}>
+                                        <Mic className="h-5 w-5" />
+                                    </Button>
+                                </div>
                                 <div className="relative flex-1 group">
                                     <Input 
                                         type="text" 
@@ -910,8 +1027,17 @@ function MessagesClient() {
                                         disabled={isSendingMessage} 
                                         onKeyDown={(e) => e.key === 'Enter' && !isSendingMessage && handleSendMessage()} 
                                     />
-                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors" onClick={() => toast({title: "Coming soon!"})}><Smile className="h-5 w-5" /></Button>
+                                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors">
+                                                    <Smile className="h-5 w-5" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden" side="top" align="end">
+                                                <EmojiPicker onEmojiClick={handleEmojiClick} />
+                                            </PopoverContent>
+                                        </Popover>
                                     </div>
                                 </div>
                                 <Button 
