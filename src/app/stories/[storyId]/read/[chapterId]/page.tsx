@@ -35,6 +35,8 @@ import {
   Search,
   Pencil,
   Snowflake,
+  BookmarkPlus,
+  Trash2,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -72,6 +74,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
@@ -116,8 +119,6 @@ export default function StoryReaderPage() {
   // Annotation state
   const [annotationNote, setAnnotationNote] = useState("");
   const [selectedHighlightColor, setSelectedHighlightColor] = useState("#fde047"); // Default yellow
-
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const viewIncrementedRef = useRef(false);
@@ -509,7 +510,7 @@ export default function StoryReaderPage() {
 
 
   return (
-    <>
+    <TooltipProvider>
     <div className={cn("relative min-h-screen bg-background text-foreground overflow-hidden", {'select-none': currentChapter.accessType === 'premium'})}>
       <header
         className={cn(
@@ -730,39 +731,78 @@ export default function StoryReaderPage() {
                         return from !== to
                     }}
                  >
-                    <div className="flex gap-1 bg-card border shadow-lg p-1 rounded-md">
+                    <div className="flex gap-1.5 bg-card/95 backdrop-blur-xl border border-white/10 shadow-2xl p-1.5 rounded-2xl">
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="ghost" size="icon" title="Annotate"><Pencil className="h-5 w-5" /></Button>
+                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-colors" title="Annotate"><Pencil className="h-5 w-5" /></Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-80">
-                                <div className="grid gap-4">
+                            <PopoverContent className="w-80 p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-card/95 backdrop-blur-xl">
+                                <div className="bg-primary/10 p-4 border-b border-primary/10 flex items-center gap-2">
+                                    <Sparkles className="h-4 w-4 text-primary" />
+                                    <h4 className="font-headline font-bold text-sm">Capture a Moment</h4>
+                                </div>
+                                <div className="p-4 space-y-4">
                                     <div className="space-y-2">
-                                        <h4 className="font-medium leading-none">Annotate</h4>
-                                        <p className="text-sm text-muted-foreground">
-                                            Highlight this selection and add a private note.
-                                        </p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Highlight Color</Label>
-                                        <div className="flex items-center gap-2">
-                                            <Button variant={selectedHighlightColor === '#fde047' ? 'secondary' : 'ghost'} size="icon" onClick={() => setSelectedHighlightColor('#fde047')}><div className="w-5 h-5 rounded-full bg-yellow-300 border-2 border-border" /></Button>
-                                            <Button variant={selectedHighlightColor === '#6ee7b7' ? 'secondary' : 'ghost'} size="icon" onClick={() => setSelectedHighlightColor('#6ee7b7')}><div className="w-5 h-5 rounded-full bg-emerald-300 border-2 border-border" /></Button>
-                                            <Button variant={selectedHighlightColor === '#f87171' ? 'secondary' : 'ghost'} size="icon" onClick={() => setSelectedHighlightColor('#f87171')}><div className="w-5 h-5 rounded-full bg-red-400 border-2 border-border" /></Button>
-                                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="w-4 w-4"/></Button>
+                                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Ink Color</Label>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {[
+                                                { id: 'yellow', hex: '#fde047', label: 'Sunset' },
+                                                { id: 'emerald', hex: '#6ee7b7', label: 'Jade' },
+                                                { id: 'rose', hex: '#f87171', label: 'Petal' },
+                                                { id: 'violet', hex: '#c084fc', label: 'Aura' },
+                                                { id: 'blue', hex: '#60a5fa', label: 'Ocean' },
+                                                { id: 'orange', hex: '#fb923c', label: 'Ember' },
+                                            ].map(color => (
+                                                <Tooltip key={color.id}>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            onClick={() => setSelectedHighlightColor(color.hex)}
+                                                            className={cn(
+                                                                "w-8 h-8 rounded-full border-2 transition-all hover:scale-110",
+                                                                selectedHighlightColor === color.hex ? "border-primary shadow-md scale-110" : "border-transparent"
+                                                            )}
+                                                            style={{ backgroundColor: color.hex }}
+                                                        />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent className="text-[10px] font-bold uppercase tracking-widest">{color.label}</TooltipContent>
+                                                </Tooltip>
+                                            ))}
+                                            <Separator orientation="vertical" className="h-6 mx-1" />
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive" 
+                                                onClick={() => editor.chain().focus().unsetHighlight().run()}
+                                            >
+                                                <Trash2 className="h-4 w-4"/>
+                                            </Button>
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="annotation-note">Private Note (optional)</Label>
-                                        <Textarea id="annotation-note" value={annotationNote} onChange={(e) => setAnnotationNote(e.target.value)} rows={3} />
+                                        <Label htmlFor="annotation-note" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Archive Note</Label>
+                                        <Textarea 
+                                            id="annotation-note" 
+                                            value={annotationNote} 
+                                            onChange={(e) => setAnnotationNote(e.target.value)} 
+                                            placeholder="Why did this line resonate with you?"
+                                            rows={4} 
+                                            className="bg-muted/30 border-none shadow-inner resize-none text-sm rounded-xl focus-visible:ring-primary/30"
+                                        />
                                     </div>
-                                    <Button onClick={handleSaveAnnotation}>Save Annotation</Button>
+                                    <Button 
+                                        onClick={handleSaveAnnotation} 
+                                        className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 rounded-xl"
+                                    >
+                                        <BookmarkPlus className="mr-2 h-4 w-4" />
+                                        Save to Highlights
+                                    </Button>
                                 </div>
                             </PopoverContent>
                         </Popover>
                          <Button
                             variant="ghost"
                             size="icon"
+                            className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-colors"
                             onClick={() => {
                                 const { from, to } = editor.state.selection;
                                 const selectedText = editor.state.doc.textBetween(from, to, ' ');
@@ -866,6 +906,6 @@ export default function StoryReaderPage() {
     <div className="md:hidden">
        <BottomNavigationBar />
     </div>
-    </>
+    </TooltipProvider>
   );
 }
