@@ -9,12 +9,21 @@ export default function VerifiedBadge({ className }: { className?: string }) {
       role="img"
       aria-label="Verified account"
       viewBox="0 0 24 24"
-      className={cn("h-5 w-5 text-primary", className)}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={cn("h-5 w-5", className)}
     >
+      {/* The clean circular background using the primary theme color */}
+      <circle cx="12" cy="12" r="10" fill="hsl(var(--primary))" />
+      
+      {/* The sharp, clean white checkmark */}
       <path
-        fill="currentColor"
-        d="M22.5 12.5c0-1.58-.87-3.05-2.14-3.85.45-.8.7-1.73.7-2.73 0-2.42-1.7-4.5-4.08-4.9.27-1.03-.03-2.16-.8-2.94a4.32 4.32 0 00-6.12 0c-.78.78-1.06 1.9-.8 2.94-2.38.4-4.08 2.48-4.08 4.9 0 1 .25 1.93.7 2.73-1.27.8-2.14 2.27-2.14 3.85 0 1.58.87 3.05 2.14 3.85-.45.8-.7 1.73-.7 2.73 0 2.42 1.7 4.5 4.08 4.9-.27 1.03.03 2.16.8 2.94a4.32 4.32 0 006.12 0c.78-.78 1.06-1.9.8-2.94 2.38-.4 4.08-2.48 4.08-4.9 0-1-.25-1.93-.7-2.73 1.27-.8 2.14-2.27 2.14-3.85zM10.09 16.3l-3.3-3.3a1.2 1.2 0 011.7-1.7l2.45 2.45 5.5-5.5a1.2 1.2 0 011.7 1.7l-6.35 6.35c-.24.24-.55.35-.85.35s-.6-.1-.85-.35z"
-      ></path>
+        d="M8 12.2L10.5 14.7L16 9.2"
+        stroke="white"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
