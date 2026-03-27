@@ -1,15 +1,16 @@
 
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import type { ThreadPost, UserSummary } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, MoreHorizontal, EyeOff, Loader2, Edit, Pin, Share2, Link as LinkIcon, Trash2, Repeat, X } from 'lucide-react';
+import { MessageCircle, MoreHorizontal, EyeOff, Loader2, Edit, Pin, Share2, Link as LinkIcon, Trash2, Repeat, X, Save } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
@@ -32,10 +33,22 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   const [isProcessing, startProcessingTransition] = useTransition();
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  // Inline editing state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(post.content);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const isOwner = user && OWNER_HANDLES.includes(user.username);
   const isPostAuthor = user?.id === post.author.id;
   const canManage = isPostAuthor || isOwner;
+
+  // Sync edited content if post updates from server
+  useEffect(() => {
+    if (!isEditing) {
+      setEditedContent(post.content);
+    }
+  }, [post.content, isEditing]);
 
   const handlePinPost = () => {
       if (!user) return;
@@ -53,6 +66,35 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
             errorEmitter.emit('permission-error', permissionError);
         });
   }
+
+  const handleSaveUpdate = async () => {
+    if (!editedContent.trim() || editedContent === post.content) {
+      setIsEditing(false);
+      return;
+    }
+    
+    setIsUpdating(true);
+    const postRef = doc(db, 'feedPosts', post.id);
+    const updateData = { 
+      content: editedContent.trim(), 
+      updatedAt: serverTimestamp() 
+    };
+
+    updateDoc(postRef, updateData)
+      .then(() => {
+        toast({ title: 'Post updated!' });
+        setIsEditing(false);
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: postRef.path,
+          operation: 'update',
+          requestResourceData: updateData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => setIsUpdating(false));
+  };
 
   const handleRepost = () => {
       if (!user) {
@@ -169,7 +211,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   return (
     <>
       <Dialog>
-          <Card className={cn("transition-opacity duration-300 relative border-border/40 shadow-sm")}>
+          <Card className={cn("transition-opacity duration-300 relative border-border/40 shadow-sm", isEditing && "ring-2 ring-primary/20")}>
             {post.isPinned && <Pin className="absolute top-3 left-3 h-4 w-4 text-primary" />}
             {isRepost && (
               <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider flex items-center gap-2 px-4 pt-3">
@@ -197,18 +239,16 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  {canManage && post.type === 'original' && (
+                  {canManage && post.type === 'original' && !isEditing && (
                     <>
                       <DropdownMenuItem onClick={handlePinPost} className="gap-2">
                         <Pin className="h-4 w-4" />
                         {post.isPinned ? 'Unpin Post' : 'Pin Post'}
                       </DropdownMenuItem>
-                      <Link href={`/threads/edit/${post.id}`}>
-                        <DropdownMenuItem className="gap-2">
-                          <Edit className="h-4 w-4" />
-                          Edit Post
-                        </DropdownMenuItem>
-                      </Link>
+                      <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
+                        <Edit className="h-4 w-4" />
+                        Edit Post
+                      </DropdownMenuItem>
                     </>
                   )}
                   <DropdownMenuItem onClick={handleHidePost} className="gap-2">
@@ -225,10 +265,33 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
             </CardHeader>
             <CardContent className="p-4 pt-0">
                 <div className="space-y-4">
-                    { isRepost ? 
-                        (post.originalPost?.content && <p className="whitespace-pre-line text-sm md:text-base leading-relaxed text-foreground/90">{post.originalPost.content}</p>) : 
-                        (post.content && <p className="whitespace-pre-line text-sm md:text-base leading-relaxed text-foreground/90">{post.content}</p>)
-                    }
+                    {isEditing ? (
+                      <div className="space-y-3">
+                        <Textarea 
+                          value={editedContent}
+                          onChange={(e) => setEditedContent(e.target.value)}
+                          placeholder="What's on your mind?"
+                          className="min-h-[120px] text-sm md:text-base bg-muted/30 focus-visible:ring-primary border-none shadow-inner"
+                          disabled={isUpdating}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} disabled={isUpdating}>
+                            Cancel
+                          </Button>
+                          <Button size="sm" onClick={handleSaveUpdate} disabled={isUpdating || !editedContent.trim()}>
+                            {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            Save Changes
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        { isRepost ? 
+                            (post.originalPost?.content && <p className="whitespace-pre-line text-sm md:text-base leading-relaxed text-foreground/90">{post.originalPost.content}</p>) : 
+                            (post.content && <p className="whitespace-pre-line text-sm md:text-base leading-relaxed text-foreground/90">{post.content}</p>)
+                        }
+                      </>
+                    )}
                     
                     { (isRepost ? post.originalPost?.storyId : post.storyId) && (
                         <Link href={`/stories/${isRepost ? post.originalPost!.storyId : post.storyId}`}>
