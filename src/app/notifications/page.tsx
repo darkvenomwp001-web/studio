@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useTransition } from 'react';
+import { useState, useEffect, useCallback, useRef, useTransition, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Smile, Sparkles, ArrowLeft, MoreHorizontal, CheckCheck, Plus, Users } from 'lucide-react';
-import { formatDistanceToNow, isToday, isThisWeek } from 'date-fns';
+import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Smile, Sparkles, ArrowLeft, MoreHorizontal, CheckCheck, Plus, Users, Phone, Video, Info, Check } from 'lucide-react';
+import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -226,6 +226,7 @@ function MessagesClient() {
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [isQueryHandled, setIsQueryHandled] = useState(false);
+  const [sidebarSearch, setSidebarSearch] = useState('');
 
   const [isGeneratingStarters, startStarterTransition] = useTransition();
   const [conversationStarters, setConversationStarters] = useState<string[]>([]);
@@ -276,7 +277,7 @@ function MessagesClient() {
     const messagesQuery = query(
       collection(db, 'conversations', activeConversation.id, 'messages'),
       orderBy('timestamp', 'asc'),
-      limit(50) 
+      limit(100) 
     );
 
     const unsubscribe = onSnapshot(messagesQuery, (querySnapshot) => {
@@ -318,6 +319,7 @@ function MessagesClient() {
           content: messageData.content,
           senderId: messageData.senderId,
           timestamp: serverTimestamp(), 
+          isRead: false
         },
         updatedAt: serverTimestamp(),
       });
@@ -333,7 +335,7 @@ function MessagesClient() {
   const getOtherParticipant = (conversation: Conversation): AppUserType | undefined => {
     if (!currentUser || !conversation.participantIds || !conversation.participantInfo) return undefined;
     const otherId = conversation.participantIds.find(id => id !== currentUser.id);
-    return otherId ? conversation.participantInfo[otherId] : undefined;
+    return otherId ? (conversation.participantInfo[otherId] as unknown as AppUserType) : undefined;
   };
 
   const performUserSearch = async (searchTerm: string) => {
@@ -343,7 +345,6 @@ function MessagesClient() {
       return;
     }
     setIsSearchingUsers(true);
-    setSearchedUsers([]); 
     try {
       const usersRef = collection(db, 'users');
       const usernameQuery = query(
@@ -473,33 +474,115 @@ function MessagesClient() {
         }
     }, [activeConversation]);
 
+    const filteredConversations = useMemo(() => {
+        if (!sidebarSearch.trim()) return conversations;
+        const term = sidebarSearch.toLowerCase();
+        return conversations.filter(conv => {
+            const other = getOtherParticipant(conv);
+            return other?.username?.toLowerCase().includes(term) || other?.displayName?.toLowerCase().includes(term);
+        });
+    }, [conversations, sidebarSearch]);
+
+    const renderMessageStatus = (msg: Message, isLast: boolean) => {
+        if (msg.senderId !== currentUser?.id || !isLast) return null;
+        return <div className="text-[10px] text-muted-foreground/60 mt-1 self-end mr-1 flex items-center gap-1">Sent <CheckCheck className="h-2.5 w-2.5" /></div>;
+    };
+
+    const renderMessageList = () => {
+        const elements: JSX.Element[] = [];
+        let lastDateString = "";
+
+        messages.forEach((msg, index) => {
+            const msgDate = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
+            let currentDateString = "";
+            
+            if (isToday(msgDate)) currentDateString = "Today";
+            else if (isYesterday(msgDate)) currentDateString = "Yesterday";
+            else if (isThisWeek(msgDate)) currentDateString = format(msgDate, "EEEE");
+            else currentDateString = format(msgDate, "MMM d, yyyy");
+
+            if (currentDateString !== lastDateString) {
+                elements.push(
+                    <div key={`date-${index}`} className="flex justify-center my-6">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 bg-muted/30 px-3 py-1 rounded-full">{currentDateString}</span>
+                    </div>
+                );
+                lastDateString = currentDateString;
+            }
+
+            const isCurrentUserSender = msg.senderId === currentUser?.id;
+            const isNextSameSender = messages[index + 1]?.senderId === msg.senderId;
+            const isPrevSameSender = messages[index - 1]?.senderId === msg.senderId;
+            const isLastInGroup = !isNextSameSender;
+            const senderInfo = msg.senderId && activeConversation?.participantInfo ? activeConversation.participantInfo[msg.senderId] : undefined;
+
+            elements.push(
+                <div key={msg.id} className={cn(
+                    "flex items-end gap-2 max-w-[85%] sm:max-w-[70%] group/msg", 
+                    isCurrentUserSender ? "self-end flex-row-reverse" : "self-start",
+                    isLastInGroup ? "mb-4" : "mb-0.5"
+                )}>
+                    {!isCurrentUserSender && isLastInGroup && senderInfo && (
+                        <Avatar className="h-8 w-8 self-end flex-shrink-0 shadow-sm">
+                            <AvatarImage src={senderInfo?.avatarUrl} data-ai-hint="profile person" />
+                            <AvatarFallback className="bg-muted text-[10px] font-bold">{senderInfo?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                        </Avatar>
+                    )}
+                    {(!isCurrentUserSender && !isLastInGroup) && <div className="w-8" />}
+                    
+                    <div className="flex flex-col">
+                        <div className={cn(
+                            "p-3 rounded-2xl shadow-sm text-sm whitespace-pre-line leading-relaxed transition-all", 
+                            isCurrentUserSender 
+                                ? "bg-primary text-primary-foreground rounded-br-none" 
+                                : "bg-muted text-foreground rounded-bl-none",
+                            !isLastInGroup && (isCurrentUserSender ? "rounded-br-2xl" : "rounded-bl-2xl"),
+                            !isPrevSameSender && (isCurrentUserSender ? "rounded-tr-2xl" : "rounded-tl-2xl")
+                        )}>
+                            {msg.content}
+                        </div>
+                        {isCurrentUserSender && index === messages.length - 1 && renderMessageStatus(msg, true)}
+                    </div>
+                </div>
+            );
+        });
+
+        return elements;
+    };
+
     return (
         <Dialog open={isNewConversationDialogOpen} onOpenChange={(isOpen) => {
             setIsNewConversationDialogOpen(isOpen);
             if (!isOpen) { setSearchUsername(''); setSearchedUsers([]); }
         }}>
         <TooltipProvider>
-        <div className="flex h-[calc(100vh-12rem)] md:h-auto md:min-h-[700px] border rounded-3xl bg-card shadow-2xl overflow-hidden mb-10">
+        <div className="flex h-[calc(100vh-12rem)] md:h-[800px] border rounded-3xl bg-card shadow-2xl overflow-hidden mb-10 border-border/40">
             <aside className={cn(
                 "w-full md:w-[340px] lg:w-[400px] border-r flex flex-col bg-background/40 backdrop-blur-xl transition-all duration-300",
                 mobileView === 'chat' ? 'hidden md:flex' : 'flex'
             )}>
                 <div className="p-6 border-b space-y-4">
                     <div className="flex justify-between items-center">
-                        <h2 className="text-2xl font-headline font-bold tracking-tight">Messages</h2>
+                        <h2 className="text-2xl font-headline font-bold tracking-tight">Threads</h2>
                         <DialogTrigger asChild>
                             <Button variant="outline" size="icon" className="rounded-full shadow-sm hover:bg-primary hover:text-primary-foreground transition-all">
-                                <UserPlus className="h-5 w-5" />
-                                <span className="sr-only">New Message</span>
+                                <Plus className="h-5 w-5" />
+                                <span className="sr-only">New Thread</span>
                             </Button>
                         </DialogTrigger>
                     </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search people..." className="pl-10 h-10 rounded-full bg-muted/50 border-none focus-visible:ring-primary/50" />
+                        <Input 
+                            placeholder="Search conversations..." 
+                            className="pl-10 h-10 rounded-full bg-muted/50 border-none focus-visible:ring-primary/50" 
+                            value={sidebarSearch}
+                            onChange={(e) => setSidebarSearch(e.target.value)}
+                        />
                     </div>
                 </div>
                  <div className="p-2 px-4 border-b">
+                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2 ml-2">Active Now</p>
                    <StatusFeature />
                 </div>
                 <ScrollArea className="flex-1">
@@ -508,17 +591,17 @@ function MessagesClient() {
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             <span className="text-xs font-bold uppercase tracking-widest opacity-50">Syncing inbox...</span>
                         </div>
-                    ) : conversations.length === 0 ? (
+                    ) : filteredConversations.length === 0 ? (
                         <div className="p-12 text-center text-muted-foreground space-y-4">
                             <div className="bg-muted/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
                                 <MessageSquare className="h-8 w-8 text-muted-foreground/40"/>
                             </div>
-                            <h3 className="font-headline font-bold text-foreground">No chats yet</h3>
-                            <p className="text-sm">Start a new message to begin a conversation with your community.</p>
+                            <h3 className="font-headline font-bold text-foreground">No threads found</h3>
+                            <p className="text-sm">Start a new message to begin a conversation.</p>
                         </div>
                     ) : (
                     <div className="space-y-0.5 p-2">
-                        {conversations.map(conv => {
+                        {filteredConversations.map(conv => {
                             const otherParticipant = getOtherParticipant(conv);
                             const lastMessageTimestampServer = conv.lastMessage?.timestamp as any; 
                             let lastMessageDisplayTime = '';
@@ -544,14 +627,14 @@ function MessagesClient() {
                                             <AvatarFallback className="bg-muted text-primary font-bold">{otherParticipant.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
                                         </Avatar>
                                     )}
-                                    <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm"></div>
+                                    <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse"></div>
                                 </div>
                                 <div className="flex-1 overflow-hidden">
                                     <div className="flex justify-between items-center mb-0.5">
                                         <h3 className={cn("font-bold truncate text-sm", isActive ? 'text-primary' : 'text-foreground')}>
                                             {otherParticipant?.displayName || `@${otherParticipant?.username}` || 'Unknown User'}
                                         </h3>
-                                        <span className={cn("text-[10px] font-semibold uppercase tracking-tighter", isUnread ? 'text-primary' : 'text-muted-foreground/60')}>
+                                        <span className={cn("text-[10px] font-semibold uppercase tracking-tighter whitespace-nowrap", isUnread ? 'text-primary' : 'text-muted-foreground/60')}>
                                             {lastMessageDisplayTime}
                                         </span>
                                     </div>
@@ -563,7 +646,7 @@ function MessagesClient() {
                                         {isUnread && <div className="w-2.5 h-2.5 bg-primary rounded-full flex-shrink-0 ml-2 shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>}
                                     </div>
                                 </div>
-                                {isActive && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-l-full"></div>}
+                                {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-primary rounded-r-full"></div>}
                             </div>
                             );
                         })}
@@ -585,10 +668,13 @@ function MessagesClient() {
                             </Button>
                             {getOtherParticipant(activeConversation) && (
                                 <Link href={`/profile/${getOtherParticipant(activeConversation)!.id}`}>
-                                    <Avatar className="h-10 w-10 border shadow-sm hover:scale-105 transition-transform">
-                                        <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
-                                        <AvatarFallback className="bg-muted text-primary font-bold">{getOtherParticipant(activeConversation)!.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                                    </Avatar>
+                                    <div className="relative">
+                                        <Avatar className="h-10 w-10 border shadow-sm hover:scale-105 transition-transform">
+                                            <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
+                                            <AvatarFallback className="bg-muted text-primary font-bold">{getOtherParticipant(activeConversation)!.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background animate-pulse"></div>
+                                    </div>
                                 </Link>
                             )}
                             <div className="truncate">
@@ -596,40 +682,52 @@ function MessagesClient() {
                                     {getOtherParticipant(activeConversation)?.displayName || `@${getOtherParticipant(activeConversation)?.username}` || 'Unknown User'}
                                 </h3>
                                 <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> Online
+                                    Online
                                 </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-primary">
+                                <Phone className="h-5 w-5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-primary">
+                                <Video className="h-5 w-5" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
-                                <MoreHorizontal className="h-5 w-5" />
+                                <Info className="h-5 w-5" />
                             </Button>
                         </div>
                     </header>
                     
                     <ScrollArea className="flex-1 p-6">
-                        <div className="space-y-6">
+                        <div className="flex flex-col min-h-full">
                             {isLoadingMessages ? (
                                 <div className="flex justify-center items-center h-40">
                                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                 </div>
                             ) : messages.length === 0 ? (
-                                <div className="text-center py-20 flex flex-col items-center gap-6 text-muted-foreground">
-                                    <div className="bg-muted/20 p-6 rounded-full">
+                                <div className="flex-1 flex flex-col items-center justify-center text-center py-20 gap-6 text-muted-foreground">
+                                    <div className="bg-muted/20 p-6 rounded-full relative">
                                         <Sparkles className="w-12 h-12 text-primary/40"/>
+                                        <div className="absolute -top-1 -right-1 bg-primary text-white p-1 rounded-full"><Plus className="h-3 w-3" /></div>
                                     </div>
                                     <div className="space-y-2">
                                         <h3 className="font-headline text-xl font-bold text-foreground">Start the Conversation</h3>
-                                        <p className="text-sm max-w-xs mx-auto">Don't be shy! Send a message or use AI to break the ice.</p>
+                                        <p className="text-sm max-w-[200px] mx-auto">Send a wave or use AI to break the ice.</p>
                                     </div>
-                                    <Button onClick={handleGenerateStarters} disabled={isGeneratingStarters} className="rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
-                                        {isGeneratingStarters ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Sparkles className="h-4 w-4 mr-2" />}
-                                        Get AI Icebreakers
-                                    </Button>
+                                    <div className="flex flex-col gap-2 w-full max-w-xs">
+                                        <Button onClick={handleGenerateStarters} disabled={isGeneratingStarters} className="rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
+                                            {isGeneratingStarters ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Sparkles className="h-4 w-4 mr-2" />}
+                                            Get AI Icebreakers
+                                        </Button>
+                                        <Button variant="outline" className="rounded-full" onClick={() => setNewMessageContent("👋")}>
+                                            Wave 👋
+                                        </Button>
+                                    </div>
                                     {conversationStarters.length > 0 && (
                                         <div className="mt-4 grid gap-2 w-full max-w-sm">
                                             {conversationStarters.map((starter, i) => (
-                                                <Button key={i} variant="outline" size="sm" className="w-full text-wrap h-auto text-left justify-start p-3 rounded-2xl hover:bg-primary/5 transition-all" onClick={() => setNewMessageContent(starter)}>
+                                                <Button key={i} variant="outline" size="sm" className="w-full text-wrap h-auto text-left justify-start p-3 rounded-2xl hover:bg-primary/5 transition-all text-xs" onClick={() => setNewMessageContent(starter)}>
                                                     "{starter}"
                                                 </Button>
                                             ))}
@@ -637,44 +735,9 @@ function MessagesClient() {
                                     )}
                                 </div>
                             ) : (
-                            <div className="flex flex-col gap-4">
-                                {messages.map((msg, index) => {
-                                    const senderInfo = msg.senderId && activeConversation.participantInfo ? activeConversation.participantInfo[msg.senderId] : undefined;
-                                    const isCurrentUserSender = msg.senderId === currentUser?.id;
-                                    const isNextSameSender = messages[index + 1]?.senderId === msg.senderId;
-                                    
-                                    return (
-                                    <div key={msg.id} className={cn(
-                                        "flex items-end gap-2 max-w-[85%] sm:max-w-[70%]", 
-                                        isCurrentUserSender ? "self-end flex-row-reverse" : "self-start",
-                                        !isNextSameSender ? "mb-4" : "mb-0.5"
-                                    )}>
-                                        {!isCurrentUserSender && !isNextSameSender && senderInfo && (
-                                            <Avatar className="h-8 w-8 self-end flex-shrink-0 shadow-sm">
-                                                <AvatarImage src={senderInfo?.avatarUrl} data-ai-hint="profile person" />
-                                                <AvatarFallback className="bg-muted text-[10px] font-bold">{senderInfo?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                                            </Avatar>
-                                        )}
-                                        {(!isCurrentUserSender && isNextSameSender) && <div className="w-8" />}
-                                        <div className={cn(
-                                            "p-3.5 rounded-2xl shadow-sm text-sm whitespace-pre-line leading-relaxed", 
-                                            isCurrentUserSender 
-                                                ? "bg-primary text-primary-foreground rounded-br-none" 
-                                                : "bg-muted text-foreground rounded-bl-none"
-                                        )}>
-                                            {msg.content}
-                                            <div className={cn(
-                                                "text-[9px] font-bold uppercase tracking-tighter mt-1 opacity-60 flex items-center justify-end gap-1",
-                                                isCurrentUserSender ? "text-primary-foreground" : "text-muted-foreground"
-                                            )}>
-                                                {msg.timestamp?.toDate ? formatDistanceToNow(msg.timestamp.toDate(), { addSuffix: false }) : 'Now'}
-                                                {isCurrentUserSender && <CheckCheck className="h-3 w-3" />}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    );
-                                })}
-                            </div>
+                                <div className="flex flex-col gap-1">
+                                    {renderMessageList()}
+                                </div>
                             )}
                             <div ref={messagesEndRef} />
                         </div>
@@ -684,28 +747,28 @@ function MessagesClient() {
                         <div className="flex items-center gap-3">
                            <Tooltip>
                               <TooltipTrigger asChild>
-                                 <Button type="button" variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary"><Sparkles className="h-5 w-5" /></Button>
+                                 <Button type="button" variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors"><Sparkles className="h-5 w-5" /></Button>
                               </TooltipTrigger>
-                              <TooltipContent className="bg-primary text-primary-foreground font-bold">AI Reply Magic</TooltipContent>
+                              <TooltipContent className="bg-primary text-primary-foreground font-bold">AI Magic Replies</TooltipContent>
                            </Tooltip>
                            <div className="relative flex-1 group">
                               <Input 
                                 type="text" 
-                                placeholder="Write something amazing..." 
-                                className="flex-1 bg-background focus-visible:ring-primary/20 rounded-2xl px-5 pr-12 h-12 border-none shadow-inner" 
+                                placeholder="Message..." 
+                                className="flex-1 bg-background focus-visible:ring-primary/20 rounded-full px-5 pr-12 h-11 border-none shadow-inner" 
                                 value={newMessageContent} 
                                 onChange={(e) => setNewMessageContent(e.target.value)} 
                                 disabled={isSendingMessage} 
                                 onKeyDown={(e) => e.key === 'Enter' && !isSendingMessage && handleSendMessage()} 
                               />
                               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary" onClick={() => toast({title: "Visual selector coming soon!"})}><Smile className="h-5 w-5" /></Button>
+                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors" onClick={() => toast({title: "Coming soon!"})}><Smile className="h-5 w-5" /></Button>
                               </div>
                            </div>
                            <Button 
                             type="button" 
                             size="icon" 
-                            className="bg-primary hover:bg-primary/90 rounded-full h-12 w-12 flex-shrink-0 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95" 
+                            className="bg-primary hover:bg-primary/90 rounded-full h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95" 
                             disabled={isSendingMessage || !newMessageContent.trim()} 
                             onClick={handleSendMessage}
                            >
@@ -717,14 +780,14 @@ function MessagesClient() {
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-background/20 backdrop-blur-sm">
                         <div className="relative mb-8">
-                            <div className="absolute inset-0 bg-primary/10 rounded-full blur-2xl animate-pulse"></div>
-                            <MessageSquare className="h-24 w-24 text-primary/30 relative z-10" />
+                            <div className="absolute inset-0 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+                            <MessageSquare className="h-32 w-32 text-primary/30 relative z-10" />
                         </div>
                         <h2 className="text-3xl font-headline font-bold mb-3 tracking-tight">Your Direct Feed</h2>
-                        <p className="text-muted-foreground max-w-sm leading-relaxed">Select a thread from the sidebar to view your messages and reconnect with fellow writers.</p>
+                        <p className="text-muted-foreground max-w-sm leading-relaxed">Select a thread to start chatting with your fellow creators and readers.</p>
                         <DialogTrigger asChild>
-                            <Button className="mt-8 rounded-full px-8 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20">
-                                <Plus className="mr-2 h-5 w-5" /> Start a New Thread
+                            <Button className="mt-8 rounded-full px-10 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 transition-all hover:scale-105">
+                                <Plus className="mr-2 h-5 w-5" /> New Conversation
                             </Button>
                         </DialogTrigger>
                     </div>
@@ -735,7 +798,7 @@ function MessagesClient() {
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none rounded-3xl shadow-2xl">
             <DialogHeader className="p-6 bg-muted/30 border-b">
                 <DialogTitle className="text-2xl font-headline font-bold">New Thread</DialogTitle>
-                <DialogDescription className="text-sm">Connect with anyone on the platform by their unique handle.</DialogDescription>
+                <DialogDescription className="text-sm">Find someone by their handle to start a new chat.</DialogDescription>
             </DialogHeader>
             <div className="p-6 space-y-6">
                 <div className="relative">
@@ -744,9 +807,9 @@ function MessagesClient() {
                         id="search-username" 
                         value={searchUsername} 
                         onChange={(e) => setSearchUsername(e.target.value)}
-                        placeholder="Search by username..." 
+                        placeholder="Search handle (e.g. authorrafaelnv)" 
                         disabled={isCreatingConversation} 
-                        className="pl-10 h-12 rounded-2xl bg-muted/50 border-none"
+                        className="pl-10 h-12 rounded-2xl bg-muted/50 border-none focus-visible:ring-primary/30"
                     />
                     {isSearchingUsers && <div className="absolute right-3 top-1/2 -translate-y-1/2"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}
                 </div>
@@ -778,18 +841,18 @@ function MessagesClient() {
                         </div>
                     ) : searchUsername.trim().length > 0 && !isSearchingUsers ? (
                         <div className="py-10 text-center text-muted-foreground italic">
-                            No users found matching "@{searchUsername}"
+                            No creators found matching "@{searchUsername}"
                         </div>
                     ) : (
                         <div className="py-10 text-center text-muted-foreground flex flex-col items-center gap-3">
                             <Users className="h-10 w-10 opacity-20" />
-                            <p className="text-xs font-bold uppercase tracking-widest opacity-40">Search for contributors</p>
+                            <p className="text-xs font-bold uppercase tracking-widest opacity-40">Start typing to search...</p>
                         </div>
                     )}
                 </ScrollArea>
             </div>
             <DialogFooter className="p-4 bg-muted/20 border-t">
-                <DialogClose asChild><Button type="button" variant="outline" className="rounded-full px-6" disabled={isCreatingConversation}>Close</Button></DialogClose>
+                <DialogClose asChild><Button type="button" variant="outline" className="rounded-full px-6" disabled={isCreatingConversation}>Cancel</Button></DialogClose>
             </DialogFooter>
         </DialogContent>
         </Dialog>
@@ -821,13 +884,13 @@ export default function UnifiedInboxPage() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto space-y-6 pt-6">
+        <div className="max-w-7xl mx-auto space-y-6 pt-6 px-4 md:px-6">
              <Tabs defaultValue={defaultTab} className="w-full" onValueChange={handleTabChange}>
                 <div className="flex justify-center mb-6">
-                    <TabsList className="grid grid-cols-2 w-full max-w-[400px] h-12 bg-muted/50 rounded-full p-1 border shadow-sm">
+                    <TabsList className="grid grid-cols-2 w-full max-w-[400px] h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-sm">
                         <TabsTrigger value="messages" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
                             <MessageSquare className="h-4 w-4" /> 
-                            Threads
+                            Messages
                         </TabsTrigger>
                         <TabsTrigger value="notifications" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
                             <Bell className="h-4 w-4" /> 
