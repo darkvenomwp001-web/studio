@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -96,7 +95,7 @@ const ToolbarButton = React.memo(({ onClick, isActive, disabled, children, toolt
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          onClick();
+          if (onClick) onClick();
         }}
         disabled={disabled}
         className={cn(
