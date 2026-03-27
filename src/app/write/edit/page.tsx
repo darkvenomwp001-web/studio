@@ -47,6 +47,7 @@ import {
   AlertDialogTrigger 
 } from '@/components/ui/alert-dialog';
 import { useSearchParams, useRouter } from 'next/navigation';
+import NextImage from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -434,7 +435,7 @@ export default function WriteEditorPage() {
                 <div className="flex items-center gap-3 overflow-hidden">
                     <Link href={`/write/edit-details?storyId=${storyDetails.id}`} className="flex-shrink-0">
                         <div className="relative w-8 h-12 rounded overflow-hidden border shadow-sm hover:opacity-80 transition-opacity">
-                            <Image src={storyDetails.coverImageUrl || `https://picsum.photos/seed/${storyDetails.id}/80/120`} alt="" fill className="object-cover" />
+                            <NextImage src={storyDetails.coverImageUrl || `https://picsum.photos/seed/${storyDetails.id}/80/120`} alt="" fill className="object-cover" />
                         </div>
                     </Link>
                     <div className="min-w-0">
