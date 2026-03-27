@@ -45,7 +45,7 @@ service cloud.firestore {
       // App owners can update anything.
       // Regular users can update their own profile except protected fields.
       allow update: if isAppOwner()
-                    || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified']));
+                    || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified', 'role']));
 
       allow delete: if isAppOwner() && request.auth.uid != userId;
     }
@@ -98,7 +98,6 @@ service cloud.firestore {
                     || (isSignedIn() && resource.data.authorId == request.auth.uid)
                     || (resource.data.status == 'published' && resource.data.expiresAt > request.time);
       
-      // Allow any signed-in user to create statuses
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.authorId;
       allow update, delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId));
     }
@@ -127,6 +126,8 @@ service cloud.firestore {
     match /announcements/{announcementId} {
       allow read: if true;
       allow create: if isWriter() && isOwner(request.resource.data.author.id);
+      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner()) 
+                    && request.resource.data.author.id == resource.data.author.id;
       allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner());
     }
 
@@ -165,7 +166,7 @@ service cloud.firestore {
     match /polls/{pollId} {
       allow read: if true;
       allow create: if isWriter();
-      allow update: if isSignedIn(); 
+      allow update: if isSignedIn() && (isAppOwner() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['options'])); 
       allow delete: if isAppOwner() || isOwner(resource.data.authorId);
     }
   }
