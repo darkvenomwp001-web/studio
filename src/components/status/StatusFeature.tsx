@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate, TextOverlayStyle, Song, Story, ThreadPost } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, getDocs, limit, setDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -354,22 +354,24 @@ export default function StatusFeature() {
             return;
         }
 
-        const postData = {
+        // Build post data dynamically to avoid 'undefined' field errors in Firestore
+        const postData: any = {
             author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
             content: data.note || '',
-            type: 'original' as const,
-            imageUrl: data.mediaUrl || undefined,
-            storyId: data.sharedStoryId || undefined,
-            storyTitle: data.storyTitle || undefined,
-            storyCoverUrl: data.storyCoverUrl || undefined,
-            songUrl: data.spotifyUrl || undefined,
-            songLyricSnippet: data.songLyricSnippet || undefined,
+            type: 'original',
             reactionsCount: 0,
             commentsCount: 0,
             repostCount: 0,
             isPinned: false,
             timestamp: serverTimestamp(),
         };
+
+        if (data.mediaUrl) postData.imageUrl = data.mediaUrl;
+        if (data.sharedStoryId) postData.storyId = data.sharedStoryId;
+        if (data.storyTitle) postData.storyTitle = data.storyTitle;
+        if (data.storyCoverUrl) postData.storyCoverUrl = data.storyCoverUrl;
+        if (data.spotifyUrl) postData.songUrl = data.spotifyUrl;
+        if (data.songLyricSnippet) postData.songLyricSnippet = data.songLyricSnippet;
 
         const postColRef = collection(db, 'feedPosts');
         addDoc(postColRef, postData)
@@ -437,10 +439,11 @@ export default function StatusFeature() {
       const data: Record<string, any> = {
           spotifyUrl: `https://open.spotify.com/track/${selectedSong.id}`,
           note: noteContent.trim() || '',
-          songLyricSnippet: songLyricSnippet || '',
           vibeTags: vibeTags.split(',').map(t => t.trim()).filter(Boolean),
-          dynamicBgColor,
       };
+      if (songLyricSnippet) data.songLyricSnippet = songLyricSnippet;
+      if (dynamicBgColor) data.dynamicBgColor = dynamicBgColor;
+
       await handleSubmit(postDestination, status, data);
   }
 
@@ -525,8 +528,9 @@ export default function StatusFeature() {
       sharedStoryId: attachedStory.id,
       note: noteContent.trim() || '',
       storyTitle: attachedStory.title,
-      storyCoverUrl: attachedStory.coverImageUrl,
     };
+    if (attachedStory.coverImageUrl) data.storyCoverUrl = attachedStory.coverImageUrl;
+
     await handleSubmit(postDestination, status, data);
   };
   

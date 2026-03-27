@@ -9,13 +9,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, MoreHorizontal, EyeOff, Loader2, Edit, Pin, Share2, Link as LinkIcon, Trash2, Repeat, X } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '../shared/SpotifyPlayer';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import ThreadPostComments from './ThreadPostComments';
 import ReactionButton from './ReactionButton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
@@ -69,6 +69,21 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
           if (!originalPostDoc.exists()) throw "Original post not found.";
 
           const originalData = originalPostDoc.data() as ThreadPost;
+          
+          // Build repost data dynamically to avoid 'undefined' field errors
+          const repostOriginalData: any = {
+              id: originalPostDoc.id,
+              author: originalData.author,
+              content: originalData.content || '',
+              timestamp: originalData.timestamp,
+          };
+
+          if (originalData.storyId) repostOriginalData.storyId = originalData.storyId;
+          if (originalData.storyTitle) repostOriginalData.storyTitle = originalData.storyTitle;
+          if (originalData.storyCoverUrl) repostOriginalData.storyCoverUrl = originalData.storyCoverUrl;
+          if (originalData.imageUrl) repostOriginalData.imageUrl = originalData.imageUrl;
+          if (originalData.songUrl) repostOriginalData.songUrl = originalData.songUrl;
+
           const newPostData = {
               author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
               content: '',
@@ -77,17 +92,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
               commentsCount: 0,
               reactionsCount: 0,
               repostCount: 0,
-              originalPost: {
-                  id: originalPostDoc.id,
-                  author: originalData.author,
-                  content: originalData.content,
-                  timestamp: originalData.timestamp,
-                  storyId: originalData.storyId,
-                  storyTitle: originalData.storyTitle,
-                  storyCoverUrl: originalData.storyCoverUrl,
-                  imageUrl: originalData.imageUrl,
-                  songUrl: originalData.songUrl,
-              },
+              originalPost: repostOriginalData,
           };
 
           transaction.set(newPostRef, newPostData);
@@ -285,6 +290,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
           <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
             <DialogHeader className="p-4 border-b bg-muted/30">
               <DialogTitle className="text-lg font-headline">Conversation</DialogTitle>
+              <DialogDescription className="sr-only">Discussion thread for the selected post.</DialogDescription>
             </DialogHeader>
             <div className="p-4">
                 <ThreadPostComments postId={post.id} />

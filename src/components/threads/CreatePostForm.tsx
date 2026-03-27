@@ -103,22 +103,36 @@ export default function CreatePostForm() {
             }
         }
         
-        const postData = {
+        // Build post data dynamically to avoid 'undefined' field errors in Firestore
+        const postData: any = {
             author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
             content: content.trim(),
-            type: 'original' as const,
-            storyId: attachedStory?.id || undefined,
-            storyTitle: attachedStory?.title || undefined,
-            storyCoverUrl: attachedStory?.coverImageUrl || undefined,
-            imageUrl: imageUrl || undefined,
-            songUrl: attachedSong ? `https://open.spotify.com/track/${attachedSong.id}` : undefined,
-            songLyricSnippet: lyricSnippet || undefined,
+            type: 'original',
             reactionsCount: 0,
             commentsCount: 0,
             repostCount: 0,
             isPinned: false,
             timestamp: serverTimestamp(),
         };
+
+        if (attachedStory) {
+            postData.storyId = attachedStory.id;
+            postData.storyTitle = attachedStory.title;
+            if (attachedStory.coverImageUrl) {
+                postData.storyCoverUrl = attachedStory.coverImageUrl;
+            }
+        }
+
+        if (imageUrl) {
+            postData.imageUrl = imageUrl;
+        }
+
+        if (attachedSong) {
+            postData.songUrl = `https://open.spotify.com/track/${attachedSong.id}`;
+            if (lyricSnippet) {
+                postData.songLyricSnippet = lyricSnippet;
+            }
+        }
 
         const postCollectionRef = collection(db, 'feedPosts');
         addDoc(postCollectionRef, postData)
@@ -203,7 +217,7 @@ export default function CreatePostForm() {
                       </DialogTrigger>
                   </div>
                   <Button onClick={handleSubmit} disabled={isSubmitting || (!content.trim() && !hasAttachment)}>
-                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                       Post to Feed
                   </Button>
               </CardFooter>
