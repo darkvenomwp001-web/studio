@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -70,6 +71,45 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+// --- Global Sub-components Moved Outside to Prevent Remounting Issues ---
+
+interface ToolbarButtonProps {
+  onClick: () => void;
+  isActive?: boolean;
+  disabled?: boolean;
+  children: React.ReactNode;
+  tooltip: string;
+}
+
+const ToolbarButton = React.memo(({ onClick, isActive, disabled, children, tooltip }: ToolbarButtonProps) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick();
+        }}
+        disabled={disabled}
+        className={cn(
+          "h-8 w-8 p-0 transition-all",
+          isActive ? "bg-primary/10 text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        {children}
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent className="text-[10px] font-bold uppercase tracking-widest">
+      {tooltip}
+    </TooltipContent>
+  </Tooltip>
+));
+
+ToolbarButton.displayName = 'ToolbarButton';
+
 const VersionHistoryManager = {
   getKey: (storyId: string, chapterId: string) => `versionHistory-${storyId}-${chapterId}`,
   getVersions: (storyId: string, chapterId: string): Array<{ timestamp: number; content: string; chapterTitle: string }> => {
@@ -84,6 +124,8 @@ const VersionHistoryManager = {
     sessionStorage.setItem(VersionHistoryManager.getKey(storyId, chapterId), JSON.stringify(versions.slice(0, 20)));
   },
 };
+
+// --- Main Page Component ---
 
 export default function WriteEditorPage() {
   const searchParams = useSearchParams();
@@ -111,7 +153,7 @@ export default function WriteEditorPage() {
             class: 'prose dark:prose-invert prose-sm sm:prose-base lg:prose-lg xl:prose-2xl m-5 focus:outline-none min-h-[600px] flex-grow p-8 text-base rounded-lg border bg-card shadow-inner selection:bg-primary/20',
         },
     },
-    onUpdate: ({ editor }) => {
+    onUpdate: () => {
         setAutoSaveStatus('Typing');
     },
   });
@@ -185,12 +227,7 @@ export default function WriteEditorPage() {
           router.push('/write'); 
           setIsLoading(false);
         }
-      }, async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'stories/' + queryStoryId,
-            operation: 'get',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+      }, (error) => {
         setIsLoading(false);
       });
     } else {
@@ -385,26 +422,6 @@ export default function WriteEditorPage() {
   if (!storyDetails || !currentChapter) {
     return <div className="text-center py-10">Error loading story or chapter. Please try again.</div>;
   }
-
-  const ToolbarButton = ({ onClick, isActive, disabled, children, tooltip }: { onClick: () => void, isActive?: boolean, disabled?: boolean, children: React.ReactNode, tooltip: string }) => (
-    <Tooltip>
-        <TooltipTrigger asChild>
-            <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => { e.preventDefault(); onClick(); }}
-                disabled={disabled}
-                className={cn(
-                    "h-8 w-8 p-0 transition-all",
-                    isActive ? "bg-primary/10 text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-            >
-                {children}
-            </Button>
-        </TooltipTrigger>
-        <TooltipContent className="text-[10px] font-bold uppercase tracking-widest">{tooltip}</TooltipContent>
-    </Tooltip>
-  );
 
   if (isDistractionFree) {
     return (
@@ -675,7 +692,7 @@ export default function WriteEditorPage() {
                 </AlertDialogAction>
             </div>
             <ScrollArea className="max-h-[70vh] bg-background">
-                <div className="prose dark:prose-invert prose-reading p-8 mx-auto" dangerouslySetInnerHTML={{ __html: editor.getHTML() }} />
+                <div className="prose dark:prose-invert prose-reading p-8 mx-auto" dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
             </ScrollArea>
             <div className="p-4 bg-muted/20 border-t flex justify-end">
                 <AlertDialogCancel className="rounded-full px-8 bg-background">Exit Preview</AlertDialogCancel>
