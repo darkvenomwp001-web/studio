@@ -7,13 +7,13 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Inbox as InboxIcon, Send, Search, Smile, Sparkles, ArrowLeft, MoreHorizontal, CheckCheck, Plus, Users, Phone, Video, Info, Check } from 'lucide-react';
+import { Bell, MessageSquare, Loader2, UserPlus, BookOpenText, Mail, MailCheck, Search, Sparkles, ArrowLeft, CheckCheck, Plus, Users, Phone, Video, Info, Smile } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { db, rtdb } from '@/lib/firebase';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, set, remove } from 'firebase/database';
 import {
   collection,
   query,
@@ -298,6 +298,7 @@ function MessagesClient() {
 
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const [userStatuses, setUserStatuses] = useState<Record<string, 'online' | 'offline'>>({});
+  const [otherUserTyping, setOtherUserTyping] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -318,6 +319,22 @@ function MessagesClient() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Listen for other person typing
+  useEffect(() => {
+    if (!activeConversation || !currentUser) return;
+    const otherId = activeConversation.participantIds.find(id => id !== currentUser.id);
+    if (!otherId) return;
+
+    const typingRef = ref(rtdb, `typing/${activeConversation.id}/${otherId}`);
+    const unsubscribe = onValue(typingRef, (snapshot) => {
+        setOtherUserTyping(!!snapshot.val());
+    });
+    return () => {
+        unsubscribe();
+        setOtherUserTyping(false);
+    }
+  }, [activeConversation, currentUser]);
 
   useEffect(() => {
     if (!currentUser?.id) {
@@ -381,17 +398,22 @@ function MessagesClient() {
     setMobileView('chat');
   };
 
-  const handleSendMessage = async () => {
-    if (!currentUser || !activeConversation || !newMessageContent.trim()) return;
+  const handleSendMessage = async (contentInput?: string) => {
+    const finalContent = contentInput || newMessageContent;
+    if (!currentUser || !activeConversation || !finalContent.trim()) return;
 
     setIsSendingMessage(true);
     const messageData = {
       senderId: currentUser.id,
-      content: newMessageContent.trim(),
+      content: finalContent.trim(),
       timestamp: serverTimestamp(),
     };
 
     try {
+      // Clear typing status when message is sent
+      const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
+      remove(typingRef);
+
       const messageRef = await addDoc(collection(db, 'conversations', activeConversation.id, 'messages'), messageData);
       await updateDoc(doc(db, 'conversations', activeConversation.id), {
         lastMessage: {
@@ -466,19 +488,18 @@ function MessagesClient() {
 
     try {
       const sortedParticipantIds = [currentUser.id, targetUser.id].sort();
-      const existingConvQuery = query(
-        collection(db, 'conversations'), where('participantIds', '==', sortedParticipantIds), limit(1) 
-      );
-      const existingConvSnapshot = await getDocs(existingConvQuery);
+      // For 1-on-1 chats, we use a deterministic document ID: "uid1_uid2"
+      const deterministicId = sortedParticipantIds.join('_');
+      const convRef = doc(db, 'conversations', deterministicId);
+      const convSnap = await getDoc(convRef);
 
-      if (!existingConvSnapshot.empty) {
-        const existingConv = { id: existingConvSnapshot.docs[0].id, ...existingConvSnapshot.docs[0].data() } as Conversation;
+      if (convSnap.exists()) {
+        const existingConv = { id: convSnap.id, ...convSnap.data() } as Conversation;
         handleSelectConversation(existingConv);
         setIsNewConversationDialogOpen(false);
         setSearchUsername(''); 
         setSearchedUsers([]);
       } else {
-        const newConversationRef = doc(collection(db, 'conversations'));
         const currentUserSummary: UserSummary = {
             id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName || currentUser.username, avatarUrl: currentUser.avatarUrl,
         };
@@ -489,9 +510,9 @@ function MessagesClient() {
           lastMessage: { id: '', content: 'Conversation started.', senderId: '', timestamp: serverTimestamp() },
           isGroup: false,
         };
-        await setDoc(newConversationRef, newConversationData);
-        const newConvSnap = await getDoc(newConversationRef);
-        if (newConvSnap.exists()) handleSelectConversation({id: newConvSnap.id, ...newConvSnap.data()} as Conversation);
+        
+        await setDoc(convRef, newConversationData);
+        handleSelectConversation({id: deterministicId, ...newConversationData} as Conversation);
         setIsNewConversationDialogOpen(false);
         setSearchUsername('');
         setSearchedUsers([]);
@@ -520,6 +541,18 @@ function MessagesClient() {
             setConversationStarters(result.starters);
         }
     });
+  };
+
+  const handleInputChange = (val: string) => {
+    setNewMessageContent(val);
+    if (!activeConversation || !currentUser) return;
+    
+    const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
+    if (val.trim().length > 0) {
+        set(typingRef, true);
+    } else {
+        remove(typingRef);
+    }
   };
 
 
@@ -565,7 +598,7 @@ function MessagesClient() {
 
     const renderMessageStatus = (msg: Message, isLast: boolean) => {
         if (msg.senderId !== currentUser?.id || !isLast) return null;
-        return <div className="text-[10px] text-muted-foreground/60 mt-1 self-end mr-1 flex items-center gap-1">Sent <CheckCheck className="h-2.5 w-2.5" /></div>;
+        return <div className="text-[10px] text-muted-foreground/60 mt-1 self-end mr-1 flex items-center gap-1 animate-in fade-in duration-500">Sent <CheckCheck className="h-2.5 w-2.5 text-primary" /></div>;
     };
 
     const renderMessageList = () => {
@@ -764,9 +797,13 @@ function MessagesClient() {
                                 <h3 className="font-bold text-base truncate">
                                     {getOtherParticipant(activeConversation)?.displayName || `@${getOtherParticipant(activeConversation)?.username}` || 'Unknown User'}
                                 </h3>
-                                {userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' && (
+                                {userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? (
                                     <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                                        Online
+                                        Online Now
+                                    </p>
+                                ) : (
+                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+                                        Away
                                     </p>
                                 )}
                             </div>
@@ -805,14 +842,14 @@ function MessagesClient() {
                                             {isGeneratingStarters ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Sparkles className="h-4 w-4 mr-2" />}
                                             Get AI Icebreakers
                                         </Button>
-                                        <Button variant="outline" className="rounded-full" onClick={() => setNewMessageContent("👋")}>
+                                        <Button variant="outline" className="rounded-full" onClick={() => handleSendMessage("👋")}>
                                             Wave 👋
                                         </Button>
                                     </div>
                                     {conversationStarters.length > 0 && (
                                         <div className="mt-4 grid gap-2 w-full max-w-sm">
                                             {conversationStarters.map((starter, i) => (
-                                                <Button key={i} variant="outline" size="sm" className="w-full text-wrap h-auto text-left justify-start p-3 rounded-2xl hover:bg-primary/5 transition-all text-xs" onClick={() => setNewMessageContent(starter)}>
+                                                <Button key={i} variant="outline" size="sm" className="w-full text-wrap h-auto text-left justify-start p-3 rounded-2xl hover:bg-primary/5 transition-all text-xs" onClick={() => handleSendMessage(starter)}>
                                                     "{starter}"
                                                 </Button>
                                             ))}
@@ -820,45 +857,73 @@ function MessagesClient() {
                                     )}
                                 </div>
                             ) : (
-                                <div className="flex flex-col gap-1">
-                                    {renderMessageList()}
-                                </div>
+                                <>
+                                    <div className="flex flex-col gap-1">
+                                        {renderMessageList()}
+                                    </div>
+                                    {otherUserTyping && (
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest animate-pulse ml-10 mb-4">
+                                            <div className="flex gap-1">
+                                                <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                                <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                                <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                            </div>
+                                            Typing...
+                                        </div>
+                                    )}
+                                </>
                             )}
                             <div ref={messagesEndRef} />
                         </div>
                     </ScrollArea>
 
                     <footer className="p-4 border-t bg-card/50 backdrop-blur-md">
-                        <div className="flex items-center gap-3">
-                           <Tooltip>
-                              <TooltipTrigger asChild>
-                                 <Button type="button" variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors"><Sparkles className="h-5 w-5" /></Button>
-                              </TooltipTrigger>
-                              <TooltipContent className="bg-primary text-primary-foreground font-bold">AI Magic Replies</TooltipContent>
-                           </Tooltip>
-                           <div className="relative flex-1 group">
-                              <Input 
-                                type="text" 
-                                placeholder="Message..." 
-                                className="flex-1 bg-background focus-visible:ring-primary/20 rounded-full px-5 pr-12 h-11 border-none shadow-inner" 
-                                value={newMessageContent} 
-                                onChange={(e) => setNewMessageContent(e.target.value)} 
-                                disabled={isSendingMessage} 
-                                onKeyDown={(e) => e.key === 'Enter' && !isSendingMessage && handleSendMessage()} 
-                              />
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors" onClick={() => toast({title: "Coming soon!"})}><Smile className="h-5 w-5" /></Button>
-                              </div>
-                           </div>
-                           <Button 
-                            type="button" 
-                            size="icon" 
-                            className="bg-primary hover:bg-primary/90 rounded-full h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95" 
-                            disabled={isSendingMessage || !newMessageContent.trim()} 
-                            onClick={handleSendMessage}
-                           >
-                              {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-                           </Button>
+                        <div className="flex flex-col gap-3">
+                            {conversationStarters.length > 0 && messages.length > 0 && (
+                                <ScrollArea className="w-full whitespace-nowrap">
+                                    <div className="flex gap-2 pb-2">
+                                        {conversationStarters.map((starter, i) => (
+                                            <Button key={i} variant="outline" size="sm" className="rounded-full h-8 text-[10px] uppercase font-bold border-primary/20 bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all px-4" onClick={() => handleSendMessage(starter)}>
+                                                {starter}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                    <ScrollBar orientation="horizontal" />
+                                </ScrollArea>
+                            )}
+                            <div className="flex items-center gap-3">
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button type="button" variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors" onClick={handleGenerateStarters} disabled={isGeneratingStarters}>
+                                            {isGeneratingStarters ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-primary text-primary-foreground font-bold">AI Reply Suggestions</TooltipContent>
+                                </Tooltip>
+                                <div className="relative flex-1 group">
+                                    <Input 
+                                        type="text" 
+                                        placeholder="Type a message..." 
+                                        className="flex-1 bg-background focus-visible:ring-primary/20 rounded-full px-5 pr-12 h-11 border-none shadow-inner" 
+                                        value={newMessageContent} 
+                                        onChange={(e) => handleInputChange(e.target.value)} 
+                                        disabled={isSendingMessage} 
+                                        onKeyDown={(e) => e.key === 'Enter' && !isSendingMessage && handleSendMessage()} 
+                                    />
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors" onClick={() => toast({title: "Coming soon!"})}><Smile className="h-5 w-5" /></Button>
+                                    </div>
+                                </div>
+                                <Button 
+                                    type="button" 
+                                    size="icon" 
+                                    className="bg-primary hover:bg-primary/90 rounded-full h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95" 
+                                    disabled={isSendingMessage || !newMessageContent.trim()} 
+                                    onClick={() => handleSendMessage()}
+                                >
+                                    {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                                </Button>
+                            </div>
                         </div>
                     </footer>
                     </>
