@@ -154,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const firestoreUserData = userSnap.data() as AppUser;
 
             // Identity Unification: Check if user is an owner
-            const isOwner = OWNER_HANDLES.includes(firestoreUserData.username);
+            const isOwner = OWNER_HANDLES.includes(firestoreUserData.username || '');
             if (isOwner && (!firestoreUserData.isVerified || firestoreUserData.role !== 'writer')) {
                 updateDoc(userRef, { 
                     isVerified: true, 
@@ -522,7 +522,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
-    batch.update(doc(db, 'users', targetUserId), { followersCount: { '__op': 'increment', 'n': 1 } as any });
+    batch.update(doc(db, 'users', targetUserId), { followersCount: increment(1) });
     batch.commit().catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
             path: 'users',
@@ -537,7 +537,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
-    batch.update(doc(db, 'users', targetUserId), { followersCount: { '__op': 'increment', 'n': -1 } as any });
+    batch.update(doc(db, 'users', targetUserId), { followersCount: increment(-1) });
     batch.commit().catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
             path: 'users',

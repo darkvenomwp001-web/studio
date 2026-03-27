@@ -14,13 +14,12 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
-    function getUsername(userId) {
-        return get(/databases/$(database)/documents/users/$(userId)).data.username;
-    }
-    
     // Unified Owner Check - Recognizes both creator handles
+    // Uses get() for global checks, but we supplement this in the users match for efficiency
     function isAppOwner() {
-        return isSignedIn() && (getUsername(request.auth.uid) == 'authorrafaelnv' || getUsername(request.auth.uid) == 'd4rkv3nom');
+        return isSignedIn() && 
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username in ['authorrafaelnv', 'd4rkv3nom'];
     }
     
     function getRole(userId) {
@@ -43,11 +42,11 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn() && isOwner(userId);
 
-      // App owners have full control. Users can update their own non-protected fields.
-      allow update: if isAppOwner() || (
-        isSignedIn() && isOwner(userId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isBanned', 'isVerified'])
-      );
+      // App owners (by handle) can update anything on their own doc.
+      // Regular users can update their own profile except protected fields.
+      allow update: if (isSignedIn() && isOwner(userId) && (resource.data.username in ['authorrafaelnv', 'd4rkv3nom'] || request.resource.data.username in ['authorrafaelnv', 'd4rkv3nom']))
+                    || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified']))
+                    || isAppOwner(); 
 
       allow delete: if isAppOwner() && request.auth.uid != userId;
     }
@@ -126,7 +125,7 @@ service cloud.firestore {
     match /announcements/{announcementId} {
       allow read: if true;
       allow create: if isWriter() && isOwner(request.resource.data.author.id);
-      allow update, delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner());
+      allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner());
     }
 
     // Community Feed Posts
@@ -144,7 +143,7 @@ service cloud.firestore {
       match /comments/{commentId} {
         allow read: if true;
         allow create: if isSignedIn() && isOwner(request.resource.data.user.id);
-        allow update, delete: if isSignedIn() && (isOwner(resource.data.user.id) || isAppOwner());
+        allow update, delete: if isSignedIn() && (isOwner(request.resource.data.user.id) || isAppOwner());
       }
       
       match /reactions/{userId} {
