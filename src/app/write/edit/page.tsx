@@ -4,11 +4,48 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Save, History, EyeOff, BookOpen, CheckCircle, AlertTriangle, Maximize, Minimize, Send, FileText, Settings, Loader2, Eye, Undo, Redo, Bold, Italic, Underline, Highlighter, Snowflake } from 'lucide-react';
+import { 
+  Save, 
+  History, 
+  EyeOff, 
+  BookOpen, 
+  CheckCircle, 
+  AlertTriangle, 
+  Maximize, 
+  Minimize, 
+  Send, 
+  FileText, 
+  Settings, 
+  Loader2, 
+  Eye, 
+  Undo, 
+  Redo, 
+  Bold, 
+  Italic, 
+  Underline, 
+  Highlighter, 
+  Snowflake,
+  Type,
+  List,
+  ListOrdered,
+  Quote,
+  X,
+  Plus
+} from 'lucide-react';
 import StoryCompendium from '@/components/writing/StoryCompendium';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger 
+} from '@/components/ui/alert-dialog';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,6 +67,7 @@ import TiptapHighlight from '@tiptap/extension-highlight'
 import CharacterCount from '@tiptap/extension-character-count'
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const VersionHistoryManager = {
   getKey: (storyId: string, chapterId: string) => `versionHistory-${storyId}-${chapterId}`,
@@ -46,7 +84,6 @@ const VersionHistoryManager = {
   },
 };
 
-
 export default function WriteEditorPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -58,7 +95,6 @@ export default function WriteEditorPage() {
 
   const [storyDetails, setStoryDetails] = useState<Story | null>(null); 
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
-
   const [chapterTitle, setChapterTitle] = useState('');
   
   const editor = useEditor({
@@ -71,7 +107,7 @@ export default function WriteEditorPage() {
     content: '',
     editorProps: {
         attributes: {
-            class: 'prose dark:prose-invert prose-sm sm:prose-base lg:prose-lg xl:prose-2xl m-5 focus:outline-none min-h-[400px] flex-grow p-4 text-base rounded-md shadow-sm resize-none bg-card',
+            class: 'prose dark:prose-invert prose-sm sm:prose-base lg:prose-lg xl:prose-2xl m-5 focus:outline-none min-h-[600px] flex-grow p-8 text-base rounded-lg border bg-card shadow-inner selection:bg-primary/20',
         },
     },
     onUpdate: ({ editor }) => {
@@ -86,7 +122,6 @@ export default function WriteEditorPage() {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-
 
   useEffect(() => {
     if (authLoading) {
@@ -168,7 +203,6 @@ export default function WriteEditorPage() {
     };
   }, [queryStoryId, queryChapterId, user, router, toast, authLoading, editor]);
 
-
   useEffect(() => {
     if(!editor || !editor.storage.characterCount) return;
     setWordCount(editor.storage.characterCount.words());
@@ -216,10 +250,9 @@ export default function WriteEditorPage() {
         setAutoSaveStatus('Error');
       });
     
-    // Proceed optimistically
     setCurrentChapter(updatedChapter);
     setAutoSaveStatus('Saved');
-    if (showToast) toast({ title: "Draft Saved!", description: "Your chapter changes have been saved." });
+    if (showToast) toast({ title: "Draft Saved!" });
 
   }, [storyDetails, currentChapter, user, chapterTitle, editor, toast]);
 
@@ -300,12 +333,10 @@ export default function WriteEditorPage() {
         setAutoSaveStatus('Error');
       });
     
-    // Proceed optimistically
     setCurrentChapter(updatedChapterData);
     setAutoSaveStatus('Saved');
     toast({ title: "Chapter Published!", description: `Chapter "${chapterTitle}" is now live.` });
   };
-
 
   const handleToggleFullScreen = () => {
     if (!document.fullscreenElement) {
@@ -354,6 +385,26 @@ export default function WriteEditorPage() {
     return <div className="text-center py-10">Error loading story or chapter. Please try again.</div>;
   }
 
+  const ToolbarButton = ({ onClick, isActive, disabled, children, tooltip }: { onClick: () => void, isActive?: boolean, disabled?: boolean, children: React.ReactNode, tooltip: string }) => (
+    <Tooltip>
+        <TooltipTrigger asChild>
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => { e.preventDefault(); onClick(); }}
+                disabled={disabled}
+                className={cn(
+                    "h-8 w-8 p-0 transition-all",
+                    isActive ? "bg-primary/10 text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+            >
+                {children}
+            </Button>
+        </TooltipTrigger>
+        <TooltipContent className="text-[10px] font-bold uppercase tracking-widest">{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+
   if (isDistractionFree) {
     return (
       <div className="fixed inset-0 bg-background z-[100] p-4 sm:p-8 flex flex-col items-center">
@@ -374,102 +425,204 @@ export default function WriteEditorPage() {
   }
 
   return (
+    <TooltipProvider delayDuration={300}>
     <AlertDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
       <div className={`flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-10rem)] ${isFullScreen ? 'fixed inset-0 bg-background z-[99] p-4' : ''}`}>
         <div className="flex-1 flex flex-col">
-          <header className="mb-4 p-4 bg-card rounded-lg shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-                <h1 className="text-xl font-headline text-muted-foreground truncate">
-                    Editing: <span className="text-primary font-semibold">{storyDetails.title}</span>
-                </h1>
-                <div className="flex items-center gap-2">
-                    <div className={cn("flex items-center gap-1 text-xs", autoSaveStatus === 'Saved' ? 'text-green-600' : autoSaveStatus === 'Saving...' || autoSaveStatus === 'Typing' ? 'text-yellow-600' :  autoSaveStatus === 'Error' ? 'text-red-600' : 'text-muted-foreground')}>
-                        {autoSaveStatus === 'Saved' && <CheckCircle className="h-3 w-3" />}
-                        {(autoSaveStatus === 'Saving...' || autoSaveStatus === 'Typing') && <Loader2 className="h-3 w-3 animate-spin" />}
-                        {autoSaveStatus === 'Error' && <AlertTriangle className="h-3 w-3" />}
-                        {autoSaveStatus !== 'Saving...' && autoSaveStatus !== 'Saved' && autoSaveStatus !== 'Error' && autoSaveStatus !== 'Typing' && <FileText className="h-3 w-3" />}
-                        {autoSaveStatus}
+          <header className="mb-4 space-y-4">
+            <div className="flex justify-between items-center bg-card/50 backdrop-blur-sm p-3 rounded-xl border border-border/40 shadow-sm">
+                <div className="flex items-center gap-3 overflow-hidden">
+                    <Link href={`/write/edit-details?storyId=${storyDetails.id}`} className="flex-shrink-0">
+                        <div className="relative w-8 h-12 rounded overflow-hidden border shadow-sm hover:opacity-80 transition-opacity">
+                            <Image src={storyDetails.coverImageUrl || `https://picsum.photos/seed/${storyDetails.id}/80/120`} alt="" fill className="object-cover" />
+                        </div>
+                    </Link>
+                    <div className="min-w-0">
+                        <h1 className="text-sm font-bold text-foreground truncate">{storyDetails.title}</h1>
+                        <div className={cn("flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest", autoSaveStatus === 'Saved' ? 'text-green-600' : (autoSaveStatus === 'Saving...' || autoSaveStatus === 'Typing' ? 'text-yellow-600' : 'text-muted-foreground'))}>
+                            {autoSaveStatus === 'Saved' ? <CheckCircle className="h-2.5 w-2.5" /> : (autoSaveStatus === 'Error' ? <AlertTriangle className="h-2.5 w-2.5" /> : <div className="h-2.5 w-2.5 rounded-full bg-current animate-pulse" />)}
+                            {autoSaveStatus}
+                        </div>
                     </div>
+                </div>
+                <div className="flex items-center gap-2">
                     <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
-                        <Button variant="ghost" size="icon" title="Manage Story Details">
-                            <Settings className="h-5 w-5" />
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" title="Story Settings">
+                            <Settings className="h-4 w-4" />
                         </Button>
                     </Link>
                 </div>
             </div>
-            <Input
-              type="text"
-              value={chapterTitle}
-              onChange={(e) => setChapterTitle(e.target.value)}
-              placeholder="Chapter Title"
-              className="text-2xl font-semibold h-12 focus-visible:ring-primary border-0 shadow-none px-2"
-            />
-             <div className="p-2 mt-2 bg-muted/50 rounded-md flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" title="Undo" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}><Undo className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" title="Redo" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}><Redo className="h-4 w-4" /></Button>
-                     <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="ghost" size="icon" title="Format Text"><Bold className="h-4 w-4" /></Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-fit p-1">
-                           <div className="flex items-center gap-1">
-                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="h-4 w-4" /></Button>
-                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="h-4 w-4" /></Button>
-                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleUnderline().run()}><Underline className="h-4 w-4" /></Button>
-                           </div>
-                        </PopoverContent>
-                    </Popover>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                             <Button variant="ghost" size="icon" title="Highlight Text"><Highlighter className="h-4 w-4" /></Button>
-                        </PopoverTrigger>
-                         <PopoverContent className="w-fit p-1">
-                           <div className="flex items-center gap-1">
-                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()}><Highlighter className="h-4 w-4 text-yellow-400" /></Button>
-                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#6ee7b7' }).run()}><Highlighter className="h-4 w-4 text-emerald-400" /></Button>
-                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHighlight({ color: '#f87171' }).run()}><Highlighter className="h-4 w-4 text-red-500" /></Button>
-                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().unsetHighlight().run()}>x</Button>
-                           </div>
-                        </PopoverContent>
-                    </Popover>
-                </div>
-                 <div className="flex items-center gap-1">
-                    {versionHistoryLink ? (
-                      <Link href={versionHistoryLink} passHref>
-                        <Button variant="ghost" size="icon" title="Version History"><History className="h-4 w-4" /></Button>
-                      </Link>
-                    ) : (
-                      <Button variant="ghost" size="icon" title="Version History" disabled><History className="h-4 w-4" /></Button>
-                    )}
-                     <AlertDialogTrigger asChild>
-                         <Button variant="ghost" size="icon" title="Preview Chapter"><Eye className="h-4 w-4" /></Button>
-                     </AlertDialogTrigger>
+
+            <div className="space-y-2">
+                <Input
+                    type="text"
+                    value={chapterTitle}
+                    onChange={(e) => setChapterTitle(e.target.value)}
+                    placeholder="Chapter Title"
+                    className="text-3xl font-headline font-bold h-auto py-2 focus-visible:ring-0 border-0 bg-transparent shadow-none px-0 placeholder:text-muted-foreground/30"
+                />
+                
+                {/* Modern Improved Toolbar Ribbon */}
+                <div className="p-1 px-2 bg-background border rounded-xl flex items-center justify-between shadow-sm sticky top-0 z-20">
+                    <div className="flex items-center">
+                        {/* History Tools */}
+                        <div className="flex items-center mr-2 border-r border-border/60 pr-2 gap-0.5">
+                            <ToolbarButton 
+                                onClick={() => editor.chain().focus().undo().run()} 
+                                disabled={!editor.can().undo()}
+                                tooltip="Undo"
+                            >
+                                <Undo className="h-4 w-4" />
+                            </ToolbarButton>
+                            <ToolbarButton 
+                                onClick={() => editor.chain().focus().redo().run()} 
+                                disabled={!editor.can().redo()}
+                                tooltip="Redo"
+                            >
+                                <Redo className="h-4 w-4" />
+                            </ToolbarButton>
+                        </div>
+
+                        {/* Typography Tools */}
+                        <div className="flex items-center mr-2 border-r border-border/60 pr-2 gap-0.5">
+                            <ToolbarButton 
+                                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} 
+                                isActive={editor.isActive('heading', { level: 2 })}
+                                tooltip="Header"
+                            >
+                                <Type className="h-4 w-4" />
+                            </ToolbarButton>
+                            <ToolbarButton 
+                                onClick={() => editor.chain().focus().toggleBulletList().run()} 
+                                isActive={editor.isActive('bulletList')}
+                                tooltip="Bullet List"
+                            >
+                                <List className="h-4 w-4" />
+                            </ToolbarButton>
+                            <ToolbarButton 
+                                onClick={() => editor.chain().focus().toggleBlockquote().run()} 
+                                isActive={editor.isActive('blockquote')}
+                                tooltip="Blockquote"
+                            >
+                                <Quote className="h-4 w-4" />
+                            </ToolbarButton>
+                        </div>
+
+                        {/* Styling Tools */}
+                        <div className="flex items-center gap-0.5">
+                            <ToolbarButton 
+                                onClick={() => editor.chain().focus().toggleBold().run()} 
+                                isActive={editor.isActive('bold')}
+                                tooltip="Bold"
+                            >
+                                <Bold className="h-4 w-4" />
+                            </ToolbarButton>
+                            <ToolbarButton 
+                                onClick={() => editor.chain().focus().toggleItalic().run()} 
+                                isActive={editor.isActive('italic')}
+                                tooltip="Italic"
+                            >
+                                <Italic className="h-4 w-4" />
+                            </ToolbarButton>
+                            <ToolbarButton 
+                                onClick={() => editor.chain().focus().toggleUnderline().run()} 
+                                isActive={editor.isActive('underline')}
+                                tooltip="Underline"
+                            >
+                                <Underline className="h-4 w-4" />
+                            </ToolbarButton>
+                            
+                            <Popover>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="ghost" size="sm" className={cn("h-8 w-8 p-0 rounded-md", editor.isActive('highlight') && "bg-primary/10 text-primary")}>
+                                                <Highlighter className="h-4 w-4" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="text-[10px] font-bold uppercase">Highlight Selection</TooltipContent>
+                                </Tooltip>
+                                <PopoverContent className="w-fit p-1 flex gap-1 bg-background border shadow-xl rounded-full">
+                                    <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()} className="h-6 w-6 rounded-full bg-yellow-300 border border-black/10 hover:scale-110 transition-transform" />
+                                    <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#6ee7b7' }).run()} className="h-6 w-6 rounded-full bg-emerald-300 border border-black/10 hover:scale-110 transition-transform" />
+                                    <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#f87171' }).run()} className="h-6 w-6 rounded-full bg-rose-400 border border-black/10 hover:scale-110 transition-transform" />
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="h-3 w-3"/></Button>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                        {versionHistoryLink && (
+                            <Link href={versionHistoryLink} passHref>
+                                <ToolbarButton onClick={() => {}} tooltip="Version History">
+                                    <History className="h-4 w-4" />
+                                </ToolbarButton>
+                            </Link>
+                        )}
+                        <AlertDialogTrigger asChild>
+                            <ToolbarButton onClick={() => {}} tooltip="Preview Mode">
+                                <Eye className="h-4 w-4" />
+                            </ToolbarButton>
+                        </AlertDialogTrigger>
+                    </div>
                 </div>
             </div>
           </header>
 
-          <EditorContent editor={editor} />
+          <main className="relative flex-grow flex flex-col group">
+            <BubbleMenu
+                editor={editor}
+                tippyOptions={{ duration: 100 }}
+                shouldShow={({ editor, from, to }) => from !== to}
+            >
+                <div className="flex gap-0.5 bg-card/90 backdrop-blur-md border shadow-2xl p-1 rounded-xl">
+                    <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} tooltip="Bold"><Bold className="h-4 w-4" /></ToolbarButton>
+                    <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} tooltip="Italic"><Italic className="h-4 w-4" /></ToolbarButton>
+                    <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} tooltip="Underline"><Underline className="h-4 w-4" /></ToolbarButton>
+                    <Separator orientation="vertical" className="mx-1 h-6 self-center" />
+                    <ToolbarButton 
+                        onClick={() => {
+                            const { from, to } = editor.state.selection;
+                            const selectedText = editor.state.doc.textBetween(from, to, ' ');
+                            router.push(`/stories/${storyDetails.id}/read/${currentChapter.id}/comments?quote=${encodeURIComponent(selectedText)}`);
+                        }} 
+                        tooltip="Add Inline Feedback"
+                    >
+                        <Plus className="h-4 w-4" />
+                    </ToolbarButton>
+                </div>
+            </BubbleMenu>
+            <EditorContent editor={editor} className="flex-grow flex flex-col h-full" />
+          </main>
 
-          <footer className="mt-4 p-2 bg-card rounded-lg shadow-sm flex justify-between items-center text-sm">
-            <div>{wordCount} words</div>
-            <div className="flex items-center gap-2">
-                 <Button onClick={() => handleSaveDraft(true)} variant="outline" size="sm"><Save className="mr-2 h-4 w-4" /> Save</Button>
+          <footer className="mt-6 flex justify-between items-center p-4 bg-muted/30 rounded-xl border border-border/40">
+            <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                <div className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> {wordCount} Words</div>
+                <div className="flex items-center gap-1.5"><BookOpen className="h-3 w-3" /> {Math.max(1, Math.round(wordCount / 200))} Min Read</div>
+            </div>
+            <div className="flex items-center gap-3">
+                 <Button onClick={() => handleSaveDraft(true)} variant="ghost" size="sm" className="font-bold text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                    <Save className="mr-2 h-3.5 w-3.5" /> Save Draft
+                </Button>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button size="sm" className="bg-primary hover:bg-primary/90 flex-shrink-0"><Send className="mr-2 h-4 w-4" />Publish...</Button>
+                        <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-widest px-6 h-9 shadow-lg shadow-primary/20">
+                            <Send className="mr-2 h-3.5 w-3.5" /> Publish Part
+                        </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent>
+                    <AlertDialogContent className="rounded-2xl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Ready to Publish Chapter?</AlertDialogTitle>
+                        <AlertDialogTitle className="font-headline text-2xl">Ready to Publish?</AlertDialogTitle>
                         <AlertDialogDescription>
-                        This will make your chapter "{chapterTitle}" visible to readers.
-                        Are you sure you want to publish this chapter? Story details (title, cover, etc.) are managed separately.
+                        This will make "{chapterTitle}" visible to all your readers. You can always edit or unpublish it later from your dashboard.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handlePublishChapter} className="bg-primary hover:bg-primary/90">Publish Chapter</AlertDialogAction>
+                    <AlertDialogFooter className="gap-2">
+                        <AlertDialogCancel className="rounded-full">Not Yet</AlertDialogCancel>
+                        <AlertDialogAction onClick={handlePublishChapter} className="bg-primary hover:bg-primary/90 rounded-full px-8">Confirm Publication</AlertDialogAction>
                     </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
@@ -478,60 +631,57 @@ export default function WriteEditorPage() {
         </div>
 
         <aside className="w-full lg:w-80 xl:w-96 space-y-6">
-          <div className="p-4 bg-card rounded-lg shadow-sm">
-              <h2 className="text-lg font-headline font-semibold mb-3">Editor Tools</h2>
-              <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                      <Label htmlFor="distraction-free-mode" className="flex items-center gap-2">
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                          Distraction-Free Mode
+          <div className="p-5 bg-card rounded-2xl border border-border/40 shadow-sm">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Workspace Settings</h2>
+              <div className="space-y-4">
+                  <div className="flex items-center justify-between group">
+                      <Label htmlFor="distraction-free-mode" className="flex items-center gap-3 cursor-pointer group-hover:text-primary transition-colors">
+                          <EyeOff className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                          <span className="text-sm font-medium">Distraction-Free</span>
                       </Label>
-                      <Switch
-                          id="distraction-free-mode"
-                          checked={isDistractionFree}
-                          onCheckedChange={setIsDistractionFree}
-                      />
+                      <Switch id="distraction-free-mode" checked={isDistractionFree} onCheckedChange={setIsDistractionFree} />
                   </div>
-                  <div className="flex items-center justify-between">
-                      <Label htmlFor="fullscreen-mode" className="flex items-center gap-2">
-                          {isFullScreen ? <Minimize className="h-4 w-4 text-muted-foreground" /> : <Maximize className="h-4 w-4 text-muted-foreground" />}
-                          Full Screen
+                  <div className="flex items-center justify-between group">
+                      <Label htmlFor="fullscreen-mode" className="flex items-center gap-3 cursor-pointer group-hover:text-primary transition-colors">
+                          {isFullScreen ? <Minimize className="h-4 w-4 text-muted-foreground group-hover:text-primary" /> : <Maximize className="h-4 w-4 text-muted-foreground group-hover:text-primary" />}
+                          <span className="text-sm font-medium">Full Screen</span>
                       </Label>
-                      <Switch
-                          id="fullscreen-mode"
-                          checked={isFullScreen}
-                          onCheckedChange={handleToggleFullScreen}
-                      />
+                      <Switch id="fullscreen-mode" checked={isFullScreen} onCheckedChange={handleToggleFullScreen} />
                   </div>
+                  <Separator className="bg-border/40" />
                   <Button
-                      variant="outline"
-                      className="w-full"
+                      variant={isCompendiumOpen ? "secondary" : "outline"}
+                      className={cn("w-full h-11 rounded-xl transition-all", isCompendiumOpen && "shadow-inner bg-primary/5 border-primary/20 text-primary")}
                       onClick={() => setIsCompendiumOpen(!isCompendiumOpen)}
                   >
-                      <BookOpen className="mr-2 h-4 w-4" /> Story Compendium {isCompendiumOpen ? '(Hide)' : '(Show)'}
+                      <BookOpen className="mr-2 h-4 w-4" /> 
+                      {isCompendiumOpen ? 'Close Compendium' : 'Open Compendium'}
                   </Button>
               </div>
           </div>
 
           {isCompendiumOpen && <StoryCompendium storyId={storyDetails.id} initialNotes={storyDetails.notes} />}
-
         </aside>
 
-        {/* Preview Dialog */}
-        <AlertDialogContent className="max-w-3xl">
-            <AlertDialogHeader>
-                <AlertDialogTitle>{chapterTitle}</AlertDialogTitle>
-                <AlertDialogDescription>A preview of how your chapter will look to readers.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <ScrollArea className="max-h-[60vh] my-4">
-                <div className="prose dark:prose-invert prose-reading p-2" dangerouslySetInnerHTML={{ __html: editor.getHTML() }}>
+        <AlertDialogContent className="max-w-4xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+            <div className="bg-muted/30 p-6 border-b flex justify-between items-center">
+                <div>
+                    <h2 className="text-2xl font-headline font-bold text-foreground">{chapterTitle || 'Untitled Chapter'}</h2>
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Preview Mode</p>
                 </div>
+                <AlertDialogAction asChild onClick={() => setIsPreviewOpen(false)}>
+                    <Button variant="ghost" size="icon" className="rounded-full"><X className="h-5 w-5" /></Button>
+                </AlertDialogAction>
+            </div>
+            <ScrollArea className="max-h-[70vh] bg-background">
+                <div className="prose dark:prose-invert prose-reading p-8 mx-auto" dangerouslySetInnerHTML={{ __html: editor.getHTML() }} />
             </ScrollArea>
-            <AlertDialogFooter>
-                <AlertDialogAction onClick={() => setIsPreviewOpen(false)}>Close Preview</AlertDialogAction>
-            </AlertDialogFooter>
+            <div className="p-4 bg-muted/20 border-t flex justify-end">
+                <AlertDialogCancel className="rounded-full px-8 bg-background">Exit Preview</AlertDialogCancel>
+            </div>
         </AlertDialogContent>
       </div>
     </AlertDialog>
+    </TooltipProvider>
   );
 }
