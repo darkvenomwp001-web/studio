@@ -119,6 +119,7 @@ export default function StoryReaderPage() {
   // Annotation state
   const [annotationNote, setAnnotationNote] = useState("");
   const [selectedHighlightColor, setSelectedHighlightColor] = useState("#fde047"); // Default yellow
+  const [lastSelectionRange, setLastSelectionRange] = useState<{ from: number, to: number } | null>(null);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const viewIncrementedRef = useRef(false);
@@ -426,19 +427,23 @@ export default function StoryReaderPage() {
     }
 
     const { from, to, empty } = editor.state.selection;
-    if (empty) {
+    const range = empty && lastSelectionRange ? lastSelectionRange : { from, to };
+    
+    if (!range || range.from === range.to) {
         toast({ title: "No Text Selected", description: "Please select some text to annotate.", variant: "destructive" });
         return;
     }
 
-    const highlightedText = editor.state.doc.textBetween(from, to, " ");
+    const highlightedText = editor.state.doc.textBetween(range.from, range.to, " ");
     const previouslyEditable = editor.isEditable;
 
     try {
         if (!previouslyEditable) {
             editor.setEditable(true);
         }
-        editor.chain().focus().toggleHighlight({ color: selectedHighlightColor }).run();
+        
+        // Restore selection if lost
+        editor.chain().focus().setTextSelection(range).toggleHighlight({ color: selectedHighlightColor }).run();
         
         const annotationData = {
             userId: currentUser.id,
@@ -457,9 +462,10 @@ export default function StoryReaderPage() {
             .then(() => {
                 toast({ title: "Annotation Saved!", description: "Your highlight and note have been saved." });
                 setAnnotationNote("");
+                setLastSelectionRange(null);
             })
             .catch(async (serverError) => {
-                editor.chain().focus().unsetHighlight().run();
+                editor.chain().focus().setTextSelection(range).unsetHighlight().run();
                 const permissionError = new FirestorePermissionError({
                     path: 'annotations',
                     operation: 'create',
@@ -471,7 +477,7 @@ export default function StoryReaderPage() {
     } catch (error) {
         console.error("Failed to save annotation:", error);
         toast({ title: "Error", description: "Could not save your annotation.", variant: "destructive" });
-        editor.chain().focus().unsetHighlight().run();
+        editor.chain().focus().setTextSelection(range).unsetHighlight().run();
     } finally {
         if (!previouslyEditable) {
             editor.setEditable(false);
@@ -511,7 +517,7 @@ export default function StoryReaderPage() {
 
   return (
     <TooltipProvider>
-    <div className={cn("relative min-h-screen bg-background text-foreground overflow-hidden", {'select-none': currentChapter.accessType === 'premium'})}>
+    <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
       <header
         className={cn(
           'fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b shadow-sm transition-all duration-300 ease-in-out p-2 sm:p-3 flex items-center justify-between w-full',
@@ -734,9 +740,24 @@ export default function StoryReaderPage() {
                     <div className="flex gap-1.5 bg-card/95 backdrop-blur-xl border border-white/10 shadow-2xl p-1.5 rounded-2xl">
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-colors" title="Annotate"><Pencil className="h-5 w-5" /></Button>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-colors" 
+                                    title="Annotate"
+                                    onClick={() => {
+                                        // Capture selection before popover takes focus
+                                        const { from, to } = editor.state.selection;
+                                        setLastSelectionRange({ from, to });
+                                    }}
+                                >
+                                    <Pencil className="h-5 w-5" />
+                                </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-80 p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-card/95 backdrop-blur-xl">
+                            <PopoverContent 
+                                onOpenAutoFocus={(e) => e.preventDefault()} 
+                                className="w-80 p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-card/95 backdrop-blur-xl"
+                            >
                                 <div className="bg-primary/10 p-4 border-b border-primary/10 flex items-center gap-2">
                                     <Sparkles className="h-4 w-4 text-primary" />
                                     <h4 className="font-headline font-bold text-sm">Capture a Moment</h4>
@@ -813,7 +834,7 @@ export default function StoryReaderPage() {
                             <MessageSquare className="h-5 w-5" />
                         </Button>
                     </div>
-                </BubbleMenu>
+                 </BubbleMenu>
              )}
              <article className={articleClasses}>
               <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4 text-center">{currentChapter.title}</h2>
