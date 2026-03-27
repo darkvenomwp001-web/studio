@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
@@ -10,12 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Save, UploadCloud, ArrowLeft, UserCog, Music, User, AtSign, AlignLeft, Info, ExternalLink } from 'lucide-react';
+import { Loader2, Save, UploadCloud, ArrowLeft, Music, User, AtSign, AlignLeft, Info, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { User as AppUser } from '@/types';
 
 export default function EditProfilePage() {
   const { user, loading: authLoadingGlobal, authLoading: specificAuthLoading, updateUserProfile } = useAuth();
@@ -114,15 +114,23 @@ export default function EditProfilePage() {
         }
     }
     
-    await updateUserProfile({ 
-        displayName, 
-        username, 
-        avatarUrl: newAvatarUrl, 
-        bio, 
-        role,
-        profileSongUrl,
-        profileSongNote 
-    });
+    // Surgical update: Only send fields that have actually changed.
+    // This prevents Firebase from flagging "protected" fields that haven't actually been modified.
+    const updates: Partial<AppUser> = {};
+    if (displayName !== user.displayName) updates.displayName = displayName;
+    if (username !== user.username) updates.username = username;
+    if (newAvatarUrl !== user.avatarUrl) updates.avatarUrl = newAvatarUrl;
+    if (bio !== user.bio) updates.bio = bio;
+    if (role !== user.role) updates.role = role;
+    if (profileSongUrl !== user.profileSongUrl) updates.profileSongUrl = profileSongUrl;
+    if (profileSongNote !== user.profileSongNote) updates.profileSongNote = profileSongNote;
+
+    if (Object.keys(updates).length > 0) {
+        await updateUserProfile(updates);
+    } else {
+        toast({ title: "No changes detected." });
+    }
+    
     setAvatarFile(null);
     setIsProfileUpdating(false);
   };
