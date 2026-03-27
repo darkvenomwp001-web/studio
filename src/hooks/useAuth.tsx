@@ -3,11 +3,11 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import type { User as AppUserType, NotificationType, UserSummary, Story, ReadingListItem, Achievement } from '@/types';
+import type { User as AppUserType, NotificationType, Story, ReadingListItem, Achievement } from '@/types';
 import { auth, db } from '@/lib/firebase';
 import { addNotification as addNotificationAction } from '@/app/actions/notificationActions';
 import { getMessagingInstance } from '@/lib/firebase';
-import { getToken, onMessage } from 'firebase/messaging';
+import { getToken } from 'firebase/messaging';
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -15,22 +15,16 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword as firebaseSignInWithEmailAndPassword,
-  updateProfile as updateFirebaseProfile,
   updateEmail as updateFirebaseEmail,
   updatePassword as updateFirebasePassword,
   sendPasswordResetEmail,
   EmailAuthProvider,
   reauthenticateWithCredential,
-  getAdditionalUserInfo,
-  signInAnonymously,
-  fetchSignInMethodsForEmail,
   sendEmailVerification,
-  type User as FirebaseUser,
-  type AuthError
+  type User as FirebaseUser
 } from 'firebase/auth';
 import {
   doc,
-  getDoc,
   setDoc,
   updateDoc,
   serverTimestamp,
@@ -44,13 +38,10 @@ import {
   getDocs,
   arrayUnion,
   arrayRemove,
-  Timestamp
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
-const USER_CACHE_KEY = 'd4rkv3nom_user_cache';
+const USER_CACHE_KEY = 'litverse_user_cache';
 const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
 
 interface AppUser extends AppUserType {
@@ -63,8 +54,6 @@ interface AppUser extends AppUserType {
   updatedAt?: any; 
   isAnonymous?: boolean;
   writtenStories?: Story[];
-  profileSongUrl?: string;
-  profileSongNote?: string;
 }
 
 interface AuthContextType {
@@ -147,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(JSON.parse(cachedUser));
         }
     } catch (e) {
-        console.warn("Could not read user cache from sessionStorage", e);
+        console.warn("Could not read user cache", e);
     }
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
@@ -163,16 +152,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
 
-            const updates: { isVerified?: boolean } = {};
+            // Identity Unification: Check if user is an owner
             const isOwner = OWNER_HANDLES.includes(firestoreUserData.username);
-            
-            if (isOwner && !firestoreUserData.isVerified) {
-                updates.isVerified = true;
-            }
-
-            if (Object.keys(updates).length > 0) {
-                updateDoc(userRef, updates);
-                Object.assign(firestoreUserData, updates);
+            if (isOwner && (!firestoreUserData.isVerified || firestoreUserData.role !== 'writer')) {
+                await updateDoc(userRef, { 
+                    isVerified: true, 
+                    role: 'writer' 
+                });
             }
             
             const storiesQuery = query(collection(db, "stories"), where("author.id", "==", firebaseUser.uid));
@@ -187,14 +173,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               displayName: firestoreUserData.displayName || firebaseUser.displayName || firestoreUserData.username,
               avatarUrl: firestoreUserData.avatarUrl || firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(firestoreUserData.username || 'U').charAt(0).toUpperCase()}`,
               bio: firestoreUserData.bio || 'No bio yet.',
-              role: (firestoreUserData.role === ('admin' as any)) ? 'writer' : (firestoreUserData.role || 'reader'),
+              role: firestoreUserData.role || 'reader',
               level: firestoreUserData.level || 1,
               xp: firestoreUserData.xp || 0,
               achievements: firestoreUserData.achievements || [],
               messagingPreference: firestoreUserData.messagingPreference || 'everyone',
               notificationSettings: firestoreUserData.notificationSettings || { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false },
-              profileSongUrl: firestoreUserData.profileSongUrl || '',
-              profileSongNote: firestoreUserData.profileSongNote || '',
               followersCount: firestoreUserData.followersCount || 0,
               followingCount: firestoreUserData.followingIds?.length || 0,
               followingIds: firestoreUserData.followingIds || [],
@@ -202,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               writtenStories: writtenStories,
               readingList: firestoreUserData.readingList || [],
               isAnonymous: firebaseUser.isAnonymous,
-              isVerified: firestoreUserData.isVerified,
+              isVerified: isOwner || firestoreUserData.isVerified,
               isBanned: firestoreUserData.isBanned,
               createdAt: firestoreUserData.createdAt,
               updatedAt: firestoreUserData.updatedAt,
@@ -254,7 +238,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }, (error) => {
             console.error("Error listening to user document:", error);
-            setUser(null);
             setLoading(false);
         });
 
@@ -358,7 +341,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const reloadUser = async () => {
     if (auth.currentUser) {
         await auth.currentUser.reload();
-        onAuthStateChanged(auth, () => {}); 
     }
   };
 
@@ -367,7 +349,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      toast({ title: "Welcome to D4RKV3NOM!" });
+      toast({ title: "Welcome to LitVerse!" });
     } catch (error) {
       console.error(error);
     } finally {
@@ -472,7 +454,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
-    batch.update(doc(db, 'users', targetUserId), { followersCount: increment(1) });
+    batch.update(doc(db, 'users', targetUserId), { followersCount: { '__op': 'increment', 'n': 1 } as any });
     await batch.commit();
   };
 
@@ -480,7 +462,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
-    batch.update(doc(db, 'users', targetUserId), { followersCount: increment(-1) });
+    batch.update(doc(db, 'users', targetUserId), { followersCount: { '__op': 'increment', 'n': -1 } as any });
     await batch.commit();
   };
 
@@ -520,13 +502,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     return false;
   };
-
-  function increment(val: number) {
-      return {
-          '__op': 'increment',
-          'n': val
-      } as any;
-  }
 
   return (
     <AuthContext.Provider value={{
