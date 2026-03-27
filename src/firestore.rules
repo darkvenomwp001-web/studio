@@ -15,7 +15,7 @@ service cloud.firestore {
     }
     
     // Unified Owner Check - Recognizes both creator handles
-    // Uses get() for global checks, but we supplement this in the users match for efficiency
+    // Grants absolute authority based on identity
     function isAppOwner() {
         return isSignedIn() && 
                exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -44,7 +44,7 @@ service cloud.firestore {
 
       // App owners (by handle) can update anything on their own doc.
       // Regular users can update their own profile except protected fields.
-      allow update: if (isSignedIn() && isOwner(userId) && (resource.data.username in ['authorrafaelnv', 'd4rkv3nom'] || request.resource.data.username in ['authorrafaelnv', 'd4rkv3nom']))
+      allow update: if (isSignedIn() && isOwner(userId) && (resource.data.username in ['authorrafaelnv', 'd4rkv3nom'] || (exists(/databases/$(database)/documents/users/$(userId)) && get(/databases/$(database)/documents/users/$(userId)).data.username in ['authorrafaelnv', 'd4rkv3nom'])))
                     || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified']))
                     || isAppOwner(); 
 
@@ -95,10 +95,13 @@ service cloud.firestore {
 
     // Status Updates
     match /statusUpdates/{statusId} {
-      allow read: if resource.data.status == 'published' && resource.data.expiresAt > request.time;
+      allow read: if isAppOwner() 
+                    || (isSignedIn() && resource.data.authorId == request.auth.uid)
+                    || (resource.data.status == 'published' && resource.data.expiresAt > request.time);
+      
       allow create: if isWriter() && request.auth.uid == request.resource.data.authorId;
-      allow update: if isSignedIn() && isOwner(resource.data.authorId); 
-      allow delete: if isSignedIn() && (isOwner(resource.data.authorId) || isAppOwner());
+      allow update: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId)); 
+      allow delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId));
     }
 
     // Prompts
@@ -133,7 +136,6 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
       
-      // Authors/Owners can update content. Everyone can update reaction/comment counts via logic.
       allow update: if isAppOwner() || isOwner(resource.data.author.id) || (
         isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'commentsCount', 'repostCount'])
       );
@@ -164,7 +166,7 @@ service cloud.firestore {
     match /polls/{pollId} {
       allow read: if true;
       allow create: if isWriter();
-      allow update: if isSignedIn(); // For voting
+      allow update: if isSignedIn(); 
       allow delete: if isAppOwner() || isOwner(resource.data.authorId);
     }
   }
