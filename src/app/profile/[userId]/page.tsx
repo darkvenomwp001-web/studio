@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, ShieldAlert, PenSquare, Send, MoreHorizontal, Edit, Trash2, LayoutGrid, Megaphone, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
-import Link from 'next/navigation';
+import Link from 'next/link';
 import type { Story, User as AppUser, Announcement } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
