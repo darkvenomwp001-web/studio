@@ -74,6 +74,22 @@ function NotificationsList() {
     const { user, notifications, markNotificationAsRead, markAllNotificationsAsRead, authLoading } = useAuth();
     const router = useRouter();
     const { toast } = useToast();
+    const [searchTerm, setSearchTerm] = useState('');
+    const [userStatuses, setUserStatuses] = useState<Record<string, 'online' | 'offline'>>({});
+
+    // Real-time Status Sync from RTDB for Actors
+    useEffect(() => {
+        const statusRef = ref(rtdb, 'status');
+        const unsubscribe = onValue(statusRef, (snapshot) => {
+            const data = snapshot.val() || {};
+            const statuses: Record<string, 'online' | 'offline'> = {};
+            Object.keys(data).forEach(uid => {
+                statuses[uid] = data[uid].state;
+            });
+            setUserStatuses(statuses);
+        });
+        return () => unsubscribe();
+    }, []);
 
     const handleNotificationClick = async (notification: NotificationType) => {
         if (!notification.isRead) {
@@ -102,27 +118,37 @@ function NotificationsList() {
 
     const getNotificationIcon = (type: NotificationType['type']) => {
         switch (type) {
-            case 'new_follower': return <UserPlus className="h-5 w-5 text-blue-500" />;
+            case 'new_follower': return <UserPlus className="h-4 w-4 text-blue-500" />;
             case 'new_chapter':
-            case 'story_update': return <BookOpenText className="h-5 w-5 text-green-500" />;
+            case 'story_update': return <BookOpenText className="h-4 w-4 text-green-500" />;
             case 'comment_reply':
-            case 'mention': return <MessageSquare className="h-5 w-5 text-purple-500" />; 
-            case 'new_letter': return <Mail className="h-5 w-5 text-cyan-500" />;
-            case 'letter_response': return <MailCheck className="h-5 w-5 text-teal-500" />;
-            case 'achievement_unlocked': return <Bell className="h-5 w-5 text-yellow-500" />;
-            case 'announcement': return <Bell className="h-5 w-5 text-orange-500" />;
-            default: return <Bell className="h-5 w-5 text-muted-foreground" />;
+            case 'mention': return <MessageSquare className="h-4 w-4 text-purple-500" />; 
+            case 'new_letter': return <Mail className="h-4 w-4 text-cyan-500" />;
+            case 'letter_response': return <MailCheck className="h-4 w-4 text-teal-500" />;
+            case 'achievement_unlocked': return <Bell className="h-4 w-4 text-yellow-500" />;
+            case 'announcement': return <Bell className="h-4 w-4 text-orange-500" />;
+            default: return <Bell className="h-4 w-4 text-muted-foreground" />;
         }
     };
     
-    const groupNotifications = (notifs: NotificationType[]) => {
+    const filteredNotifications = useMemo(() => {
+        if (!searchTerm.trim()) return notifications;
+        const term = searchTerm.toLowerCase();
+        return notifications.filter(n => 
+            n.message.toLowerCase().includes(term) || 
+            n.actor.username.toLowerCase().includes(term) ||
+            n.actor.displayName?.toLowerCase().includes(term)
+        );
+    }, [notifications, searchTerm]);
+
+    const groupedNotifications = useMemo(() => {
         const groups: { [key: string]: NotificationType[] } = {
             Today: [],
             "This Week": [],
             "Earlier": [],
         };
 
-        notifs.forEach(notif => {
+        filteredNotifications.forEach(notif => {
             const date = parseSafeDate(notif.timestamp);
             if (!date) return;
             
@@ -136,9 +162,7 @@ function NotificationsList() {
         });
 
         return groups;
-    };
-
-    const groupedNotifications = groupNotifications(notifications);
+    }, [filteredNotifications]);
 
     if (authLoading && notifications.length === 0) {
         return (
@@ -151,30 +175,45 @@ function NotificationsList() {
     
     return (
         <Card className="shadow-none bg-transparent border-0 max-w-3xl mx-auto">
-            <CardHeader className="flex flex-row justify-between items-center px-4 pt-4 pb-2 md:px-6">
-                <CardTitle className="text-2xl font-headline font-bold">Activity</CardTitle>
-                {notifications.some(n => !n.isRead) && (
-                    <Button variant="ghost" size="sm" onClick={handleMarkAllRead} disabled={authLoading} className="text-primary hover:text-primary/80">
-                        Mark all as read
-                    </Button>
-                )}
+            <CardHeader className="flex flex-col gap-4 px-4 pt-4 pb-6 md:px-6">
+                <div className="flex flex-row justify-between items-center">
+                    <CardTitle className="text-2xl font-headline font-bold">Activity</CardTitle>
+                    {notifications.some(n => !n.isRead) && (
+                        <Button variant="ghost" size="sm" onClick={handleMarkAllRead} disabled={authLoading} className="text-primary hover:text-primary/80 font-bold uppercase tracking-wider text-[10px]">
+                            Mark all as read
+                        </Button>
+                    )}
+                </div>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Search your history..." 
+                        className="pl-10 bg-muted/50 border-none h-10 rounded-full focus-visible:ring-primary/30" 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
             </CardHeader>
             <CardContent className="p-0">
-                {notifications.length > 0 ? (
-                    <div className="space-y-6 pb-20">
+                {filteredNotifications.length > 0 ? (
+                    <div className="space-y-8 pb-20">
                         {Object.entries(groupedNotifications).map(([group, notifs]) => 
                          notifs.length > 0 && (
                             <div key={group}>
-                                <h3 className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground/60 px-4 md:px-6 mb-3">{group}</h3>
+                                <h3 className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground/60 px-4 md:px-6 mb-3 flex items-center gap-2">
+                                    <span className="flex-shrink-0">{group}</span>
+                                    <div className="h-px w-full bg-border/40" />
+                                </h3>
                                 <div className="space-y-1">
                                     {notifs.map((notif) => {
                                         const displayDate = parseSafeDate(notif.timestamp);
+                                        const isOnline = userStatuses[notif.actor.id] === 'online';
                                         return (
                                             <div
                                                 key={notif.id}
                                                 onClick={() => handleNotificationClick(notif)}
                                                 className={cn(
-                                                    "p-4 mx-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-4 group",
+                                                    "p-4 mx-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-4 group relative",
                                                     !notif.isRead ? 'bg-primary/5 hover:bg-primary/10 border border-primary/10' : 'hover:bg-muted/50 border border-transparent'
                                                 )}
                                             >
@@ -186,10 +225,15 @@ function NotificationsList() {
                                                 <div className="absolute -bottom-1 -right-1 bg-card p-1 rounded-full shadow-sm ring-2 ring-background">
                                                     {getNotificationIcon(notif.type)}
                                                 </div>
+                                                {isOnline && (
+                                                    <div className="absolute top-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse" title="Active now" />
+                                                )}
                                             </div>
-                                            <div className="flex-1">
+                                            <div className="flex-1 min-w-0">
                                                 <p className="text-sm leading-snug text-foreground/90">
-                                                    <span className="font-bold text-foreground">@{notif.actor.username}</span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
+                                                    <span className="font-bold text-foreground hover:underline" onClick={(e) => { e.stopPropagation(); router.push(`/profile/${notif.actor.id}`); }}>
+                                                        {notif.actor.displayName || `@${notif.actor.username}`}
+                                                    </span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
                                                 </p>
                                                 <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-tighter mt-1">
                                                 {displayDate ? formatDistanceToNow(displayDate, { addSuffix: true }) : 'A while ago'}
@@ -213,8 +257,12 @@ function NotificationsList() {
                         <div className="bg-muted/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Bell className="h-10 w-10 text-muted-foreground/40" />
                         </div>
-                        <h3 className="font-headline text-lg font-bold text-foreground">All caught up!</h3>
-                        <p className="text-sm max-w-[200px] mx-auto">No new activity to show right now. Go explore some stories!</p>
+                        <h3 className="font-headline text-lg font-bold text-foreground">
+                            {searchTerm ? 'No results found' : 'All caught up!'}
+                        </h3>
+                        <p className="text-sm max-w-[200px] mx-auto">
+                            {searchTerm ? `Try searching for something else.` : 'No new activity to show right now. Go explore some stories!'}
+                        </p>
                     </div>
                 )}
             </CardContent>
