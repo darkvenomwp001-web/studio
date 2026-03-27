@@ -31,6 +31,11 @@ service cloud.firestore {
         return isSignedIn() && (getRole(request.auth.uid) == 'writer' || isAppOwner());
     }
 
+    // A verified user is one who is signed in and has verified their email address.
+    function isVerifiedUser() {
+        return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
     // --- Collection Rules ---
 
     // Users Collection
@@ -58,7 +63,7 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.author.id || isAppOwner());
     }
 
-    // Comments Collection
+    // Comments Collection on Chapters
     match /comments/{commentId} {
       allow read: if true;
       allow create: if isSignedIn();

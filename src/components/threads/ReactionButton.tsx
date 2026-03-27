@@ -12,7 +12,7 @@ import { Loader2, Heart } from 'lucide-react';
 import { collection, doc, onSnapshot, runTransaction, serverTimestamp, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { loveAnimation } from './reactions';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ScrollArea } from '../ui/scroll-area';
 import Link from 'next/link';
@@ -198,6 +198,7 @@ export default function ReactionButton({ postId, initialReactionsCount }: Reacti
                 <DialogContent className="max-w-xs sm:max-w-sm rounded-2xl">
                      <DialogHeader>
                         <DialogTitle className="font-headline">Loves</DialogTitle>
+                        <DialogDescription className="sr-only">List of people who loved this post</DialogDescription>
                     </DialogHeader>
                     <ReactorsList postId={postId} />
                 </DialogContent>
