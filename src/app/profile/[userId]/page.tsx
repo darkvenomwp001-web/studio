@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, MessageSquare, UserPlus, UserX, Settings, LogOut, Edit3, FileText, ShieldAlert, PenSquare, Send, MoreHorizontal, Edit, Trash2, LayoutGrid, Megaphone, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
-import Link from 'next/link';
+import Link from 'next/navigation';
 import type { Story, User as AppUser, Announcement } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -168,7 +168,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
                     message: `posted a new update.`,
                     link: `/profile/${user.id}?tab=announcements`,
                     actor: authorSummary
-                }).catch(() => {}); // Ignore notification errors
+                }).catch(() => {});
             });
         })
         .catch(async (serverError) => {
@@ -316,15 +316,14 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
             </Card>
           );
         })
-      ) : (
+      ) : !isOwnProfile && (
         <div className="text-center py-24 text-muted-foreground bg-card/50 rounded-2xl border-2 border-dashed border-border/40">
           <Megaphone className="h-12 w-12 mx-auto mb-4 opacity-20" />
           <h3 className="font-headline font-bold text-lg text-foreground">Silence in the archives</h3>
-          <p className="text-sm max-w-[200px] mx-auto mt-1">{isOwnProfile ? "Share your first update with your readers today." : `${profileUser.displayName || profileUser.username} hasn't posted any updates yet.`}</p>
+          <p className="text-sm max-w-[200px] mx-auto mt-1">{`${profileUser.displayName || profileUser.username} hasn't posted any updates yet.`}</p>
         </div>
       )}
 
-      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl border-none shadow-2xl">
           <DialogHeader>
@@ -350,7 +349,6 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
         </DialogContent>
       </Dialog>
 
-      {/* Delete Alert Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
@@ -383,6 +381,7 @@ export default function UserProfilePage() {
   const [profileUser, setProfileUser] = useState<AppUser | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [liveFollowersCount, setLiveFollowersCount] = useState<number | null>(null);
+  const [announcementCount, setAnnouncementCount] = useState(0);
   const defaultTab = searchParams.get('tab') || 'works';
 
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
@@ -425,10 +424,13 @@ export default function UserProfilePage() {
       setLiveFollowersCount(snapshot.size);
     }, console.error);
 
+    const annoQuery = query(collection(db, 'announcements'), where('author.id', '==', userId));
+    const unsubAnnoCount = onSnapshot(annoQuery, (snap) => setAnnouncementCount(snap.size));
 
     return () => {
       unsubscribeUser();
       unsubscribeFollowersCount();
+      unsubAnnoCount();
     };
   }, [userId, router, toast]);
 
@@ -503,6 +505,7 @@ export default function UserProfilePage() {
 
   const isFollowing = currentUser?.followingIds?.includes(profileUser.id) || false;
   const displayName = profileUser.displayName || profileUser.username;
+  const showAnnouncementsTab = isOwnProfile || announcementCount > 0;
 
   return (
     <>
@@ -559,10 +562,12 @@ export default function UserProfilePage() {
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8">
         <Tabs defaultValue={defaultTab} className="w-full">
-          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-3 bg-muted/50 p-1 rounded-full border shadow-sm">
+          <TabsList className={cn("grid w-full max-w-2xl mx-auto bg-muted/50 p-1 rounded-full border shadow-sm", showAnnouncementsTab ? "grid-cols-3" : "grid-cols-2")}>
             <TabsTrigger value="works" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold"><PenSquare className="mr-2 h-4 w-4" />Works</TabsTrigger>
             <TabsTrigger value="feed" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold"><LayoutGrid className="mr-2 h-4 w-4" />Feed</TabsTrigger>
-            <TabsTrigger value="announcements" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold"><Megaphone className="mr-2 h-4 w-4" />Updates</TabsTrigger>
+            {showAnnouncementsTab && (
+                <TabsTrigger value="announcements" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold"><Megaphone className="mr-2 h-4 w-4" />Updates</TabsTrigger>
+            )}
           </TabsList>
           
           <TabsContent value="works" className="mt-8 animate-in fade-in duration-500">
@@ -613,9 +618,11 @@ export default function UserProfilePage() {
             <ProfilePhotoGrid userId={profileUser.id} isOwnProfile={isOwnProfile} />
           </TabsContent>
 
-          <TabsContent value="announcements" className="mt-8 animate-in fade-in duration-500">
-             <AnnouncementsTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
-          </TabsContent>
+          {showAnnouncementsTab && (
+            <TabsContent value="announcements" className="mt-8 animate-in fade-in duration-500">
+                <AnnouncementsTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
+            </TabsContent>
+          )}
           
         </Tabs>
       </main>

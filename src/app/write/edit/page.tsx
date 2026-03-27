@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -88,6 +89,10 @@ const ToolbarButton = React.memo(({ onClick, isActive, disabled, children, toolt
         type="button"
         variant="ghost"
         size="sm"
+        onMouseDown={(e) => {
+          // Prevent focus loss from the editor
+          e.preventDefault();
+        }}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -202,7 +207,7 @@ export default function WriteEditorPage() {
           if (chapterToEdit) {
             setCurrentChapter(chapterToEdit);
             setChapterTitle(chapterToEdit.title);
-            if(editor && !editor.isDestroyed) {
+            if(editor && !editor.isDestroyed && editor.getHTML() !== chapterToEdit.content) {
                 editor.commands.setContent(chapterToEdit.content, false);
             }
           } else { 
@@ -481,10 +486,8 @@ export default function WriteEditorPage() {
                     className="text-3xl font-headline font-bold h-auto py-2 focus-visible:ring-0 border-0 bg-transparent shadow-none px-0 placeholder:text-muted-foreground/30"
                 />
                 
-                {/* Modern Improved Toolbar Ribbon */}
                 <div className="p-1 px-2 bg-background border rounded-xl flex items-center justify-between shadow-sm sticky top-0 z-20">
                     <div className="flex items-center">
-                        {/* History Tools */}
                         <div className="flex items-center mr-2 border-r border-border/60 pr-2 gap-0.5">
                             <ToolbarButton 
                                 onClick={() => editor.chain().focus().undo().run()} 
@@ -502,7 +505,6 @@ export default function WriteEditorPage() {
                             </ToolbarButton>
                         </div>
 
-                        {/* Typography Tools */}
                         <div className="flex items-center mr-2 border-r border-border/60 pr-2 gap-0.5">
                             <ToolbarButton 
                                 onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} 
@@ -527,7 +529,6 @@ export default function WriteEditorPage() {
                             </ToolbarButton>
                         </div>
 
-                        {/* Styling Tools */}
                         <div className="flex items-center gap-0.5">
                             <ToolbarButton 
                                 onClick={() => editor.chain().focus().toggleBold().run()} 
@@ -569,6 +570,12 @@ export default function WriteEditorPage() {
                                     <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="h-3 w-3"/></Button>
                                 </PopoverContent>
                             </Popover>
+                            <ToolbarButton 
+                                onClick={() => editor.chain().focus().unsetAllMarks().run()} 
+                                tooltip="Clear Formatting"
+                            >
+                                <X className="h-4 w-4" />
+                            </ToolbarButton>
                         </div>
                     </div>
 
