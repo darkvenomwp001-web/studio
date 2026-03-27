@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader2, Pin, PinOff, Trash2, MailOpen, Mail, ChevronRight, Send, Sparkles } from 'lucide-react';
+import { Loader2, Pin, PinOff, Trash2, MailOpen, Mail, ChevronRight, Send, Sparkles, BookOpen } from 'lucide-react';
 import type { Letter as LetterType } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
