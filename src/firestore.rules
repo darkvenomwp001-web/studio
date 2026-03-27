@@ -42,11 +42,10 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn() && isOwner(userId);
 
-      // App owners (by handle) can update anything on their own doc.
+      // App owners can update anything.
       // Regular users can update their own profile except protected fields.
-      allow update: if (isSignedIn() && isOwner(userId) && (resource.data.username in ['authorrafaelnv', 'd4rkv3nom'] || (exists(/databases/$(database)/documents/users/$(userId)) && get(/databases/$(database)/documents/users/$(userId)).data.username in ['authorrafaelnv', 'd4rkv3nom'])))
-                    || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified']))
-                    || isAppOwner(); 
+      allow update: if isAppOwner()
+                    || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified']));
 
       allow delete: if isAppOwner() && request.auth.uid != userId;
     }
@@ -99,9 +98,9 @@ service cloud.firestore {
                     || (isSignedIn() && resource.data.authorId == request.auth.uid)
                     || (resource.data.status == 'published' && resource.data.expiresAt > request.time);
       
-      allow create: if isWriter() && request.auth.uid == request.resource.data.authorId;
-      allow update: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId)); 
-      allow delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId));
+      // Allow any signed-in user to create statuses
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.authorId;
+      allow update, delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId));
     }
 
     // Prompts

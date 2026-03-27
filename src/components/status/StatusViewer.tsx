@@ -3,19 +3,21 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StatusUpdate, TextOverlayStyle } from '@/types';
+import type { User, StatusUpdate } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, Pause, Play, VolumeX, Volume2 } from 'lucide-react';
+import { X, Pause, Play, VolumeX, Volume2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import Link from 'next/link';
-import { hideStatusUpdate } from '@/app/actions/statusActions';
+import { db } from '@/lib/firebase';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
+const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
 
 export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void }) {
     const { user } = useAuth();
@@ -31,7 +33,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
 
     useEffect(() => {
         setCurrentStatusIndex(0);
-        setAnimationKey(prev => prev + 1); // Reset animation
+        setAnimationKey(prev => prev + 1);
         setIsPaused(false);
     }, [selectedUser]);
 
@@ -42,7 +44,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         if (!isOpen || !userStatuses || userStatuses.length === 0 || isPaused || !currentStatus) return;
         
         const isVideo = currentStatus.mediaType === 'video';
-        let duration = 5000; // Default for images and notes
+        let duration = 5000;
 
         const setupTimeout = (videoDuration: number | null) => {
             if (isVideo && videoDuration) {
@@ -55,19 +57,18 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         
         if(isVideo) {
             const videoElement = videoRef.current;
-            if (videoElement && videoElement.readyState > 0) { // If metadata is loaded
+            if (videoElement && videoElement.readyState > 0) {
                 setupTimeout(videoElement.duration);
             } else if (videoElement) {
                  const onLoadedMetadata = () => setupTimeout(videoElement.duration);
                  videoElement.addEventListener('loadedmetadata', onLoadedMetadata);
                  return () => videoElement.removeEventListener('loadedmetadata', onLoadedMetadata);
             } else {
-                 setupTimeout(15); // Fallback if ref is not ready
+                 setupTimeout(15);
             }
         } else {
-            setupTimeout(null); // Not a video
+            setupTimeout(null);
         }
-
 
         return () => {
             if (timeoutRef.current) {
@@ -81,7 +82,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         if (currentStatusIndex < userStatuses.length - 1) {
             setCurrentStatusIndex(prev => prev + 1);
         } else {
-            onNext(); // Move to next user
+            onNext();
         }
     }
     const handlePrev = () => {
@@ -89,7 +90,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         if (currentStatusIndex > 0) {
             setCurrentStatusIndex(prev => prev - 1);
         } else {
-            onPrev(); // Move to prev user
+            onPrev();
         }
     }
 
@@ -97,11 +98,33 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         setIsPaused(prev => !prev);
     };
     
+    const handleDeleteStatus = async () => {
+        if (!currentStatus || !user) return;
+        
+        const statusRef = doc(db, 'statusUpdates', currentStatus.id);
+        deleteDoc(statusRef)
+            .then(() => {
+                toast({ title: "Status deleted" });
+                if (userStatuses.length === 1) {
+                    onOpenChange(false);
+                } else {
+                    handleNext();
+                }
+            })
+            .catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: statusRef.path,
+                    operation: 'delete',
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+            });
+    }
+
     useEffect(() => {
         const videoElement = videoRef.current;
         if (videoElement) {
             if (!isPaused && isOpen) {
-                videoElement.play().catch(e => console.warn("Video play was interrupted. This is often safe to ignore."));
+                videoElement.play().catch(() => {});
             } else {
                 videoElement.pause();
             }
@@ -114,7 +137,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     }
     
     const isNoteStatus = !!currentStatus.note || !!currentStatus.spotifyUrl;
-    const isOwner = user?.id === selectedUser.id;
+    const isOwner = user && (OWNER_HANDLES.includes(user.username) || user.id === selectedUser.id);
     const isVideo = currentStatus.mediaType === 'video';
 
     const textStyle = {
@@ -130,27 +153,32 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="p-0 m-0 bg-black border-0 max-w-md h-screen sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg">
+            <DialogContent className="p-0 m-0 bg-black border-0 max-w-md h-screen sm:h-[90vh] sm:max-h-[90vh] flex flex-col gap-0 rounded-lg overflow-hidden">
                 <DialogHeader className="sr-only">
-                    <DialogTitle>Status update from {selectedUser.displayName}</DialogTitle>
-                    <DialogDescription>A temporary status update that disappears after 24 hours. This is status {currentStatusIndex + 1} of {userStatuses.length}.</DialogDescription>
+                    <DialogTitle>Status update from {selectedUser.displayName || selectedUser.username}</DialogTitle>
+                    <DialogDescription>A temporary status update from {selectedUser.username}.</DialogDescription>
                 </DialogHeader>
                 <div className="absolute top-0 left-0 right-0 z-20 p-4 flex items-center justify-between bg-gradient-to-b from-black/50 to-transparent">
                     <div className="flex items-center gap-2">
                         <Avatar className="h-8 w-8">
                             <AvatarImage src={selectedUser.avatarUrl} />
-                            <AvatarFallback>{selectedUser.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                            <AvatarFallback>{selectedUser.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
                         </Avatar>
-                        <span className="text-white text-sm font-semibold">{selectedUser.displayName}</span>
+                        <span className="text-white text-sm font-semibold">{selectedUser.displayName || selectedUser.username}</span>
                         <span className="text-gray-300 text-xs">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                     </div>
                      <div className="flex items-center gap-1">
+                        {isOwner && (
+                            <Button variant="ghost" size="icon" className="text-white hover:bg-red-500/20" onClick={(e) => { e.stopPropagation(); handleDeleteStatus(); }}>
+                                <Trash2 className="h-5 w-5" />
+                            </Button>
+                        )}
                         {isVideo && (
-                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={(e) => { e.stopPropagation(); setIsMuted(prev => !prev); }}>
+                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setIsMuted(prev => !prev); }}>
                                 {isMuted ? <VolumeX className="h-5 w-5"/> : <Volume2 className="h-5 w-5"/>}
                             </Button>
                         )}
-                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white" onClick={() => onOpenChange(false)}>
+                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={() => onOpenChange(false)}>
                               <X className="h-5 w-5"/>
                         </Button>
                      </div>
@@ -192,9 +220,9 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                             <Image src={currentStatus.mediaUrl!} alt="Status Update" layout="fill" objectFit="contain" />
                         )
                     ) : isNoteStatus ? (
-                         <div className={cn("absolute inset-0 flex items-center justify-center p-8", currentStatus.backgroundStyle)}>
+                         <div className={cn("absolute inset-0 flex items-center justify-center p-8", currentStatus.backgroundStyle || "bg-card")}>
                             {currentStatus.note && (
-                                <p className={cn("text-white text-center font-semibold whitespace-pre-line", currentStatus.note.length < 50 ? 'text-3xl' : 'text-xl')}>
+                                <p className={cn("text-white text-center font-semibold whitespace-pre-line", currentStatus.note.length < 50 ? 'text-3xl' : 'text-xl', !currentStatus.backgroundStyle && "text-foreground")}>
                                     {currentStatus.note}
                                 </p>
                             )}
@@ -228,9 +256,8 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     )}
                 </div>
                 
-                 {/* Navigation buttons */}
-                <button onClick={handlePrev} className="absolute left-0 top-1/3 bottom-1/3 w-1/2 text-white flex items-center justify-start"></button>
-                <button onClick={handleNext} className="absolute right-0 top-1/3 bottom-1/3 w-1/2 text-white flex items-center justify-end"></button>
+                <button onClick={(e) => { e.stopPropagation(); handlePrev(); }} className="absolute left-0 top-1/3 bottom-1/3 w-1/4 text-white flex items-center justify-start cursor-pointer"></button>
+                <button onClick={(e) => { e.stopPropagation(); handleNext(); }} className="absolute right-0 top-1/3 bottom-1/3 w-1/4 text-white flex items-center justify-end cursor-pointer"></button>
             </DialogContent>
         </Dialog>
     )

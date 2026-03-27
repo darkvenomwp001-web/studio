@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
+import { useState, useEffect, useRef, ChangeEvent, useTransition, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StatusUpdate, TextOverlayStyle, Song, Story, ThreadPost } from '@/types';
+import type { User, StatusUpdate, TextOverlayStyle, Song, Story } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, doc, updateDoc, getDocs, limit, setDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -42,7 +42,17 @@ const gradientBackgrounds = [
   'bg-gradient-to-br from-sky-400 to-sky-200',
 ];
 
-function StatusBubble({ user, onSelect, latestStatus }: { user: User, statuses: StatusUpdate[], onSelect: (user: User) => void, latestStatus: StatusUpdate | null }) {
+const sanitizeData = (data: any) => {
+    const sanitized: any = {};
+    Object.keys(data).forEach(key => {
+        if (data[key] !== undefined && data[key] !== null) {
+            sanitized[key] = data[key];
+        }
+    });
+    return sanitized;
+};
+
+function StatusBubble({ user, onSelect, latestStatus }: { user: User, onSelect: (user: User) => void, latestStatus: StatusUpdate | null }) {
   const { user: authUser } = useAuth();
   const isOwn = authUser?.id === user.id;
   const isNoteWithSong = latestStatus && (latestStatus.spotifyUrl);
@@ -55,11 +65,11 @@ function StatusBubble({ user, onSelect, latestStatus }: { user: User, statuses: 
       <div className="relative w-16 h-16 mx-auto group-hover:scale-110 transition-transform duration-200">
          <div className={cn(
             "w-16 h-16 p-0.5 rounded-full",
-            !isNoteWithSong && "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500"
+            !isNoteWithSong ? "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500" : "bg-muted"
         )}>
             <Avatar className="w-full h-full border-2 border-background">
             <AvatarImage src={user.avatarUrl} data-ai-hint="profile person" />
-            <AvatarFallback>{user.username.substring(0,1).toUpperCase()}</AvatarFallback>
+            <AvatarFallback>{user.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
         </div>
         
@@ -69,7 +79,7 @@ function StatusBubble({ user, onSelect, latestStatus }: { user: User, statuses: 
            </div>
         )}
       </div>
-      <p className="text-xs mt-1 truncate">{isOwn ? 'Your Status' : user.displayName}</p>
+      <p className="text-xs mt-1 truncate">{isOwn ? 'Your Status' : user.displayName || user.username}</p>
     </div>
   );
 }
@@ -206,10 +216,8 @@ export default function StatusFeature() {
 
     if (user && !user.isAnonymous) {
       const currentUserLive = allStatuses.filter(s => s.authorId === user.id);
-      if (currentUserLive.length > 0) {
-          groups.set(user.id, { user: user as User, statuses: currentUserLive });
-          newStatusOrder.push(user.id);
-      }
+      groups.set(user.id, { user: user as User, statuses: currentUserLive });
+      newStatusOrder.push(user.id);
     }
     
     allStatuses.forEach(status => {
@@ -285,10 +293,6 @@ export default function StatusFeature() {
     setNoteStyle({ font: 'sans', alignment: 'center' });
   }
   
-  const handleTabChange = (value: string) => {
-    setActiveUploaderTab(value);
-  };
-
   const handleMediaSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -354,8 +358,7 @@ export default function StatusFeature() {
             return;
         }
 
-        // Build post data dynamically to avoid 'undefined' field errors in Firestore
-        const postData: any = {
+        const postData = sanitizeData({
             author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
             content: data.note || '',
             type: 'original',
@@ -364,14 +367,13 @@ export default function StatusFeature() {
             repostCount: 0,
             isPinned: false,
             timestamp: serverTimestamp(),
-        };
-
-        if (data.mediaUrl) postData.imageUrl = data.mediaUrl;
-        if (data.sharedStoryId) postData.storyId = data.sharedStoryId;
-        if (data.storyTitle) postData.storyTitle = data.storyTitle;
-        if (data.storyCoverUrl) postData.storyCoverUrl = data.storyCoverUrl;
-        if (data.spotifyUrl) postData.songUrl = data.spotifyUrl;
-        if (data.songLyricSnippet) postData.songLyricSnippet = data.songLyricSnippet;
+            imageUrl: data.mediaUrl,
+            storyId: data.sharedStoryId,
+            storyTitle: data.storyTitle,
+            storyCoverUrl: data.storyCoverUrl,
+            songUrl: data.spotifyUrl,
+            songLyricSnippet: data.songLyricSnippet,
+        });
 
         const postColRef = collection(db, 'feedPosts');
         addDoc(postColRef, postData)
@@ -395,7 +397,7 @@ export default function StatusFeature() {
              setIsSubmitting(false);
              return;
         }
-        const statusData = { ...baseStatus, ...data };
+        const statusData = sanitizeData({ ...baseStatus, ...data });
         
         const statusRef = editingDraft ? doc(db, "statusUpdates", editingDraft.id) : doc(collection(db, 'statusUpdates'));
         const operation = editingDraft ? 'update' : 'create' as const;
@@ -423,12 +425,11 @@ export default function StatusFeature() {
         toast({ title: "Text is empty", description: "Please write something.", variant: "destructive" });
         return;
     }
-    const data: Record<string, any> = {
+    await handleSubmit(postDestination, status, {
       note: noteContent.trim(),
       noteStyle,
       backgroundStyle,
-    };
-    await handleSubmit(postDestination, status, data);
+    });
   };
   
   const handleSongSubmit = async (status: 'published' | 'draft') => {
@@ -436,15 +437,13 @@ export default function StatusFeature() {
         toast({ title: "No song selected", variant: "destructive" });
         return;
       }
-      const data: Record<string, any> = {
+      await handleSubmit(postDestination, status, {
           spotifyUrl: `https://open.spotify.com/track/${selectedSong.id}`,
           note: noteContent.trim() || '',
           vibeTags: vibeTags.split(',').map(t => t.trim()).filter(Boolean),
-      };
-      if (songLyricSnippet) data.songLyricSnippet = songLyricSnippet;
-      if (dynamicBgColor) data.dynamicBgColor = dynamicBgColor;
-
-      await handleSubmit(postDestination, status, data);
+          songLyricSnippet,
+          dynamicBgColor,
+      });
   }
 
   const handlePollSubmit = async (status: 'published' | 'draft') => {
@@ -456,13 +455,12 @@ export default function StatusFeature() {
       toast({ title: 'Poll is incomplete', description: 'Please fill out the question and all options.', variant: 'destructive'});
       return;
     }
-     const data: Record<string, any> = {
+    await handleSubmit('status', status, {
         poll: {
             question: pollQuestion.trim(),
             options: pollOptions.map((opt, index) => ({ id: `opt${index + 1}`, text: opt.trim(), votes: [] }))
         }
-    };
-    await handleSubmit('status', status, data);
+    });
   }
 
   const handleMediaSubmit = async (status: 'published' | 'draft') => {
@@ -505,18 +503,13 @@ export default function StatusFeature() {
         }
     }
 
-    const data: { [key: string]: any } = {
+    await handleSubmit(postDestination, status, {
         mediaUrl: mediaUrl,
         mediaType: mediaType,
-    };
-    
-    if (textOverlay.trim()) {
-        data.textOverlay = textOverlay.trim();
-        data.textOverlayStyle = textOverlayStyle;
-        data.textOverlayPosition = textOverlayPosition;
-    }
-    
-    await handleSubmit(postDestination, status, data);
+        textOverlay: textOverlay.trim() || undefined,
+        textOverlayStyle: textOverlay.trim() ? textOverlayStyle : undefined,
+        textOverlayPosition: textOverlay.trim() ? textOverlayPosition : undefined,
+    });
   };
   
   const handleShareStorySubmit = async (status: 'published' | 'draft') => {
@@ -524,14 +517,12 @@ export default function StatusFeature() {
       toast({ title: 'No Story Attached', description: 'Please select a story to share.', variant: 'destructive' });
       return;
     }
-    const data: Record<string, any> = {
+    await handleSubmit(postDestination, status, {
       sharedStoryId: attachedStory.id,
       note: noteContent.trim() || '',
       storyTitle: attachedStory.title,
-    };
-    if (attachedStory.coverImageUrl) data.storyCoverUrl = attachedStory.coverImageUrl;
-
-    await handleSubmit(postDestination, status, data);
+      storyCoverUrl: attachedStory.coverImageUrl,
+    });
   };
   
   const handleTeaserSubmit = async (status: 'published' | 'draft') => {
@@ -547,11 +538,10 @@ export default function StatusFeature() {
         toast({ title: "Teaser is empty", description: "Please write a teaser message.", variant: "destructive" });
         return;
     }
-    const data: Record<string, any> = {
+    await handleSubmit('status', status, {
       sharedStoryId: attachedStory.id,
       note: noteContent.trim(),
-    };
-    await handleSubmit('status', status, data);
+    });
   };
 
   const handleGenerateCaptions = () => {
@@ -642,14 +632,14 @@ export default function StatusFeature() {
   const UploaderFooter = ({ onSaveDraft, onPublish, draftDisabled, publishDisabled, showDraft = true }: { onSaveDraft: () => void, onPublish: () => void, draftDisabled?: boolean, publishDisabled?: boolean, showDraft?: boolean }) => (
     <DialogFooter className="flex-row justify-between items-center p-4 border-t">
       <div className="flex items-center gap-2">
-        <Label htmlFor="destination-switch" className={cn("text-sm transition-colors", postDestination === 'status' ? 'text-foreground font-semibold' : 'text-muted-foreground')}>Status</Label>
+        <Label htmlFor="destination-switch" className={cn("text-xs transition-colors", postDestination === 'status' ? 'text-foreground font-semibold' : 'text-muted-foreground')}>Status</Label>
         <Switch
           id="destination-switch"
           checked={postDestination === 'feed'}
           onCheckedChange={(checked) => setPostDestination(checked ? 'feed' : 'status')}
           disabled={isSubmitting}
         />
-        <Label htmlFor="destination-switch" className={cn("text-sm transition-colors", postDestination === 'feed' ? 'text-foreground font-semibold' : 'text-muted-foreground')}>Feed</Label>
+        <Label htmlFor="destination-switch" className={cn("text-xs transition-colors", postDestination === 'feed' ? 'text-foreground font-semibold' : 'text-muted-foreground')}>Feed</Label>
       </div>
       <div className="flex items-center gap-2">
           {showDraft && <Button variant="ghost" onClick={onSaveDraft} disabled={isSubmitting || draftDisabled}>Save Draft</Button>}
@@ -665,7 +655,7 @@ export default function StatusFeature() {
       case 'text':
         return (
           <>
-            <div className={cn("py-4 space-y-4 flex-grow flex flex-col justify-center items-center text-white", backgroundStyle)}>
+            <div className={cn("py-4 space-y-4 flex-grow flex flex-col justify-center items-center text-white", backgroundStyle || 'bg-card')}>
               <Textarea
                   placeholder={`What's on your mind, ${user?.displayName || user?.username}?`}
                   value={noteContent}
@@ -675,6 +665,7 @@ export default function StatusFeature() {
                     noteStyle.font === 'serif' ? 'font-serif' : (noteStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
                     noteStyle.alignment === 'left' ? 'text-left' : (noteStyle.alignment === 'right' ? 'text-right' : 'text-center'),
                     noteContent.length < 50 ? 'text-3xl' : 'text-xl',
+                    !backgroundStyle && "text-foreground"
                   )}
               />
               <div className="flex gap-2 p-2 bg-black/20 rounded-full items-center">
@@ -1079,7 +1070,7 @@ export default function StatusFeature() {
                 <div className="relative w-16 h-16 mx-auto">
                     <Avatar className="w-full h-full border-2 border-border group-hover:border-primary/50 transition-colors">
                         <AvatarImage src={user.avatarUrl} />
-                        <AvatarFallback>{user.username?.substring(0,1).toUpperCase()}</AvatarFallback>
+                        <AvatarFallback>{user.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-md">
                         <Plus className="h-4 w-4 text-primary-foreground" />
@@ -1105,7 +1096,7 @@ export default function StatusFeature() {
                         const timeB = b.createdAt ? (b.createdAt as Timestamp)?.toMillis() ?? 0 : 0;
                         return timeB - timeA;
                     })[0];
-                    return <StatusBubble key={userId} user={group.user} statuses={group.statuses} onSelect={handleSelectUser} latestStatus={latestStatus} />
+                    return <StatusBubble key={userId} user={group.user} latestStatus={latestStatus} onSelect={handleSelectUser} />
                 })
             )}
         </div>
@@ -1131,17 +1122,17 @@ export default function StatusFeature() {
 
        <Dialog open={isUploaderOpen} onOpenChange={(open) => { setIsUploaderOpen(open); if(!open) resetUploader(); }}>
           <DialogContent className="p-0 m-0 border-0 w-screen h-[90vh] max-h-[700px] max-w-full sm:max-w-md flex flex-col gap-0 rounded-lg overflow-hidden">
-            <DialogHeader className="p-4 flex-row items-center justify-between border-b">
+            <DialogHeader className="p-4 flex-row items-center justify-between border-b bg-background">
                 <DialogTitle>Create Post</DialogTitle>
                 <div className="flex items-center gap-1">
                     <DialogClose asChild><Button variant="ghost" size="icon"><X className="h-5 w-5"/></Button></DialogClose>
                 </div>
             </DialogHeader>
-            <div className="flex-grow flex flex-col overflow-hidden">
+            <div className="flex-grow flex flex-col overflow-hidden bg-background">
               {uploaderContent()}
             </div>
              <div className="p-2 border-t bg-background">
-                <Tabs value={activeUploaderTab} onValueChange={handleTabChange} className="w-full">
+                <Tabs value={activeUploaderTab} onValueChange={(v) => setActiveUploaderTab(v)} className="w-full">
                     <TabsList className="grid w-full grid-cols-6">
                         <TabsTrigger value="text"><Type className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="media"><ImageIcon className="h-5 w-5"/></TabsTrigger>
