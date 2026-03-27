@@ -513,8 +513,12 @@ export default function UserProfilePage() {
           </div>
             <div className="mt-6 pt-6 border-t border-border/60 flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-muted-foreground">
               <span><strong className="text-foreground">{publishedWorks.length}</strong> Public Works</span>
-              <span><strong className="text-foreground">{liveFollowersCount ?? '...'}</strong> Followers</span>
-              <span><strong className="text-foreground">{profileUser.followingCount || 0}</strong> Following</span>
+              <Link href={`/profile/${userId}/connections?tab=followers`} className="hover:underline">
+                <span><strong className="text-foreground">{liveFollowersCount ?? '...'}</strong> Followers</span>
+              </Link>
+              <Link href={`/profile/${userId}/connections?tab=following`} className="hover:underline">
+                <span><strong className="text-foreground">{profileUser.followingCount || 0}</strong> Following</span>
+              </Link>
             </div>
       </header>
 
