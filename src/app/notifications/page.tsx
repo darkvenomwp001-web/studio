@@ -60,6 +60,16 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
     });
 }
 
+// Robust date parser for Firestore Timestamps, Strings, or Date objects
+const parseSafeDate = (timestamp: any): Date | null => {
+    if (!timestamp) return null;
+    if (timestamp instanceof Date) return timestamp;
+    if (typeof timestamp.toDate === 'function') return timestamp.toDate();
+    if (timestamp.seconds !== undefined) return new Date(timestamp.seconds * 1000);
+    const date = new Date(timestamp);
+    return isNaN(date.getTime()) ? null : date;
+};
+
 function NotificationsList() {
     const { user, notifications, markNotificationAsRead, markAllNotificationsAsRead, authLoading } = useAuth();
     const router = useRouter();
@@ -113,7 +123,9 @@ function NotificationsList() {
         };
 
         notifs.forEach(notif => {
-            const date = (notif.timestamp as any)?.toDate ? (notif.timestamp as any).toDate() : new Date(notif.timestamp);
+            const date = parseSafeDate(notif.timestamp);
+            if (!date) return;
+            
             if (isToday(date)) {
                 groups.Today.push(notif);
             } else if (isThisWeek(date)) {
@@ -155,39 +167,42 @@ function NotificationsList() {
                             <div key={group}>
                                 <h3 className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground/60 px-4 md:px-6 mb-3">{group}</h3>
                                 <div className="space-y-1">
-                                    {notifs.map((notif) => (
-                                        <div
-                                            key={notif.id}
-                                            onClick={() => handleNotificationClick(notif)}
-                                            className={cn(
-                                                "p-4 mx-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-4 group",
-                                                !notif.isRead ? 'bg-primary/5 hover:bg-primary/10 border border-primary/10' : 'hover:bg-muted/50 border border-transparent'
+                                    {notifs.map((notif) => {
+                                        const displayDate = parseSafeDate(notif.timestamp);
+                                        return (
+                                            <div
+                                                key={notif.id}
+                                                onClick={() => handleNotificationClick(notif)}
+                                                className={cn(
+                                                    "p-4 mx-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-4 group",
+                                                    !notif.isRead ? 'bg-primary/5 hover:bg-primary/10 border border-primary/10' : 'hover:bg-muted/50 border border-transparent'
+                                                )}
+                                            >
+                                            <div className="relative flex-shrink-0">
+                                                <Avatar className="h-12 w-12 border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
+                                                    <AvatarImage src={notif.actor.avatarUrl} alt={notif.actor.username} data-ai-hint="profile person"/>
+                                                    <AvatarFallback className="bg-muted text-primary font-bold">{notif.actor.username.substring(0, 1).toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="absolute -bottom-1 -right-1 bg-card p-1 rounded-full shadow-sm ring-2 ring-background">
+                                                    {getNotificationIcon(notif.type)}
+                                                </div>
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm leading-snug text-foreground/90">
+                                                    <span className="font-bold text-foreground">@{notif.actor.username}</span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
+                                                </p>
+                                                <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-tighter mt-1">
+                                                {displayDate ? formatDistanceToNow(displayDate, { addSuffix: true }) : 'A while ago'}
+                                                </p>
+                                            </div>
+                                            {!notif.isRead && (
+                                                <div className="flex-shrink-0 self-center ml-auto">
+                                                    <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" title="Unread"></div>
+                                                </div>
                                             )}
-                                        >
-                                        <div className="relative flex-shrink-0">
-                                            <Avatar className="h-12 w-12 border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
-                                                <AvatarImage src={notif.actor.avatarUrl} alt={notif.actor.username} data-ai-hint="profile person"/>
-                                                <AvatarFallback className="bg-muted text-primary font-bold">{notif.actor.username.substring(0, 1).toUpperCase()}</AvatarFallback>
-                                            </Avatar>
-                                             <div className="absolute -bottom-1 -right-1 bg-card p-1 rounded-full shadow-sm ring-2 ring-background">
-                                                {getNotificationIcon(notif.type)}
                                             </div>
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="text-sm leading-snug text-foreground/90">
-                                                <span className="font-bold text-foreground">@{notif.actor.username}</span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
-                                            </p>
-                                            <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-tighter mt-1">
-                                            {notif.timestamp ? formatDistanceToNow(new Date(notif.timestamp), { addSuffix: true }) : 'A while ago'}
-                                            </p>
-                                        </div>
-                                        {!notif.isRead && (
-                                            <div className="flex-shrink-0 self-center ml-auto">
-                                                <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" title="Unread"></div>
-                                            </div>
-                                        )}
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                          )
@@ -509,7 +524,7 @@ function MessagesClient() {
         let lastDateString = "";
 
         messages.forEach((msg, index) => {
-            const msgDate = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
+            const msgDate = parseSafeDate(msg.timestamp) || new Date();
             let currentDateString = "";
             
             if (isToday(msgDate)) currentDateString = "Today";
@@ -619,10 +634,10 @@ function MessagesClient() {
                     <div className="space-y-0.5 p-2">
                         {filteredConversations.map(conv => {
                             const otherParticipant = getOtherParticipant(conv);
-                            const lastMessageTimestampServer = conv.lastMessage?.timestamp as any; 
+                            const lastMessageDate = parseSafeDate(conv.lastMessage?.timestamp);
                             let lastMessageDisplayTime = '';
-                            if (lastMessageTimestampServer && typeof lastMessageTimestampServer.toDate === 'function') {
-                                lastMessageDisplayTime = formatDistanceToNow(lastMessageTimestampServer.toDate(), { addSuffix: true });
+                            if (lastMessageDate) {
+                                lastMessageDisplayTime = formatDistanceToNow(lastMessageDate, { addSuffix: true });
                             }
                             const isActive = activeConversation?.id === conv.id;
                             const isUnread = conv.lastMessage?.senderId !== currentUser?.id && !conv.lastMessage?.isRead;
