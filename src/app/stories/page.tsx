@@ -8,8 +8,7 @@ import StoryCard from '@/components/shared/StoryCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Loader2, BookOpen, SlidersHorizontal, Sparkles } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Search, Loader2, BookOpen, SlidersHorizontal } from 'lucide-react';
 
 export default function StoriesPage() {
   const [allStories, setAllStories] = useState<Story[]>([]);
@@ -104,20 +103,7 @@ export default function StoriesPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Modern Header */}
-        <header className="pt-12 pb-16 text-center space-y-4 animate-in fade-in slide-in-from-top-4 duration-700">
-          <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary bg-primary/5 rounded-full mb-2">
-            <Sparkles className="h-3 w-3 mr-2" /> Explorer
-          </Badge>
-          <h1 className="text-4xl md:text-6xl font-headline font-bold text-foreground tracking-tight">
-            Infinite Worlds Await
-          </h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto text-lg font-medium">
-            Discover thousands of stories curated by a global community of independent authors.
-          </p>
-        </header>
-
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-12">
         {/* Refined Filter Bar */}
         <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-xl py-4 mb-12 border-b border-border/40">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
