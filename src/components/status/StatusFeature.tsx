@@ -98,7 +98,7 @@ export default function StatusFeature() {
   const [isLoading, setIsLoading] = useState(true);
   
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
-  const [isUploaderOpen, setIsUploaderOpen] = useState(open => { resetUploader(); return false; });
+  const [isUploaderOpen, setIsUploaderOpen] = useState(false);
   
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
@@ -261,7 +261,7 @@ export default function StatusFeature() {
     }
   }
 
-  function resetUploader() {
+  const resetUploader = useCallback(() => {
     setMediaFile(null);
     setMediaPreview(null);
     setTextOverlay('');
@@ -285,7 +285,7 @@ export default function StatusFeature() {
     setDynamicBgColor(null);
     setVibeTags('');
     setNoteStyle({ font: 'sans', alignment: 'center' });
-  }
+  }, []);
   
   const handleMediaSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
