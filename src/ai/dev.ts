@@ -9,3 +9,4 @@ import '@/ai/flows/mood-matcher-flow.ts';
 import '@/ai/flows/generate-conversation-starters.ts';
 import '@/ai/flows/generate-status-caption.ts';
 import '@/ai/flows/search-songs-flow.ts';
+import '@/ai/flows/draft-letter-flow.ts';

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { improveWritingStyle as improveWritingStyleFlow, ImproveWritingStyleInput, ImproveWritingStyleOutput } from '@/ai/flows/improve-writing-style';
@@ -7,6 +6,7 @@ import { matchStoryMood as matchStoryMoodFlow, MatchStoryMoodInput, MatchStoryMo
 import { generateConversationStarters as generateConversationStartersFlow, GenerateConversationStartersInput, GenerateConversationStartersOutput } from '@/ai/flows/generate-conversation-starters';
 import { generateStatusCaption as generateStatusCaptionFlow, GenerateStatusCaptionInput, GenerateStatusCaptionOutput } from '@/ai/flows/generate-status-caption';
 import { searchSongs as searchSongsFlow, SearchSongsInput, SearchSongsOutput } from '@/ai/flows/search-songs-flow';
+import { draftLetter as draftLetterFlow, DraftLetterInput, DraftLetterOutput } from '@/ai/flows/draft-letter-flow';
 
 
 export async function getWritingSuggestions(input: ImproveWritingStyleInput): Promise<ImproveWritingStyleOutput | { error: string }> {
@@ -74,6 +74,16 @@ export async function searchSongs(input: SearchSongsInput): Promise<SearchSongsO
         return result;
     } catch (error) {
         console.error("Error in searchSongs AI action:", error);
+        return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
+    }
+}
+
+export async function getMagicLetterDraft(input: DraftLetterInput): Promise<DraftLetterOutput | { error: string }> {
+    try {
+        const result = await draftLetterFlow(input);
+        return result;
+    } catch (error) {
+        console.error("Error in getMagicLetterDraft AI action:", error);
         return { error: (error instanceof Error ? error.message : "An unknown error occurred") };
     }
 }
