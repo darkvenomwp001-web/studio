@@ -417,14 +417,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * Helper to check if a username is already claimed in Firestore.
+   */
+  const isUsernameTaken = async (username: string, currentUserId?: string): Promise<boolean> => {
+    const q = query(collection(db, 'users'), where('username', '==', username.toLowerCase()), limit(1));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) return false;
+    
+    // If we're updating a profile, it's not "taken" if it's already ours
+    if (currentUserId && querySnapshot.docs[0].id === currentUserId) return false;
+    
+    return true;
+  };
+
   const signUpWithEmailPassword = async ({ username, email, passwordOne }: { username: string; email: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
+      const taken = await isUsernameTaken(username);
+      if (taken) {
+        toast({ title: "Username Taken", description: "This handle is already in use. Please try another.", variant: "destructive" });
+        setAuthLoading(false);
+        return;
+      }
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
       await sendEmailVerification(userCredential.user);
       router.push('/auth/verify-email');
     } catch (error) {
       console.error(error);
+      toast({ title: "Sign Up Error", description: (error as Error).message, variant: "destructive" });
     } finally {
       setAuthLoading(false);
     }
@@ -445,6 +467,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
     } catch (error) {
       console.error(error);
+      toast({ title: "Sign In Error", description: (error as Error).message, variant: "destructive" });
     } finally {
       setAuthLoading(false);
     }
@@ -466,6 +489,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUserProfile = async (updates: Partial<AppUser>) => {
     if (!user) return;
+
+    if (updates.username && updates.username !== user.username) {
+        const taken = await isUsernameTaken(updates.username, user.id);
+        if (taken) {
+            toast({ title: "Username Taken", description: "The handle you selected is already claimed by another user.", variant: "destructive" });
+            return;
+        }
+    }
+
     const userRef = doc(db, 'users', user.id);
     const updateData = { ...updates, updatedAt: serverTimestamp() };
     updateDoc(userRef, updateData).catch(async (serverError) => {
