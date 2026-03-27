@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -26,7 +27,6 @@ import {
   Sun,
   Monitor,
   TextIcon,
-  Highlighter,
   Palette,
   Type,
   Baseline,
@@ -43,15 +43,14 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment } from 'firebase/firestore';
-import { toggleChapterVote } from '@/app/actions/storyActions';
+import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment, addDoc, collection } from 'firebase/firestore';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { BubbleMenu, Editor, EditorContent, useEditor } from '@tiptap/react'
+import { BubbleMenu, EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
@@ -59,9 +58,20 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { createAnnotation } from '@/app/actions/annotationActions';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
@@ -107,6 +117,8 @@ export default function StoryReaderPage() {
   const [annotationNote, setAnnotationNote] = useState("");
   const [selectedHighlightColor, setSelectedHighlightColor] = useState("#fde047"); // Default yellow
 
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
   const contentRef = useRef<HTMLDivElement>(null);
   const viewIncrementedRef = useRef(false);
 
@@ -125,7 +137,7 @@ export default function StoryReaderPage() {
         TiptapUnderline,
         TiptapHighlight.configure({ multicolor: true }),
     ],
-});
+  });
 
   useEffect(() => {
     if (editor) {
@@ -181,7 +193,14 @@ export default function StoryReaderPage() {
     if (viewIncrementedRef.current || !storyId) return;
     try {
       const storyRef = doc(db, 'stories', storyId);
-      await updateDoc(storyRef, { views: increment(1) });
+      updateDoc(storyRef, { views: increment(1) }).catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+              path: storyRef.path,
+              operation: 'update',
+              requestResourceData: { views: 'increment' },
+          } satisfies SecurityRuleContext);
+          errorEmitter.emit('permission-error', permissionError);
+      });
       viewIncrementedRef.current = true;
     } catch (error) {
       console.error("Error incrementing view count:", error);
@@ -257,8 +276,11 @@ export default function StoryReaderPage() {
       }
       setIsLoading(false);
     }, (error) => {
-      console.error("Error fetching story for reader:", error);
-      toast({ title: "Error", description: "Could not load the story.", variant: "destructive" });
+      const permissionError = new FirestorePermissionError({
+          path: storyDocRef.path,
+          operation: 'get',
+      } satisfies SecurityRuleContext);
+      errorEmitter.emit('permission-error', permissionError);
       setIsLoading(false);
     });
 
@@ -363,16 +385,21 @@ export default function StoryReaderPage() {
     };
     setCurrentChapter(updatedOptimisticChapter);
 
+    const storyRef = doc(db, 'stories', story.id);
+    const updatedChapters = story.chapters.map(ch => {
+        if (ch.id === currentChapter.id) return updatedOptimisticChapter;
+        return ch;
+    });
 
-    const result = await toggleChapterVote(story.id, currentChapter.id, currentUser.id);
-    
-    if (!result.success) {
-        // Revert UI on failure
+    updateDoc(storyRef, { chapters: updatedChapters }).catch(async (serverError) => {
         setCurrentChapter(originalChapter);
-        toast({ title: "Vote Failed", description: result.error, variant: "destructive" });
-    }
-    
-    setIsVoting(false);
+        const permissionError = new FirestorePermissionError({
+            path: storyRef.path,
+            operation: 'update',
+            requestResourceData: { chapters: 'voted' },
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    }).finally(() => setIsVoting(false));
   };
 
   const handleLibraryAction = () => {
@@ -412,7 +439,7 @@ export default function StoryReaderPage() {
         }
         editor.chain().focus().toggleHighlight({ color: selectedHighlightColor }).run();
         
-        await createAnnotation({
+        const annotationData = {
             userId: currentUser.id,
             storyId: story.id,
             storyTitle: story.title,
@@ -421,14 +448,28 @@ export default function StoryReaderPage() {
             highlightedText,
             highlightColor: selectedHighlightColor,
             note: annotationNote || undefined,
-        });
-        toast({ title: "Annotation Saved!", description: "Your highlight and note have been saved." });
-        setAnnotationNote(""); // Reset note field
+            timestamp: serverTimestamp(),
+        };
+
+        const annoColRef = collection(db, 'annotations');
+        addDoc(annoColRef, annotationData)
+            .then(() => {
+                toast({ title: "Annotation Saved!", description: "Your highlight and note have been saved." });
+                setAnnotationNote("");
+            })
+            .catch(async (serverError) => {
+                editor.chain().focus().unsetHighlight().run();
+                const permissionError = new FirestorePermissionError({
+                    path: 'annotations',
+                    operation: 'create',
+                    requestResourceData: annotationData,
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+            });
 
     } catch (error) {
         console.error("Failed to save annotation:", error);
         toast({ title: "Error", description: "Could not save your annotation.", variant: "destructive" });
-        // Attempt to undo the visual highlight if DB save fails
         editor.chain().focus().unsetHighlight().run();
     } finally {
         if (!previouslyEditable) {

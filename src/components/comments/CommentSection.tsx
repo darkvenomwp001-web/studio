@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
@@ -45,6 +44,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { useToast } from '@/hooks/use-toast';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 interface CommentProps {
   comment: CommentType;
@@ -93,15 +94,12 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
         return;
     }
     setIsSavingEdit(true);
-    try {
-        await onCommentUpdate(comment.id, editedContent.trim());
-        setIsEditing(false);
-        toast({ title: "Comment updated" });
-    } catch (error) {
-        toast({ title: "Error updating comment", description: (error as Error).message, variant: "destructive"});
-    } finally {
-        setIsSavingEdit(false);
-    }
+    onCommentUpdate(comment.id, editedContent.trim())
+        .then(() => {
+            setIsEditing(false);
+            toast({ title: "Comment updated" });
+        })
+        .finally(() => setIsSavingEdit(false));
   };
   
   const isOwner = currentUser?.id === comment.user.id;
@@ -207,13 +205,9 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
             <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction 
-                    onClick={async () => {
-                        try {
-                           await onCommentDelete(comment.id);
-                           toast({ title: "Comment deleted" });
-                        } catch (error) {
-                           toast({ title: "Error deleting comment", description: (error as Error).message, variant: "destructive"});
-                        }
+                    onClick={() => {
+                        onCommentDelete(comment.id)
+                            .then(() => toast({ title: "Comment deleted" }));
                     }} 
                     className="bg-destructive hover:bg-destructive/90"
                 >
@@ -284,13 +278,16 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
       setAllComments(fetchedComments);
       setIsLoadingComments(false);
     }, (error) => {
-      console.error("Error fetching comments: ", error);
-      toast({ title: "Error loading comments", description: error.message, variant: "destructive"});
+      const permissionError = new FirestorePermissionError({
+          path: 'comments',
+          operation: 'list',
+      } satisfies SecurityRuleContext);
+      errorEmitter.emit('permission-error', permissionError);
       setIsLoadingComments(false);
     });
 
     return () => unsubscribe();
-  }, [storyId, chapterId, toast]);
+  }, [storyId, chapterId]);
 
   const topLevelComments = allComments
     .filter(comment => !comment.parentId)
@@ -324,17 +321,22 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
       commentData.quote = quote;
     }
 
-    try {
-      await addDoc(collection(db, 'comments'), commentData);
-      setNewComment('');
-      setReplyingTo(null);
-      toast({ title: "Comment posted!" });
-    } catch (error) {
-      console.error("Error posting comment: ", error);
-      toast({ title: "Error posting comment", description: (error as Error).message, variant: "destructive"});
-    } finally {
-      setIsPostingComment(false);
-    }
+    const commentsColRef = collection(db, 'comments');
+    addDoc(commentsColRef, commentData)
+        .then(() => {
+            setNewComment('');
+            setReplyingTo(null);
+            toast({ title: "Comment posted!" });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: 'comments',
+                operation: 'create',
+                requestResourceData: commentData,
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => setIsPostingComment(false));
   };
 
   const handleReply = (commentId: string, username: string) => {
@@ -345,14 +347,27 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
 
   const handleCommentUpdate = async (commentId: string, newContent: string) => {
     const commentRef = doc(db, 'comments', commentId);
-    await updateDoc(commentRef, {
+    updateDoc(commentRef, {
       content: newContent,
+    }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: commentRef.path,
+            operation: 'update',
+            requestResourceData: { content: newContent },
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
     });
   };
 
   const handleCommentDelete = async (commentId: string) => {
     const commentRef = doc(db, 'comments', commentId);
-    await deleteDoc(commentRef);
+    deleteDoc(commentRef).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: commentRef.path,
+            operation: 'delete',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
   
   const onEmojiClick = (emojiData: EmojiClickData) => {

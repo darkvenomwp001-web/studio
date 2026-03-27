@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -26,8 +27,9 @@ import SongSearch, { LyricCarousel } from './SongSearch';
 import VinylPlayer from './VinylPlayer';
 import { Textarea } from '../ui/textarea';
 import type { CarouselApi } from "@/components/ui/carousel"
-import { createThreadPost } from '@/app/actions/threadActions';
 import { getStatusCaptions, getConversationStarters } from '@/app/actions/aiActions';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const MAX_MEDIA_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
@@ -187,7 +189,11 @@ export default function StatusFeature() {
         setAllStatuses(liveStatuses);
         setIsLoading(false);
     }, (error) => {
-        console.error("Error fetching published statuses: ", error);
+        const permissionError = new FirestorePermissionError({
+            path: 'statusUpdates',
+            operation: 'list',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
         setIsLoading(false);
     });
 
@@ -358,17 +364,29 @@ export default function StatusFeature() {
             storyCoverUrl: data.storyCoverUrl || undefined,
             songUrl: data.spotifyUrl || undefined,
             songLyricSnippet: data.songLyricSnippet || undefined,
+            reactionsCount: 0,
+            commentsCount: 0,
+            repostCount: 0,
+            isPinned: false,
+            timestamp: serverTimestamp(),
         };
 
-        const result = await createThreadPost(postData as Omit<ThreadPost, 'id' | 'timestamp' | 'commentsCount'>);
-
-        if (result.success) {
-            toast({ title: 'Posted to Feed!' });
-            setIsUploaderOpen(false);
-            resetUploader();
-        } else {
-            toast({ title: "Failed to post to feed", description: result.error, variant: "destructive" });
-        }
+        const postColRef = collection(db, 'feedPosts');
+        addDoc(postColRef, postData)
+            .then(() => {
+                toast({ title: 'Posted to Feed!' });
+                setIsUploaderOpen(false);
+                resetUploader();
+            })
+            .catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: 'feedPosts',
+                    operation: 'create',
+                    requestResourceData: postData,
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+            })
+            .finally(() => setIsSubmitting(false));
     } else {
         const baseStatus = createBaseStatus(status);
         if (!baseStatus) {
@@ -377,22 +395,25 @@ export default function StatusFeature() {
         }
         const statusData = { ...baseStatus, ...data };
         
-        try {
-            if(editingDraft) {
-                await updateDoc(doc(db, "statusUpdates", editingDraft.id), statusData);
-                toast({ title: `Draft updated and ${status}!` });
-            } else {
-                await addDoc(collection(db, 'statusUpdates'), statusData);
+        const statusRef = editingDraft ? doc(db, "statusUpdates", editingDraft.id) : doc(collection(db, 'statusUpdates'));
+        const operation = editingDraft ? 'update' : 'create' as const;
+        
+        (editingDraft ? updateDoc(statusRef, statusData) : setDoc(statusRef, statusData))
+            .then(() => {
                 toast({ title: `Status ${status === 'published' ? 'Published!' : 'Saved as Draft!'}` });
-            }
-            setIsUploaderOpen(false);
-            resetUploader();
-        } catch (error) {
-            console.error("Error saving status:", error);
-            toast({ title: "Failed to save status", variant: "destructive"});
-        }
+                setIsUploaderOpen(false);
+                resetUploader();
+            })
+            .catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: statusRef.path,
+                    operation: operation,
+                    requestResourceData: statusData,
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+            })
+            .finally(() => setIsSubmitting(false));
     }
-    setIsSubmitting(false);
   };
   
   const handleTextSubmit = async (status: 'published' | 'draft') => {
@@ -492,7 +513,6 @@ export default function StatusFeature() {
         data.textOverlayPosition = textOverlayPosition;
     }
     
-    setIsSubmitting(false);
     await handleSubmit(postDestination, status, data);
   };
   

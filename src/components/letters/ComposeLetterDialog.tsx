@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,6 +14,8 @@ import { Loader2, Send, PenSquare } from 'lucide-react';
 import type { Story, Chapter, ReadingListItem } from '@/types';
 import { addDoc, collection, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 export default function ComposeLetterDialog() {
   const { user, addNotification } = useAuth();
@@ -78,8 +81,7 @@ export default function ComposeLetterDialog() {
     }
 
     setIsSending(true);
-    try {
-      await addDoc(collection(db, 'letters'), {
+    const letterData = {
         storyId: storyDetails.id,
         storyTitle: storyDetails.title,
         chapterId: chapter.id,
@@ -97,31 +99,37 @@ export default function ComposeLetterDialog() {
         timestamp: serverTimestamp(),
         isPinned: false,
         isReadByAuthor: false,
-      });
+    };
 
-      if (storyDetails.author.id !== user.id) {
-        await addNotification({
-            userId: storyDetails.author.id,
-            type: 'new_letter',
-            message: `${user.displayName || user.username} sent you a letter about "${storyDetails.title}".`,
-            link: `/letters`,
-            actor: {
-                id: user.id,
-                username: user.username,
-                displayName: user.displayName || user.username,
-                avatarUrl: user.avatarUrl
+    const lettersColRef = collection(db, 'letters');
+    addDoc(lettersColRef, letterData)
+        .then(() => {
+            if (storyDetails.author.id !== user.id) {
+                addNotification({
+                    userId: storyDetails.author.id,
+                    type: 'new_letter',
+                    message: `${user.displayName || user.username} sent you a letter about "${storyDetails.title}".`,
+                    link: `/letters`,
+                    actor: {
+                        id: user.id,
+                        username: user.username,
+                        displayName: user.displayName || user.username,
+                        avatarUrl: user.avatarUrl
+                    }
+                });
             }
-        });
-      }
-
-      setIsOpen(false);
-      toast({ title: "Letter Sent!", description: "Your message is on its way to the author." });
-    } catch (error) {
-      console.error("Error sending letter: ", error);
-      toast({ title: "Error", description: "Could not send your letter.", variant: "destructive" });
-    } finally {
-      setIsSending(false);
-    }
+            setIsOpen(false);
+            toast({ title: "Letter Sent!", description: "Your message is on its way to the author." });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: 'letters',
+                operation: 'create',
+                requestResourceData: letterData,
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => setIsSending(false));
   };
 
   const publishedChapters = storyDetails?.chapters.filter(c => c.status === 'Published') || [];

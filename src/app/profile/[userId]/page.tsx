@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, FormEvent, useTransition } from 'react';
@@ -22,20 +23,22 @@ import {
   orderBy,
   getDocs,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  updateDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDistanceToNow } from 'date-fns';
-import { addNotification } from '@/app/actions/notificationActions';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { updateAnnouncement, deleteAnnouncement } from '@/app/actions/announcementActions';
 import ProfilePhotoGrid from '@/components/profile/ProfilePhotoGrid';
 import VerifiedBadge from '@/components/icons/VerifiedBadge';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 
 interface ProfileStoryCardProps {
@@ -93,7 +96,7 @@ function ProfileSong({ user }: { user: AppUser }) {
 }
 
 function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
-  const { user } = useAuth();
+  const { user, addNotification } = useAuth();
   const { toast } = useToast();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -102,10 +105,10 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
 
   const [editingPost, setEditingPost] = useState<Announcement | null>(null);
   const [editedContent, setEditedContent] = useState("");
-  const [isUpdating, startUpdateTransition] = useTransition();
+  const [isUpdating, setIsUpdating] = useState(false);
   
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
-  const [isDeleting, startDeleteTransition] = useTransition();
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
@@ -120,80 +123,96 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
       setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement)));
       setIsLoading(false);
     }, (error) => {
-      console.error("Error fetching announcements:", error);
-      toast({ title: 'Error loading updates', variant: 'destructive' });
+      const permissionError = new FirestorePermissionError({
+          path: 'announcements',
+          operation: 'list',
+      } satisfies SecurityRuleContext);
+      errorEmitter.emit('permission-error', permissionError);
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [profileUser.id, toast]);
+  }, [profileUser.id]);
   
   const handlePostAnnouncement = async (e: FormEvent) => {
     e.preventDefault();
     if (!user || !newAnnouncement.trim()) return;
 
     setIsPosting(true);
-    try {
-      const authorSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
-      
-      await addDoc(collection(db, 'announcements'), {
+    const authorSummary = { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl };
+    const announcementData = {
         author: authorSummary,
         content: newAnnouncement.trim(),
         timestamp: serverTimestamp()
-      });
+    };
 
-      const followersQuery = query(collection(db, 'users'), where('followingIds', 'array-contains', user.id));
-      const followersSnapshot = await getDocs(followersQuery);
-      
-      const batch = [];
-      for (const followerDoc of followersSnapshot.docs) {
-          const notification = {
-            userId: followerDoc.id,
-            type: 'author_announcement',
-            message: `posted a new update.`,
-            link: `/profile/${user.id}?tab=announcements`,
-            actor: authorSummary
-          };
-          batch.push(addNotification(notification));
-      }
-      
-      await Promise.all(batch);
-
-      setNewAnnouncement('');
-      toast({ title: 'Update posted!' });
-    } catch (error) {
-      console.error("Error posting update:", error);
-      toast({ title: 'Could not post update', variant: 'destructive' });
-    } finally {
-      setIsPosting(false);
-    }
+    addDoc(collection(db, 'announcements'), announcementData)
+        .then(async () => {
+            const followersQuery = query(collection(db, 'users'), where('followingIds', 'array-contains', user.id));
+            const followersSnapshot = await getDocs(followersQuery);
+            followersSnapshot.forEach(followerDoc => {
+                addNotification({
+                    userId: followerDoc.id,
+                    type: 'author_announcement',
+                    message: `posted a new update.`,
+                    link: `/profile/${user.id}?tab=announcements`,
+                    actor: authorSummary
+                });
+            });
+            setNewAnnouncement('');
+            toast({ title: 'Update posted!' });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: 'announcements',
+                operation: 'create',
+                requestResourceData: announcementData,
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => setIsPosting(false));
   };
 
   const handleUpdateAnnouncement = () => {
     if (!editingPost || !user) return;
-    startUpdateTransition(async () => {
-      const result = await updateAnnouncement(editingPost.id, editedContent, user.id);
-      if (result.success) {
-        toast({ title: "Update saved!" });
-        setIsEditDialogOpen(false);
-        setEditingPost(null);
-      } else {
-        toast({ title: "Error", description: result.error, variant: 'destructive' });
-      }
-    });
+    setIsUpdating(true);
+    const annoRef = doc(db, 'announcements', editingPost.id);
+    updateDoc(annoRef, { content: editedContent, updatedAt: serverTimestamp() })
+        .then(() => {
+            toast({ title: "Update saved!" });
+            setIsEditDialogOpen(false);
+            setEditingPost(null);
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: annoRef.path,
+                operation: 'update',
+                requestResourceData: { content: editedContent },
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => setIsUpdating(false));
   };
 
   const handleDeleteAnnouncement = () => {
     if (!deletingPostId || !user) return;
-    startDeleteTransition(async () => {
-      const result = await deleteAnnouncement(deletingPostId, user.id);
-      if (result.success) {
-        toast({ title: "Update deleted" });
-        setIsDeleteDialogOpen(false);
-      } else {
-        toast({ title: "Error", description: result.error, variant: 'destructive' });
-      }
-      setDeletingPostId(null);
-    });
+    setIsDeleting(true);
+    const annoRef = doc(db, 'announcements', deletingPostId);
+    deleteDoc(annoRef)
+        .then(() => {
+            toast({ title: "Update deleted" });
+            setIsDeleteDialogOpen(false);
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: annoRef.path,
+                operation: 'delete',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setIsDeleting(false);
+            setDeletingPostId(null);
+        });
   };
 
   const getFormattedTimestamp = (timestamp: any) => {
@@ -278,6 +297,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Update</DialogTitle>
+            <DialogDescription className="sr-only">Form to edit your profile announcement.</DialogDescription>
           </DialogHeader>
           <Textarea 
             value={editedContent}
@@ -337,8 +357,7 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     if (!userId) {
-      toast({ title: "Error", description: "User ID is missing.", variant: "destructive" });
-      router.push('/');
+      setIsLoadingData(false);
       return;
     }
 
@@ -357,8 +376,11 @@ export default function UserProfilePage() {
       }
       setIsLoadingData(false);
     }, (error) => {
-      console.error("Error fetching profile user:", error);
-      toast({ title: "Error", description: "Could not load profile.", variant: "destructive" });
+      const permissionError = new FirestorePermissionError({
+          path: userDocRef.path,
+          operation: 'get',
+      } satisfies SecurityRuleContext);
+      errorEmitter.emit('permission-error', permissionError);
       setProfileUser(null);
       setIsLoadingData(false);
     });
@@ -397,14 +419,17 @@ export default function UserProfilePage() {
             setPrivateWorks([]);
         }
     }, (error) => {
-        console.error("Error fetching stories:", error);
-        toast({ title: "Error", description: "Could not load stories.", variant: "destructive" });
+        const permissionError = new FirestorePermissionError({
+            path: 'stories',
+            operation: 'list',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
     });
 
     return () => {
         unsubStories();
     };
-  }, [profileUser, isOwnProfile, toast]);
+  }, [profileUser, isOwnProfile]);
 
 
   const handleFollowToggle = async () => {

@@ -5,7 +5,6 @@ import { useState, useEffect, createContext, useContext, ReactNode, useCallback 
 import { useRouter, usePathname } from 'next/navigation';
 import type { User as AppUserType, NotificationType, Story, ReadingListItem, Achievement } from '@/types';
 import { auth, db } from '@/lib/firebase';
-import { addNotification as addNotificationAction } from '@/app/actions/notificationActions';
 import { getMessagingInstance } from '@/lib/firebase';
 import { getToken } from 'firebase/messaging';
 import {
@@ -40,6 +39,8 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const USER_CACHE_KEY = 'litverse_user_cache';
 const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
@@ -155,9 +156,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Identity Unification: Check if user is an owner
             const isOwner = OWNER_HANDLES.includes(firestoreUserData.username);
             if (isOwner && (!firestoreUserData.isVerified || firestoreUserData.role !== 'writer')) {
-                await updateDoc(userRef, { 
+                updateDoc(userRef, { 
                     isVerified: true, 
                     role: 'writer' 
+                }).catch(async (serverError) => {
+                    const permissionError = new FirestorePermissionError({
+                        path: userRef.path,
+                        operation: 'update',
+                        requestResourceData: { isVerified: true, role: 'writer' },
+                    } satisfies SecurityRuleContext);
+                    errorEmitter.emit('permission-error', permissionError);
                 });
             }
             
@@ -231,13 +239,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               updatedAt: serverTimestamp(),
             };
             
-            setDoc(userRef, newUserProfile, { merge: true });
+            setDoc(userRef, newUserProfile, { merge: true }).catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: userRef.path,
+                    operation: 'create',
+                    requestResourceData: newUserProfile,
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+            });
             setUser(newUserProfile); 
             sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(newUserProfile));
           }
           setLoading(false);
         }, (error) => {
-            console.error("Error listening to user document:", error);
+            const permissionError = new FirestorePermissionError({
+                path: userRef.path,
+                operation: 'get',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
             setLoading(false);
         });
 
@@ -250,6 +269,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType)));
+        }, (error) => {
+            const permissionError = new FirestorePermissionError({
+                path: 'notifications',
+                operation: 'list',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
         });
         
       } else {
@@ -294,12 +319,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, loading, pathname, router]);
 
   const addNotification = async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
-    await addNotificationAction(notificationData);
+    const newNotifData = {
+        ...notificationData,
+        timestamp: serverTimestamp(),
+        isRead: false,
+    };
+    const notifColRef = collection(db, 'notifications');
+    addDoc(notifColRef, newNotifData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'notifications',
+            operation: 'create',
+            requestResourceData: newNotifData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const markNotificationAsRead = async (notificationId: string) => {
     const notifRef = doc(db, 'notifications', notificationId);
-    updateDoc(notifRef, { isRead: true });
+    updateDoc(notifRef, { isRead: true }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: notifRef.path,
+            operation: 'update',
+            requestResourceData: { isRead: true },
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const markAllNotificationsAsRead = async () => {
@@ -310,7 +355,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     snapshot.forEach(doc => {
         batch.update(doc.ref, { isRead: true });
     });
-    await batch.commit();
+    batch.commit().catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'notifications',
+            operation: 'update',
+            requestResourceData: { isRead: true },
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const enablePushNotifications = async () => {
@@ -323,8 +375,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY });
             if (token) {
                 setFcmToken(token);
-                await updateDoc(doc(db, 'users', user.id), {
+                const userRef = doc(db, 'users', user.id);
+                updateDoc(userRef, {
                     fcmTokens: arrayUnion(token)
+                }).catch(async (serverError) => {
+                    const permissionError = new FirestorePermissionError({
+                        path: userRef.path,
+                        operation: 'update',
+                        requestResourceData: { fcmTokens: 'arrayUnion' },
+                    } satisfies SecurityRuleContext);
+                    errorEmitter.emit('permission-error', permissionError);
                 });
             }
         }
@@ -407,7 +467,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUserProfile = async (updates: Partial<AppUser>) => {
     if (!user) return;
     const userRef = doc(db, 'users', user.id);
-    updateDoc(userRef, { ...updates, updatedAt: serverTimestamp() });
+    const updateData = { ...updates, updatedAt: serverTimestamp() };
+    updateDoc(userRef, updateData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: userRef.path,
+            operation: 'update',
+            requestResourceData: updateData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const updateUserEmailFirebase = async (newEmail: string, currentPasswordForReAuth: string) => {
@@ -455,7 +523,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: { '__op': 'increment', 'n': 1 } as any });
-    await batch.commit();
+    batch.commit().catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'users',
+            operation: 'update',
+            requestResourceData: { followingIds: 'arrayUnion' },
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const unfollowUser = async (targetUserId: string) => {
@@ -463,7 +538,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: { '__op': 'increment', 'n': -1 } as any });
-    await batch.commit();
+    batch.commit().catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'users',
+            operation: 'update',
+            requestResourceData: { followingIds: 'arrayRemove' },
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const addToLibrary = async (story: Story) => {
@@ -477,14 +559,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         coverImageUrl: story.coverImageUrl,
         status: story.status,
     };
-    updateDoc(doc(db, 'users', user.id), { readingList: arrayUnion(item) });
+    const userRef = doc(db, 'users', user.id);
+    updateDoc(userRef, { readingList: arrayUnion(item) }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: userRef.path,
+            operation: 'update',
+            requestResourceData: { readingList: 'arrayUnion' },
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const removeFromLibrary = async (storyId: string) => {
     if (!user) return;
     const itemToRemove = user.readingList?.find(i => i.id === storyId);
     if (itemToRemove) {
-        updateDoc(doc(db, 'users', user.id), { readingList: arrayRemove(itemToRemove) });
+        const userRef = doc(db, 'users', user.id);
+        updateDoc(userRef, { readingList: arrayRemove(itemToRemove) }).catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: userRef.path,
+                operation: 'update',
+                requestResourceData: { readingList: 'arrayRemove' },
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        });
     }
   };
 

@@ -3,22 +3,22 @@
 
 import { useState } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader2, Pin, PinOff, Trash2, MailOpen, Mail, ChevronRight } from 'lucide-react';
+import { Loader2, Pin, PinOff, Trash2, MailOpen, Mail, ChevronRight, Send } from 'lucide-react';
 import type { Letter as LetterType } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import { deleteLetter } from '@/app/actions/letterActions';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ScrollArea } from '../ui/scroll-area';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 export default function LetterCard({ letter, isAuthorView }: { letter: LetterType, isAuthorView: boolean }) {
   const { user, addNotification } = useAuth();
@@ -31,61 +31,85 @@ export default function LetterCard({ letter, isAuthorView }: { letter: LetterTyp
   const handleMarkAsRead = async () => {
     if (isAuthorView && !letter.isReadByAuthor) {
       const letterRef = doc(db, 'letters', letter.id);
-      await updateDoc(letterRef, { isReadByAuthor: true });
+      updateDoc(letterRef, { isReadByAuthor: true }).catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+              path: letterRef.path,
+              operation: 'update',
+              requestResourceData: { isReadByAuthor: true },
+          } satisfies SecurityRuleContext);
+          errorEmitter.emit('permission-error', permissionError);
+      });
     }
   };
 
   const handleTogglePin = async () => {
     setIsProcessing(true);
     const letterRef = doc(db, 'letters', letter.id);
-    try {
-      await updateDoc(letterRef, { isPinned: !letter.isPinned });
-      toast({ title: `Letter ${!letter.isPinned ? 'pinned' : 'unpinned'}!` });
-    } catch (error) {
-      toast({ title: "Error", description: "Could not update pin status.", variant: "destructive" });
-    } finally {
-      setIsProcessing(false);
-      setIsDialogOpen(false);
-    }
+    const newPinStatus = !letter.isPinned;
+    updateDoc(letterRef, { isPinned: newPinStatus })
+        .then(() => toast({ title: `Letter ${newPinStatus ? 'pinned' : 'unpinned'}!` }))
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: letterRef.path,
+                operation: 'update',
+                requestResourceData: { isPinned: newPinStatus },
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setIsProcessing(false);
+            setIsDialogOpen(false);
+        });
   };
   
   const handleSendResponse = async () => {
     if (!authorResponse.trim()) return;
     setIsResponding(true);
     const letterRef = doc(db, 'letters', letter.id);
-    try {
-      await updateDoc(letterRef, { authorResponse });
-
-      if (user && user.id === letter.authorId) {
-        await addNotification({
-          userId: letter.reader.id,
-          type: 'letter_response',
-          message: `${letter.author.displayName || letter.author.username} has responded to your letter about "${letter.storyTitle}".`,
-          link: `/letters`,
-          actor: letter.author
+    updateDoc(letterRef, { authorResponse })
+        .then(() => {
+            if (user && user.id === letter.authorId) {
+                addNotification({
+                  userId: letter.reader.id,
+                  type: 'letter_response',
+                  message: `${letter.author.displayName || letter.author.username} has responded to your letter about "${letter.storyTitle}".`,
+                  link: `/letters`,
+                  actor: letter.author
+                });
+            }
+            toast({ title: "Response sent!" });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: letterRef.path,
+                operation: 'update',
+                requestResourceData: { authorResponse },
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setIsResponding(false);
+            setIsDialogOpen(false);
         });
-      }
-
-      toast({ title: "Response sent!" });
-    } catch (error) {
-       toast({ title: "Error", description: "Could not send response.", variant: "destructive" });
-    } finally {
-      setIsResponding(false);
-      setIsDialogOpen(false);
-    }
   };
 
   const handleDeleteLetter = async () => {
     if (!user) return;
     setIsProcessing(true);
-    const result = await deleteLetter(letter.id, user.id);
-    if (result.success) {
-      toast({ title: "Letter Deleted", description: "Your letter has been permanently removed." });
-      setIsDialogOpen(false);
-    } else {
-      toast({ title: "Error", description: result.error, variant: "destructive" });
-    }
-    setIsProcessing(false);
+    const letterRef = doc(db, 'letters', letter.id);
+    deleteDoc(letterRef)
+        .then(() => {
+            toast({ title: "Letter Deleted" });
+            setIsDialogOpen(false);
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: letterRef.path,
+                operation: 'delete',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => setIsProcessing(false));
   }
   
   const displayUser = isAuthorView ? letter.reader : letter.author;
@@ -208,8 +232,8 @@ export default function LetterCard({ letter, isAuthorView }: { letter: LetterTyp
                 {(!isAuthorView || (isAuthorView && letter.isReadByAuthor)) && (
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isProcessing}>
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isProcessing}>
+                                <Trash2 className="h-4 w-4" />
                             </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
