@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useTransition, useMemo } from 'react';
@@ -461,29 +462,35 @@ function MessagesClient() {
       timestamp: serverTimestamp(),
     };
 
-    try {
-      // Clear typing status when message is sent
-      const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
-      remove(typingRef);
+    // Clean up typing status immediately
+    const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
+    remove(typingRef);
 
-      const messageRef = await addDoc(collection(db, 'conversations', activeConversation.id, 'messages'), messageData);
-      await updateDoc(doc(db, 'conversations', activeConversation.id), {
-        lastMessage: {
-          id: messageRef.id,
-          content: messageData.content,
-          senderId: messageData.senderId,
-          timestamp: serverTimestamp(), 
-          isRead: false
-        },
-        updatedAt: serverTimestamp(),
+    addDoc(collection(db, 'conversations', activeConversation.id, 'messages'), messageData)
+      .then((messageRef) => {
+        updateDoc(doc(db, 'conversations', activeConversation.id), {
+          lastMessage: {
+            id: messageRef.id,
+            content: messageData.content,
+            senderId: messageData.senderId,
+            timestamp: serverTimestamp(), 
+            isRead: false
+          },
+          updatedAt: serverTimestamp(),
+        });
+        setNewMessageContent('');
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: `conversations/${activeConversation.id}/messages`,
+          operation: 'create',
+          requestResourceData: messageData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsSendingMessage(false);
       });
-      setNewMessageContent('');
-    } catch (error) {
-      console.error("Error sending message: ", error);
-      toast({ title: "Error sending message", description: (error as Error).message, variant: "destructive" });
-    } finally {
-      setIsSendingMessage(false);
-    }
   };
   
   const getOtherParticipant = (conversation: Conversation): AppUserType | undefined => {
@@ -539,15 +546,19 @@ function MessagesClient() {
     setIsCreatingConversation(true);
 
     try {
-      const sortedParticipantIds = [currentUser.id, targetUser.id].sort();
-      // For 1-on-1 chats, we use a deterministic document ID: "uid1_uid2"
-      const deterministicId = sortedParticipantIds.join('_');
-      const convRef = doc(db, 'conversations', deterministicId);
-      const convSnap = await getDoc(convRef);
+      // Securely check for existing 1-on-1 thread using a query
+      const q = query(
+        collection(db, 'conversations'),
+        where('participantIds', 'array-contains', currentUser.id)
+      );
+      const snap = await getDocs(q);
+      const existingConvDoc = snap.docs.find(d => {
+          const data = d.data();
+          return data.participantIds.includes(targetUser.id) && !data.isGroup;
+      });
 
-      if (convSnap.exists()) {
-        const existingConv = { id: convSnap.id, ...convSnap.data() } as Conversation;
-        handleSelectConversation(existingConv);
+      if (existingConvDoc) {
+        handleSelectConversation({ id: existingConvDoc.id, ...existingConvDoc.data() } as Conversation);
         setIsNewConversationDialogOpen(false);
         setSearchUsername(''); 
         setSearchedUsers([]);
@@ -556,15 +567,15 @@ function MessagesClient() {
             id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName || currentUser.username, avatarUrl: currentUser.avatarUrl,
         };
         const newConversationData: Omit<Conversation, 'id'> = {
-          participantIds: sortedParticipantIds,
+          participantIds: [currentUser.id, targetUser.id].sort(),
           participantInfo: { [currentUser.id]: currentUserSummary, [targetUser.id]: targetUser },
           updatedAt: serverTimestamp(),
           lastMessage: { id: '', content: 'Conversation started.', senderId: '', timestamp: serverTimestamp() },
           isGroup: false,
         };
         
-        await setDoc(convRef, newConversationData);
-        handleSelectConversation({id: deterministicId, ...newConversationData} as Conversation);
+        const convRef = await addDoc(collection(db, 'conversations'), newConversationData);
+        handleSelectConversation({ id: convRef.id, ...newConversationData } as Conversation);
         setIsNewConversationDialogOpen(false);
         setSearchUsername('');
         setSearchedUsers([]);
@@ -616,20 +627,22 @@ function MessagesClient() {
     setIsDeletingThread(true);
     const convRef = doc(db, 'conversations', activeConversation.id);
     
-    try {
-        await deleteDoc(convRef);
-        toast({ title: "Conversation deleted" });
-        setActiveConversation(null);
-        setMobileView('list');
-    } catch (error) {
-        const permissionError = new FirestorePermissionError({
-            path: convRef.path,
-            operation: 'delete',
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-    } finally {
-        setIsDeletingThread(false);
-    }
+    deleteDoc(convRef)
+        .then(() => {
+            toast({ title: "Conversation deleted" });
+            setActiveConversation(null);
+            setMobileView('list');
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: convRef.path,
+                operation: 'delete',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setIsDeletingThread(false);
+        });
   };
 
 
