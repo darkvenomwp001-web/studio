@@ -1,4 +1,3 @@
-
 {
   "indexes": [
     {
@@ -85,7 +84,7 @@
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "isHidden", "order": "ASCENDING" },
-        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+        { "fieldPath": "expiresAt", "order": "DESCENDING" }
       ]
     },
     {
