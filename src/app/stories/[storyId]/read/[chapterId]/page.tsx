@@ -37,6 +37,11 @@ import {
   Snowflake,
   BookmarkPlus,
   Trash2,
+  Zap,
+  Target,
+  Timer,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -75,6 +80,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Slider } from '@/components/ui/slider';
 
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
@@ -112,6 +118,11 @@ export default function StoryReaderPage() {
   const [isNightPortalActive, setIsNightPortalActive] = useState(false);
   const [isFrozen, setIsFrozen] = useState(false);
   
+  // New Features
+  const [isZenFocus, setIsZenFocus] = useState(false);
+  const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
+  const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
+
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<{ from: number; to: number; snippet: string }[]>([]);
@@ -158,27 +169,42 @@ export default function StoryReaderPage() {
     const savedLineHeight = localStorage.getItem('reader-line-height') as LineHeight;
     const savedLayoutWidth = localStorage.getItem('reader-layout-width') as LayoutWidth;
     const savedNightPortal = localStorage.getItem('reader-night-portal') === 'true';
+    const savedZenFocus = localStorage.getItem('reader-zen-focus') === 'true';
 
     if (savedFontSize && fontSizes.includes(savedFontSize)) setFontSize(savedFontSize);
     if (savedFontFamily) setFontFamily(savedFontFamily);
     if (savedLineHeight) setLineHeight(savedLineHeight);
     if (savedLayoutWidth) setLayoutWidth(savedLayoutWidth);
     setIsNightPortalActive(savedNightPortal);
+    setIsZenFocus(savedZenFocus);
   }, []);
 
-  // Save settings to localStorage whenever they change
+  // Save settings to localStorage
   useEffect(() => {
     localStorage.setItem('reader-font-size', fontSize);
     localStorage.setItem('reader-font-family', fontFamily);
     localStorage.setItem('reader-line-height', lineHeight);
     localStorage.setItem('reader-layout-width', layoutWidth);
     localStorage.setItem('reader-night-portal', String(isNightPortalActive));
-  }, [fontSize, fontFamily, lineHeight, layoutWidth, isNightPortalActive]);
+    localStorage.setItem('reader-zen-focus', String(isZenFocus));
+  }, [fontSize, fontFamily, lineHeight, layoutWidth, isNightPortalActive, isZenFocus]);
   
   // Apply night portal class to body
   useEffect(() => {
     document.body.classList.toggle('night-portal', isNightPortalActive);
   }, [isNightPortalActive]);
+
+  // Handle Auto Scroll
+  useEffect(() => {
+    if (autoScrollSpeed > 0) {
+        autoScrollInterval.current = setInterval(() => {
+            window.scrollBy({ top: autoScrollSpeed, behavior: 'smooth' });
+        }, 50);
+    } else {
+        if (autoScrollInterval.current) clearInterval(autoScrollInterval.current);
+    }
+    return () => { if (autoScrollInterval.current) clearInterval(autoScrollInterval.current); };
+  }, [autoScrollSpeed]);
 
   const resetAppearanceSettings = () => {
     setFontSize('base');
@@ -186,8 +212,10 @@ export default function StoryReaderPage() {
     setLineHeight('normal');
     setLayoutWidth('normal');
     setIsNightPortalActive(false);
+    setIsZenFocus(false);
+    setAutoScrollSpeed(0);
     setTheme('system');
-    toast({ title: "Appearance settings reset to default." });
+    toast({ title: "Reader preferences reset." });
   };
 
 
@@ -234,15 +262,12 @@ export default function StoryReaderPage() {
             const progress = visibleChapters.length > 0 ? ((chapterIndex + 1) / visibleChapters.length) * 100 : 0;
             setReadingProgress(Math.min(100, Math.max(0, progress)));
 
-            // --- Access Control Logic ---
             let hasAccess = false;
             if (chapterData.accessType === 'premium') {
               if (currentUser) {
-                // Author always has access
                 if (storyData.author.id === currentUser.id) {
                   hasAccess = true;
                 }
-                // Check if user is in the allowed list and if access is still valid
                 const userAccessRecord = chapterData.allowedUsers?.find(u => u.userId === currentUser.id);
                 if (userAccessRecord && userAccessRecord.expiresAt) {
                   const expiryDate = (userAccessRecord.expiresAt as Timestamp).toDate();
@@ -252,11 +277,9 @@ export default function StoryReaderPage() {
                 }
               }
             } else {
-              // Public chapters are accessible to everyone
               hasAccess = chapterData.status === 'Published';
             }
             
-            // Collaborators also have access
             if (currentUser && storyData.collaboratorIds?.includes(currentUser.id)) {
               hasAccess = true;
             }
@@ -268,12 +291,12 @@ export default function StoryReaderPage() {
             }
 
         } else {
-            toast({ title: "Chapter not found", description: "This chapter does not seem to exist.", variant: "destructive" });
+            toast({ title: "Chapter not found", variant: "destructive" });
             router.push(`/stories/${storyId}`);
         }
 
       } else {
-        toast({ title: "Story Not Found", description: "This story does not exist.", variant: "destructive" });
+        toast({ title: "Story Not Found", variant: "destructive" });
         router.push('/');
       }
       setIsLoading(false);
@@ -288,7 +311,6 @@ export default function StoryReaderPage() {
 
     return () => {
       unsubscribe();
-      // Clean up night portal class on unmount
       document.body.classList.remove('night-portal');
     };
   }, [storyId, chapterIdParams, router, currentUser, toast, incrementViewCount, editor]);
@@ -297,7 +319,6 @@ export default function StoryReaderPage() {
     contentRef.current?.scrollTo(0, 0);
   }, [currentChapter]);
   
-  // Search logic
   useEffect(() => {
     if (!editor || !searchTerm.trim()) {
         setSearchResults([]);
@@ -361,14 +382,13 @@ export default function StoryReaderPage() {
 
   const handleVoteClick = async () => {
     if (!currentUser || !story || !currentChapter) {
-        toast({ title: "Please sign in", description: "You need to be logged in to vote.", variant: "destructive" });
+        toast({ title: "Please sign in", variant: "destructive" });
         return;
     }
     if (isVoting) return;
 
     setIsVoting(true);
     
-    // Optimistic UI Update
     const originalChapter = { ...currentChapter };
     const wasVoting = originalChapter.voterIds?.includes(currentUser.id) || false;
 
@@ -407,7 +427,7 @@ export default function StoryReaderPage() {
   const handleLibraryAction = () => {
     if (!story) return;
     if (!currentUser) {
-        toast({ title: "Please Sign In", description: "You must be logged in to manage your library.", variant: "destructive"});
+        toast({ title: "Please Sign In", variant: "destructive"});
         router.push('/auth/signin');
         return;
     }
@@ -422,7 +442,7 @@ export default function StoryReaderPage() {
 
   const handleSaveAnnotation = async () => {
     if (!editor || !currentUser || !story || !currentChapter) {
-        toast({ title: "Cannot Annotate", description: "You must be signed in to save annotations.", variant: "destructive" });
+        toast({ title: "Cannot Annotate", variant: "destructive" });
         return;
     }
 
@@ -430,7 +450,7 @@ export default function StoryReaderPage() {
     const range = empty && lastSelectionRange ? lastSelectionRange : { from, to };
     
     if (!range || range.from === range.to) {
-        toast({ title: "No Text Selected", description: "Please select some text to annotate.", variant: "destructive" });
+        toast({ title: "No Text Selected", variant: "destructive" });
         return;
     }
 
@@ -442,7 +462,6 @@ export default function StoryReaderPage() {
             editor.setEditable(true);
         }
         
-        // Restore selection if lost
         editor.chain().focus().setTextSelection(range).toggleHighlight({ color: selectedHighlightColor }).run();
         
         const annotationData = {
@@ -460,7 +479,7 @@ export default function StoryReaderPage() {
         const annoColRef = collection(db, 'annotations');
         addDoc(annoColRef, annotationData)
             .then(() => {
-                toast({ title: "Annotation Saved!", description: "Your highlight and note have been saved." });
+                toast({ title: "Annotation Saved!" });
                 setAnnotationNote("");
                 setLastSelectionRange(null);
             })
@@ -475,8 +494,7 @@ export default function StoryReaderPage() {
             });
 
     } catch (error) {
-        console.error("Failed to save annotation:", error);
-        toast({ title: "Error", description: "Could not save your annotation.", variant: "destructive" });
+        toast({ title: "Error saving annotation.", variant: "destructive" });
         editor.chain().focus().setTextSelection(range).unsetHighlight().run();
     } finally {
         if (!previouslyEditable) {
@@ -506,6 +524,7 @@ export default function StoryReaderPage() {
 
   const articleClasses = cn(
       "prose dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20",
+      isZenFocus && "zen-focus-enabled",
       {
         'prose-sm': fontSize === 'sm', 'prose-base': fontSize === 'base', 'prose-lg': fontSize === 'lg', 'prose-xl': fontSize === 'xl',
         'font-body': fontFamily === 'sans', 'font-serif': fontFamily === 'serif',
@@ -516,7 +535,7 @@ export default function StoryReaderPage() {
 
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delayDuration={300}>
     <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
       <header
         className={cn(
@@ -544,71 +563,177 @@ export default function StoryReaderPage() {
                     <Palette className="h-5 w-5" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 bg-background/20 backdrop-blur-xl border-white/10 shadow-2xl">
-                <ScrollArea className="max-h-[80vh]">
-                <div className="grid gap-4 p-1">
-                    <div className="space-y-2">
-                        <h4 className="font-bold text-foreground drop-shadow-sm">Appearance</h4>
-                        <p className="text-xs text-muted-foreground/80">
-                            Customize the look of the reader.
-                        </p>
+            <PopoverContent className="w-85 p-0 bg-background/20 backdrop-blur-2xl border-white/10 shadow-3xl rounded-3xl overflow-hidden">
+                <ScrollArea className="max-h-[85vh]">
+                <div className="p-6 space-y-6">
+                    <header className="flex items-center justify-between mb-2">
+                        <div>
+                            <h4 className="font-headline font-bold text-foreground tracking-tight">Appearance</h4>
+                            <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60">Customize workspace</p>
+                        </div>
+                        {isAuthorOrCollaborator && (
+                            <Badge variant="outline" className={cn("gap-1.5 px-2 py-1", isFrozen ? "text-blue-500" : "text-orange-500")}>
+                                <Snowflake className={cn("h-3 w-3", isFrozen && "animate-pulse")} />
+                                {isFrozen ? "Frozen" : "Live Edit"}
+                            </Badge>
+                        )}
+                    </header>
+
+                    <div className="grid gap-3">
+                        <div className="p-4 rounded-2xl bg-card/50 border border-border/40 space-y-4 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="zen-focus" className="flex items-center gap-3 cursor-pointer group">
+                                    <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
+                                        <Target className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-bold block">Zen Focus</span>
+                                        <span className="text-[10px] text-muted-foreground">Dim non-active text</span>
+                                    </div>
+                                </Label>
+                                <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
+                            </div>
+                            
+                            <Separator className="opacity-40" />
+
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-accent/10 text-accent">
+                                            <Zap className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <span className="text-sm font-bold block">Auto-Pilot</span>
+                                            <span className="text-[10px] text-muted-foreground">Hands-free scrolling</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {autoScrollSpeed > 0 ? (
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-red-500/10 text-red-500" onClick={() => setAutoScrollSpeed(0)}><Pause className="h-4 w-4"/></Button>
+                                        ) : (
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-green-500/10 text-green-500" onClick={() => setAutoScrollSpeed(2)}><Play className="h-4 w-4"/></Button>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="px-2">
+                                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter text-muted-foreground mb-2">
+                                        <span>Speed</span>
+                                        <span>{autoScrollSpeed === 0 ? "Off" : `${autoScrollSpeed}x`}</span>
+                                    </div>
+                                    <Slider
+                                        value={[autoScrollSpeed]}
+                                        onValueChange={([v]) => setAutoScrollSpeed(v)}
+                                        max={10}
+                                        step={1}
+                                        className="py-2"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {isAuthorOrCollaborator && (
+                            <div className="p-4 rounded-2xl bg-muted/30 border border-dashed flex items-center justify-between group">
+                                <Label htmlFor="freeze-mode" className="flex items-center gap-3 cursor-pointer">
+                                    <Snowflake className="h-4 w-4 text-blue-500" />
+                                    <span className="text-sm font-bold">Freeze Mode</span>
+                                </Label>
+                                <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} />
+                            </div>
+                        )}
                     </div>
-                     <div className="flex items-center space-x-2 p-2 rounded-md border border-white/10 bg-black/5">
-                        <Label htmlFor="freeze-mode" className="flex-grow text-sm">Freeze Mode</Label>
-                        <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} disabled={!isAuthorOrCollaborator} />
-                        <Snowflake className="h-4 w-4 text-muted-foreground" />
-                     </div>
-                     <Tabs defaultValue="theme">
-                        <TabsList className="grid w-full grid-cols-3 bg-black/10">
-                            <TabsTrigger value="theme">Theme</TabsTrigger>
-                            <TabsTrigger value="text">Text</TabsTrigger>
-                            <TabsTrigger value="layout">Layout</TabsTrigger>
+
+                     <Tabs defaultValue="theme" className="w-full">
+                        <TabsList className="grid w-full grid-cols-3 bg-muted/50 rounded-xl p-1">
+                            <TabsTrigger value="theme" className="rounded-lg font-bold text-[10px] uppercase">Vibe</TabsTrigger>
+                            <TabsTrigger value="text" className="rounded-lg font-bold text-[10px] uppercase">Type</TabsTrigger>
+                            <TabsTrigger value="layout" className="rounded-lg font-bold text-[10px] uppercase">View</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="theme" className="pt-2">
-                            <div className="grid gap-2">
-                                <RadioGroup defaultValue={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
-                                    <Label htmlFor="light" className="flex flex-col items-center justify-center rounded-md border-2 border-transparent bg-white/10 p-2 hover:bg-white/20 transition-all [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="light" id="light" className="sr-only" /><Sun className="h-5 w-5" /></Label>
-                                    <Label htmlFor="dark" className="flex flex-col items-center justify-center rounded-md border-2 border-transparent bg-black/20 p-2 hover:bg-black/30 transition-all [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="dark" id="dark" className="sr-only" /><Moon className="h-5 w-5" /></Label>
-                                    <Label htmlFor="system" className="flex flex-col items-center justify-center rounded-md border-2 border-transparent bg-white/5 p-2 hover:bg-white/10 transition-all [&:has([data-state=checked])]:border-primary cursor-pointer"><RadioGroupItem value="system" id="system" className="sr-only" /><Monitor className="h-5 w-5" /></Label>
-                                </RadioGroup>
-                                <Button variant="outline" size="sm" className="bg-white/5 border-white/10 hover:bg-white/10" onClick={() => setIsNightPortalActive(!isNightPortalActive)}><Moon className="mr-2 h-4 w-4" /> Night Portal</Button>
-                            </div>
+                        
+                        <TabsContent value="theme" className="pt-4 space-y-4">
+                            <RadioGroup defaultValue={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
+                                <Label htmlFor="light" className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
+                                    <RadioGroupItem value="light" id="light" className="sr-only" />
+                                    <Sun className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                    <span className="text-[10px] font-bold uppercase">Light</span>
+                                </Label>
+                                <Label htmlFor="dark" className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
+                                    <RadioGroupItem value="dark" id="dark" className="sr-only" />
+                                    <Moon className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                    <span className="text-[10px] font-bold uppercase">Dark</span>
+                                </Label>
+                                <Label htmlFor="system" className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
+                                    <RadioGroupItem value="system" id="system" className="sr-only" />
+                                    <Monitor className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                    <span className="text-[10px] font-bold uppercase">Auto</span>
+                                </Label>
+                            </RadioGroup>
+                            <Button 
+                                variant={isNightPortalActive ? "default" : "outline"} 
+                                size="sm" 
+                                className={cn("w-full h-11 rounded-xl gap-2 font-bold uppercase text-[10px] tracking-widest", isNightPortalActive ? "bg-black text-white" : "border-black/10")} 
+                                onClick={() => setIsNightPortalActive(!isNightPortalActive)}
+                            >
+                                <Moon className="h-4 w-4" /> 
+                                Night Portal
+                            </Button>
                         </TabsContent>
-                         <TabsContent value="text" className="pt-2 space-y-4">
-                            <div className="grid gap-2">
-                                <Label className="text-xs">Font Size</Label>
+
+                         <TabsContent value="text" className="pt-4 space-y-6">
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center px-1">
+                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Font Size</Label>
+                                    <span className="text-xs font-bold uppercase text-primary">{fontSize}</span>
+                                </div>
                                 <RadioGroup defaultValue={fontSize} onValueChange={(v) => setFontSize(v as FontSize)} className="grid grid-cols-4 gap-2">
-                                    {fontSizes.map(size => <Label key={size} htmlFor={`font-${size}`} className="flex flex-col items-center justify-center rounded-md border-2 border-transparent bg-white/10 p-2 hover:bg-white/20 transition-all [&:has([data-state=checked])]:border-primary cursor-pointer capitalize text-[10px]"><RadioGroupItem value={size} id={`font-${size}`} className="sr-only" /><TextIcon className="h-3 w-3 mb-1" />{size}</Label>)}
+                                    {fontSizes.map(size => (
+                                        <Label key={size} htmlFor={`font-${size}`} className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-2 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
+                                            <RadioGroupItem value={size} id={`font-${size}`} className="sr-only" />
+                                            <TextIcon className={cn("h-4 w-4 mb-1", size === 'sm' ? 'scale-75' : size === 'lg' ? 'scale-110' : size === 'xl' ? 'scale-125' : '')} />
+                                            <span className="text-[8px] font-bold uppercase">{size}</span>
+                                        </Label>
+                                    ))}
                                 </RadioGroup>
                             </div>
-                             <div className="grid gap-2">
-                                <Label className="text-xs">Font Family</Label>
+                             <div className="space-y-3">
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Typography</Label>
                                 <RadioGroup defaultValue={fontFamily} onValueChange={(v) => setFontFamily(v as FontFamily)} className="grid grid-cols-2 gap-2">
-                                    <Label htmlFor="font-sans" className="rounded-md border-2 border-transparent bg-white/10 p-2 hover:bg-white/20 transition-all [&:has([data-state=checked])]:border-primary cursor-pointer font-sans text-xs text-center"><RadioGroupItem value="sans" id="font-sans" className="sr-only" />Sans-Serif</Label>
-                                    <Label htmlFor="font-serif" className="rounded-md border-2 border-transparent bg-white/10 p-2 hover:bg-white/20 transition-all [&:has([data-state=checked])]:border-primary cursor-pointer font-serif text-xs text-center"><RadioGroupItem value="serif" id="font-serif" className="sr-only" />Serif</Label>
-                                </RadioGroup>
-                            </div>
-                             <div className="grid gap-2">
-                                <Label className="text-xs">Line Height</Label>
-                                <RadioGroup defaultValue={lineHeight} onValueChange={(v) => setLineHeight(v as LineHeight)} className="grid grid-cols-3 gap-2">
-                                    <Label htmlFor="lh-tight" className="rounded-md border-2 border-transparent bg-white/10 p-2 hover:bg-white/20 transition-all [&:has([data-state=checked])]:border-primary cursor-pointer flex justify-center"><RadioGroupItem value="tight" id="lh-tight" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
-                                    <Label htmlFor="lh-normal" className="rounded-md border-2 border-transparent bg-white/10 p-2 hover:bg-white/20 transition-all [&:has([data-state=checked])]:border-primary cursor-pointer flex justify-center"><RadioGroupItem value="normal" id="lh-normal" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
-                                    <Label htmlFor="lh-loose" className="rounded-md border-2 border-transparent bg-white/10 p-2 hover:bg-white/20 transition-all [&:has([data-state=checked])]:border-primary cursor-pointer flex justify-center"><RadioGroupItem value="loose" id="lh-loose" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                    <Label htmlFor="font-sans" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer text-xs font-bold text-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">Modern Sans</Label>
+                                    <RadioGroupItem value="sans" id="font-sans" className="sr-only" />
+                                    <Label htmlFor="font-serif" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer text-xs font-bold text-center font-serif data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">Classic Serif</Label>
+                                    <RadioGroupItem value="serif" id="font-serif" className="sr-only" />
                                 </RadioGroup>
                             </div>
                          </TabsContent>
-                         <TabsContent value="layout" className="pt-2">
-                             <div className="grid gap-2">
-                                <Label className="text-xs">Layout Width</Label>
+
+                         <TabsContent value="layout" className="pt-4 space-y-6">
+                             <div className="space-y-3">
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Line Spacing</Label>
+                                <RadioGroup defaultValue={lineHeight} onValueChange={(v) => setLineHeight(v as LineHeight)} className="grid grid-cols-3 gap-2">
+                                    <Label htmlFor="lh-tight" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="tight" id="lh-tight" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                    <Label htmlFor="lh-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="normal" id="lh-normal" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                    <Label htmlFor="lh-loose" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="loose" id="lh-loose" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                </RadioGroup>
+                            </div>
+                             <div className="space-y-3">
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Canvas Width</Label>
                                 <RadioGroup defaultValue={layoutWidth} onValueChange={(v) => setLayoutWidth(v as LayoutWidth)} className="grid grid-cols-2 gap-2">
-                                   <Label htmlFor="lw-normal" className="rounded-md border-2 border-transparent bg-white/10 p-2 hover:bg-white/20 transition-all [&:has([data-state=checked])]:border-primary cursor-pointer flex justify-center"><RadioGroupItem value="normal" id="lw-normal" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
-                                   <Label htmlFor="lw-wide" className="rounded-md border-2 border-transparent bg-white/10 p-2 hover:bg-white/20 transition-all [&:has([data-state=checked])]:border-primary cursor-pointer flex justify-center"><RadioGroupItem value="wide" id="lw-wide" className="sr-only" /><RectangleHorizontal className="h-5 w-5"/></Label>
+                                   <Label htmlFor="lw-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RadioGroupItem value="normal" id="lw-normal" className="sr-only" /><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-90 transition-transform"/></Label>
+                                   <Label htmlFor="lw-wide" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RadioGroupItem value="wide" id="lw-wide" className="sr-only" /><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-110 transition-transform"/></Label>
                                 </RadioGroup>
                             </div>
                          </TabsContent>
                      </Tabs>
-                    <Button variant="ghost" size="sm" className="hover:bg-destructive/20 text-foreground/80 hover:text-destructive" onClick={resetAppearanceSettings}><RotateCcw className="mr-2 h-4 w-4" /> Reset</Button>
                 </div>
+                <footer className="p-4 bg-muted/30 border-t flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        <Timer className="h-3 w-3" />
+                        <span>Adaptive Reader</span>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive text-[10px] font-bold uppercase tracking-widest gap-1.5" onClick={resetAppearanceSettings}>
+                        <RotateCcw className="h-3 w-3" /> 
+                        Reset
+                    </Button>
+                </footer>
                 </ScrollArea>
             </PopoverContent>
         </Popover>
@@ -746,7 +871,6 @@ export default function StoryReaderPage() {
                                     className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-colors" 
                                     title="Annotate"
                                     onClick={() => {
-                                        // Capture selection before popover takes focus
                                         const { from, to } = editor.state.selection;
                                         setLastSelectionRange({ from, to });
                                     }}
@@ -897,15 +1021,14 @@ export default function StoryReaderPage() {
                         try {
                           if (navigator.share) {
                             await navigator.share(shareData);
-                            toast({ title: 'Story Shared!', description: 'Thanks for spreading the word.' });
+                            toast({ title: 'Story Shared!' });
                           } else {
                             await navigator.clipboard.writeText(window.location.href);
-                            toast({ title: 'Link Copied!', description: `Link to "${story?.title} - ${currentChapter?.title}" copied to clipboard.` });
+                            toast({ title: 'Link Copied!' });
                           }
                         } catch (error) {
-                          console.error('Share failed:', error);
                           if ((error as Error).name !== 'AbortError') {
-                            toast({ title: 'Share Failed', description: 'Could not share at this time.', variant: 'destructive' });
+                            toast({ title: 'Share Failed', variant: 'destructive' });
                           }
                         }
                       }}
@@ -927,6 +1050,19 @@ export default function StoryReaderPage() {
     <div className="md:hidden">
        <BottomNavigationBar />
     </div>
+    <style jsx global>{`
+        .zen-focus-enabled .ProseMirror p {
+            opacity: 0.2;
+            transition: opacity 0.4s ease, filter 0.4s ease;
+            filter: blur(1px);
+        }
+        .zen-focus-enabled .ProseMirror p:hover,
+        .zen-focus-enabled .ProseMirror p:focus,
+        .zen-focus-enabled .ProseMirror p:active {
+            opacity: 1;
+            filter: blur(0);
+        }
+    `}</style>
     </TooltipProvider>
   );
 }
