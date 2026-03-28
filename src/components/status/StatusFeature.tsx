@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, X, Music, Pause, Play, ImageIcon, BarChart2, BookOpen, Sparkles as SparklesIcon, PenSquare, Type, Palette, AlignLeft, AlignCenter, AlignRight, Volume2, VolumeX, Send, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -410,7 +411,9 @@ export default function StatusFeature() {
                 } satisfies SecurityRuleContext);
                 errorEmitter.emit('permission-error', permissionError);
             })
-            .finally(() => setIsSubmitting(false));
+            .finally(() => {
+                setIsSubmitting(false);
+            });
     }
   };
   

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { 
   Save, 
   History, 
@@ -644,7 +645,7 @@ export default function WriteEditorPage() {
                         This will make "{chapterTitle}" visible to all your readers. You can always edit or unpublish it later from your dashboard.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter className="gap-2">
+                    <AlertDialogFooter>
                         <AlertDialogCancel className="rounded-full">Not Yet</AlertDialogCancel>
                         <AlertDialogAction onClick={handlePublishChapter} className="bg-primary hover:bg-primary/90 rounded-full px-8">Confirm Publication</AlertDialogAction>
                     </AlertDialogFooter>
