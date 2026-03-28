@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useTransition, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useTransition, useMemo, ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -522,14 +522,16 @@ function MessagesClient() {
             type = 'audio';
         }
 
-        const messageData: Partial<Message> = {
+        // Build data object dynamically to avoid 'undefined' values
+        const messageData: any = {
             senderId: currentUser.id,
             content: finalContent.trim(),
             timestamp: serverTimestamp(),
             type,
-            mediaUrl: mediaUrl || undefined,
-            fileName: fileName || undefined,
         };
+
+        if (mediaUrl) messageData.mediaUrl = mediaUrl;
+        if (fileName) messageData.fileName = fileName;
 
         // Clean up typing status immediately
         const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
