@@ -22,7 +22,8 @@ import {
   BookmarkPlus,
   BookmarkCheck,
   Lock,
-  ChevronDown
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { formatDate } from '@/lib/placeholder-data';
 import type { Story, UserSummary } from '@/types';
@@ -183,7 +184,6 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
     );
   }
   
-  const firstChapterId = story.chapters?.find(ch => ch.status === 'Published')?.id;
   const publishedChapters = story.chapters?.filter(ch => ch.status === 'Published' || ch.accessType === 'premium') || [];
   const totalPublishedChapters = publishedChapters.length;
   const isAuthorOrCollaborator = user && (story.author.id === user.id || story.collaborators?.some(c => c.id === user.id));
@@ -340,7 +340,9 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
                                     {Math.round(chapter.wordCount / 200) || 1} min
                                 </span>
                             )}
-                            <Badge variant="ghost" size="icon" className="h-6 w-6 rounded-full group-hover:bg-primary/10 group-hover:text-primary"><chevronRight className="h-3 w-3" /></Badge>
+                            <Badge variant="ghost" size="icon" className="h-6 w-6 rounded-full group-hover:bg-primary/10 group-hover:text-primary">
+                                <ChevronRight className="h-3 w-3" />
+                            </Badge>
                         </div>
                       </div>
                     </div>
