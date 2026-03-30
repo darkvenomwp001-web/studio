@@ -527,14 +527,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const userRef = doc(db, 'users', user.id);
     const updateData = { ...updates, updatedAt: serverTimestamp() };
-    updateDoc(userRef, updateData).catch(async (serverError) => {
+    
+    try {
+        await updateDoc(userRef, updateData);
+        
+        // Denormalized Sync: Update user's info in their stories, feed posts, and comments
+        if (updates.username || updates.displayName || updates.avatarUrl) {
+            const batch = writeBatch(db);
+            const newSummary = {
+                id: user.id,
+                username: updates.username || user.username,
+                displayName: updates.displayName || user.displayName || user.username,
+                avatarUrl: updates.avatarUrl || user.avatarUrl
+            };
+
+            // 1. Sync Stories authored by this user
+            const storiesQuery = query(collection(db, 'stories'), where('author.id', '==', user.id));
+            const storiesSnapshot = await getDocs(storiesQuery);
+            storiesSnapshot.forEach(d => batch.update(d.ref, { author: newSummary }));
+
+            // 2. Sync Feed Posts
+            const postsQuery = query(collection(db, 'feedPosts'), where('author.id', '==', user.id));
+            const postsSnapshot = await getDocs(postsQuery);
+            postsSnapshot.forEach(d => batch.update(d.ref, { author: newSummary }));
+
+            // 3. Sync Comments
+            const commentsQuery = query(collection(db, 'comments'), where('user.id', '==', user.id));
+            const commentsSnapshot = await getDocs(commentsQuery);
+            commentsSnapshot.forEach(d => batch.update(d.ref, { user: newSummary }));
+
+            await batch.commit();
+        }
+    } catch (serverError: any) {
         const permissionError = new FirestorePermissionError({
             path: userRef.path,
             operation: 'update',
             requestResourceData: updateData,
         } satisfies SecurityRuleContext);
         errorEmitter.emit('permission-error', permissionError);
-    });
+    }
   };
 
   const updateUserEmailFirebase = async (newEmail: string, currentPasswordForReAuth: string) => {
