@@ -40,7 +40,8 @@ import {
   ArrowLeft,
   LayoutGrid,
   Type,
-  Tags
+  Tags,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -230,12 +231,12 @@ export default function EditStoryDetailsPage() {
         const permissionError = new FirestorePermissionError({
           path: storyDocRef.path,
           operation: 'update',
-          requestResourceData: storyUpdateData,
+          requestResourceData: storyDataToUpdate,
         });
         errorEmitter.emit('permission-error', permissionError);
         setAutoSaveStatus('Error');
       });
-  }, [story, user, storyTitle, summary, genre, tags, language, isMature, visibility, toast, initialLoadComplete, isUploadingCover]);
+  }, [story, user, storyTitle, summary, genre, tags, language, isMature, visibility, initialLoadComplete, isUploadingCover]);
 
   useEffect(() => {
     if (!initialLoadComplete || isLoading || authLoading || !story || isUploadingCover) {
@@ -397,7 +398,7 @@ export default function EditStoryDetailsPage() {
         toast({ title: "User Not Found", description: `User "${collaboratorUsername}" not found.`, variant: "destructive" });
         setIsProcessingCollaboration(false);
         return;
-      }Ref
+      }
       
       const collaboratorUserDoc = querySnapshot.docs[0];
       const collaboratorUserData = {id: collaboratorUserDoc.id, ...collaboratorUserDoc.data()} as AppUser;
