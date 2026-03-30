@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, ChangeEvent, useRef, useCallback } from 'react';
@@ -16,7 +15,33 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Save, Settings, Trash2, PlusCircle, Edit, BookOpen, Users, Info, Eye, EyeOff, ShieldQuestion, UploadCloud, CheckCircle, AlertCircle, FileText, Star, ListChecks, Sparkles, UserPlus, Lock } from 'lucide-react';
+import { 
+  Loader2, 
+  Save, 
+  Settings, 
+  Trash2, 
+  PlusCircle, 
+  Edit, 
+  BookOpen, 
+  Users, 
+  Info, 
+  Eye, 
+  EyeOff, 
+  ShieldQuestion, 
+  UploadCloud, 
+  CheckCircle, 
+  AlertCircle, 
+  FileText, 
+  Star, 
+  ListChecks, 
+  Sparkles, 
+  UserPlus, 
+  Lock,
+  ArrowLeft,
+  LayoutGrid,
+  Type,
+  Tags
+} from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
@@ -205,7 +230,7 @@ export default function EditStoryDetailsPage() {
         const permissionError = new FirestorePermissionError({
           path: storyDocRef.path,
           operation: 'update',
-          requestResourceData: storyDataToUpdate,
+          requestResourceData: storyUpdateData,
         });
         errorEmitter.emit('permission-error', permissionError);
         setAutoSaveStatus('Error');
@@ -372,7 +397,7 @@ export default function EditStoryDetailsPage() {
         toast({ title: "User Not Found", description: `User "${collaboratorUsername}" not found.`, variant: "destructive" });
         setIsProcessingCollaboration(false);
         return;
-      }
+      }Ref
       
       const collaboratorUserDoc = querySnapshot.docs[0];
       const collaboratorUserData = {id: collaboratorUserDoc.id, ...collaboratorUserDoc.data()} as AppUser;
@@ -550,451 +575,587 @@ export default function EditStoryDetailsPage() {
 
   if (isLoading || authLoading || (queryStoryId && !story && !initialLoadComplete)) { 
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
+      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-12rem)] space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-4">Loading story details...</p>
+        <p className="text-muted-foreground font-medium animate-pulse">Scanning the archives...</p>
       </div>
     );
   }
 
-  if (!user) { 
-    return <div className="text-center py-10">Please sign in to edit stories.</div>;
-  }
+  if (!user) return null;
   
   if (!story && queryStoryId) { 
     return (
-        <div className="text-center py-10">
-            <Info className="mx-auto h-12 w-12 text-destructive mb-4" />
-            <p className="text-xl">Story not found or you don't have permission to edit it.</p>
-            <Link href="/write">
-                <Button variant="link" className="mt-2">Go to Writing Dashboard</Button>
+        <div className="text-center py-20 px-4">
+            <AlertCircle className="mx-auto h-16 w-16 text-destructive/20 mb-6" />
+            <h2 className="text-2xl font-headline font-bold text-foreground">Manuscript Not Found</h2>
+            <p className="text-muted-foreground mt-2 max-w-sm mx-auto">This story may have been relocated or you lack the proper credentials to view it.</p>
+            <Link href="/write" className='mt-8 block'>
+                <Button variant="outline" className="rounded-full px-8">Return to Dashboard</Button>
             </Link>
         </div>
     );
   }
   
-  if (!story) { 
-     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-4">Initializing new story...</p>
-      </div>
-    );
-  }
+  if (!story) return null;
 
   const getChapterStatusColor = (status?: 'Published' | 'Draft', accessType?: 'public' | 'premium') => {
-    if (accessType === 'premium') return 'text-yellow-500 dark:text-yellow-400';
-    if (status === 'Published') return 'text-green-600 dark:text-green-400';
-    if (status === 'Draft') return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-muted-foreground';
+    if (accessType === 'premium') return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
+    if (status === 'Published') return 'bg-green-500/10 text-green-600 border-green-500/20';
+    return 'bg-muted text-muted-foreground border-border/40';
   };
 
   const isSaving = isUploadingCover || autoSaveStatus === 'Saving';
 
   const AutoSaveStatusIndicator = () => {
     if (isUploadingCover) {
-        return <div className="text-xs text-yellow-600 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Uploading Cover...</div>;
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 text-yellow-600 rounded-full border border-yellow-500/20">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Uploading Cover</span>
+            </div>
+        );
     }
     switch (autoSaveStatus) {
       case 'Typing':
-        return <div className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Changes pending...</div>;
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 text-muted-foreground rounded-full border border-border/40">
+                <div className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Syncing Changes...</span>
+            </div>
+        );
       case 'Saving':
-        return <div className="text-xs text-yellow-600 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Saving...</div>;
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-full border border-primary/20">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Saving</span>
+            </div>
+        );
       case 'Saved':
-        return <div className="text-xs text-green-600 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> All changes saved</div>;
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full border border-green-500/20">
+                <CheckCircle className="h-3 w-3" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Protected</span>
+            </div>
+        );
       case 'Error':
-        return <div className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Save error</div>;
-      case 'Idle':
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/10 text-destructive rounded-full border border-destructive/20">
+                <AlertCircle className="h-3 w-3" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Sync Error</span>
+            </div>
+        );
       default:
-        return <div className="text-xs text-muted-foreground">Up to date</div>;
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 text-muted-foreground/60 rounded-full border border-border/20">
+                <span className="text-[10px] font-bold uppercase tracking-widest">Up to Date</span>
+            </div>
+        );
     }
   };
 
   return (
     <AlertDialog>
-      <div className="max-w-5xl mx-auto py-8 space-y-8">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary truncate" title={storyTitle}>
-                {storyTitle}
+      <div className="max-w-6xl mx-auto py-8 px-4 space-y-10 pb-24">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <Button variant="ghost" size="sm" onClick={() => router.push('/write')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Library
+            </Button>
+            <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground tracking-tight line-clamp-1" title={storyTitle}>
+                {storyTitle || 'Untitled Manuscript'}
             </h1>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-2">
+          <div className="flex flex-shrink-0">
             <AutoSaveStatusIndicator />
           </div>
         </header>
 
         <Tabs defaultValue="content" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="content"><ListChecks className="mr-2 h-4 w-4" />Content</TabsTrigger>
-                <TabsTrigger value="settings"><Settings className="mr-2 h-4 w-4" />Settings</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 max-w-md bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm mb-10">
+                <TabsTrigger value="content" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all">
+                    <LayoutGrid className="mr-2 h-4 w-4" />
+                    Canvas
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Configure
+                </TabsTrigger>
             </TabsList>
-            <TabsContent value="content" className="mt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
-                    <div className="md:col-span-1 space-y-6">
-                        <Card>
-                        <CardHeader>
-                            <CardTitle>Story Cover</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex flex-col items-center">
-                            <div
-                            className="aspect-[2/3] w-full max-w-[200px] bg-muted rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity mb-2 shadow-md relative group"
-                            onClick={() => !isSaving && fileInputRef.current?.click()}
-                            title="Click to change cover"
-                            >
-                            <Image
-                                src={coverImagePreview || 'https://placehold.co/512x800.png'}
-                                alt={storyTitle || "Story Cover"}
-                                width={512}
-                                height={800}
-                                className="object-cover w-full h-full"
-                                data-ai-hint={story.dataAiHint || "book cover design"}
-                                priority 
-                            />
-                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                {isSaving ? <Loader2 className="h-10 w-10 text-white animate-spin" /> : <UploadCloud className="h-10 w-10 text-white" />}
-                            </div>
-                            </div>
-                            <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleCoverImageSelect}
-                            accept="image/png, image/jpeg, image/gif, image/webp"
-                            className="hidden"
-                            disabled={isSaving}
-                            />
-                            <Button type="button" variant="link" onClick={() => fileInputRef.current?.click()} className="text-sm" disabled={isSaving}>
-                            {isUploadingCover ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-                            {isUploadingCover ? "Uploading..." : "Change Cover"}
-                            </Button>
-                        </CardContent>
+
+            <TabsContent value="content" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+                    {/* Cover Column */}
+                    <div className="lg:col-span-4 xl:col-span-3 space-y-6">
+                        <Card className="border-border/40 bg-card/50 backdrop-blur-sm shadow-xl overflow-hidden group/cover">
+                            <CardHeader className="pb-4 bg-muted/20 border-b border-border/40">
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                                    <ImageIcon className="h-4 w-4" />
+                                    Cover Design
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <div
+                                    className="aspect-[2/3] w-full relative rounded-xl overflow-hidden shadow-inner cursor-pointer bg-muted/30 border-2 border-dashed border-border/60 hover:border-primary/40 transition-all duration-500"
+                                    onClick={() => !isSaving && fileInputRef.current?.click()}
+                                >
+                                    <Image
+                                        src={coverImagePreview || 'https://placehold.co/512x800.png'}
+                                        alt={storyTitle}
+                                        fill
+                                        className="object-cover transition-transform duration-700 group-hover/cover:scale-105"
+                                        data-ai-hint="book cover design"
+                                        priority 
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity duration-300">
+                                        {isSaving ? (
+                                            <div className="flex flex-col items-center gap-3">
+                                                <Loader2 className="h-10 w-10 text-white animate-spin" />
+                                                <span className="text-[10px] font-bold text-white uppercase tracking-widest">Uploading</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="p-3 rounded-full bg-white/20 text-white">
+                                                    <UploadCloud className="h-8 w-8" />
+                                                </div>
+                                                <span className="text-[10px] font-bold text-white uppercase tracking-widest">Update Artwork</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <input type="file" ref={fileInputRef} onChange={handleCoverImageSelect} accept="image/*" className="hidden" disabled={isSaving} />
+                                <div className="mt-4 text-center">
+                                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="rounded-full px-6 text-xs h-9" disabled={isSaving}>
+                                        {isUploadingCover ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Edit className="mr-2 h-3.5 w-3.5" />}
+                                        {isUploadingCover ? "Syncing..." : "Replace Cover"}
+                                    </Button>
+                                </div>
+                            </CardContent>
                         </Card>
                     </div>
 
-                    <div className="md:col-span-2 space-y-6">
-                        <Card>
-                        <CardHeader><CardTitle>Core Details</CardTitle></CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <Label htmlFor="storyTitle">Story Title</Label>
-                                <Input
-                                    id="storyTitle"
-                                    value={storyTitle}
-                                    onChange={(e) => setStoryTitle(e.target.value)}
-                                    placeholder="Your captivating story title"
-                                    className="text-lg"
-                                    disabled={isSaving}
-                                />
+                    {/* Content Column */}
+                    <div className="lg:col-span-8 xl:col-span-9 space-y-8">
+                        <section className="space-y-6">
+                            <div className="grid gap-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="storyTitle" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
+                                        <Type className="h-3 w-3" /> Manuscript Title
+                                    </Label>
+                                    <Input
+                                        id="storyTitle"
+                                        value={storyTitle}
+                                        onChange={(e) => setStoryTitle(e.target.value)}
+                                        placeholder="Enter a title that echoes..."
+                                        className="h-14 text-xl font-bold rounded-2xl bg-card/50 border-border/40 focus-visible:ring-primary/20 shadow-sm"
+                                        disabled={isSaving}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="summary" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
+                                        <FileText className="h-3 w-3" /> The Blurb
+                                    </Label>
+                                    <Textarea
+                                        id="summary"
+                                        value={summary}
+                                        onChange={(e) => setSummary(e.target.value)}
+                                        placeholder="Summarize the mystery, the magic, or the mayhem..."
+                                        rows={8}
+                                        className="rounded-2xl bg-card/50 border-border/40 focus-visible:ring-primary/20 shadow-inner resize-none text-base leading-relaxed"
+                                        disabled={isSaving}
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <Label htmlFor="summary">Story Description (Blurb)</Label>
-                                <Textarea
-                                    id="summary"
-                                    value={summary}
-                                    onChange={(e) => setSummary(e.target.value)}
-                                    placeholder="A short, enticing summary to draw readers in..."
-                                    rows={6}
-                                    disabled={isSaving}
-                                />
-                            </div>
-                        </CardContent>
-                        </Card>
+                        </section>
                         
-                        <Card>
-                        <CardHeader>
-                            <CardTitle>Table of Contents</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {story.chapters.length > 0 ? (
-                            <ScrollArea className="max-h-96 pr-3">
-                                <ul className="space-y-2">
-                                {story.chapters.sort((a, b) => a.order - b.order).map(chapter => (
-                                    <li key={chapter.id} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 gap-2">
-                                    <div className="flex-1 min-w-0">
-                                        <Link href={`/write/edit?storyId=${story.id}&chapterId=${chapter.id}`} className="font-medium hover:underline truncate block">
-                                            {chapter.order}. {chapter.title}
-                                        </Link>
-                                        <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-1 text-xs text-muted-foreground">
-                                            <span className={cn('capitalize', getChapterStatusColor(chapter.status, chapter.accessType))}>
-                                                {chapter.accessType === 'premium' ? 'Premium' : (chapter.status || 'Draft')}
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <FileText className="h-3 w-3" /> {chapter.wordCount || 0} words
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <Star className="h-3 w-3" /> {chapter.votes || 0} votes
-                                            </span>
-                                            {chapter.publishedDate && chapter.status === 'Published' && (
-                                                <span className="hidden sm:inline">
-                                                    Published: {formatDate(chapter.publishedDate)}
-                                                </span>
-                                            )}
+                        <section className="space-y-6">
+                            <div className="flex items-center justify-between px-1">
+                                <h3 className="text-xl font-headline font-bold text-foreground flex items-center gap-3">
+                                    <BookOpen className="h-6 w-6 text-primary" />
+                                    Table of Contents
+                                </h3>
+                                <Badge variant="outline" className="rounded-full px-3 py-1 font-bold text-[10px] uppercase tracking-tighter bg-muted/30">
+                                    {story.chapters.length} Parts Total
+                                </Badge>
+                            </div>
+
+                            <Card className="border-border/40 bg-card/50 backdrop-blur-sm shadow-xl overflow-hidden">
+                                <CardContent className="p-0">
+                                    {story.chapters.length > 0 ? (
+                                        <div className="divide-y divide-border/40">
+                                            {story.chapters.sort((a, b) => a.order - b.order).map(chapter => (
+                                                <div key={chapter.id} className="flex items-center justify-between p-5 hover:bg-primary/5 transition-all group gap-4">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-3 mb-1.5">
+                                                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors">
+                                                                {chapter.order}
+                                                            </div>
+                                                            <Link href={`/write/edit?storyId=${story.id}&chapterId=${chapter.id}`} className="font-bold text-base hover:text-primary hover:underline transition-colors truncate block">
+                                                                {chapter.title}
+                                                            </Link>
+                                                        </div>
+                                                        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap pl-9">
+                                                            <Badge variant="outline" className={cn("text-[9px] uppercase font-black tracking-widest px-2 py-0.5", getChapterStatusColor(chapter.status, chapter.accessType))}>
+                                                                {chapter.accessType === 'premium' ? 'Premium' : (chapter.status || 'Draft')}
+                                                            </Badge>
+                                                            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-tighter">
+                                                                <FileText className="h-3 w-3" />
+                                                                {chapter.wordCount || 0} words
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-tighter">
+                                                                <Star className="h-3 w-3" />
+                                                                {chapter.votes || 0} votes
+                                                            </div>
+                                                            {chapter.publishedDate && chapter.status === 'Published' && (
+                                                                <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-tighter">
+                                                                    <CheckCircle className="h-3 w-3" />
+                                                                    Live {formatDate(chapter.publishedDate)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full hover:bg-yellow-500/10 text-yellow-600" title="Grant Premium Access" disabled={isSaving} onClick={() => setPremiumAccessChapter(chapter)}>
+                                                                <Sparkles className="h-4 w-4" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <Link href={`/write/edit?storyId=${story.id}&chapterId=${chapter.id}`} passHref>
+                                                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" title="Edit Chapter" disabled={isSaving}><Edit className="h-4 w-4"/></Button>
+                                                        </Link>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" title="Remove Chapter" onClick={() => setChapterToDelete(chapter)} className="h-9 w-9 rounded-full text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isSaving}>
+                                                                <Trash2 className="h-4 w-4"/>
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 flex-shrink-0">
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" title="Manage Premium Access" disabled={isSaving} onClick={() => setPremiumAccessChapter(chapter)}>
-                                                <Sparkles className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <Link href={`/write/edit?storyId=${story.id}&chapterId=${chapter.id}`} passHref>
-                                        <Button variant="ghost" size="icon" title="Edit Chapter" disabled={isSaving}><Edit className="h-4 w-4"/></Button>
-                                        </Link>
-                                        <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" title="Delete Chapter" onClick={() => setChapterToDelete(chapter)} className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isSaving}>
-                                            <Trash2 className="h-4 w-4"/>
+                                    ) : (
+                                        <div className="text-center py-20 px-6">
+                                            <FileText className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
+                                            <p className="text-muted-foreground font-medium">Your canvas is blank.</p>
+                                            <p className="text-xs text-muted-foreground/60 mt-1">Start your literary journey by adding your first chapter.</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                                <CardFooter className="p-4 bg-muted/20 border-t border-border/40">
+                                    <Link href={`/write/edit?storyId=${story.id}`} passHref className="w-full">
+                                        <Button variant="outline" className="w-full h-12 rounded-xl border-dashed border-2 hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all font-bold" disabled={isSaving}>
+                                            <PlusCircle className="mr-2 h-5 w-5" /> 
+                                            Initialize New Chapter
                                         </Button>
-                                        </AlertDialogTrigger>
-                                    </div>
-                                    </li>
-                                ))}
-                                </ul>
-                            </ScrollArea>
-                            ) : (
-                            <p className="text-muted-foreground text-center py-4">No chapters yet. Click "Add New Chapter" to start!</p>
-                            )}
-                        </CardContent>
-                        <CardFooter>
-                            <Link href={`/write/edit?storyId=${story.id}`} passHref>
-                                <Button variant="outline" size="sm" disabled={isSaving}><PlusCircle className="mr-2 h-4 w-4" /> Add New Chapter</Button>
-                            </Link>
-                        </CardFooter>
-                        </Card>
+                                    </Link>
+                                </CardFooter>
+                            </Card>
+                        </section>
                     </div>
                 </div>
             </TabsContent>
-            <TabsContent value="settings" className="mt-6 space-y-6">
-                <Card>
-                    <CardHeader><CardTitle>Story Properties</CardTitle></CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="grid sm:grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="genre">Genre</Label>
-                            <Select value={genre} onValueChange={(val) => setGenre(val as string)} disabled={isSaving}>
-                            <SelectTrigger id="genre"><SelectValue placeholder="Select Genre" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="fantasy">Fantasy</SelectItem>
-                                <SelectItem value="sci-fi">Sci-Fi</SelectItem>
-                                <SelectItem value="romance">Romance</SelectItem>
-                                <SelectItem value="thriller">Thriller</SelectItem>
-                                <SelectItem value="historical">Historical Fiction</SelectItem>
-                                <SelectItem value="dystopian">Dystopian</SelectItem>
-                                <SelectItem value="mystery">Mystery</SelectItem>
-                                <SelectItem value="adventure">Adventure</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                            </SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <Label htmlFor="language">Language</Label>
-                            <Select value={language} onValueChange={setLanguage} disabled={isSaving}>
-                            <SelectTrigger id="language"><SelectValue placeholder="Select Language" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="English">English</SelectItem>
-                                <SelectItem value="Spanish">Español (Spanish)</SelectItem>
-                                <SelectItem value="Tagalog">Tagalog</SelectItem>
-                                <SelectItem value="French">Français (French)</SelectItem>
-                                <SelectItem value="German">Deutsch (German)</SelectItem>
-                                <SelectItem value="Portuguese">Português (Portuguese)</SelectItem>
-                                <SelectItem value="Russian">Русский (Russian)</SelectItem>
-                                <SelectItem value="Japanese">日本語 (Japanese)</SelectItem>
-                                <SelectItem value="Korean">한국어 (Korean)</SelectItem>
-                                <SelectItem value="Chinese">中文 (Chinese)</SelectItem>
-                                <SelectItem value="Italian">Italiano (Italian)</SelectItem>
-                                <SelectItem value="Hindi">हिन्दी (Hindi)</SelectItem>
-                                <SelectItem value="Arabic">العربية (Arabic)</SelectItem>
-                                <SelectItem value="Indonesian">Bahasa Indonesia</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                            </Select>
-                        </div>
-                        </div>
-                        <div>
-                        <Label htmlFor="tags">Tags (comma-separated)</Label>
-                        <Input id="tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g., magic, space opera, slow burn" disabled={isSaving} />
-                        <div className="mt-2 flex flex-wrap gap-1">
-                            {tags.split(',').map(t => t.trim()).filter(Boolean).map((tag, i) => (
-                                <Badge key={i} variant="secondary" className="text-xs">{tag}</Badge>
-                            ))}
-                        </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                        <Switch id="isMature" checked={isMature} onCheckedChange={setIsMature} disabled={isSaving} />
-                        <Label htmlFor="isMature" className="flex items-center">
-                            Mature Content <ShieldQuestion className="ml-1.5 h-4 w-4 text-muted-foreground hover:text-foreground cursor-help" title="Mark if your story contains themes, language, or situations suitable for mature audiences."/>
-                        </Label>
-                        </div>
-                        <div>
-                        <Label className="mb-2 block">Visibility</Label>
-                        <RadioGroup value={visibility} onValueChange={(val) => setVisibility(val as 'Public' | 'Private' | 'Unlisted')} className="flex flex-col sm:flex-row gap-2 sm:gap-4" disabled={isSaving}>
-                            <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="Public" id="visPublic" />
-                            <Label htmlFor="visPublic" className="font-normal flex items-center"><Eye className="mr-1.5 h-4 w-4"/>Public</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="Unlisted" id="visUnlisted" />
-                            <Label htmlFor="visUnlisted" className="font-normal flex items-center"><EyeOff className="mr-1.5 h-4 w-4"/>Unlisted</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="Private" id="visPrivate" />
-                            <Label htmlFor="visPrivate" className="font-normal flex items-center"><Lock className="mr-1.5 h-4 w-4"/>Private (Drafts)</Label>
-                            </div>
-                        </RadioGroup>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            {visibility === 'Public' && "Visible to everyone and in search results."}
-                            {visibility === 'Unlisted' && "Only visible to those with a direct link. Not in search."}
-                            {visibility === 'Private' && "Only visible to you and collaborators. Default for drafts."}
-                        </p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Collaboration</CardTitle>
-                        <CardDescription>Invite other users to contribute. Only the original author can add or remove collaborators.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex gap-2">
-                            <Input
-                            type="text"
-                            placeholder="Enter collaborator's username"
-                            value={collaboratorUsername}
-                            onChange={(e) => setCollaboratorUsername(e.target.value)}
-                            disabled={isProcessingCollaboration || story.author.id !== user?.id || isSaving}
-                            />
-                            <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim() || story.author.id !== user?.id || isSaving}>
-                                {isProcessingCollaboration ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add
-                            </Button>
-                        </div>
-                        {story.collaborators && story.collaborators.length > 0 && (
-                            <div>
-                            <h3 className="text-sm font-medium text-muted-foreground mb-2">Current Collaborators:</h3>
-                            <ul className="space-y-2">
-                                {story.collaborators.map(collab => (
-                                <li key={collab.id} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
-                                    <div className="flex items-center gap-2">
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={collab.avatarUrl} alt={collab.username} data-ai-hint="profile person" />
-                                        <AvatarFallback>{collab.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                                    </Avatar>
-                                    <span>{collab.displayName || collab.username}</span>
-                                    </div>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        onClick={() => handleRemoveCollaborator(collab.id)} 
-                                        className="text-destructive hover:text-destructive" 
-                                        disabled={isProcessingCollaboration || story.author.id !== user?.id || isSaving}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </li>
-                                ))}
-                            </ul>
-                            </div>
-                        )}
-                        {(!story.collaborators || story.collaborators.length === 0) && (
-                            <p className="text-xs text-muted-foreground text-center py-2">No collaborators added yet.</p>
-                        )}
-                    </CardContent>
-                </Card>
 
-                 <Card className="border-destructive">
-                    <CardHeader>
-                        <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                        <CardDescription>These actions are permanent and cannot be undone.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <AlertDialogTrigger asChild>
-                           <Button variant="destructive" onClick={() => setStoryToDelete(story)}>Delete this story</Button>
-                        </AlertDialogTrigger>
-                    </CardContent>
-                </Card>
+            <TabsContent value="settings" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                    <section className="space-y-8">
+                        <Card className="border-border/40 bg-card/50 backdrop-blur-sm shadow-xl overflow-hidden">
+                            <CardHeader className="pb-6 border-b border-border/40 bg-muted/20">
+                                <CardTitle className="text-lg font-headline font-bold flex items-center gap-3">
+                                    <Tags className="h-5 w-5 text-primary" />
+                                    Categorization
+                                </CardTitle>
+                                <CardDescription className="text-xs">How should readers find your story?</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-6 space-y-8">
+                                <div className="grid sm:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="genre" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Core Genre</Label>
+                                        <Select value={genre} onValueChange={(val) => setGenre(val as string)} disabled={isSaving}>
+                                            <SelectTrigger id="genre" className="h-11 rounded-xl bg-background border-border/40">
+                                                <SelectValue placeholder="Select Genre" />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-xl">
+                                                <SelectItem value="fantasy">Fantasy</SelectItem>
+                                                <SelectItem value="sci-fi">Sci-Fi</SelectItem>
+                                                <SelectItem value="romance">Romance</SelectItem>
+                                                <SelectItem value="thriller">Thriller</SelectItem>
+                                                <SelectItem value="historical">Historical Fiction</SelectItem>
+                                                <SelectItem value="dystopian">Dystopian</SelectItem>
+                                                <SelectItem value="mystery">Mystery</SelectItem>
+                                                <SelectItem value="adventure">Adventure</SelectItem>
+                                                <SelectItem value="other">Other</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="language" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Dialect</Label>
+                                        <Select value={language} onValueChange={setLanguage} disabled={isSaving}>
+                                            <SelectTrigger id="language" className="h-11 rounded-xl bg-background border-border/40">
+                                                <SelectValue placeholder="Select Language" />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-xl">
+                                                <SelectItem value="English">English</SelectItem>
+                                                <SelectItem value="Spanish">Español (Spanish)</SelectItem>
+                                                <SelectItem value="Tagalog">Tagalog</SelectItem>
+                                                <SelectItem value="French">Français (French)</SelectItem>
+                                                <SelectItem value="German">Deutsch (German)</SelectItem>
+                                                <SelectItem value="Portuguese">Português (Portuguese)</SelectItem>
+                                                <SelectItem value="Russian">Русский (Russian)</SelectItem>
+                                                <SelectItem value="Japanese">日本語 (Japanese)</SelectItem>
+                                                <SelectItem value="Korean">한국어 (Korean)</SelectItem>
+                                                <SelectItem value="Chinese">中文 (Chinese)</SelectItem>
+                                                <SelectItem value="Italian">Italiano (Italian)</SelectItem>
+                                                <SelectItem value="Hindi">हिन्दी (Hindi)</SelectItem>
+                                                <SelectItem value="Arabic">العربية (Arabic)</SelectItem>
+                                                <SelectItem value="Indonesian">Bahasa Indonesia</SelectItem>
+                                                <SelectItem value="Other">Other</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="tags" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Discovery Tags</Label>
+                                    <Input id="tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g. detective, riddles, friendship" className="h-11 rounded-xl bg-background border-border/40" disabled={isSaving} />
+                                    <div className="mt-3 flex flex-wrap gap-1.5">
+                                        {tags.split(',').map(t => t.trim()).filter(Boolean).map((tag, i) => (
+                                            <Badge key={i} variant="secondary" className="text-[9px] font-bold uppercase tracking-widest bg-primary/5 text-primary border-primary/10">#{tag}</Badge>
+                                        ))}
+                                    </div>
+                                </div>
+                                <Separator className="opacity-40" />
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-dashed border-border/60">
+                                    <div className="space-y-0.5">
+                                        <Label htmlFor="isMature" className="text-sm font-bold flex items-center cursor-pointer">
+                                            Mature Content
+                                            <ShieldQuestion className="ml-2 h-3.5 w-3.5 text-muted-foreground/60 hover:text-foreground cursor-help" title="Contains themes suitable for adult audiences."/>
+                                        </Label>
+                                        <p className="text-[10px] text-muted-foreground">Apply 18+ content warning</p>
+                                    </div>
+                                    <Switch id="isMature" checked={isMature} onCheckedChange={setIsMature} disabled={isSaving} />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-destructive/30 bg-destructive/5 overflow-hidden">
+                            <CardHeader className="pb-4 bg-destructive/10 border-b border-destructive/20">
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest text-destructive flex items-center gap-2">
+                                    <Trash2 className="h-4 w-4" />
+                                    Danger Zone
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div className="space-y-1 text-center sm:text-left">
+                                        <p className="text-sm font-bold text-destructive">Erase Manuscript</p>
+                                        <p className="text-[10px] text-muted-foreground">Permanently delete this story and all its history.</p>
+                                    </div>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" size="sm" onClick={() => setStoryToDelete(story)} className="rounded-full px-6 text-xs h-9">Destroy Story</Button>
+                                    </AlertDialogTrigger>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </section>
+
+                    <section className="space-y-8">
+                        <Card className="border-border/40 bg-card/50 backdrop-blur-sm shadow-xl overflow-hidden">
+                            <CardHeader className="pb-6 border-b border-border/40 bg-muted/20">
+                                <CardTitle className="text-lg font-headline font-bold flex items-center gap-3">
+                                    <Eye className="h-5 w-5 text-primary" />
+                                    Privacy & Visibility
+                                </CardTitle>
+                                <CardDescription className="text-xs">Control who has access to your work.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <RadioGroup value={visibility} onValueChange={(val) => setVisibility(val as 'Public' | 'Private' | 'Unlisted')} className="grid gap-3" disabled={isSaving}>
+                                    <div className={cn("flex items-center space-x-3 p-4 border rounded-2xl transition-all cursor-pointer", visibility === 'Public' ? 'bg-primary/5 border-primary/30 shadow-inner' : 'border-transparent hover:bg-muted/30')}>
+                                        <RadioGroupItem value="Public" id="visPublic" className="h-5 w-5" />
+                                        <Label htmlFor="visPublic" className="flex-1 cursor-pointer">
+                                            <span className="font-bold block text-sm flex items-center gap-2">Public <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest py-0">Global</Badge></span>
+                                            <span className="text-[10px] text-muted-foreground">Visible to everyone and searchable in the archives.</span>
+                                        </Label>
+                                    </div>
+                                    <div className={cn("flex items-center space-x-3 p-4 border rounded-2xl transition-all cursor-pointer", visibility === 'Unlisted' ? 'bg-primary/5 border-primary/30 shadow-inner' : 'border-transparent hover:bg-muted/30')}>
+                                        <RadioGroupItem value="Unlisted" id="visUnlisted" className="h-5 w-5" />
+                                        <Label htmlFor="visUnlisted" className="flex-1 cursor-pointer">
+                                            <span className="font-bold block text-sm flex items-center gap-2">Unlisted <EyeOff className="h-3 w-3 opacity-50" /></span>
+                                            <span className="text-[10px] text-muted-foreground">Only accessible via direct link. Won't appear in search.</span>
+                                        </Label>
+                                    </div>
+                                    <div className={cn("flex items-center space-x-3 p-4 border rounded-2xl transition-all cursor-pointer", visibility === 'Private' ? 'bg-primary/5 border-primary/30 shadow-inner' : 'border-transparent hover:bg-muted/30')}>
+                                        <RadioGroupItem value="Private" id="visPrivate" className="h-5 w-5" />
+                                        <Label htmlFor="visPrivate" className="flex-1 cursor-pointer">
+                                            <span className="font-bold block text-sm flex items-center gap-2">Private <Lock className="h-3 w-3 opacity-50" /></span>
+                                            <span className="text-[10px] text-muted-foreground">Exclusive to you and your collaborators. Default for drafts.</span>
+                                        </Label>
+                                    </div>
+                                </RadioGroup>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-border/40 bg-card/50 backdrop-blur-sm shadow-xl overflow-hidden">
+                            <CardHeader className="pb-6 border-b border-border/40 bg-muted/20">
+                                <CardTitle className="text-lg font-headline font-bold flex items-center gap-3">
+                                    <Users className="h-5 w-5 text-primary" />
+                                    Collaborative writing
+                                </CardTitle>
+                                <CardDescription className="text-xs">Invite partners to co-author this manuscript.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-6 space-y-6">
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="text"
+                                        placeholder="Creator's @handle"
+                                        value={collaboratorUsername}
+                                        onChange={(e) => setCollaboratorUsername(e.target.value)}
+                                        className="rounded-xl bg-background border-border/40 h-11"
+                                        disabled={isProcessingCollaboration || story.author.id !== user?.id || isSaving}
+                                    />
+                                    <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim() || story.author.id !== user?.id || isSaving} className="rounded-xl h-11 px-6 font-bold shadow-md shadow-primary/20 transition-all hover:scale-105 active:scale-95">
+                                        {isProcessingCollaboration ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />} Add
+                                    </Button>
+                                </div>
+                                
+                                {story.collaborators && story.collaborators.length > 0 ? (
+                                    <div className="space-y-3">
+                                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Current Authors</h4>
+                                        <div className="grid gap-2">
+                                            {story.collaborators.map(collab => (
+                                                <div key={collab.id} className="flex items-center justify-between p-3 border rounded-2xl bg-muted/30 border-border/40 group/collab">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <Avatar className="h-9 w-9 border border-background shadow-sm">
+                                                            <AvatarImage src={collab.avatarUrl} alt={collab.username} />
+                                                            <AvatarFallback className="text-xs font-bold">{collab.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-bold truncate">@{collab.username}</p>
+                                                            <p className="text-[10px] text-muted-foreground truncate">{collab.displayName}</p>
+                                                        </div>
+                                                    </div>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        onClick={() => handleRemoveCollaborator(collab.id)} 
+                                                        className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/collab:opacity-100 transition-opacity" 
+                                                        disabled={isProcessingCollaboration || story.author.id !== user?.id || isSaving}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-10 px-4 border-2 border-dashed border-border/20 rounded-2xl bg-muted/10">
+                                        <Users className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
+                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">No collaborators yet</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </section>
+                </div>
             </TabsContent>
         </Tabs>
       </div>
 
+      {/* Persistence Modals */}
       {chapterToDelete && (
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Chapter: "{chapterToDelete.title}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this chapter? This action cannot be undone and will remove the chapter permanently.
-              {chapterToDelete.accessType === 'premium' && <div className="mt-2 font-semibold text-destructive">This is a premium chapter. Deleting it will revoke access for all granted users.</div>}
+        <AlertDialogContent className="rounded-3xl border-none shadow-2xl overflow-hidden">
+          <AlertDialogHeader className="p-6 bg-destructive/5 border-b border-destructive/10">
+            <AlertDialogTitle className="font-headline text-2xl flex items-center gap-2 text-destructive">
+                <Trash2 className="h-6 w-6" /> Destructive Action
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Are you sure you want to erase <span className="font-bold text-foreground">"{chapterToDelete.title}"</span>? This manuscript segment will be lost forever.
+              {chapterToDelete.accessType === 'premium' && <div className="mt-3 p-3 bg-yellow-500/10 text-yellow-700 rounded-xl border border-yellow-500/20 font-medium text-xs">Premium access permissions for this chapter will also be revoked.</div>}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setChapterToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmDeleteChapter(chapterToDelete)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-              Yes, Delete Chapter
+          <AlertDialogFooter className="p-6 bg-muted/30">
+            <AlertDialogCancel onClick={() => setChapterToDelete(null)} className="rounded-full px-8">Discard Action</AlertDialogCancel>
+            <AlertDialogAction onClick={() => confirmDeleteChapter(chapterToDelete)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-8 font-bold">
+              Yes, Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       )}
 
        {premiumAccessChapter && (
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Manage Premium Access for "{premiumAccessChapter.title}"</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Grant temporary access to this chapter for specific users. They will receive a notification.
+        <AlertDialogContent className="max-w-md rounded-3xl border-none shadow-2xl p-0 overflow-hidden">
+            <AlertDialogHeader className="p-8 bg-primary/5 border-b border-primary/10">
+                <AlertDialogTitle className="text-2xl font-headline font-bold flex items-center gap-3">
+                    <Sparkles className="h-6 w-6 text-primary" />
+                    Premium Access
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-sm">
+                    Grant temporary viewing rights for <span className="font-bold text-foreground">"{premiumAccessChapter.title}"</span>.
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                    <Label htmlFor="premium-username">Username to grant access</Label>
-                    <div className="flex gap-2">
-                        <Input id="premium-username" value={premiumUsername} onChange={e => setPremiumUsername(e.target.value)} placeholder="@username" />
-                        <Select value={premiumDuration} onValueChange={setPremiumDuration}>
-                            <SelectTrigger className="w-[120px]">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="24h">24 Hours</SelectItem>
-                                <SelectItem value="2d">2 Days</SelectItem>
-                                <SelectItem value="1w">1 Week</SelectItem>
-                                <SelectItem value="1m">1 Month</SelectItem>
-                            </SelectContent>
-                        </Select>
+            <div className="p-8 space-y-6">
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="premium-username" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Target Reader</Label>
+                        <div className="flex gap-2">
+                            <Input id="premium-username" value={premiumUsername} onChange={e => setPremiumUsername(e.target.value)} placeholder="@username" className="rounded-xl h-11" />
+                            <Select value={premiumDuration} onValueChange={setPremiumDuration}>
+                                <SelectTrigger className="w-[130px] rounded-xl h-11">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl">
+                                    <SelectItem value="24h">24 Hours</SelectItem>
+                                    <SelectItem value="2d">2 Days</SelectItem>
+                                    <SelectItem value="1w">1 Week</SelectItem>
+                                    <SelectItem value="1m">1 Month</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
+                    <Button onClick={handleGrantPremiumAccess} disabled={isProcessingPremium || !premiumUsername.trim()} className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 font-bold shadow-lg shadow-primary/20">
+                        {isProcessingPremium ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                        Grant Vault Access
+                    </Button>
                 </div>
-                <Button onClick={handleGrantPremiumAccess} disabled={isProcessingPremium || !premiumUsername.trim()}>
-                    {isProcessingPremium ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
-                    Grant Access
-                </Button>
-                <Separator />
-                <div>
-                    <h4 className="text-sm font-medium mb-2">Users with Access</h4>
-                    <ScrollArea className="h-40">
-                        <div className="space-y-2 pr-4">
+                <Separator className="opacity-40" />
+                <div className="space-y-3">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Users with Access</h4>
+                    <ScrollArea className="h-40 pr-3">
+                        <div className="space-y-2">
                         {(premiumAccessChapter.allowedUsers && premiumAccessChapter.allowedUsers.length > 0) ? premiumAccessChapter.allowedUsers.map(allowed => (
-                            <div key={allowed.userId} className="flex justify-between items-center text-sm p-2 bg-muted rounded-md">
-                                <span>@{allowed.username}</span>
-                                <span className="text-xs text-muted-foreground">Expires {formatDate(allowed.expiresAt)}</span>
+                            <div key={allowed.userId} className="flex justify-between items-center text-xs p-3 bg-muted/30 border border-border/40 rounded-xl">
+                                <span className="font-bold text-foreground">@{allowed.username}</span>
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-widest">Expires {formatDate(allowed.expiresAt)}</span>
                             </div>
-                        )) : <p className="text-xs text-muted-foreground text-center pt-4">No users have premium access to this chapter yet.</p>}
+                        )) : (
+                            <div className="text-center py-10 opacity-40">
+                                <Lock className="h-8 w-8 mx-auto mb-2" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest">No active permissions</p>
+                            </div>
+                        )}
                         </div>
                     </ScrollArea>
                 </div>
             </div>
-            <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setPremiumAccessChapter(null)}>Close</AlertDialogCancel>
+            <AlertDialogFooter className="p-4 bg-muted/30 border-t">
+                <AlertDialogCancel onClick={() => setPremiumAccessChapter(null)} className="w-full rounded-xl">Dismiss</AlertDialogCancel>
             </AlertDialogFooter>
         </AlertDialogContent>
       )}
 
       {storyToDelete && user?.id === storyToDelete.author.id && (
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Story: "{storyToDelete.title}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action is permanent and cannot be undone. All chapters, comments, and data associated with this story will be permanently deleted.
+        <AlertDialogContent className="rounded-3xl border-none shadow-2xl overflow-hidden">
+          <AlertDialogHeader className="p-8 bg-destructive/10 border-b border-destructive/20">
+            <AlertDialogTitle className="text-2xl font-headline font-bold text-destructive flex items-center gap-3">
+                <AlertCircle className="h-7 w-7" />
+                Destroy Entire Manuscript?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-foreground/80 leading-relaxed pt-2">
+              This action is <span className="font-bold text-destructive underline">permanent and irreversible</span>. 
+              Erasing <span className="font-bold italic">"{storyToDelete.title}"</span> will incinerate every chapter, every reader comment, and all associated analytics from our servers.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setStoryToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteStory} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-              Yes, Permanently Delete Story
+          <AlertDialogFooter className="p-6 bg-muted/30 flex-col sm:flex-row gap-3">
+            <AlertDialogCancel onClick={() => setStoryToDelete(null)} className="rounded-full px-10 h-12 font-bold">Abort Erasure</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteStory} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-10 h-12 font-bold shadow-xl shadow-destructive/20">
+              Confirm Total Destruction
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
