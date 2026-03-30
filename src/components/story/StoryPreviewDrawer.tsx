@@ -21,7 +21,8 @@ import {
   MessageSquare,
   BookmarkPlus,
   BookmarkCheck,
-  Lock
+  Lock,
+  ChevronDown
 } from 'lucide-react';
 import { formatDate } from '@/lib/placeholder-data';
 import type { Story, UserSummary } from '@/types';
@@ -156,6 +157,13 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
     setIsMoodLoading(false);
   };
 
+  const handleScrollToDetails = () => {
+    const element = document.getElementById('story-details-target');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-full min-h-[50vh]">
@@ -185,8 +193,8 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
 
   return (
     <div className="space-y-6 p-4 pt-0">
-      <div className="flex items-start gap-4">
-        <div className="relative w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-xl group">
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+        <div className="relative w-32 sm:w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-2xl group">
           <Image
             src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
             alt={story.title}
@@ -207,7 +215,7 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
           </button>
         </div>
 
-        <div className="flex flex-col items-start flex-grow">
+        <div className="flex flex-col items-center sm:items-start flex-grow text-center sm:text-left">
           <h1 className="text-2xl md:text-3xl font-headline font-bold text-foreground leading-tight">{story.title}</h1>
           <Link
             href={`/profile/${displayAuthor.id}`}
@@ -216,24 +224,20 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
             <span className="font-medium group-hover:underline">{displayAuthor.displayName || displayAuthor.username}</span>
           </Link>
         
-          <div className="flex items-center gap-2 mt-3">
-              {firstChapterId ? (
-              <Link href={`/stories/${story.id}/read/${firstChapterId}`} passHref>
-                  <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                  <BookOpen className="mr-2 h-5 w-5" /> Read
-                  </Button>
-              </Link>
-              ) : (
-              <Button size="lg" disabled>
-                  <BookOpen className="mr-2 h-5 w-5" /> No Chapters
+          <div className="flex items-center gap-2 mt-4">
+              <Button 
+                size="lg" 
+                onClick={handleScrollToDetails}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 rounded-full px-8"
+              >
+                <BookOpen className="mr-2 h-5 w-5" /> Read
               </Button>
-              )}
-              <Button size="icon" variant="outline" onClick={handleLibraryAction} title={isInLibrary ? "In your library" : "Add to Library"} disabled={authLoading}>
+              <Button size="icon" variant="outline" className="rounded-full h-11 w-11" onClick={handleLibraryAction} title={isInLibrary ? "In your library" : "Add to Library"} disabled={authLoading}>
                 {authLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : isInLibrary ? <BookmarkCheck className="h-5 w-5 text-primary" /> : <BookmarkPlus className="h-5 w-5" />}
               </Button>
               {isAuthorOrCollaborator && (
               <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
-                  <Button size="icon" variant="outline" title="Edit Story Details">
+                  <Button size="icon" variant="outline" className="rounded-full h-11 w-11" title="Edit Story Details">
                   <Edit className="h-5 w-5" />
                   </Button>
               </Link>
@@ -242,41 +246,41 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 items-start justify-center gap-x-2 sm:gap-x-4 text-center py-4 border-y">
+      <div className="grid grid-cols-4 items-start justify-center gap-x-2 sm:gap-x-4 text-center py-4 border-y border-border/40">
         <div className="flex flex-col items-center" title="Reads">
-          <div className="flex items-center gap-1.5 text-foreground">
-            <Eye className="h-5 w-5" />
-            <strong className="text-xl font-bold">{story.views ? (story.views / 1000).toFixed(1) + 'k' : '0'}</strong>
+          <div className="flex items-center gap-1 text-foreground">
+            <Eye className="h-4 w-4 opacity-70" />
+            <strong className="text-lg font-bold">{story.views ? (story.views / 1000).toFixed(1) + 'k' : '0'}</strong>
           </div>
-          <span className="text-xs text-muted-foreground mt-1">Reads</span>
+          <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mt-1">Reads</span>
         </div>
         <div className="flex flex-col items-center" title="Votes">
-          <div className="flex items-center gap-1.5 text-foreground">
-            <Star className="h-5 w-5" />
-            <strong className="text-xl font-bold">{totalVotes}</strong>
+          <div className="flex items-center gap-1 text-foreground">
+            <Star className="h-4 w-4 opacity-70" />
+            <strong className="text-lg font-bold">{totalVotes}</strong>
           </div>
-          <span className="text-xs text-muted-foreground mt-1">Votes</span>
+          <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mt-1">Votes</span>
         </div>
          <div className="flex flex-col items-center" title="Comments">
-             <div className="flex items-center gap-1.5 text-foreground">
-                 <MessageSquare className="h-5 w-5" />
-                 <strong className="text-xl font-bold">{commentCount}</strong>
+             <div className="flex items-center gap-1 text-foreground">
+                 <MessageSquare className="h-4 w-4 opacity-70" />
+                 <strong className="text-lg font-bold">{commentCount}</strong>
              </div>
-             <span className="text-xs text-muted-foreground mt-1">Comments</span>
+             <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mt-1">Chat</span>
          </div>
         <div className="flex flex-col items-center" title="Published Chapters">
-          <div className="flex items-center gap-1.5 text-foreground">
-            <ListOrdered className="h-5 w-5" />
-            <strong className="text-xl font-bold">{totalPublishedChapters}</strong>
+          <div className="flex items-center gap-1 text-foreground">
+            <ListOrdered className="h-4 w-4 opacity-70" />
+            <strong className="text-lg font-bold">{totalPublishedChapters}</strong>
           </div>
-          <span className="text-xs text-muted-foreground mt-1">Parts</span>
+          <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mt-1">Parts</span>
         </div>
       </div>
       
       <div className="flex justify-center">
         <Badge variant={story.status === 'Completed' ? 'secondary' : 'default'}
             className={cn(
-                "mx-auto block w-fit",
+                "mx-auto block w-fit text-[10px] uppercase tracking-widest px-3 py-1",
                 story.status === 'Completed' && 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700',
                 (story.status === 'Ongoing' || story.status === 'Public') && 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
                 story.status === 'Draft' && 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600',
@@ -286,63 +290,67 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
         </Badge>
       </div>
 
-      <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none pt-4">
-        <h2 className="text-xl font-headline font-semibold mb-2 text-foreground">Description</h2>
-        <p className={cn(!isDescriptionExpanded && "line-clamp-5", "whitespace-pre-line text-muted-foreground")}>
+      <div id="story-details-target" className="prose prose-sm dark:prose-invert max-w-none pt-4 scroll-mt-6">
+        <h2 className="text-lg font-headline font-bold mb-2 text-foreground flex items-center gap-2">
+            Description
+            <ChevronDown className="h-4 w-4 text-muted-foreground animate-bounce" />
+        </h2>
+        <p className={cn(!isDescriptionExpanded && "line-clamp-5", "whitespace-pre-line text-muted-foreground leading-relaxed")}>
           {story.summary || "No description available."}
         </p>
         {story.summary && story.summary.length > 200 && (
-              <Button variant="link" onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="p-0 h-auto text-sm text-primary hover:underline">
+              <Button variant="link" onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="p-0 h-auto text-xs text-primary hover:underline font-bold uppercase tracking-widest">
                 {isDescriptionExpanded ? "Show Less" : "Show More"}
             </Button>
         )}
       </div>
 
       <div className="mb-6">
-          <h3 className="text-lg font-headline font-semibold mb-2 text-foreground">Tags</h3>
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3 px-1">Discoverability</h3>
           <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-tight bg-muted/30">{story.genre}</Badge>
             {story.tags.map(tag => (
-                <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                <Badge key={tag} variant="ghost" className="text-[10px] font-medium text-muted-foreground">#{tag}</Badge>
             ))}
-            {story.tags.length === 0 && <p className="text-xs text-muted-foreground">No tags for this story.</p>}
         </div>
       </div>
 
-      <Separator className="my-6" />
+      <Separator className="opacity-40" />
 
       <div>
-        <h2 className="text-xl font-headline font-semibold mb-3 text-foreground">Table of Contents ({totalPublishedChapters} Published Parts)</h2>
+        <h2 className="text-lg font-headline font-bold mb-4 text-foreground flex items-center justify-between">
+            <span>Table of Contents</span>
+            <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">{totalPublishedChapters} Parts</span>
+        </h2>
         {publishedChapters.length > 0 ? (
-          <ScrollArea className="max-h-[400px] pr-3 border rounded-md">
-            <ul className="space-y-0 divide-y divide-border">
+          <div className="border rounded-2xl overflow-hidden bg-card/50">
+            <ul className="space-y-0 divide-y divide-border/40">
               {publishedChapters.sort((a, b) => a.order - b.order).map((chapter) => (
                 <li key={chapter.id}>
-                  <Link href={`/stories/${story.id}/read/${chapter.id}`} passHref>
-                    <div className="block p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+                  <Link href={`/stories/${story.id}/read/${chapter.id}`} onClick={onClose} passHref>
+                    <div className="block p-4 hover:bg-primary/5 transition-all cursor-pointer group">
                       <div className="flex justify-between items-center">
-                        <span className="font-medium text-foreground truncate pr-2 flex items-center gap-2">
-                          Part {chapter.order}: {chapter.title}
-                          {chapter.accessType === 'premium' && <Lock className="h-3 w-3 text-yellow-500 flex-shrink-0" titleAccess="Premium Chapter" />}
+                        <span className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate pr-2 flex items-center gap-2">
+                          {chapter.order}. {chapter.title}
+                          {chapter.accessType === 'premium' && <Lock className="h-3 w-3 text-yellow-500 flex-shrink-0" />}
                         </span>
-                        {chapter.publishedDate && (
-                          <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                            {formatDate(chapter.publishedDate)}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-3">
+                            {chapter.wordCount && (
+                                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-tighter hidden xs:inline">
+                                    {Math.round(chapter.wordCount / 200) || 1} min
+                                </span>
+                            )}
+                            <Badge variant="ghost" size="icon" className="h-6 w-6 rounded-full group-hover:bg-primary/10 group-hover:text-primary"><chevronRight className="h-3 w-3" /></Badge>
+                        </div>
                       </div>
-                      {chapter.wordCount && (
-                          <span className="text-xs text-muted-foreground block mt-0.5">
-                            {Math.round(chapter.wordCount / 200) || 1} min read
-                          </span>
-                        )}
                     </div>
                   </Link>
                 </li>
               ))}
             </ul>
-          </ScrollArea>
+          </div>
         ) : (
-          <p className="text-muted-foreground text-center py-4 border rounded-md">No chapters published yet for this story.</p>
+          <p className="text-muted-foreground text-center py-10 bg-muted/20 rounded-2xl border border-dashed text-sm">No chapters published yet.</p>
         )}
       </div>
     </div>
@@ -355,15 +363,15 @@ export default function StoryPreviewDrawer() {
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent>
-        <div className="mx-auto w-full max-w-sm" role="dialog" aria-modal="true">
-             <div className="mx-auto mt-2 w-12 h-1.5 flex-shrink-0 rounded-full bg-muted-foreground" />
-            <div className="h-[85vh]">
+      <DrawerContent className="max-h-[95vh] border-none rounded-t-[32px] bg-background">
+        <div className="mx-auto w-full max-w-lg" role="dialog" aria-modal="true">
+             <div className="mx-auto mt-4 w-12 h-1.5 flex-shrink-0 rounded-full bg-muted-foreground/20" />
+            <div className="h-[85vh] mt-4">
                 <DrawerHeader className="sr-only">
                     <DrawerTitle>Story Preview</DrawerTitle>
                     <DrawerDescription>An overview of the selected story.</DrawerDescription>
                 </DrawerHeader>
-                <ScrollArea className="h-full">
+                <ScrollArea className="h-full px-2">
                     {storyId && <StoryPreviewContent storyId={storyId} />}
                 </ScrollArea>
             </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -22,7 +23,8 @@ import {
   MessageSquare,
   BookmarkPlus,
   BookmarkCheck,
-  Lock
+  Lock,
+  ChevronDown
 } from 'lucide-react';
 import { formatDate } from '@/lib/placeholder-data';
 import type { Story, UserSummary } from '@/types';
@@ -55,7 +57,6 @@ export default function StoryOverviewPage() {
 
     setIsLoading(true);
     
-    // Real-time listener for the story document
     const storyDocRef = doc(db, 'stories', storyId);
     const unsubscribeStory = onSnapshot(storyDocRef, (docSnap) => {
         if (docSnap.exists()) {
@@ -69,7 +70,7 @@ export default function StoryOverviewPage() {
 
             if (canView) {
                 setStory(data);
-                setAuthorInfo(data.author); // Set initial author info from story data
+                setAuthorInfo(data.author);
             } else {
                 setStory(null);
                 toast({ title: "Access Denied", description: "You don't have permission to view this story.", variant: "destructive" });
@@ -86,23 +87,19 @@ export default function StoryOverviewPage() {
         setIsLoading(false);
     });
 
-    // Real-time listener for comment count
     const commentsQuery = query(collection(db, 'comments'), where('storyId', '==', storyId));
     const unsubscribeComments = onSnapshot(commentsQuery, (snapshot) => {
       setCommentCount(snapshot.size);
     }, (error) => {
       console.error("Error fetching comment count:", error);
-      // Don't toast here as it could be annoying if it keeps failing
     });
 
-    // Cleanup function to unsubscribe from listeners when the component unmounts
     return () => {
       unsubscribeStory();
       unsubscribeComments();
     };
   }, [storyId, user, router, toast]);
 
-  // New useEffect to listen for real-time author updates
   useEffect(() => {
     if (!story?.author?.id) return;
 
@@ -162,6 +159,13 @@ export default function StoryOverviewPage() {
     setIsMoodLoading(false);
   };
 
+  const handleScrollToDetails = () => {
+    const element = document.getElementById('story-overview-details');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
@@ -183,67 +187,62 @@ export default function StoryOverviewPage() {
     );
   }
 
-  const firstChapterId = story.chapters?.find(ch => ch.status === 'Published')?.id;
   const publishedChapters = story.chapters?.filter(ch => ch.status === 'Published' || ch.accessType === 'premium') || [];
   const totalPublishedChapters = publishedChapters.length;
 
   const isAuthorOrCollaborator = user && (story.author.id === user.id || story.collaborators?.some(c => c.id === user.id));
   const isInLibrary = user?.readingList?.some(item => item.id === story.id);
-  const displayAuthor = authorInfo || story.author; // Use live author info if available, otherwise fallback to story's data
+  const displayAuthor = authorInfo || story.author;
 
   const totalVotes = story.chapters?.reduce((acc, chapter) => acc + (chapter.votes || 0), 0) || 0;
 
   return (
-    <div className="container mx-auto max-w-4xl py-8 px-4 space-y-8">
-      <div className="flex items-start gap-4">
-        <div className="relative w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-xl group">
+    <div className="container mx-auto max-w-4xl py-8 px-4 space-y-8 animate-in fade-in duration-500">
+      <div className="flex items-start gap-6">
+        <div className="relative w-32 md:w-40 flex-shrink-0 rounded-xl overflow-hidden shadow-2xl group ring-1 ring-border/40">
           <Image
             src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
             alt={story.title}
             width={512}
             height={800}
-            className="w-full h-auto object-cover"
+            className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
             data-ai-hint={story.dataAiHint || "book cover"}
             priority
           />
            <button
             onClick={handleMoodMatcherClick}
             aria-label="Mood Matcher"
-            className="absolute top-1 left-1 z-10 p-1 bg-black/50 text-white rounded-full hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
-            title="AI Mood Matcher (Find similar vibes)"
+            className="absolute top-2 left-2 z-10 p-1.5 bg-black/50 backdrop-blur-md text-white rounded-full hover:bg-primary transition-all opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100"
+            title="AI Mood Matcher"
             disabled={isMoodLoading}
           >
             {isMoodLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           </button>
         </div>
 
-        <div className="flex flex-col items-start flex-grow">
-          <h1 className="text-2xl md:text-3xl font-headline font-bold text-foreground leading-tight">{story.title}</h1>
+        <div className="flex flex-col items-start flex-grow pt-2">
+          <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground leading-tight tracking-tight mb-2">{story.title}</h1>
           <Link
             href={`/profile/${displayAuthor.id}`}
-            className="inline-flex items-center gap-2.5 text-md text-muted-foreground hover:text-primary transition-colors group mt-1"
+            className="inline-flex items-center gap-2.5 text-lg text-muted-foreground hover:text-primary transition-colors group"
           >
-            <span className="font-medium group-hover:underline">@{displayAuthor.username}</span>
+            <span className="font-semibold group-hover:underline">@{displayAuthor.username}</span>
           </Link>
         
-          <div className="flex items-center gap-2 mt-3">
-              {firstChapterId ? (
-              <Link href={`/stories/${story.id}/read/${firstChapterId}`} passHref>
-                  <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                  <BookOpen className="mr-2 h-5 w-5" /> Read
-                  </Button>
-              </Link>
-              ) : (
-              <Button size="lg" disabled>
-                  <BookOpen className="mr-2 h-5 w-5" /> No Chapters
+          <div className="flex items-center gap-3 mt-6">
+              <Button 
+                size="lg" 
+                className="bg-primary hover:bg-primary/90 text-primary-foreground h-12 px-8 rounded-full shadow-xl shadow-primary/20 transition-all hover:scale-[1.02]"
+                onClick={handleScrollToDetails}
+              >
+                <BookOpen className="mr-2 h-5 w-5" /> Read
               </Button>
-              )}
-              <Button size="icon" variant="outline" onClick={handleLibraryAction} title={isInLibrary ? "In your library" : "Add to Library"} disabled={authLoading}>
+              <Button size="icon" variant="outline" className="h-12 w-12 rounded-full" onClick={handleLibraryAction} title={isInLibrary ? "In your library" : "Add to Library"} disabled={authLoading}>
                 {authLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : isInLibrary ? <BookmarkCheck className="h-5 w-5 text-primary" /> : <BookmarkPlus className="h-5 w-5" />}
               </Button>
               {isAuthorOrCollaborator && (
               <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
-                  <Button size="icon" variant="outline" title="Edit Story Details">
+                  <Button size="icon" variant="outline" className="h-12 w-12 rounded-full" title="Edit Story Details">
                   <Edit className="h-5 w-5" />
                   </Button>
               </Link>
@@ -253,41 +252,41 @@ export default function StoryOverviewPage() {
       </div>
 
 
-      <div className="grid grid-cols-4 items-start justify-center gap-x-2 sm:gap-x-4 text-center py-4 border-y">
+      <div className="grid grid-cols-4 items-start justify-center gap-x-2 sm:gap-x-4 text-center py-6 border-y border-border/40">
         <div className="flex flex-col items-center" title="Reads">
           <div className="flex items-center gap-1.5 text-foreground">
-            <Eye className="h-5 w-5" />
-            <strong className="text-xl font-bold">{story.views ? (story.views / 1000).toFixed(1) + 'k' : '0'}</strong>
+            <Eye className="h-5 w-5 opacity-70" />
+            <strong className="text-2xl font-bold">{story.views ? (story.views / 1000).toFixed(1) + 'k' : '0'}</strong>
           </div>
-          <span className="text-xs text-muted-foreground mt-1">Reads</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Total Reads</span>
         </div>
         <div className="flex flex-col items-center" title="Votes">
           <div className="flex items-center gap-1.5 text-foreground">
-            <Star className="h-5 w-5" />
-            <strong className="text-xl font-bold">{totalVotes}</strong>
+            <Star className="h-5 w-5 opacity-70" />
+            <strong className="text-2xl font-bold">{totalVotes}</strong>
           </div>
-          <span className="text-xs text-muted-foreground mt-1">Votes</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Fan Votes</span>
         </div>
          <div className="flex flex-col items-center" title="Comments">
              <div className="flex items-center gap-1.5 text-foreground">
-                 <MessageSquare className="h-5 w-5" />
-                 <strong className="text-xl font-bold">{commentCount}</strong>
+                 <MessageSquare className="h-5 w-5 opacity-70" />
+                 <strong className="text-2xl font-bold">{commentCount}</strong>
              </div>
-             <span className="text-xs text-muted-foreground mt-1">Comments</span>
+             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Comments</span>
          </div>
         <div className="flex flex-col items-center" title="Published Chapters">
           <div className="flex items-center gap-1.5 text-foreground">
-            <ListOrdered className="h-5 w-5" />
-            <strong className="text-xl font-bold">{totalPublishedChapters}</strong>
+            <ListOrdered className="h-5 w-5 opacity-70" />
+            <strong className="text-2xl font-bold">{totalPublishedChapters}</strong>
           </div>
-          <span className="text-xs text-muted-foreground mt-1">Parts</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Published</span>
         </div>
       </div>
       
       <div className="flex justify-center">
         <Badge variant={story.status === 'Completed' ? 'secondary' : 'default'}
             className={cn(
-                "mx-auto block w-fit",
+                "mx-auto block w-fit px-4 py-1 text-[10px] uppercase font-bold tracking-[0.2em]",
                 story.status === 'Completed' && 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700',
                 (story.status === 'Ongoing' || story.status === 'Public') && 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
                 story.status === 'Draft' && 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600',
@@ -298,63 +297,77 @@ export default function StoryOverviewPage() {
       </div>
 
 
-      <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none pt-4">
-        <h2 className="text-xl font-headline font-semibold mb-2 text-foreground">Description</h2>
-        <p className={cn(!isDescriptionExpanded && "line-clamp-5", "whitespace-pre-line text-muted-foreground")}>
+      <div id="story-overview-details" className="prose prose-sm sm:prose-base dark:prose-invert max-w-none pt-4 scroll-mt-20">
+        <h2 className="text-2xl font-headline font-bold mb-4 text-foreground flex items-center gap-2">
+            Story Summary
+            <ChevronDown className="h-5 w-5 text-primary animate-bounce" />
+        </h2>
+        <p className={cn(!isDescriptionExpanded && "line-clamp-6", "whitespace-pre-line text-muted-foreground leading-relaxed text-base")}>
           {story.summary || "No description available."}
         </p>
-        {story.summary && story.summary.length > 200 && (
-              <Button variant="link" onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="p-0 h-auto text-sm text-primary hover:underline">
-                {isDescriptionExpanded ? "Show Less" : "Show More"}
+        {story.summary && story.summary.length > 300 && (
+              <Button variant="link" onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="p-0 h-auto text-sm text-primary hover:underline font-bold uppercase tracking-widest mt-2">
+                {isDescriptionExpanded ? "Show Less" : "Read Entire Blurb"}
             </Button>
         )}
       </div>
 
       <div className="mb-6">
-          <h3 className="text-lg font-headline font-semibold mb-2 text-foreground">Tags</h3>
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3 opacity-60">Categories & Tags</h3>
           <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary" className="bg-primary/5 text-primary border-primary/10 rounded-lg px-3 py-1 font-bold text-xs uppercase tracking-tight">{story.genre}</Badge>
             {story.tags.map(tag => (
-                <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                <Badge key={tag} variant="outline" className="text-xs font-medium text-muted-foreground/80 hover:bg-muted transition-colors cursor-default">#{tag}</Badge>
             ))}
-            {story.tags.length === 0 && <p className="text-xs text-muted-foreground">No tags for this story.</p>}
+            {story.tags.length === 0 && <p className="text-xs text-muted-foreground italic">No tags listed.</p>}
         </div>
       </div>
 
-      <Separator className="my-6" />
+      <Separator className="my-8 opacity-40" />
 
       <div>
-        <h2 className="text-xl font-headline font-semibold mb-3 text-foreground">Table of Contents ({totalPublishedChapters} Published Parts)</h2>
+        <h2 className="text-2xl font-headline font-bold mb-6 text-foreground flex items-center justify-between">
+            <span>Manuscript & Chapters</span>
+            <Badge variant="outline" className="text-[10px] font-bold px-2">{totalPublishedChapters} Parts</Badge>
+        </h2>
         {publishedChapters.length > 0 ? (
-          <ScrollArea className="max-h-[400px] pr-3 border rounded-md">
-            <ul className="space-y-0 divide-y divide-border">
+          <div className="border border-border/40 rounded-3xl overflow-hidden bg-card/30 backdrop-blur-sm shadow-inner">
+            <ul className="space-y-0 divide-y divide-border/20">
               {publishedChapters.sort((a, b) => a.order - b.order).map((chapter) => (
                 <li key={chapter.id}>
                   <Link href={`/stories/${story.id}/read/${chapter.id}`} passHref>
-                    <div className="block p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+                    <div className="group block p-5 hover:bg-primary/5 transition-all cursor-pointer">
                       <div className="flex justify-between items-center">
-                        <span className="font-medium text-foreground truncate pr-2 flex items-center gap-2">
-                          Part {chapter.order}: {chapter.title}
-                          {chapter.accessType === 'premium' && <Lock className="h-3 w-3 text-yellow-500 flex-shrink-0" titleAccess="Premium Chapter" />}
+                        <span className="font-bold text-base text-foreground group-hover:text-primary transition-colors truncate pr-2 flex items-center gap-3">
+                          <span className="text-[10px] font-bold text-muted-foreground bg-muted w-6 h-6 flex items-center justify-center rounded-full group-hover:bg-primary group-hover:text-white transition-colors">{chapter.order}</span>
+                          {chapter.title}
+                          {chapter.accessType === 'premium' && <Lock className="h-3 w-3 text-yellow-500 flex-shrink-0" />}
                         </span>
-                        {chapter.publishedDate && (
-                          <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                            {formatDate(chapter.publishedDate)}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-4">
+                            {chapter.wordCount && (
+                                <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest hidden sm:inline">
+                                    {Math.round(chapter.wordCount / 200) || 1} min read
+                                </span>
+                            )}
+                            {chapter.publishedDate && (
+                                <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest hidden md:inline">
+                                    {formatDate(chapter.publishedDate)}
+                                </span>
+                            )}
+                            <Plus className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </div>
-                      {chapter.wordCount && (
-                          <span className="text-xs text-muted-foreground block mt-0.5">
-                            {Math.round(chapter.wordCount / 200) || 1} min read
-                          </span>
-                        )}
                     </div>
                   </Link>
                 </li>
               ))}
             </ul>
-          </ScrollArea>
+          </div>
         ) : (
-          <p className="text-muted-foreground text-center py-4 border rounded-md">No chapters published yet for this story.</p>
+          <div className="text-center py-16 bg-muted/10 rounded-3xl border border-dashed border-border/40">
+            <ListOrdered className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
+            <p className="text-muted-foreground font-medium">This manuscript is currently being drafted.</p>
+          </div>
         )}
       </div>
     </div>
