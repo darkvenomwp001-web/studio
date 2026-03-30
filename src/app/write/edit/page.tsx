@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import {
   BookOpen, 
   CheckCircle, 
   AlertTriangle, 
+  AlertCircle,
   Maximize, 
   Minimize, 
   Send, 
@@ -31,7 +32,12 @@ import {
   ListOrdered,
   Quote,
   X,
-  Plus
+  Plus,
+  Target,
+  Zap,
+  Play,
+  Pause,
+  RotateCcw
 } from 'lucide-react';
 import StoryCompendium from '@/components/writing/StoryCompendium';
 import { Switch } from '@/components/ui/switch';
@@ -71,6 +77,7 @@ import CharacterCount from '@tiptap/extension-character-count'
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Slider } from '@/components/ui/slider';
 
 // --- Global Sub-components Moved Outside to Prevent Remounting Issues ---
 
@@ -155,7 +162,7 @@ export default function WriteEditorPage() {
     content: '',
     editorProps: {
         attributes: {
-            class: 'prose dark:prose-invert prose-sm sm:prose-base lg:prose-lg xl:prose-2xl m-5 focus:outline-none min-h-[600px] flex-grow p-8 text-base rounded-lg border bg-card shadow-inner selection:bg-primary/20',
+            class: 'prose dark:prose-invert prose-base sm:prose-lg lg:prose-xl focus:outline-none min-h-[70vh] p-8 md:p-12 text-base leading-relaxed selection:bg-primary/20',
         },
     },
     onUpdate: () => {
@@ -170,6 +177,33 @@ export default function WriteEditorPage() {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isFrozen, setIsFrozen] = useState(false);
+  
+  // Immersive Features
+  const [isZenFocus, setIsZenFocus] = useState(false);
+  const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
+  const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (editor) {
+      const isNowEditable = (storyDetails?.author.id === user?.id || storyDetails?.collaboratorIds?.includes(user?.id || '')) && !isFrozen;
+      if (editor.isEditable !== isNowEditable) {
+        editor.setEditable(isNowEditable);
+      }
+    }
+  }, [storyDetails, user, isFrozen, editor]);
+
+  // Handle Auto Scroll logic
+  useEffect(() => {
+    if (autoScrollSpeed > 0) {
+        autoScrollInterval.current = setInterval(() => {
+            window.scrollBy({ top: autoScrollSpeed, behavior: 'smooth' });
+        }, 50);
+    } else {
+        if (autoScrollInterval.current) clearInterval(autoScrollInterval.current);
+    }
+    return () => { if (autoScrollInterval.current) clearInterval(autoScrollInterval.current); };
+  }, [autoScrollSpeed]);
 
   useEffect(() => {
     if (authLoading) {
@@ -412,7 +446,7 @@ export default function WriteEditorPage() {
 
   if (isLoading || authLoading || (!storyDetails && queryStoryId) || (!currentChapter && queryStoryId) || !editor) {
       return (
-        <div className="flex justify-center items-center min-h-[calc(100vh-10rem)]">
+        <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
           <p className="ml-4 text-muted-foreground">Loading chapter editor...</p>
         </div>
@@ -450,11 +484,14 @@ export default function WriteEditorPage() {
   return (
     <TooltipProvider delayDuration={300}>
     <AlertDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-      <div className={`flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-10rem)] ${isFullScreen ? 'fixed inset-0 bg-background z-[99] p-4' : ''}`}>
-        <div className="flex-1 flex flex-col">
+      <div className={cn(
+          "flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-10rem)] overflow-x-hidden",
+          isFullScreen && 'fixed inset-0 bg-background z-[99] p-4'
+      )}>
+        <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
           <header className="mb-4 space-y-4">
-            <div className="flex justify-between items-center bg-card/50 backdrop-blur-sm p-3 rounded-xl border border-border/40 shadow-sm">
-                <div className="flex items-center gap-3 overflow-hidden">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-card/50 backdrop-blur-sm p-3 rounded-xl border border-border/40 shadow-sm gap-4">
+                <div className="flex items-center gap-3 overflow-hidden w-full sm:w-auto">
                     <Link href={`/write/edit-details?storyId=${storyDetails.id}`} className="flex-shrink-0">
                         <div className="relative w-8 h-12 rounded overflow-hidden border shadow-sm hover:opacity-80 transition-opacity">
                             <NextImage src={storyDetails.coverImageUrl || `https://picsum.photos/seed/${storyDetails.id}/80/120`} alt="" fill className="object-cover" />
@@ -468,7 +505,71 @@ export default function WriteEditorPage() {
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" title="Workspace Appearance">
+                                <Palette className="h-4 w-4" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-card/95 backdrop-blur-xl">
+                            <div className="p-6 space-y-6">
+                                <header className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-headline font-bold">Appearance</h4>
+                                        <p className="text-[10px] uppercase font-bold text-muted-foreground/60">Customize workspace</p>
+                                    </div>
+                                    <Badge variant="outline" className={cn("gap-1.5", isFrozen ? "text-blue-500" : "text-orange-500")}>
+                                        <Snowflake className="h-3 w-3" />
+                                        {isFrozen ? "Frozen" : "Live"}
+                                    </Badge>
+                                </header>
+
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/40">
+                                        <Label htmlFor="zen-toggle" className="flex items-center gap-3 cursor-pointer">
+                                            <Target className="h-4 w-4 text-primary" />
+                                            <span className="text-sm font-bold">Zen Focus</span>
+                                        </Label>
+                                        <Switch id="zen-toggle" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
+                                    </div>
+
+                                    <div className="space-y-3 p-3 rounded-xl bg-muted/30 border border-border/40">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-3">
+                                                <Zap className="h-4 w-4 text-accent" />
+                                                <span className="text-sm font-bold">Auto-Pilot</span>
+                                            </div>
+                                            {autoScrollSpeed > 0 ? (
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-red-500/10 text-red-500" onClick={() => setAutoScrollSpeed(0)}><Pause className="h-3 w-3"/></Button>
+                                            ) : (
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-green-500/10 text-green-500" onClick={() => setAutoScrollSpeed(2)}><Play className="h-3 w-3"/></Button>
+                                            )}
+                                        </div>
+                                        <Slider
+                                            value={[autoScrollSpeed]}
+                                            onValueChange={([v]) => setAutoScrollSpeed(v)}
+                                            max={10}
+                                            step={1}
+                                        />
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/40">
+                                        <Label htmlFor="freeze-toggle" className="flex items-center gap-3 cursor-pointer">
+                                            <Snowflake className="h-4 w-4 text-blue-500" />
+                                            <span className="text-sm font-bold">Freeze Mode</span>
+                                        </Label>
+                                        <Switch id="freeze-toggle" checked={isFrozen} onCheckedChange={setIsFrozen} />
+                                    </div>
+                                </div>
+                            </div>
+                            <footer className="p-4 bg-muted/30 border-t flex justify-end">
+                                <Button variant="ghost" size="sm" className="text-[10px] font-bold uppercase tracking-widest gap-1.5" onClick={() => { setAutoScrollSpeed(0); setIsZenFocus(false); setIsFrozen(false); }}>
+                                    <RotateCcw className="h-3 w-3" /> Reset
+                                </Button>
+                            </footer>
+                        </PopoverContent>
+                    </Popover>
                     <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
                         <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" title="Story Settings">
                             <Settings className="h-4 w-4" />
@@ -477,7 +578,7 @@ export default function WriteEditorPage() {
                 </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-4">
                 <Input
                     type="text"
                     value={chapterTitle}
@@ -486,7 +587,7 @@ export default function WriteEditorPage() {
                     className="text-3xl font-headline font-bold h-auto py-2 focus-visible:ring-0 border-0 bg-transparent shadow-none px-0 placeholder:text-muted-foreground/30"
                 />
                 
-                <div className="p-1 px-2 bg-background border rounded-xl flex items-center justify-between shadow-sm sticky top-0 z-20">
+                <div className="p-1 px-2 bg-background border rounded-xl flex items-center justify-between shadow-sm sticky top-0 z-20 overflow-x-auto no-scrollbar">
                     <div className="flex items-center">
                         <div className="flex items-center mr-2 border-r border-border/60 pr-2 gap-0.5">
                             <ToolbarButton 
@@ -597,7 +698,10 @@ export default function WriteEditorPage() {
             </div>
           </header>
 
-          <main className="relative flex-grow flex flex-col group">
+          <main className={cn(
+              "relative flex-grow flex flex-col group rounded-2xl border bg-card shadow-inner overflow-hidden",
+              isZenFocus && "zen-focus-enabled"
+          )}>
             <BubbleMenu
                 editor={editor}
                 tippyOptions={{ duration: 100 }}
@@ -655,7 +759,7 @@ export default function WriteEditorPage() {
           </footer>
         </div>
 
-        <aside className="w-full lg:w-80 xl:w-96 space-y-6">
+        <aside className="hidden lg:block w-full lg:w-80 xl:w-96 space-y-6">
           <div className="p-5 bg-card rounded-2xl border border-border/40 shadow-sm">
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Workspace Settings</h2>
               <div className="space-y-4">
@@ -707,6 +811,26 @@ export default function WriteEditorPage() {
         </AlertDialogContent>
       </div>
     </AlertDialog>
+    <style jsx global>{`
+        .zen-focus-enabled .ProseMirror p {
+            opacity: 0.2;
+            transition: opacity 0.4s ease, filter 0.4s ease;
+            filter: blur(1px);
+        }
+        .zen-focus-enabled .ProseMirror p:hover,
+        .zen-focus-enabled .ProseMirror p:focus,
+        .zen-focus-enabled .ProseMirror p:active {
+            opacity: 1;
+            filter: blur(0);
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    `}</style>
     </TooltipProvider>
   );
 }

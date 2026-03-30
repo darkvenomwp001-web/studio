@@ -31,6 +31,7 @@ import {
   UploadCloud, 
   CheckCircle, 
   AlertCircle, 
+  AlertTriangle,
   FileText, 
   Star, 
   ListChecks, 
@@ -58,6 +59,53 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 const AUTOSAVE_DELAY = 2000; // 2 seconds
 const MAX_COVER_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+
+const AutoSaveStatusIndicator = ({ status, isUploading }: { status: string, isUploading: boolean }) => {
+    if (isUploading) {
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 text-yellow-600 rounded-full border border-yellow-500/20">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Uploading Cover</span>
+            </div>
+        );
+    }
+    switch (status) {
+      case 'Typing':
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 text-muted-foreground rounded-full border border-border/40">
+                <div className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Syncing Changes...</span>
+            </div>
+        );
+      case 'Saving':
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-full border border-primary/20">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Saving</span>
+            </div>
+        );
+      case 'Saved':
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full border border-green-500/20">
+                <CheckCircle className="h-3 w-3" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Protected</span>
+            </div>
+        );
+      case 'Error':
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/10 text-destructive rounded-full border border-destructive/20">
+                <AlertCircle className="h-3 w-3" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Sync Error</span>
+            </div>
+        );
+      default:
+        return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 text-muted-foreground/60 rounded-full border border-border/20">
+                <span className="text-[10px] font-bold uppercase tracking-widest">Up to Date</span>
+            </div>
+        );
+    }
+};
 
 export default function EditStoryDetailsPage() {
   const searchParams = useSearchParams();
@@ -608,72 +656,25 @@ export default function EditStoryDetailsPage() {
 
   const isSaving = isUploadingCover || autoSaveStatus === 'Saving';
 
-  const AutoSaveStatusIndicator = () => {
-    if (isUploadingCover) {
-        return (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 text-yellow-600 rounded-full border border-yellow-500/20">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Uploading Cover</span>
-            </div>
-        );
-    }
-    switch (autoSaveStatus) {
-      case 'Typing':
-        return (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 text-muted-foreground rounded-full border border-border/40">
-                <div className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Syncing Changes...</span>
-            </div>
-        );
-      case 'Saving':
-        return (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-full border border-primary/20">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Saving</span>
-            </div>
-        );
-      case 'Saved':
-        return (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full border border-green-500/20">
-                <CheckCircle className="h-3 w-3" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Protected</span>
-            </div>
-        );
-      case 'Error':
-        return (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/10 text-destructive rounded-full border border-destructive/20">
-                <AlertCircle className="h-3 w-3" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Sync Error</span>
-            </div>
-        );
-      default:
-        return (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 text-muted-foreground/60 rounded-full border border-border/20">
-                <span className="text-[10px] font-bold uppercase tracking-widest">Up to Date</span>
-            </div>
-        );
-    }
-  };
-
   return (
     <AlertDialog>
-      <div className="max-w-6xl mx-auto py-8 px-4 space-y-10 pb-24">
+      <div className="max-w-6xl mx-auto py-8 px-4 space-y-10 pb-24 overflow-x-hidden">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1">
             <Button variant="ghost" size="sm" onClick={() => router.push('/write')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Library
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
             </Button>
             <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground tracking-tight line-clamp-1" title={storyTitle}>
                 {storyTitle || 'Untitled Manuscript'}
             </h1>
           </div>
           <div className="flex flex-shrink-0">
-            <AutoSaveStatusIndicator />
+            <AutoSaveStatusIndicator status={autoSaveStatus} isUploading={isUploadingCover} />
           </div>
         </header>
 
         <Tabs defaultValue="content" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 max-w-md bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm mb-10">
+            <TabsList className="grid w-full grid-cols-2 max-w-full sm:max-w-md bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm mb-10">
                 <TabsTrigger value="content" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all">
                     <LayoutGrid className="mr-2 h-4 w-4" />
                     Canvas
@@ -807,12 +808,6 @@ export default function EditStoryDetailsPage() {
                                                                 <Star className="h-3 w-3" />
                                                                 {chapter.votes || 0} votes
                                                             </div>
-                                                            {chapter.publishedDate && chapter.status === 'Published' && (
-                                                                <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-tighter">
-                                                                    <CheckCircle className="h-3 w-3" />
-                                                                    Live {formatDate(chapter.publishedDate)}
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -867,7 +862,7 @@ export default function EditStoryDetailsPage() {
                                 <CardDescription className="text-xs">How should readers find your story?</CardDescription>
                             </CardHeader>
                             <CardContent className="p-6 space-y-8">
-                                <div className="grid sm:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <Label htmlFor="genre" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Core Genre</Label>
                                         <Select value={genre} onValueChange={(val) => setGenre(val as string)} disabled={isSaving}>
@@ -1057,110 +1052,110 @@ export default function EditStoryDetailsPage() {
                 </div>
             </TabsContent>
         </Tabs>
-      </div>
 
-      {/* Persistence Modals */}
-      {chapterToDelete && (
-        <AlertDialogContent className="rounded-3xl border-none shadow-2xl overflow-hidden">
-          <AlertDialogHeader className="p-6 bg-destructive/5 border-b border-destructive/10">
-            <AlertDialogTitle className="font-headline text-2xl flex items-center gap-2 text-destructive">
-                <Trash2 className="h-6 w-6" /> Destructive Action
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-muted-foreground">
-              Are you sure you want to erase <span className="font-bold text-foreground">"{chapterToDelete.title}"</span>? This manuscript segment will be lost forever.
-              {chapterToDelete.accessType === 'premium' && <div className="mt-3 p-3 bg-yellow-500/10 text-yellow-700 rounded-xl border border-yellow-500/20 font-medium text-xs">Premium access permissions for this chapter will also be revoked.</div>}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="p-6 bg-muted/30">
-            <AlertDialogCancel onClick={() => setChapterToDelete(null)} className="rounded-full px-8">Discard Action</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmDeleteChapter(chapterToDelete)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-8 font-bold">
-              Yes, Delete Permanently
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      )}
-
-       {premiumAccessChapter && (
-        <AlertDialogContent className="max-w-md rounded-3xl border-none shadow-2xl p-0 overflow-hidden">
-            <AlertDialogHeader className="p-8 bg-primary/5 border-b border-primary/10">
-                <AlertDialogTitle className="text-2xl font-headline font-bold flex items-center gap-3">
-                    <Sparkles className="h-6 w-6 text-primary" />
-                    Premium Access
+        {/* Persistence Modals */}
+        {chapterToDelete && (
+            <AlertDialogContent className="rounded-3xl border-none shadow-2xl overflow-hidden">
+            <AlertDialogHeader className="p-6 bg-destructive/5 border-b border-destructive/10">
+                <AlertDialogTitle className="font-headline text-2xl flex items-center gap-2 text-destructive">
+                    <Trash2 className="h-6 w-6" /> Destructive Action
                 </AlertDialogTitle>
-                <AlertDialogDescription className="text-sm">
-                    Grant temporary viewing rights for <span className="font-bold text-foreground">"{premiumAccessChapter.title}"</span>.
+                <AlertDialogDescription className="text-muted-foreground">
+                Are you sure you want to erase <span className="font-bold text-foreground">"{chapterToDelete.title}"</span>? This manuscript segment will be lost forever.
+                {chapterToDelete.accessType === 'premium' && <div className="mt-3 p-3 bg-yellow-500/10 text-yellow-700 rounded-xl border border-yellow-500/20 font-medium text-xs">Premium access permissions for this chapter will also be revoked.</div>}
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="p-8 space-y-6">
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="premium-username" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Target Reader</Label>
-                        <div className="flex gap-2">
-                            <Input id="premium-username" value={premiumUsername} onChange={e => setPremiumUsername(e.target.value)} placeholder="@username" className="rounded-xl h-11" />
-                            <Select value={premiumDuration} onValueChange={setPremiumDuration}>
-                                <SelectTrigger className="w-[130px] rounded-xl h-11">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl">
-                                    <SelectItem value="24h">24 Hours</SelectItem>
-                                    <SelectItem value="2d">2 Days</SelectItem>
-                                    <SelectItem value="1w">1 Week</SelectItem>
-                                    <SelectItem value="1m">1 Month</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                    <Button onClick={handleGrantPremiumAccess} disabled={isProcessingPremium || !premiumUsername.trim()} className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 font-bold shadow-lg shadow-primary/20">
-                        {isProcessingPremium ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
-                        Grant Vault Access
-                    </Button>
-                </div>
-                <Separator className="opacity-40" />
-                <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Users with Access</h4>
-                    <ScrollArea className="h-40 pr-3">
-                        <div className="space-y-2">
-                        {(premiumAccessChapter.allowedUsers && premiumAccessChapter.allowedUsers.length > 0) ? premiumAccessChapter.allowedUsers.map(allowed => (
-                            <div key={allowed.userId} className="flex justify-between items-center text-xs p-3 bg-muted/30 border border-border/40 rounded-xl">
-                                <span className="font-bold text-foreground">@{allowed.username}</span>
-                                <span className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-widest">Expires {formatDate(allowed.expiresAt)}</span>
-                            </div>
-                        )) : (
-                            <div className="text-center py-10 opacity-40">
-                                <Lock className="h-8 w-8 mx-auto mb-2" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest">No active permissions</p>
-                            </div>
-                        )}
-                        </div>
-                    </ScrollArea>
-                </div>
-            </div>
-            <AlertDialogFooter className="p-4 bg-muted/30 border-t">
-                <AlertDialogCancel onClick={() => setPremiumAccessChapter(null)} className="w-full rounded-xl">Dismiss</AlertDialogCancel>
+            <AlertDialogFooter className="p-6 bg-muted/30">
+                <AlertDialogCancel onClick={() => setChapterToDelete(null)} className="rounded-full px-8">Discard Action</AlertDialogCancel>
+                <AlertDialogAction onClick={() => confirmDeleteChapter(chapterToDelete)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-8 font-bold">
+                Yes, Delete Permanently
+                </AlertDialogAction>
             </AlertDialogFooter>
-        </AlertDialogContent>
-      )}
+            </AlertDialogContent>
+        )}
 
-      {storyToDelete && user?.id === storyToDelete.author.id && (
-        <AlertDialogContent className="rounded-3xl border-none shadow-2xl overflow-hidden">
-          <AlertDialogHeader className="p-8 bg-destructive/10 border-b border-destructive/20">
-            <AlertDialogTitle className="text-2xl font-headline font-bold text-destructive flex items-center gap-3">
-                <AlertCircle className="h-7 w-7" />
-                Destroy Entire Manuscript?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-foreground/80 leading-relaxed pt-2">
-              This action is <span className="font-bold text-destructive underline">permanent and irreversible</span>. 
-              Erasing <span className="font-bold italic">"{storyToDelete.title}"</span> will incinerate every chapter, every reader comment, and all associated analytics from our servers.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="p-6 bg-muted/30 flex-col sm:flex-row gap-3">
-            <AlertDialogCancel onClick={() => setStoryToDelete(null)} className="rounded-full px-10 h-12 font-bold">Abort Erasure</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteStory} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-10 h-12 font-bold shadow-xl shadow-destructive/20">
-              Confirm Total Destruction
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      )}
+        {premiumAccessChapter && (
+            <AlertDialogContent className="max-w-md rounded-3xl border-none shadow-2xl p-0 overflow-hidden">
+                <AlertDialogHeader className="p-8 bg-primary/5 border-b border-primary/10">
+                    <AlertDialogTitle className="text-2xl font-headline font-bold flex items-center gap-3">
+                        <Sparkles className="h-6 w-6 text-primary" />
+                        Premium Access
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-sm">
+                        Grant temporary viewing rights for <span className="font-bold text-foreground">"{premiumAccessChapter.title}"</span>.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="p-8 space-y-6">
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="premium-username" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Target Reader</Label>
+                            <div className="flex gap-2">
+                                <Input id="premium-username" value={premiumUsername} onChange={e => setPremiumUsername(e.target.value)} placeholder="@username" className="rounded-xl h-11" />
+                                <Select value={premiumDuration} onValueChange={setPremiumDuration}>
+                                    <SelectTrigger className="w-[130px] rounded-xl h-11">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        <SelectItem value="24h">24 Hours</SelectItem>
+                                        <SelectItem value="2d">2 Days</SelectItem>
+                                        <SelectItem value="1w">1 Week</SelectItem>
+                                        <SelectItem value="1m">1 Month</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <Button onClick={handleGrantPremiumAccess} disabled={isProcessingPremium || !premiumUsername.trim()} className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 font-bold shadow-lg shadow-primary/20">
+                            {isProcessingPremium ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                            Grant Vault Access
+                        </Button>
+                    </div>
+                    <Separator className="opacity-40" />
+                    <div className="space-y-3">
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Users with Access</h4>
+                        <ScrollArea className="h-40 pr-3">
+                            <div className="space-y-2">
+                            {(premiumAccessChapter.allowedUsers && premiumAccessChapter.allowedUsers.length > 0) ? premiumAccessChapter.allowedUsers.map(allowed => (
+                                <div key={allowed.userId} className="flex justify-between items-center text-xs p-3 bg-muted/30 border border-border/40 rounded-xl">
+                                    <span className="font-bold text-foreground">@{allowed.username}</span>
+                                    <span className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-widest">Expires {formatDate(allowed.expiresAt)}</span>
+                                </div>
+                            )) : (
+                                <div className="text-center py-10 opacity-40">
+                                    <Lock className="h-8 w-8 mx-auto mb-2" />
+                                    <p className="text-[10px] font-bold uppercase tracking-widest">No active permissions</p>
+                                </div>
+                            )}
+                            </div>
+                        </ScrollArea>
+                    </div>
+                </div>
+                <AlertDialogFooter className="p-4 bg-muted/30 border-t">
+                    <AlertDialogCancel onClick={() => setPremiumAccessChapter(null)} className="w-full rounded-xl">Dismiss</AlertDialogCancel>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        )}
+
+        {storyToDelete && user?.id === storyToDelete.author.id && (
+            <AlertDialogContent className="rounded-3xl border-none shadow-2xl overflow-hidden">
+            <AlertDialogHeader className="p-8 bg-destructive/10 border-b border-destructive/20">
+                <AlertDialogTitle className="text-2xl font-headline font-bold text-destructive flex items-center gap-3">
+                    <AlertCircle className="h-7 w-7" />
+                    Destroy Entire Manuscript?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-foreground/80 leading-relaxed pt-2">
+                This action is <span className="font-bold text-destructive underline">permanent and irreversible</span>. 
+                Erasing <span className="font-bold italic">"{storyToDelete.title}"</span> will incinerate every chapter, every reader comment, and all associated analytics from our servers.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="p-6 bg-muted/30 flex-col sm:flex-row gap-3">
+                <AlertDialogCancel onClick={() => setStoryToDelete(null)} className="rounded-full px-10 h-12 font-bold">Abort Erasure</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteStory} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-10 h-12 font-bold shadow-xl shadow-destructive/20">
+                Confirm Total Destruction
+                </AlertDialogAction>
+            </AlertDialogFooter>
+            </AlertDialogContent>
+        )}
+      </div>
     </AlertDialog>
   );
 }
