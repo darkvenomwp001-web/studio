@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -119,6 +118,19 @@ export default function StoryOverviewPage() {
     return () => unsubscribeAuthor();
   }, [story?.author?.id]);
 
+  const publishedChapters = useMemo(() => {
+    return story?.chapters?.filter(ch => ch.status === 'Published' || ch.accessType === 'premium') || [];
+  }, [story]);
+
+  const handleReadClick = () => {
+    if (!story) return;
+    const firstChapter = publishedChapters.sort((a, b) => a.order - b.order)[0];
+    if (firstChapter) {
+      router.push(`/stories/${story.id}/read/${firstChapter.id}`);
+    } else {
+      toast({ title: "No chapters published", description: "This story doesn't have any published parts yet." });
+    }
+  };
 
   const handleLibraryAction = () => {
     if (!story) return;
@@ -187,13 +199,10 @@ export default function StoryOverviewPage() {
     );
   }
 
-  const publishedChapters = story.chapters?.filter(ch => ch.status === 'Published' || ch.accessType === 'premium') || [];
   const totalPublishedChapters = publishedChapters.length;
-
   const isAuthorOrCollaborator = user && (story.author.id === user.id || story.collaborators?.some(c => c.id === user.id));
   const isInLibrary = user?.readingList?.some(item => item.id === story.id);
   const displayAuthor = authorInfo || story.author;
-
   const totalVotes = story.chapters?.reduce((acc, chapter) => acc + (chapter.votes || 0), 0) || 0;
 
   return (
@@ -233,7 +242,7 @@ export default function StoryOverviewPage() {
               <Button 
                 size="lg" 
                 className="bg-primary hover:bg-primary/90 text-primary-foreground h-12 px-8 rounded-full shadow-xl shadow-primary/20 transition-all hover:scale-[1.02]"
-                onClick={handleScrollToDetails}
+                onClick={handleReadClick}
               >
                 <BookOpen className="mr-2 h-5 w-5" /> Read
               </Button>

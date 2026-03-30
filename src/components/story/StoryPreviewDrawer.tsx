@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -118,6 +117,20 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
     return () => unsubscribeAuthor();
   }, [story?.author?.id]);
 
+  const publishedChapters = useMemo(() => {
+    return story?.chapters?.filter(ch => ch.status === 'Published' || ch.accessType === 'premium') || [];
+  }, [story]);
+
+  const handleReadClick = () => {
+    if (!story) return;
+    const firstChapter = publishedChapters.sort((a, b) => a.order - b.order)[0];
+    if (firstChapter) {
+      onClose(); // Close drawer
+      router.push(`/stories/${story.id}/read/${firstChapter.id}`);
+    } else {
+      toast({ title: "No chapters published", description: "This story doesn't have any published parts yet." });
+    }
+  };
 
   const handleLibraryAction = () => {
     if (!story) return;
@@ -158,13 +171,6 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
     setIsMoodLoading(false);
   };
 
-  const handleScrollToDetails = () => {
-    const element = document.getElementById('story-details-target');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-full min-h-[50vh]">
@@ -184,7 +190,6 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
     );
   }
   
-  const publishedChapters = story.chapters?.filter(ch => ch.status === 'Published' || ch.accessType === 'premium') || [];
   const totalPublishedChapters = publishedChapters.length;
   const isAuthorOrCollaborator = user && (story.author.id === user.id || story.collaborators?.some(c => c.id === user.id));
   const isInLibrary = user?.readingList?.some(item => item.id === story.id);
@@ -227,7 +232,7 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
           <div className="flex items-center gap-2 mt-4">
               <Button 
                 size="lg" 
-                onClick={handleScrollToDetails}
+                onClick={handleReadClick}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 rounded-full px-8"
               >
                 <BookOpen className="mr-2 h-5 w-5" /> Read
@@ -340,7 +345,7 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
                                     {Math.round(chapter.wordCount / 200) || 1} min
                                 </span>
                             )}
-                            <Badge variant="ghost" size="icon" className="h-6 w-6 rounded-full group-hover:bg-primary/10 group-hover:text-primary">
+                            <Badge variant="ghost" className="h-6 w-6 rounded-full group-hover:bg-primary/10 group-hover:text-primary p-0 flex items-center justify-center">
                                 <ChevronRight className="h-3 w-3" />
                             </Badge>
                         </div>
