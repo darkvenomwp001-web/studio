@@ -37,7 +37,8 @@ import {
   Zap,
   Play,
   Pause,
-  RotateCcw
+  RotateCcw,
+  Palette
 } from 'lucide-react';
 import StoryCompendium from '@/components/writing/StoryCompendium';
 import { Switch } from '@/components/ui/switch';
@@ -162,7 +163,7 @@ export default function WriteEditorPage() {
     content: '',
     editorProps: {
         attributes: {
-            class: 'prose dark:prose-invert prose-base sm:prose-lg lg:prose-xl focus:outline-none min-h-[70vh] p-8 md:p-12 text-base leading-relaxed selection:bg-primary/20',
+            class: 'prose dark:prose-invert focus:outline-none min-h-[70vh] p-8 md:p-12 text-base leading-relaxed selection:bg-primary/20',
         },
     },
     onUpdate: () => {

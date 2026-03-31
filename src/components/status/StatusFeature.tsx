@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, X, Music, Pause, Play, Image as ImageIcon, BarChart2, BookOpen, Sparkles as SparklesIcon, PenSquare, Type, Palette, AlignLeft, AlignCenter, AlignRight, Volume2, VolumeX, Send, Wand2 } from 'lucide-react';
+import { Loader2, Plus, X, Music, Pause, Play, Image as LucideImage, BarChart2, BookOpen, Sparkles as SparklesIcon, PenSquare, Type, Palette, AlignLeft, AlignCenter, AlignRight, Volume2, VolumeX, Send, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -852,7 +852,7 @@ export default function StatusFeature() {
                     className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-muted/10 p-4"
                     onClick={() => mediaInputRef.current?.click()}
                 >
-                    <ImageIcon className="h-12 w-12 text-muted-foreground mb-2" />
+                    <LucideImage className="h-12 w-12 text-muted-foreground mb-2" />
                     <p className="text-muted-foreground">Select photo or video</p>
                     <input type="file" ref={mediaInputRef} onChange={handleMediaSelect} accept="image/*,video/*" className="hidden" />
                 </div>
@@ -1108,7 +1108,7 @@ export default function StatusFeature() {
               </DialogHeader>
               <div className="grid grid-cols-2 gap-4 py-4">
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('text')}><Type className="h-6 w-6"/>Text</Button>
-                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('media')}><ImageIcon className="h-6 w-6"/>Media</Button>
+                  <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('media')}><LucideImage className="h-6 w-6"/>Media</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('teaser')}><PenSquare className="h-6 w-6"/>Teaser</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('song')}><Music className="h-6 w-6"/>Song</Button>
                   <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => handleOpenUploader('poll')}><BarChart2 className="h-6 w-6"/>Poll</Button>
@@ -1132,7 +1132,7 @@ export default function StatusFeature() {
                 <Tabs value={activeUploaderTab} onValueChange={(v) => setActiveUploaderTab(v)} className="w-full">
                     <TabsList className="grid w-full grid-cols-6">
                         <TabsTrigger value="text"><Type className="h-5 w-5"/></TabsTrigger>
-                        <TabsTrigger value="media"><ImageIcon className="h-5 w-5"/></TabsTrigger>
+                        <TabsTrigger value="media"><LucideImage className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="teaser"><PenSquare className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="song"><Music className="h-5 w-5"/></TabsTrigger>
                         <TabsTrigger value="poll"><BarChart2 className="h-5 w-5"/></TabsTrigger>

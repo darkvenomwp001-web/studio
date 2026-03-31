@@ -1,5 +1,4 @@
-
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
@@ -21,9 +20,27 @@ const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space
 export const metadata: Metadata = {
   title: 'D4RKV3NOM - Your Next Literary Adventure',
   description: 'Discover, write, and connect with a global community of readers and writers on D4RKV3NOM.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'D4RKV3NOM',
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: '/favicon.ico', 
   }
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#000000',
 };
 
 export default function RootLayout({
@@ -35,7 +52,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body 
         className={cn(
-          "min-h-screen bg-background font-body antialiased",
+          "min-h-screen bg-background font-body antialiased overflow-x-hidden",
           inter.variable,
           spaceGrotesk.variable
         )}
@@ -52,7 +69,7 @@ export default function RootLayout({
                 <StoryPreviewProvider>
                   <FirebaseErrorListener />
                   <ScrollToTop />
-                  <div className="relative flex min-h-screen flex-col">
+                  <div className="relative flex min-h-screen flex-col overflow-x-hidden">
                     {children}
                   </div>
                   <Toaster />

@@ -1,0 +1,8 @@
+{
+  "appId": "app.litverse.d4rkv3nom",
+  "appName": "D4RKV3NOM",
+  "webDir": "out",
+  "server": {
+    "androidScheme": "https"
+  }
+}

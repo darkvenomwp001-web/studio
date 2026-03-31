@@ -42,7 +42,7 @@ import {
   LayoutGrid,
   Type,
   Tags,
-  Image as ImageIcon
+  Image as LucideImage
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -273,7 +273,7 @@ export default function EditStoryDetailsPage() {
     };
 
     const storyDocRef = doc(db, 'stories', story.id);
-    updateDoc(storyDocRef, storyDataToUpdate)
+    updateDoc(storyDocRef, storyUpdateData)
       .then(() => setAutoSaveStatus('Saved'))
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -692,7 +692,7 @@ export default function EditStoryDetailsPage() {
                         <Card className="border-border/40 bg-card/50 backdrop-blur-sm shadow-xl overflow-hidden group/cover">
                             <CardHeader className="pb-4 bg-muted/20 border-b border-border/40">
                                 <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                                    <ImageIcon className="h-4 w-4" />
+                                    <LucideImage className="h-4 w-4" />
                                     Cover Design
                                 </CardTitle>
                             </CardHeader>
