@@ -76,7 +76,7 @@ import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
 import CharacterCount from '@tiptap/extension-character-count'
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
 
@@ -140,7 +140,7 @@ const VersionHistoryManager = {
 export default function WriteEditorPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, addNotification, loading: authLoading } = useAuth();
+  const { user: currentUser, addNotification, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const queryStoryId = searchParams.get('storyId');
@@ -208,7 +208,7 @@ export default function WriteEditorPage() {
         setIsLoading(true);
         return;
     }
-    if (!user) {
+    if (!currentUser) {
       router.push('/auth/signin');
       setIsLoading(false);
       return;
@@ -223,7 +223,7 @@ export default function WriteEditorPage() {
         if (docSnap.exists()) {
           const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
           
-          if (storyData.author.id !== user.id && !storyData.collaborators?.some(c => c.id === user.id)) {
+          if (storyData.author.id !== currentUser.id && !storyData.collaborators?.some(c => c.id === currentUser.id)) {
             toast({ title: "Access Denied", description: "You don't have permission to edit this story's chapters.", variant: "destructive" });
             router.push(`/stories/${queryStoryId}`);
             return;
@@ -275,7 +275,7 @@ export default function WriteEditorPage() {
     return () => {
       if (unsubscribeStory) unsubscribeStory();
     };
-  }, [queryStoryId, queryChapterId, user, router, toast, authLoading, editor]);
+  }, [queryStoryId, queryChapterId, currentUser, router, toast, authLoading, editor]);
 
   useEffect(() => {
     if(!editor || !editor.storage.characterCount) return;
@@ -283,7 +283,7 @@ export default function WriteEditorPage() {
   }, [editor?.state, editor?.storage.characterCount]);
 
   const handleSaveDraft = useCallback((showToast: boolean = true) => {
-    if (!storyDetails || !currentChapter || !user || !editor) return;
+    if (!storyDetails || !currentChapter || !currentUser || !editor) return;
     const content = editor.getHTML();
     setAutoSaveStatus('Saving...');
     VersionHistoryManager.addVersion(storyDetails.id, currentChapter.id, content, chapterTitle);
@@ -316,7 +316,7 @@ export default function WriteEditorPage() {
           path: storyDocRef.path,
           operation: 'update',
           requestResourceData: storyUpdateData,
-        });
+        } satisfies SecurityRuleContext);
         errorEmitter.emit('permission-error', permissionError);
         setAutoSaveStatus('Error');
       });
@@ -325,7 +325,7 @@ export default function WriteEditorPage() {
     setAutoSaveStatus('Saved');
     if (showToast) toast({ title: "Draft Saved!" });
 
-  }, [storyDetails, currentChapter, user, chapterTitle, editor, toast]);
+  }, [storyDetails, currentChapter, currentUser, chapterTitle, editor, toast]);
 
   useEffect(() => {
     if (!storyDetails || !currentChapter || isLoading || authLoading || !editor) return;
@@ -346,7 +346,7 @@ export default function WriteEditorPage() {
   }, [editor?.state, chapterTitle, storyDetails, currentChapter, isLoading, handleSaveDraft, authLoading, autoSaveStatus, editor]);
 
   const handlePublishChapter = async () => {
-    if (!storyDetails || !currentChapter || !user || !editor) return;
+    if (!storyDetails || !currentChapter || !currentUser || !editor) return;
     const content = editor.getHTML();
     setAutoSaveStatus('Saving...');
 
@@ -380,13 +380,13 @@ export default function WriteEditorPage() {
     const storyDocRef = doc(db, 'stories', storyDetails.id);
     updateDoc(storyDocRef, storyUpdateData)
       .then(() => {
-        if (user.id === storyDetails.author.id) {
+        if (currentUser.id === storyDetails.author.id) {
             addNotification({
                 type: 'new_chapter',
-                userId: user.id,
-                message: `${user.displayName || user.username} published a new chapter "${chapterTitle}" for "${storyDetails.title}".`,
+                userId: currentUser.id,
+                message: `${currentUser.displayName || currentUser.username} published a new chapter "${chapterTitle}" for "${storyDetails.title}".`,
                 link: `/stories/${storyDetails.id}/read/${updatedChapterData.id}`,
-                actor: {id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl }
+                actor: {id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName || currentUser.username, avatarUrl: currentUser.avatarUrl }
             });
         }
         router.push(`/write/edit-details?storyId=${storyDetails.id}`);
@@ -396,7 +396,7 @@ export default function WriteEditorPage() {
             path: storyDocRef.path,
             operation: 'update',
             requestResourceData: storyUpdateData,
-        });
+        } satisfies SecurityRuleContext);
         errorEmitter.emit('permission-error', permissionError);
         setAutoSaveStatus('Error');
       });
@@ -457,13 +457,13 @@ export default function WriteEditorPage() {
           <header className="mb-4 space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-card/50 backdrop-blur-sm p-3 rounded-xl border border-border/40 shadow-sm gap-4">
                 <div className="flex items-center gap-3 overflow-hidden w-full sm:w-auto">
-                    <Link href={`/write/edit-details?storyId=${storyDetails.id}`} className="flex-shrink-0">
+                    <Link href={`/write/edit-details?storyId=${storyDetails?.id}`} className="flex-shrink-0">
                         <div className="relative w-8 h-12 rounded overflow-hidden border shadow-sm hover:opacity-80 transition-opacity">
-                            <NextImage src={storyDetails.coverImageUrl || `https://picsum.photos/seed/${storyDetails.id}/80/120`} alt="" fill className="object-cover" />
+                            <NextImage src={storyDetails?.coverImageUrl || `https://picsum.photos/seed/${storyDetails?.id}/80/120`} alt="" fill className="object-cover" />
                         </div>
                     </Link>
                     <div className="min-w-0">
-                        <h1 className="text-sm font-bold text-foreground truncate">{storyDetails.title}</h1>
+                        <h1 className="text-sm font-bold text-foreground truncate">{storyDetails?.title}</h1>
                         <div className={cn("flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest", autoSaveStatus === 'Saved' ? 'text-green-600' : 'text-yellow-600')}>
                             {autoSaveStatus === 'Saved' ? <CheckCircle className="h-2.5 w-2.5" /> : <div className="h-2.5 w-2.5 rounded-full bg-current animate-pulse" />}
                             {autoSaveStatus}
@@ -565,7 +565,7 @@ export default function WriteEditorPage() {
                             </footer>
                         </PopoverContent>
                     </Popover>
-                    <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
+                    <Link href={`/write/edit-details?storyId=${storyDetails?.id}`} passHref>
                         <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" title="Story Settings">
                             <Settings className="h-4 w-4" />
                         </Button>
@@ -620,9 +620,11 @@ export default function WriteEditorPage() {
                     </div>
 
                     <div className="flex items-center gap-1">
-                        <Link href={`/write/history/${storyDetails.id}/${currentChapter.id}`} passHref>
-                            <ToolbarButton onClick={() => {}} tooltip="History"><History className="h-4 w-4" /></ToolbarButton>
-                        </Link>
+                        {storyDetails && currentChapter && (
+                            <Link href={`/write/history/${storyDetails.id}/${currentChapter.id}`} passHref>
+                                <ToolbarButton onClick={() => {}} tooltip="History"><History className="h-4 w-4" /></ToolbarButton>
+                            </Link>
+                        )}
                         <AlertDialogTrigger asChild>
                             <ToolbarButton onClick={() => {}} tooltip="Preview"><Eye className="h-4 w-4" /></ToolbarButton>
                         </AlertDialogTrigger>
@@ -700,7 +702,7 @@ export default function WriteEditorPage() {
               </div>
           </div>
 
-          {isCompendiumOpen && <StoryCompendium storyId={storyDetails.id} initialNotes={storyDetails.notes} />}
+          {isCompendiumOpen && storyDetails && <StoryCompendium storyId={storyDetails.id} initialNotes={storyDetails.notes} />}
         </aside>
 
         <AlertDialogContent className="max-w-4xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
