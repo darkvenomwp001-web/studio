@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
@@ -90,7 +91,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
+const AUTH_ROUTES = ['/auth/signin', '/auth/signup', '/auth/verify-email'];
 const PUBLIC_ROUTES: string[] = ['/stories', '/search', '/profile/']; 
 const DEFAULT_REDIRECT_AUTHENTICATED = '/';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
@@ -123,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   useEffect(() => {
-    if ('Notification' in window) {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
         setNotificationPermission(Notification.permission);
     }
   }, []);
@@ -138,12 +139,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribeConnected = onValue(connectedRef, (snap) => {
       if (snap.val() === false) return;
 
-      // When the client disconnects (tab closed, internet lost)
       onDisconnect(userStatusRef).set({
         state: 'offline',
         last_changed: rtdbTimestamp(),
       }).then(() => {
-        // While connected, mark as online
         set(userStatusRef, {
           state: 'online',
           last_changed: rtdbTimestamp(),
@@ -153,7 +152,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       unsubscribeConnected();
-      // Try a graceful offline set on cleanup
       set(userStatusRef, {
         state: 'offline',
         last_changed: rtdbTimestamp(),
@@ -329,7 +327,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (loading) return;
 
     if (user && !user.isAnonymous) {
-        if (AUTH_ROUTES.includes(pathname)) {
+        // Enforce Email Verification for non-anonymous users
+        if (!user.emailVerified && pathname !== '/auth/verify-email') {
+            router.push('/auth/verify-email');
+            return;
+        }
+
+        if (AUTH_ROUTES.includes(pathname) && pathname !== '/auth/verify-email') {
             router.push(DEFAULT_REDIRECT_AUTHENTICATED);
         }
     } else {
@@ -389,7 +393,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const enablePushNotifications = async () => {
-    if (!('Notification' in window)) return;
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
     const permission = await Notification.requestPermission();
     setNotificationPermission(permission);
     if (permission === 'granted' && user) {
@@ -424,6 +428,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const reloadUser = async () => {
     if (auth.currentUser) {
         await auth.currentUser.reload();
+        toast({ title: "Status Updated", description: "Your account info has been refreshed." });
     }
   };
 
@@ -459,8 +464,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      await createUserWithEmailAndPassword(auth, email, passwordOne);
-      toast({ title: "Account Created!", description: "Welcome to D4RKV3NOM." });
+      const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
+      // Immediately send verification
+      await sendEmailVerification(userCredential.user);
+      
+      toast({ title: "Account Created!", description: "Please check your email to verify your account." });
     } catch (error) {
       console.error(error);
       toast({ title: "Sign Up Error", description: (error as Error).message, variant: "destructive" });

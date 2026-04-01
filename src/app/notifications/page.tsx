@@ -46,7 +46,9 @@ import {
   X,
   Play,
   Pause,
-  Music
+  Music,
+  AppWindow,
+  AlertCircle
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -193,6 +195,9 @@ function NotificationsList() {
             case 'letter_response': return <MailCheck className="h-4 w-4 text-teal-500" />;
             case 'achievement_unlocked': return <Bell className="h-4 w-4 text-yellow-500" />;
             case 'announcement': return <Bell className="h-4 w-4 text-orange-500" />;
+            case 'app_update': return <MessageSquare className="h-4 w-4 text-primary" />; // Thread icon for app updates
+            case 'user_update': return <User className="h-4 w-4 text-blue-400" />;
+            case 'notice_update': return <AlertCircle className="h-4 w-4 text-orange-400" />;
             default: return <Bell className="h-4 w-4 text-muted-foreground" />;
         }
     };
@@ -1110,7 +1115,7 @@ function MessagesClient() {
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
-                                        <Info className="h-5 w-5" />
+                                        <MoreHorizontal className="h-5 w-5" />
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-56 rounded-xl">
