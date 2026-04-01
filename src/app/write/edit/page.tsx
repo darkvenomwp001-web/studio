@@ -515,58 +515,88 @@ export default function WriteEditorPage() {
                         </PopoverTrigger>
                         <PopoverContent className="w-80 p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-card/95 backdrop-blur-xl">
                             <div className="p-6 space-y-6">
-                                <header className="flex items-center justify-between">
+                                <header className="flex items-center justify-between mb-2">
                                     <div>
-                                        <h4 className="font-headline font-bold">Appearance</h4>
-                                        <p className="text-[10px] uppercase font-bold text-muted-foreground/60">Customize workspace</p>
+                                        <h4 className="font-headline font-bold text-foreground tracking-tight">Appearance</h4>
+                                        <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60">Customize workspace</p>
                                     </div>
-                                    <Badge variant="outline" className={cn("gap-1.5", isFrozen ? "text-blue-500" : "text-orange-500")}>
-                                        <Snowflake className="h-3 w-3" />
-                                        {isFrozen ? "Frozen" : "Live"}
+                                    <Badge variant="outline" className={cn("gap-1.5 px-2 py-1", isFrozen ? "text-blue-500" : "text-orange-500")}>
+                                        <Snowflake className={cn("h-3 w-3", isFrozen && "animate-pulse")} />
+                                        {isFrozen ? "Frozen" : "Live Edit"}
                                     </Badge>
                                 </header>
 
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/40">
-                                        <Label htmlFor="zen-toggle" className="flex items-center gap-3 cursor-pointer">
-                                            <Target className="h-4 w-4 text-primary" />
-                                            <span className="text-sm font-bold">Zen Focus</span>
-                                        </Label>
-                                        <Switch id="zen-toggle" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
+                                <div className="grid gap-3">
+                                    <div className="p-4 rounded-2xl bg-card/50 border border-border/40 space-y-4 shadow-sm">
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="zen-focus" className="flex items-center gap-3 cursor-pointer group">
+                                                <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
+                                                    <Target className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <span className="text-sm font-bold block">Zen Focus</span>
+                                                    <span className="text-[10px] text-muted-foreground">Dim non-active text</span>
+                                                </div>
+                                            </Label>
+                                            <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
+                                        </div>
+                                        
+                                        <Separator className="opacity-40" />
+
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 rounded-lg bg-accent/10 text-accent">
+                                                        <Zap className="h-4 w-4" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-sm font-bold block">Auto-Pilot</span>
+                                                        <span className="text-[10px] text-muted-foreground">Hands-free scrolling</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {autoScrollSpeed > 0 ? (
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-red-500/10 text-red-500" onClick={() => setAutoScrollSpeed(0)}><Pause className="h-4 w-4"/></Button>
+                                                    ) : (
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-green-500/10 text-green-500" onClick={() => setAutoScrollSpeed(2)}><Play className="h-4 w-4"/></Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="px-2">
+                                                <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter text-muted-foreground mb-2">
+                                                    <span>Speed</span>
+                                                    <span>{autoScrollSpeed === 0 ? "Off" : `${autoScrollSpeed}x`}</span>
+                                                </div>
+                                                <Slider
+                                                    value={[autoScrollSpeed]}
+                                                    onValueChange={([v]) => setAutoScrollSpeed(v)}
+                                                    max={10}
+                                                    step={1}
+                                                    className="py-2"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div className="space-y-3 p-3 rounded-xl bg-muted/30 border border-border/40">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-3">
-                                                <Zap className="h-4 w-4 text-accent" />
-                                                <span className="text-sm font-bold">Auto-Pilot</span>
-                                            </div>
-                                            {autoScrollSpeed > 0 ? (
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-red-500/10 text-red-500" onClick={() => setAutoScrollSpeed(0)}><Pause className="h-3 w-3"/></Button>
-                                            ) : (
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-green-500/10 text-green-500" onClick={() => setAutoScrollSpeed(2)}><Play className="h-3 w-3"/></Button>
-                                            )}
+                                    {isAuthorOrCollaborator && (
+                                        <div className="p-4 rounded-2xl bg-muted/30 border border-dashed flex items-center justify-between group">
+                                            <Label htmlFor="freeze-mode" className="flex items-center gap-3 cursor-pointer">
+                                                <Snowflake className="h-4 w-4 text-blue-500" />
+                                                <span className="text-sm font-bold">Freeze Mode</span>
+                                            </Label>
+                                            <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} />
                                         </div>
-                                        <Slider
-                                            value={[autoScrollSpeed]}
-                                            onValueChange={([v]) => setAutoScrollSpeed(v)}
-                                            max={10}
-                                            step={1}
-                                        />
-                                    </div>
-                                    
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/40">
-                                        <Label htmlFor="freeze-toggle" className="flex items-center gap-3 cursor-pointer">
-                                            <Snowflake className="h-4 w-4 text-blue-500" />
-                                            <span className="text-sm font-bold">Freeze Mode</span>
-                                        </Label>
-                                        <Switch id="freeze-toggle" checked={isFrozen} onCheckedChange={setIsFrozen} />
-                                    </div>
+                                    )}
                                 </div>
                             </div>
-                            <footer className="p-4 bg-muted/30 border-t flex justify-end">
-                                <Button variant="ghost" size="sm" className="text-[10px] font-bold uppercase tracking-widest gap-1.5" onClick={() => { setAutoScrollSpeed(0); setIsZenFocus(false); setIsFrozen(false); }}>
-                                    <RotateCcw className="h-3 w-3" /> Reset
+                            <footer className="p-4 bg-muted/30 border-t flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                    <Timer className="h-3 w-3" />
+                                    <span>Adaptive Workspace</span>
+                                </div>
+                                <Button variant="ghost" size="sm" className="h-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive text-[10px] font-bold uppercase tracking-widest gap-1.5" onClick={() => { setAutoScrollSpeed(0); setIsZenFocus(false); setIsFrozen(false); }}>
+                                    <RotateCcw className="h-3 w-3" /> 
+                                    Reset
                                 </Button>
                             </footer>
                         </PopoverContent>

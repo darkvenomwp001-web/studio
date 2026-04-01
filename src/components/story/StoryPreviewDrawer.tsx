@@ -206,7 +206,7 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
             width={512}
             height={800}
             className="w-full h-auto object-cover"
-            data-ai-hint={story.dataAiHint || "book cover"}
+            data-ai-hint="book cover"
             priority
           />
            <button

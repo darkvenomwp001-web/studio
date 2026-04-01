@@ -1,4 +1,3 @@
-
 'use client'; 
 
 import Link from 'next/link';
@@ -34,6 +33,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
 function ForYouTabContent() {
+  const { user } = useAuth();
   const [allStories, setAllStories] = useState<Story[]>([]);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
@@ -160,6 +160,21 @@ function ForYouTabContent() {
 
       {/* Discovery Rows */}
       <div className="container mx-auto max-w-7xl px-4 space-y-12">
+        {/* Continue Reading for Logged In Users */}
+        {user && user.readingList && user.readingList.length > 0 && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-headline font-bold tracking-tight">Pick up where you left off</h2>
+              <Link href="/library" className="text-sm font-semibold text-primary hover:underline">View Library</Link>
+            </div>
+            <div className="flex overflow-x-auto space-x-5 pb-6 -mx-4 px-4 scrollbar-hide md:scrollbar-thin scrollbar-thumb-primary/30">
+              {user.readingList.slice(0, 8).map(story => (
+                <CompactStoryCard key={`lib-${story.id}`} story={story} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Trending Row */}
         {trendingStories.length > 0 && (
           <section className="space-y-4">

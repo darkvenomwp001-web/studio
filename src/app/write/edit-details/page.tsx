@@ -260,7 +260,7 @@ export default function EditStoryDetailsPage() {
 
     setAutoSaveStatus('Saving');
 
-    const storyDataToUpdate = {
+    const storyUpdateData = {
       title: storyTitle,
       summary: summary,
       genre: genre,
@@ -279,7 +279,7 @@ export default function EditStoryDetailsPage() {
         const permissionError = new FirestorePermissionError({
           path: storyDocRef.path,
           operation: 'update',
-          requestResourceData: storyDataToUpdate,
+          requestResourceData: storyUpdateData,
         });
         errorEmitter.emit('permission-error', permissionError);
         setAutoSaveStatus('Error');
@@ -638,7 +638,7 @@ export default function EditStoryDetailsPage() {
         <div className="text-center py-20 px-4">
             <AlertCircle className="mx-auto h-16 w-16 text-destructive/20 mb-6" />
             <h2 className="text-2xl font-headline font-bold text-foreground">Manuscript Not Found</h2>
-            <p className="text-muted-foreground mt-2 max-w-sm mx-auto">This story may have been relocated or you lack the proper credentials to view it.</p>
+            <p className="text-muted-foreground mt-2 max-sm mx-auto">This story may have been relocated or you lack the proper credentials to view it.</p>
             <Link href="/write" className='mt-8 block'>
                 <Button variant="outline" className="rounded-full px-8">Return to Dashboard</Button>
             </Link>
