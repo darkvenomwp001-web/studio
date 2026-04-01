@@ -80,7 +80,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
 
-// --- Global Sub-components Moved Outside to Prevent Remounting Issues ---
+// --- Global Sub-components ---
 
 interface ToolbarButtonProps {
   onClick: () => void;
@@ -98,7 +98,6 @@ const ToolbarButton = React.memo(({ onClick, isActive, disabled, children, toolt
         variant="ghost"
         size="sm"
         onMouseDown={(e) => {
-          // Prevent focus loss from the editor
           e.preventDefault();
         }}
         onClick={(e) => {
@@ -137,8 +136,6 @@ const VersionHistoryManager = {
     sessionStorage.setItem(VersionHistoryManager.getKey(storyId, chapterId), JSON.stringify(versions.slice(0, 20)));
   },
 };
-
-// --- Main Page Component ---
 
 export default function WriteEditorPage() {
   const searchParams = useSearchParams();
@@ -180,21 +177,21 @@ export default function WriteEditorPage() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isFrozen, setIsFrozen] = useState(false);
   
-  // Immersive Features
   const [isZenFocus, setIsZenFocus] = useState(false);
   const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
   const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
 
+  const isAuthorOrCollaborator = currentUser && storyDetails && (storyDetails.author.id === currentUser.id || storyDetails.collaboratorIds?.includes(currentUser.id));
+
   useEffect(() => {
     if (editor) {
-      const isNowEditable = (storyDetails?.author.id === user?.id || storyDetails?.collaboratorIds?.includes(user?.id || '')) && !isFrozen;
+      const isNowEditable = isAuthorOrCollaborator && !isFrozen;
       if (editor.isEditable !== isNowEditable) {
-        editor.setEditable(isNowEditable);
+        editor.setEditable(isNowEditable || false);
       }
     }
-  }, [storyDetails, user, isFrozen, editor]);
+  }, [isAuthorOrCollaborator, isFrozen, editor]);
 
-  // Handle Auto Scroll logic
   useEffect(() => {
     if (autoScrollSpeed > 0) {
         autoScrollInterval.current = setInterval(() => {
@@ -263,7 +260,7 @@ export default function WriteEditorPage() {
           }
           setIsLoading(false);
         } else {
-          toast({ title: "Error", description: "Story not found. Please select a story from your dashboard.", variant: "destructive" });
+          toast({ title: "Error", description: "Story not found.", variant: "destructive" });
           router.push('/write'); 
           setIsLoading(false);
         }
@@ -271,7 +268,6 @@ export default function WriteEditorPage() {
         setIsLoading(false);
       });
     } else {
-      toast({ title: "Select Story", description: "Please create or select a story first to edit its chapters.", variant: "destructive" });
       router.push('/write/edit-details');
       setIsLoading(false);
     }
@@ -287,10 +283,7 @@ export default function WriteEditorPage() {
   }, [editor?.state, editor?.storage.characterCount]);
 
   const handleSaveDraft = useCallback((showToast: boolean = true) => {
-    if (!storyDetails || !currentChapter || !user || !editor) {
-      if (showToast) toast({ title: "Error", description: "Cannot save draft. Story or chapter context missing.", variant: "destructive" });
-      return;
-    }
+    if (!storyDetails || !currentChapter || !user || !editor) return;
     const content = editor.getHTML();
     setAutoSaveStatus('Saving...');
     VersionHistoryManager.addVersion(storyDetails.id, currentChapter.id, content, chapterTitle);
@@ -353,10 +346,7 @@ export default function WriteEditorPage() {
   }, [editor?.state, chapterTitle, storyDetails, currentChapter, isLoading, handleSaveDraft, authLoading, autoSaveStatus, editor]);
 
   const handlePublishChapter = async () => {
-    if (!storyDetails || !currentChapter || !user || !editor) {
-        toast({title: "Error", description: "Cannot publish. Story or chapter context missing.", variant: "destructive"});
-        return;
-    }
+    if (!storyDetails || !currentChapter || !user || !editor) return;
     const content = editor.getHTML();
     setAutoSaveStatus('Saving...');
 
@@ -413,7 +403,7 @@ export default function WriteEditorPage() {
     
     setCurrentChapter(updatedChapterData);
     setAutoSaveStatus('Saved');
-    toast({ title: "Chapter Published!", description: `Chapter "${chapterTitle}" is now live.` });
+    toast({ title: "Chapter Published!" });
   };
 
   const handleToggleFullScreen = () => {
@@ -429,53 +419,27 @@ export default function WriteEditorPage() {
   };
 
   useEffect(() => {
-    const fullscreenChangeHandler = () => {
-      setIsFullScreen(!!document.fullscreenElement);
-    };
+    const fullscreenChangeHandler = () => setIsFullScreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', fullscreenChangeHandler);
     return () => document.removeEventListener('fullscreenchange', fullscreenChangeHandler);
   }, []);
 
-  const internalChapterId = useMemo(() => {
-      return currentChapter?.id || `temp-chapter-id-${Date.now()}`; 
-  }, [currentChapter]);
-
-  const versionHistoryLink = useMemo(() => {
-    if (!storyDetails?.id || !internalChapterId || internalChapterId.startsWith('temp-chapter-id')) return '';
-    return `/write/history/${storyDetails.id}/${internalChapterId}`;
-  }, [storyDetails, internalChapterId]);
-
-  if (isLoading || authLoading || (!storyDetails && queryStoryId) || (!currentChapter && queryStoryId) || !editor) {
+  if (isLoading || authLoading || !editor) {
       return (
         <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="ml-4 text-muted-foreground">Loading chapter editor...</p>
         </div>
       );
-  }
-  
-  if (!user && !authLoading) {
-     router.push('/auth/signin');
-     return null;
-  }
-
-  if (!storyDetails || !currentChapter) {
-    return <div className="text-center py-10">Error loading story or chapter. Please try again.</div>;
   }
 
   if (isDistractionFree) {
     return (
       <div className="fixed inset-0 bg-background z-[100] p-4 sm:p-8 flex flex-col items-center">
         <EditorContent editor={editor} className="w-full max-w-3xl h-full"/>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsDistractionFree(false)}
-          className="mt-4 self-start"
-        >
+        <Button variant="ghost" size="sm" onClick={() => setIsDistractionFree(false)} className="mt-4 self-start">
           <EyeOff className="mr-2 h-4 w-4" /> Exit Distraction-Free
         </Button>
-         <div className="fixed bottom-4 right-4 text-sm text-muted-foreground bg-card p-2 rounded-md shadow">
+         <div className="fixed bottom-4 right-4 text-xs font-bold text-muted-foreground bg-card p-2 rounded-md shadow uppercase tracking-widest">
             {wordCount} words
         </div>
       </div>
@@ -500,8 +464,8 @@ export default function WriteEditorPage() {
                     </Link>
                     <div className="min-w-0">
                         <h1 className="text-sm font-bold text-foreground truncate">{storyDetails.title}</h1>
-                        <div className={cn("flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest", autoSaveStatus === 'Saved' ? 'text-green-600' : (autoSaveStatus === 'Saving...' || autoSaveStatus === 'Typing' ? 'text-yellow-600' : 'text-muted-foreground'))}>
-                            {autoSaveStatus === 'Saved' ? <CheckCircle className="h-2.5 w-2.5" /> : (autoSaveStatus === 'Error' ? <AlertTriangle className="h-2.5 w-2.5" /> : <div className="h-2.5 w-2.5 rounded-full bg-current animate-pulse" />)}
+                        <div className={cn("flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest", autoSaveStatus === 'Saved' ? 'text-green-600' : 'text-yellow-600')}>
+                            {autoSaveStatus === 'Saved' ? <CheckCircle className="h-2.5 w-2.5" /> : <div className="h-2.5 w-2.5 rounded-full bg-current animate-pulse" />}
                             {autoSaveStatus}
                         </div>
                     </div>
@@ -591,8 +555,8 @@ export default function WriteEditorPage() {
                             </div>
                             <footer className="p-4 bg-muted/30 border-t flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                                    <Timer className="h-3 w-3" />
-                                    <span>Adaptive Workspace</span>
+                                    <Target className="h-3 w-3" />
+                                    <span>Adaptive Space</span>
                                 </div>
                                 <Button variant="ghost" size="sm" className="h-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive text-[10px] font-bold uppercase tracking-widest gap-1.5" onClick={() => { setAutoScrollSpeed(0); setIsZenFocus(false); setIsFrozen(false); }}>
                                     <RotateCcw className="h-3 w-3" /> 
@@ -621,79 +585,29 @@ export default function WriteEditorPage() {
                 <div className="p-1 px-2 bg-background border rounded-xl flex items-center justify-between shadow-sm sticky top-0 z-20 overflow-x-auto no-scrollbar">
                     <div className="flex items-center">
                         <div className="flex items-center mr-2 border-r border-border/60 pr-2 gap-0.5">
-                            <ToolbarButton 
-                                onClick={() => editor.chain().focus().undo().run()} 
-                                disabled={!editor.can().undo()}
-                                tooltip="Undo"
-                            >
-                                <Undo className="h-4 w-4" />
-                            </ToolbarButton>
-                            <ToolbarButton 
-                                onClick={() => editor.chain().focus().redo().run()} 
-                                disabled={!editor.can().redo()}
-                                tooltip="Redo"
-                            >
-                                <Redo className="h-4 w-4" />
-                            </ToolbarButton>
+                            <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} tooltip="Undo"><Undo className="h-4 w-4" /></ToolbarButton>
+                            <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} tooltip="Redo"><Redo className="h-4 w-4" /></ToolbarButton>
                         </div>
 
                         <div className="flex items-center mr-2 border-r border-border/60 pr-2 gap-0.5">
-                            <ToolbarButton 
-                                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} 
-                                isActive={editor.isActive('heading', { level: 2 })}
-                                tooltip="Header"
-                            >
-                                <Type className="h-4 w-4" />
-                            </ToolbarButton>
-                            <ToolbarButton 
-                                onClick={() => editor.chain().focus().toggleBulletList().run()} 
-                                isActive={editor.isActive('bulletList')}
-                                tooltip="Bullet List"
-                            >
-                                <List className="h-4 w-4" />
-                            </ToolbarButton>
-                            <ToolbarButton 
-                                onClick={() => editor.chain().focus().toggleBlockquote().run()} 
-                                isActive={editor.isActive('blockquote')}
-                                tooltip="Blockquote"
-                            >
-                                <Quote className="h-4 w-4" />
-                            </ToolbarButton>
+                            <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })} tooltip="Header"><Type className="h-4 w-4" /></ToolbarButton>
+                            <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} tooltip="Bullet List"><List className="h-4 w-4" /></ToolbarButton>
+                            <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} isActive={editor.isActive('blockquote')} tooltip="Blockquote"><Quote className="h-4 w-4" /></ToolbarButton>
                         </div>
 
                         <div className="flex items-center gap-0.5">
-                            <ToolbarButton 
-                                onClick={() => editor.chain().focus().toggleBold().run()} 
-                                isActive={editor.isActive('bold')}
-                                tooltip="Bold"
-                            >
-                                <Bold className="h-4 w-4" />
-                            </ToolbarButton>
-                            <ToolbarButton 
-                                onClick={() => editor.chain().focus().toggleItalic().run()} 
-                                isActive={editor.isActive('italic')}
-                                tooltip="Italic"
-                            >
-                                <Italic className="h-4 w-4" />
-                            </ToolbarButton>
-                            <ToolbarButton 
-                                onClick={() => editor.chain().focus().toggleUnderline().run()} 
-                                isActive={editor.isActive('underline')}
-                                tooltip="Underline"
-                            >
-                                <Underline className="h-4 w-4" />
-                            </ToolbarButton>
+                            <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} tooltip="Bold"><Bold className="h-4 w-4" /></ToolbarButton>
+                            <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} tooltip="Italic"><Italic className="h-4 w-4" /></ToolbarButton>
+                            <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} tooltip="Underline"><Underline className="h-4 w-4" /></ToolbarButton>
                             
                             <Popover>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <PopoverTrigger asChild>
-                                            <Button variant="ghost" size="sm" className={cn("h-8 w-8 p-0 rounded-md", editor.isActive('highlight') && "bg-primary/10 text-primary")}>
-                                                <Highlighter className="h-4 w-4" />
-                                            </Button>
+                                            <Button variant="ghost" size="sm" className={cn("h-8 w-8 p-0 rounded-md", editor.isActive('highlight') && "bg-primary/10 text-primary")}><Highlighter className="h-4 w-4" /></Button>
                                         </PopoverTrigger>
                                     </TooltipTrigger>
-                                    <TooltipContent className="text-[10px] font-bold uppercase">Highlight Selection</TooltipContent>
+                                    <TooltipContent className="text-[10px] font-bold uppercase">Highlight</TooltipContent>
                                 </Tooltip>
                                 <PopoverContent className="w-fit p-1 flex gap-1 bg-background border shadow-xl rounded-full">
                                     <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()} className="h-6 w-6 rounded-full bg-yellow-300 border border-black/10 hover:scale-110 transition-transform" />
@@ -702,27 +616,15 @@ export default function WriteEditorPage() {
                                     <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="h-3 w-3"/></Button>
                                 </PopoverContent>
                             </Popover>
-                            <ToolbarButton 
-                                onClick={() => editor.chain().focus().unsetAllMarks().run()} 
-                                tooltip="Clear Formatting"
-                            >
-                                <X className="h-4 w-4" />
-                            </ToolbarButton>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-1">
-                        {versionHistoryLink && (
-                            <Link href={versionHistoryLink} passHref>
-                                <ToolbarButton onClick={() => {}} tooltip="Version History">
-                                    <History className="h-4 w-4" />
-                                </ToolbarButton>
-                            </Link>
-                        )}
+                        <Link href={`/write/history/${storyDetails.id}/${currentChapter.id}`} passHref>
+                            <ToolbarButton onClick={() => {}} tooltip="History"><History className="h-4 w-4" /></ToolbarButton>
+                        </Link>
                         <AlertDialogTrigger asChild>
-                            <ToolbarButton onClick={() => {}} tooltip="Preview Mode">
-                                <Eye className="h-4 w-4" />
-                            </ToolbarButton>
+                            <ToolbarButton onClick={() => {}} tooltip="Preview"><Eye className="h-4 w-4" /></ToolbarButton>
                         </AlertDialogTrigger>
                     </div>
                 </div>
@@ -733,28 +635,6 @@ export default function WriteEditorPage() {
               "relative flex-grow flex flex-col group rounded-2xl border bg-card shadow-inner overflow-hidden",
               isZenFocus && "zen-focus-enabled"
           )}>
-            <BubbleMenu
-                editor={editor}
-                tippyOptions={{ duration: 100 }}
-                shouldShow={({ editor, from, to }) => from !== to}
-            >
-                <div className="flex gap-0.5 bg-card/90 backdrop-blur-md border shadow-2xl p-1 rounded-xl">
-                    <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} tooltip="Bold"><Bold className="h-4 w-4" /></ToolbarButton>
-                    <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} tooltip="Italic"><Italic className="h-4 w-4" /></ToolbarButton>
-                    <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} tooltip="Underline"><Underline className="h-4 w-4" /></ToolbarButton>
-                    <Separator orientation="vertical" className="mx-1 h-6 self-center" />
-                    <ToolbarButton 
-                        onClick={() => {
-                            const { from, to } = editor.state.selection;
-                            const selectedText = editor.state.doc.textBetween(from, to, ' ');
-                            router.push(`/stories/${storyDetails.id}/read/${currentChapter.id}/comments?quote=${encodeURIComponent(selectedText)}`);
-                        }} 
-                        tooltip="Add Inline Feedback"
-                    >
-                        <Plus className="h-4 w-4" />
-                    </ToolbarButton>
-                </div>
-            </BubbleMenu>
             <EditorContent editor={editor} className="flex-grow flex flex-col h-full" />
           </main>
 
@@ -777,12 +657,12 @@ export default function WriteEditorPage() {
                     <AlertDialogHeader>
                         <AlertDialogTitle className="font-headline text-2xl">Ready to Publish?</AlertDialogTitle>
                         <AlertDialogDescription>
-                        This will make "{chapterTitle}" visible to all your readers. You can always edit or unpublish it later from your dashboard.
+                        This will make "{chapterTitle}" visible to all your readers. You can always edit or unpublish it later.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel className="rounded-full">Not Yet</AlertDialogCancel>
-                        <AlertDialogAction onClick={handlePublishChapter} className="bg-primary hover:bg-primary/90 rounded-full px-8">Confirm Publication</AlertDialogAction>
+                        <AlertDialogAction onClick={handlePublishChapter} className="bg-primary hover:bg-primary/90 rounded-full px-8">Confirm</AlertDialogAction>
                     </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>

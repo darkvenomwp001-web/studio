@@ -83,10 +83,6 @@ function ForYouTabContent() {
 
   const featuredStories = allStories.slice(0, 6);
   const trendingStories = [...allStories].sort((a,b) => ((b.views || 0) + (b.rating || 0) * 100) - ((a.views || 0) + (a.rating || 0) * 100)).slice(0, 12);
-  const newReleases = [...allStories].sort((a,b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()).slice(0, 12);
-
-  const fantasyStories = allStories.filter(s => s.genre?.toLowerCase() === 'fantasy').slice(0, 10);
-  const romanceStories = allStories.filter(s => s.genre?.toLowerCase() === 'romance').slice(0, 10);
 
   if (isDataLoading) {
     return (
@@ -160,7 +156,6 @@ function ForYouTabContent() {
 
       {/* Discovery Rows */}
       <div className="container mx-auto max-w-7xl px-4 space-y-12">
-        {/* Continue Reading for Logged In Users */}
         {user && user.readingList && user.readingList.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
@@ -175,7 +170,6 @@ function ForYouTabContent() {
           </section>
         )}
 
-        {/* Trending Row */}
         {trendingStories.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
@@ -197,7 +191,6 @@ function ForYouTabContent() {
           </section>
         )}
 
-        {/* Community Prompts Grid */}
         {prompts.length > 0 && (
           <section className="bg-card/50 rounded-3xl p-6 md:p-10 border border-border/50 shadow-sm overflow-hidden relative">
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
