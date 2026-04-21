@@ -19,7 +19,6 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import StatusViewer from './StatusViewer';
 import { Textarea } from '../ui/textarea';
-import { getConversationStarters } from '@/app/actions/aiActions';
 
 const gradientBackgrounds = [
   'bg-gradient-to-br from-gray-700 via-gray-900 to-black',
@@ -84,8 +83,6 @@ export default function StatusFeature() {
   const [selectedUserForViewing, setSelectedUserForViewing] = useState<User | null>(null);
   const [statusOrder, setStatusOrder] = useState<string[]>([]);
   
-  const [isGeneratingStarters, startStarterTransition] = useTransition();
-
   const [activeUploaderTab, setActiveUploaderTab] = useState('text');
   const [statusVisibility, setStatusVisibility] = useState<'public' | 'close-friends'>('public');
 

@@ -1,6 +1,7 @@
 import StoryOverviewClient from './StoryOverviewClient';
 
 export async function generateStaticParams() {
+  // Required for static export build
   return [{ storyId: 'story' }];
 }
 

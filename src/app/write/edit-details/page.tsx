@@ -1,70 +1,35 @@
 'use client';
 
-import { useState, useEffect, ChangeEvent, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Loader2, 
-  Save, 
-  Settings, 
   Trash2, 
-  PlusCircle, 
-  Edit, 
-  BookOpen, 
-  Users, 
-  Info, 
-  Eye, 
-  EyeOff, 
-  ShieldQuestion, 
-  UploadCloud, 
-  CheckCircle, 
-  AlertCircle, 
-  AlertTriangle,
-  FileText, 
-  Star, 
-  ListChecks, 
-  Sparkles, 
-  UserPlus, 
-  Lock,
   ArrowLeft,
-  LayoutGrid,
-  Type,
-  Tags,
-  Image as LucideImage
 } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; 
-import { doc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, deleteDoc, Timestamp } from 'firebase/firestore';
-import type { Story, Chapter, UserSummary } from '@/types';
-import { cn } from '@/lib/utils';
+import { doc, updateDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import type { Story, UserSummary } from '@/types';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 export default function EditStoryDetailsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryStoryId = searchParams.get('storyId');
 
   const [story, setStory] = useState<Story | null>(null);
   const [storyTitle, setStoryTitle] = useState('');
   const [summary, setSummary] = useState('');
-  const [genre, setGenre] = useState('fantasy');
-  const [visibility, setVisibility] = useState<'Public' | 'Private' | 'Unlisted'>('Public');
   const [isLoading, setIsLoading] = useState(true);
   const [collaboratorUsername, setCollaboratorUsername] = useState('');
   const [isProcessingCollab, setIsProcessingCollab] = useState(false);
@@ -77,8 +42,6 @@ export default function EditStoryDetailsPage() {
           setStory(data);
           setStoryTitle(data.title);
           setSummary(data.summary);
-          setGenre(data.genre);
-          setVisibility(data.visibility);
         }
         setIsLoading(false);
       });
@@ -99,6 +62,8 @@ export default function EditStoryDetailsPage() {
       });
       setCollaboratorUsername('');
       toast({ title: "Added!" });
+    } else {
+      toast({ title: "User not found", variant: "destructive" });
     }
     setIsProcessingCollab(false);
   };
@@ -112,7 +77,7 @@ export default function EditStoryDetailsPage() {
     toast({ title: "Removed" });
   };
 
-  if (isLoading || !story) return <div className="flex justify-center py-20"><Loader2 className="animate-spin" /></div>;
+  if (isLoading || !story) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-10">

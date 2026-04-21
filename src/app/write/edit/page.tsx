@@ -7,18 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { 
   Save, 
-  History, 
-  EyeOff, 
-  BookOpen, 
-  CheckCircle, 
-  AlertCircle,
-  Maximize, 
-  Minimize, 
-  Send, 
-  FileText, 
-  Settings, 
   Loader2, 
-  Eye, 
   Undo, 
   Redo, 
   Bold, 
@@ -37,7 +26,8 @@ import {
   Pause,
   RotateCcw,
   Palette,
-  ArrowLeft
+  ArrowLeft,
+  AlertCircle
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -55,7 +45,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { BubbleMenu, EditorContent, useEditor } from '@tiptap/react'
+import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
@@ -141,7 +131,11 @@ export default function WriteEditorPage() {
              </div>
              <div className="flex items-center gap-2">
                 <Popover>
-                    <PopoverTrigger asChild><Button variant="ghost" size="icon" title="Workspace Appearance"><Palette className="h-5 w-5"/></Button></PopoverTrigger>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" title="Workspace Appearance">
+                        <Palette className="h-5 w-5"/>
+                      </Button>
+                    </PopoverTrigger>
                     <PopoverContent className="w-80 p-6 rounded-3xl">
                         <div className="space-y-6">
                             <div className="flex justify-between items-center">

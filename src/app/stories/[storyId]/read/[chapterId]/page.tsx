@@ -69,26 +69,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
-
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
 const fontSizes: FontSize[] = ['sm', 'base', 'lg', 'xl'];
 type FontFamily = 'sans' | 'serif';
 type LineHeight = 'tight' | 'normal' | 'loose';
 type LayoutWidth = 'normal' | 'wide';
-
 
 export default function StoryReaderPage() {
   const params = useParams();
@@ -135,8 +123,6 @@ export default function StoryReaderPage() {
   const contentRef = useRef<HTMLDivElement>(null);
   const viewIncrementedRef = useRef(false);
 
-  const isAuthorOrCollaborator = currentUser && story && (story.author.id === currentUser.id || story.collaborators?.some(c => c.id === currentUser.id));
-
   const editor = useEditor({
     editable: false, 
     editorProps: {
@@ -152,17 +138,17 @@ export default function StoryReaderPage() {
     ],
   });
 
+  const isAuthorOrCollaborator = currentUser && story && (story.author.id === currentUser.id || story.collaboratorIds?.includes(currentUser.id));
+
   useEffect(() => {
     if (editor) {
       const isNowEditable = isAuthorOrCollaborator && !isFrozen;
       if (editor.isEditable !== isNowEditable) {
-        editor.setEditable(isNowEditable);
+        editor.setEditable(!!isNowEditable);
       }
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
-
-  // Load reading preferences from localStorage
   useEffect(() => {
     const savedFontSize = localStorage.getItem('reader-font-size') as FontSize;
     const savedFontFamily = localStorage.getItem('reader-font-family') as FontFamily;
@@ -179,7 +165,6 @@ export default function StoryReaderPage() {
     setIsZenFocus(savedZenFocus);
   }, []);
 
-  // Save settings to localStorage
   useEffect(() => {
     localStorage.setItem('reader-font-size', fontSize);
     localStorage.setItem('reader-font-family', fontFamily);
@@ -189,12 +174,10 @@ export default function StoryReaderPage() {
     localStorage.setItem('reader-zen-focus', String(isZenFocus));
   }, [fontSize, fontFamily, lineHeight, layoutWidth, isNightPortalActive, isZenFocus]);
   
-  // Apply night portal class to body
   useEffect(() => {
     document.body.classList.toggle('night-portal', isNightPortalActive);
   }, [isNightPortalActive]);
 
-  // Handle Auto Scroll
   useEffect(() => {
     if (autoScrollSpeed > 0) {
         autoScrollInterval.current = setInterval(() => {
@@ -218,7 +201,6 @@ export default function StoryReaderPage() {
     toast({ title: "Reader preferences reset." });
   };
 
-
   const incrementViewCount = useCallback(async () => {
     if (viewIncrementedRef.current || !storyId) return;
     try {
@@ -236,7 +218,6 @@ export default function StoryReaderPage() {
       console.error("Error incrementing view count:", error);
     }
   }, [storyId]);
-
 
   useEffect(() => {
     if (!storyId) return;
@@ -257,9 +238,9 @@ export default function StoryReaderPage() {
               editor.commands.setContent(chapterData.content, false);
             }
             
-            const visibleChapters = storyData.chapters.filter(c => c.status === 'Published' || c.accessType === 'premium');
-            const chapterIndex = visibleChapters.findIndex(c => c.id === chapterIdParams);
-            const progress = visibleChapters.length > 0 ? ((chapterIndex + 1) / visibleChapters.length) * 100 : 0;
+            const visibleChaptersList = storyData.chapters.filter(c => c.status === 'Published' || c.accessType === 'premium');
+            const chapterIndex = visibleChaptersList.findIndex(c => c.id === chapterIdParams);
+            const progress = visibleChaptersList.length > 0 ? ((chapterIndex + 1) / visibleChaptersList.length) * 100 : 0;
             setReadingProgress(Math.min(100, Math.max(0, progress)));
 
             let hasAccess = false;
@@ -326,24 +307,24 @@ export default function StoryReaderPage() {
     }
 
     const results: { from: number; to: number; snippet: string }[] = [];
-    const { doc } = editor.state;
-    const query = searchTerm.toLowerCase();
+    const { doc: prosemirrorDoc } = editor.state;
+    const queryStr = searchTerm.toLowerCase();
 
-    doc.descendants((node, pos) => {
+    prosemirrorDoc.descendants((node, pos) => {
         if (!node.isText) return;
 
         const text = node.text?.toLowerCase() || '';
-        let index = text.indexOf(query);
+        let index = text.indexOf(queryStr);
         while (index !== -1) {
             const from = pos + index;
-            const to = from + query.length;
+            const to = from + queryStr.length;
             
             const contextStart = Math.max(pos, from - 20);
             const contextEnd = Math.min(pos + node.nodeSize, to + 20);
-            const snippet = doc.textBetween(contextStart, contextEnd, ' ');
+            const snippet = prosemirrorDoc.textBetween(contextStart, contextEnd, ' ');
             
             results.push({ from, to, snippet });
-            index = text.indexOf(query, index + 1);
+            index = text.indexOf(queryStr, index + 1);
         }
     });
 
@@ -432,8 +413,8 @@ export default function StoryReaderPage() {
         return;
     }
 
-    const isInLibrary = currentUser.readingList?.some(item => item.id === story.id);
-    if (isInLibrary) {
+    const isInLibraryStatus = currentUser.readingList?.some(item => item.id === story.id);
+    if (isInLibraryStatus) {
       removeFromLibrary(story.id);
     } else {
       addToLibrary(story);
@@ -533,7 +514,6 @@ export default function StoryReaderPage() {
       }
   );
 
-
   return (
     <TooltipProvider delayDuration={300}>
     <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
@@ -563,7 +543,7 @@ export default function StoryReaderPage() {
                     <Palette className="h-5 w-5" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-85 p-0 bg-background/20 backdrop-blur-2xl border-white/10 shadow-3xl rounded-3xl overflow-hidden">
+            <PopoverContent className="w-80 p-0 bg-background/20 backdrop-blur-2xl border-white/10 shadow-3xl rounded-3xl overflow-hidden">
                 <ScrollArea className="max-h-[85vh]">
                 <div className="p-6 space-y-6">
                     <header className="flex items-center justify-between mb-2">
@@ -759,17 +739,17 @@ export default function StoryReaderPage() {
             <TabsContent value="contents" className="flex-1 overflow-hidden">
                 <ScrollArea className="h-full px-2">
                     <ul className="space-y-1 p-2">
-                        {visibleChapters.sort((a,b)=>a.order-b.order).map((chapter) => (
-                        <li key={chapter.id}>
+                        {visibleChapters.sort((a,b)=>a.order-b.order).map((ch) => (
+                        <li key={ch.id}>
                             <Button
-                            variant={chapter.id === currentChapter.id ? 'secondary' : 'ghost'}
+                            variant={ch.id === currentChapter.id ? 'secondary' : 'ghost'}
                             className="w-full justify-start text-left h-auto py-1.5 px-2 text-sm"
-                            onClick={() => navigateToChapterById(chapter.id)}
+                            onClick={() => navigateToChapterById(ch.id)}
                             >
-                            <span className={cn("truncate", chapter.id === currentChapter.id ? "font-semibold" : "")}>
-                                {chapter.order}. {chapter.title}
+                            <span className={cn("truncate", ch.id === currentChapter.id ? "font-semibold" : "")}>
+                                {ch.order}. {ch.title}
                             </span>
-                            {chapter.accessType === 'premium' && <Sparkles className="h-3 w-3 text-yellow-500 ml-auto flex-shrink-0" />}
+                            {ch.accessType === 'premium' && <Sparkles className="h-3 w-3 text-yellow-500 ml-auto flex-shrink-0" />}
                             </Button>
                         </li>
                         ))}
@@ -858,7 +838,7 @@ export default function StoryReaderPage() {
                  <BubbleMenu
                     editor={editor}
                     tippyOptions={{ duration: 100 }}
-                    shouldShow={({ editor, from, to }) => {
+                    shouldShow={({ from, to }) => {
                         return from !== to
                     }}
                  >
@@ -979,7 +959,7 @@ export default function StoryReaderPage() {
       <footer
         className={cn(
           'fixed bottom-0 left-0 z-40 bg-card/80 backdrop-blur-md border-t transform transition-transform duration-300 ease-in-out',
-          controlsVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0',
+          controlsVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0',
           tocVisible ? 'md:w-[calc(100%-20rem)]' : 'w-full'  
         )}
       >
@@ -1044,11 +1024,7 @@ export default function StoryReaderPage() {
             </div>
         </div>
       </footer>
-    </div>
-    <div className="hidden md:block">
-    </div>
-    <div className="md:hidden">
-       <BottomNavigationBar />
+      <BottomNavigationBar />
     </div>
     <style jsx global>{`
         .zen-focus-enabled .ProseMirror p {
@@ -1065,4 +1041,8 @@ export default function StoryReaderPage() {
     `}</style>
     </TooltipProvider>
   );
+}
+
+export async function generateStaticParams() {
+  return [{ storyId: 'story', chapterId: 'chapter' }];
 }

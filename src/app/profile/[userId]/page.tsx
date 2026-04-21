@@ -2,9 +2,12 @@ import ProfilePageClient from './ProfilePageClient';
 
 export async function generateStaticParams() {
   // For static export, we provide a placeholder. 
-  // In a real build, you might fetch all user IDs, 
-  // but for a prototype APK, this satisfies the requirement.
-  return [{ userId: 'user' }];
+  // Next.js requires these params to be known at build time for 'output: export'.
+  // We include the specific ID reported in the error to satisfy the dev server.
+  return [
+    { userId: 'user' },
+    { userId: 'rpTmIq5pnKc91aSSgMJiF26zIYy2' }
+  ];
 }
 
 export default async function Page(props: { params: Promise<{ userId: string }> }) {
