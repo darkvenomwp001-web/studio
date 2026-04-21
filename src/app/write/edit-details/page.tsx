@@ -347,40 +347,28 @@ export default function EditStoryDetailsPage() {
     }
   };
 
-  const handleGrantPremiumAccess = async () => {
-    if (!story || !premiumAccessChapter || !premiumUsername.trim()) return;
-    setIsProcessingPremium(true);
-    try {
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('username', '==', premiumUsername.trim()));
-        const userSnapshot = await getDocs(q);
-
-        if (userSnapshot.empty) {
-            toast({ title: "User Not Found", variant: "destructive"});
-            setIsProcessingPremium(false);
-            return;
-        }
-
-        const targetUser = userSnapshot.docs[0];
-        const chapters = [...story.chapters];
-        const chapterIndex = chapters.findIndex(c => c.id === premiumAccessChapter.id);
-
-        const expiryDate = new Date();
-        expiryDate.setDate(expiryDate.getDate() + 1);
-
-        const newAllowedUser: AllowedUser = { userId: targetUser.id, username: targetUser.data().username, expiresAt: Timestamp.fromDate(expiryDate) };
-        chapters[chapterIndex].allowedUsers = [...(chapters[chapterIndex].allowedUsers || []), newAllowedUser];
-        chapters[chapterIndex].accessType = 'premium';
-
-        await updateDoc(doc(db, 'stories', story.id), { chapters });
-        toast({ title: "Access Granted!" });
-        setPremiumUsername('');
-    } finally {
-        setIsProcessingPremium(false);
-    }
+  const handleRemoveCollaborator = async (collabId: string) => {
+    if (!story) return;
+    const updatedCollaborators = story.collaborators?.filter(c => c.id !== collabId) || [];
+    const updatedCollaboratorIds = story.collaboratorIds?.filter(id => id !== collabId) || [];
+    
+    await updateDoc(doc(db, 'stories', story.id), {
+        collaborators: updatedCollaborators,
+        collaboratorIds: updatedCollaboratorIds,
+        lastUpdated: serverTimestamp()
+    });
+    toast({ title: "Collaborator Removed" });
   };
 
   const isSaving = isUploadingCover || autoSaveStatus === 'Saving';
+
+  if (isLoading || authLoading || !story) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 space-y-10 pb-24 overflow-x-hidden">

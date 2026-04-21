@@ -11,7 +11,6 @@ import {
   EyeOff, 
   BookOpen, 
   CheckCircle, 
-  AlertTriangle, 
   AlertCircle,
   Maximize, 
   Minimize, 
@@ -32,7 +31,6 @@ import {
   ListOrdered,
   Quote,
   X,
-  Plus,
   Target,
   Zap,
   Play,
@@ -79,8 +77,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
-
-// --- Global Sub-components ---
 
 interface ToolbarButtonProps {
   onClick: () => void;
