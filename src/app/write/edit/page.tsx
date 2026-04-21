@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,26 +36,13 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Palette
+  Palette,
+  ArrowLeft
 } from 'lucide-react';
-import StoryCompendium from '@/components/writing/StoryCompendium';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { 
-  AlertDialog, 
-  AlertDialogAction, 
-  AlertDialogCancel, 
-  AlertDialogContent, 
-  AlertDialogDescription, 
-  AlertDialogFooter, 
-  AlertDialogHeader, 
-  AlertDialogTitle, 
-  AlertDialogTrigger 
-} from '@/components/ui/alert-dialog';
 import { useSearchParams, useRouter } from 'next/navigation';
-import NextImage from 'next/image';
-import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import type { Story, Chapter } from '@/types';
@@ -73,29 +60,8 @@ import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
 import CharacterCount from '@tiptap/extension-character-count'
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
-
-const ToolbarButton = React.memo(({ onClick, isActive, disabled, children, tooltip }: { onClick: () => void, isActive?: boolean, disabled?: boolean, children: React.ReactNode, tooltip: string }) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={onClick}
-        disabled={disabled}
-        className={cn("h-8 w-8 p-0 transition-all", isActive ? "bg-primary/10 text-primary" : "text-muted-foreground")}
-      >
-        {children}
-      </Button>
-    </TooltipTrigger>
-    <TooltipContent className="text-[10px] font-bold uppercase">{tooltip}</TooltipContent>
-  </Tooltip>
-));
-ToolbarButton.displayName = 'ToolbarButton';
 
 export default function WriteEditorPage() {
   const searchParams = useSearchParams();
@@ -149,12 +115,23 @@ export default function WriteEditorPage() {
     }
   }, [queryStoryId, queryChapterId, editor]);
 
-  if (isLoading || !editor || !storyDetails || !currentChapter) return <div className="flex justify-center py-20"><Loader2 className="animate-spin" /></div>;
+  useEffect(() => {
+    if (autoScrollSpeed > 0) {
+        autoScrollInterval.current = setInterval(() => {
+            window.scrollBy({ top: autoScrollSpeed, behavior: 'smooth' });
+        }, 50);
+    } else {
+        if (autoScrollInterval.current) clearInterval(autoScrollInterval.current);
+    }
+    return () => { if (autoScrollInterval.current) clearInterval(autoScrollInterval.current); };
+  }, [autoScrollSpeed]);
+
+  if (isLoading || !editor || !storyDetails || !currentChapter) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
 
   return (
     <TooltipProvider>
       <div className="max-w-5xl mx-auto p-4 space-y-6">
-          <header className="flex justify-between items-center bg-card p-4 rounded-2xl border shadow-sm">
+          <header className="flex justify-between items-center bg-card p-4 rounded-2xl border shadow-sm sticky top-0 z-50 backdrop-blur-md">
              <div className="flex items-center gap-3">
                 <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-5 w-5"/></Button>
                 <div>
@@ -164,30 +141,57 @@ export default function WriteEditorPage() {
              </div>
              <div className="flex items-center gap-2">
                 <Popover>
-                    <PopoverTrigger asChild><Button variant="ghost" size="icon"><Palette className="h-4 w-4"/></Button></PopoverTrigger>
+                    <PopoverTrigger asChild><Button variant="ghost" size="icon" title="Workspace Appearance"><Palette className="h-5 w-5"/></Button></PopoverTrigger>
                     <PopoverContent className="w-80 p-6 rounded-3xl">
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             <div className="flex justify-between items-center">
-                                <Label className="font-bold">Zen Focus</Label>
+                                <div className="space-y-0.5">
+                                    <Label className="font-bold">Zen Focus</Label>
+                                    <p className="text-[10px] text-muted-foreground">Dim non-active text</p>
+                                </div>
                                 <Switch checked={isZenFocus} onCheckedChange={setIsZenFocus} />
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase">Auto-Scroll</Label>
-                                <Slider value={[autoScrollSpeed]} onValueChange={([v]) => setAutoScrollSpeed(v)} max={10} />
+                            <Separator />
+                            <div className="space-y-3">
+                                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Auto-Scroll Speed</Label>
+                                <Slider 
+                                    value={[autoScrollSpeed]} 
+                                    onValueChange={([v]) => setAutoScrollSpeed(v)} 
+                                    max={10} 
+                                    step={1}
+                                />
+                                <div className="flex justify-between text-[10px] font-bold text-primary">
+                                    <span>Off</span>
+                                    <span>{autoScrollSpeed}x</span>
+                                </div>
                             </div>
                         </div>
                     </PopoverContent>
                 </Popover>
+                {isAuthorOrCollaborator && (
+                    <Badge variant="outline" className={cn("gap-1.5", isFrozen ? "text-blue-500" : "text-orange-500")}>
+                        <Snowflake className="h-3 w-3" />
+                        {isFrozen ? "Frozen" : "Live"}
+                    </Badge>
+                )}
              </div>
           </header>
-          <main className={cn("rounded-3xl border bg-card shadow-inner", isZenFocus && "zen-focus-enabled")}>
-             <Input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="text-3xl font-headline font-bold border-none shadow-none h-auto p-8" placeholder="Title" />
-             <EditorContent editor={editor} />
+          <main className={cn("rounded-3xl border bg-card shadow-inner transition-all duration-500", isZenFocus && "zen-focus-enabled")}>
+             <div className="p-8 pb-0">
+                <Input 
+                    value={chapterTitle} 
+                    onChange={e => setChapterTitle(e.target.value)} 
+                    className="text-3xl font-headline font-bold border-none shadow-none h-auto p-0 focus-visible:ring-0" 
+                    placeholder="Chapter Title..." 
+                />
+                <Separator className="my-6 opacity-40" />
+             </div>
+             <EditorContent editor={editor} className="min-h-[70vh]" />
           </main>
       </div>
       <style jsx global>{`
-        .zen-focus-enabled .ProseMirror p { opacity: 0.2; transition: opacity 0.4s; }
-        .zen-focus-enabled .ProseMirror p:hover { opacity: 1; }
+        .zen-focus-enabled .ProseMirror p { opacity: 0.2; transition: opacity 0.4s; filter: blur(1px); }
+        .zen-focus-enabled .ProseMirror p:hover { opacity: 1; filter: blur(0); }
       `}</style>
     </TooltipProvider>
   );

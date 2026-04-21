@@ -13,7 +13,6 @@ import StoryPreviewDrawer from '@/components/story/StoryPreviewDrawer';
 import FirebaseErrorListener from '@/components/FirebaseErrorListener';
 import AppearanceManager from '@/components/layout/AppearanceManager';
 
-
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
 
