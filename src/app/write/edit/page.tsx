@@ -136,7 +136,7 @@ const VersionHistoryManager = {
 export default function WriteEditorPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, addNotification, loading: authLoading } = useAuth();
+  const { user: currentUser, addNotification, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const queryStoryId = searchParams.get('storyId');
@@ -204,7 +204,7 @@ export default function WriteEditorPage() {
         setIsLoading(true);
         return;
     }
-    if (!user) {
+    if (!currentUser) {
       router.push('/auth/signin');
       setIsLoading(false);
       return;
@@ -219,7 +219,7 @@ export default function WriteEditorPage() {
         if (docSnap.exists()) {
           const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
           
-          if (storyData.author.id !== user.id && !storyData.collaborators?.some(c => c.id === user.id)) {
+          if (storyData.author.id !== currentUser.id && !storyData.collaborators?.some(c => c.id === currentUser.id)) {
             toast({ title: "Access Denied", description: "You don't have permission to edit this story's chapters.", variant: "destructive" });
             router.push(`/stories/${queryStoryId}`);
             return;
@@ -271,7 +271,7 @@ export default function WriteEditorPage() {
     return () => {
       if (unsubscribeStory) unsubscribeStory();
     };
-  }, [queryStoryId, queryChapterId, user, router, toast, authLoading, editor]);
+  }, [queryStoryId, queryChapterId, currentUser, router, toast, authLoading, editor]);
 
   useEffect(() => {
     if(!editor || !editor.storage.characterCount) return;
@@ -279,7 +279,7 @@ export default function WriteEditorPage() {
   }, [editor?.state, editor?.storage.characterCount]);
 
   const handleSaveDraft = useCallback((showToast: boolean = true) => {
-    if (!storyDetails || !currentChapter || !user || !editor) return;
+    if (!storyDetails || !currentChapter || !currentUser || !editor) return;
     const content = editor.getHTML();
     setAutoSaveStatus('Saving...');
     VersionHistoryManager.addVersion(storyDetails.id, currentChapter.id, content, chapterTitle);
@@ -321,7 +321,7 @@ export default function WriteEditorPage() {
     setAutoSaveStatus('Saved');
     if (showToast) toast({ title: "Draft Saved!" });
 
-  }, [storyDetails, currentChapter, user, chapterTitle, editor, toast]);
+  }, [storyDetails, currentChapter, currentUser, chapterTitle, editor, toast]);
 
   useEffect(() => {
     if (!storyDetails || !currentChapter || isLoading || authLoading || !editor) return;
@@ -342,7 +342,7 @@ export default function WriteEditorPage() {
   }, [editor?.state, chapterTitle, storyDetails, currentChapter, isLoading, handleSaveDraft, authLoading, autoSaveStatus, editor]);
 
   const handlePublishChapter = async () => {
-    if (!storyDetails || !currentChapter || !user || !editor) return;
+    if (!storyDetails || !currentChapter || !currentUser || !editor) return;
     const content = editor.getHTML();
     setAutoSaveStatus('Saving...');
 
@@ -376,13 +376,13 @@ export default function WriteEditorPage() {
     const storyDocRef = doc(db, 'stories', storyDetails.id);
     updateDoc(storyDocRef, storyUpdateData)
       .then(() => {
-        if (user.id === storyDetails.author.id) {
+        if (currentUser.id === storyDetails.author.id) {
             addNotification({
                 type: 'new_chapter',
-                userId: user.id,
-                message: `${user.displayName || user.username} published a new chapter "${chapterTitle}" for "${storyDetails.title}".`,
+                userId: currentUser.id,
+                message: `${currentUser.displayName || currentUser.username} published a new chapter "${chapterTitle}" for "${storyDetails.title}".`,
                 link: `/stories/${storyDetails.id}/read/${updatedChapterData.id}`,
-                actor: {id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl }
+                actor: {id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName || currentUser.username, avatarUrl: currentUser.avatarUrl }
             });
         }
         router.push(`/write/edit-details?storyId=${storyDetails.id}`);
@@ -420,7 +420,7 @@ export default function WriteEditorPage() {
     return () => document.removeEventListener('fullscreenchange', fullscreenChangeHandler);
   }, []);
 
-  if (isLoading || authLoading || !editor) {
+  if (isLoading || authLoading || !editor || !storyDetails || !currentChapter) {
       return (
         <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -608,7 +608,7 @@ export default function WriteEditorPage() {
                                 <PopoverContent className="w-fit p-1 flex gap-1 bg-background border shadow-xl rounded-full">
                                     <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()} className="h-6 w-6 rounded-full bg-yellow-300 border border-black/10 hover:scale-110 transition-transform" />
                                     <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#6ee7b7' }).run()} className="h-6 w-6 rounded-full bg-emerald-300 border border-black/10 hover:scale-110 transition-transform" />
-                                    <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#f87171' }).run()} className="h-6 w-6 rounded-full bg-rose-400 border border-black/10 hover:scale-110 transition-transform" />
+                                    <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#6ee7b7' }).run()} className="h-6 w-6 rounded-full bg-rose-400 border border-black/10 hover:scale-110 transition-transform" />
                                     <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="h-3 w-3"/></Button>
                                 </PopoverContent>
                             </Popover>

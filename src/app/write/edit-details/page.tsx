@@ -55,7 +55,7 @@ import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/placeholder-data'; 
 import { Separator } from '@/components/ui/separator';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const AUTOSAVE_DELAY = 2000;
 const MAX_COVER_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
