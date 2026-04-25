@@ -1,13 +1,3 @@
-
-export async function generateStaticParams() {
-  // This is a placeholder to fix the Vercel build error.
-  // In a dynamic application like this, fully static generation of all user
-  // connection pages at build time is not practical.
-  // Returning an empty array allows the build to succeed, and the pages
-  // will be rendered on the client-side.
-  return [];
-}
-
 'use client';
 
 import { useState, useEffect } from 'react';
