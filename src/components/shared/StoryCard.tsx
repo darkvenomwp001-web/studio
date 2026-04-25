@@ -17,15 +17,6 @@ export default function StoryCard({ story }: StoryCardProps) {
   const { toast } = useToast();
   const { onOpen } = useStoryPreview();
 
-  const handleMoodMatcherClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toast({
-      title: "Mood Matcher (Coming Soon!)",
-      description: "Tell us how you feel, and we'll find stories to match your vibe!",
-    });
-  };
-
   return (
     <div 
       onClick={() => onOpen(story.id)}
@@ -49,15 +40,6 @@ export default function StoryCard({ story }: StoryCardProps) {
               <span className="flex items-center gap-1 text-yellow-400"><Star className="h-3 w-3 fill-yellow-400" /> {story.rating?.toFixed(1) || '4.8'}</span>
            </div>
         </div>
-
-        <button
-          onClick={handleMoodMatcherClick}
-          aria-label="Mood Matcher"
-          className="absolute top-2 left-2 z-10 p-1.5 bg-black/40 backdrop-blur-md text-white rounded-full hover:bg-primary transition-colors opacity-0 group-hover:opacity-100"
-          title="Mood Matcher"
-        >
-          <Sparkles className="w-3 h-3" />
-        </button>
       </div>
 
       {/* Refined Metadata Area */}

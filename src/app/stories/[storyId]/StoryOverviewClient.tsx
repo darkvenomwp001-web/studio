@@ -32,7 +32,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
-import { getStoryMood } from '@/app/actions/aiActions';
 
 export default function StoryOverviewClient({ storyId }: { storyId: string }) {
   const router = useRouter();
@@ -42,7 +41,6 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
   const [story, setStory] = useState<Story | null>(null);
   const [authorInfo, setAuthorInfo] = useState<UserSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isMoodLoading, setIsMoodLoading] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
 
@@ -101,27 +99,6 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
     }
   };
 
-  const handleMoodMatcherClick = async () => {
-    if (!story) return;
-    setIsMoodLoading(true);
-
-    const result = await getStoryMood({ title: story.title, summary: story.summary, tags: story.tags });
-    
-    if ('error' in result) {
-      toast({
-        title: "Vibe Check Failed",
-        description: "Couldn't determine the mood right now.",
-        variant: "destructive",
-      });
-    } else {
-       toast({
-        title: "Story Vibe Identified",
-        description: `This story has a "${result.mood}" mood. Similar stories feature coming soon!`,
-      });
-    }
-    setIsMoodLoading(false);
-  };
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
@@ -155,14 +132,6 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
             className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105"
             data-ai-hint="book cover"
           />
-           <button
-            onClick={handleMoodMatcherClick}
-            className="absolute top-2 left-2 z-10 p-2 bg-black/60 backdrop-blur-md text-white rounded-full hover:bg-primary transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
-            title="AI Mood Matcher"
-            disabled={isMoodLoading}
-          >
-            {isMoodLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          </button>
         </div>
 
         <div className="flex flex-col items-center sm:items-start flex-grow text-center sm:text-left pt-2">

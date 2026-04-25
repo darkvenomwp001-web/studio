@@ -31,7 +31,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
-import { getStoryMood } from '@/app/actions/aiActions';
 import { useStoryPreview } from '@/context/StoryPreviewProvider';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { useRouter } from 'next/navigation';
@@ -45,7 +44,6 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
   const [story, setStory] = useState<Story | null>(null);
   const [authorInfo, setAuthorInfo] = useState<UserSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isMoodLoading, setIsMoodLoading] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
 
@@ -147,29 +145,6 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
       addToLibrary(story);
     }
   };
-  
-  const handleMoodMatcherClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!story) return;
-    setIsMoodLoading(true);
-
-    const result = await getStoryMood({ title: story.title, summary: story.summary, tags: story.tags });
-    
-    if ('error' in result) {
-      toast({
-        title: "Mood Matcher Error",
-        description: `Couldn't determine the mood: ${result.error}`,
-        variant: "destructive",
-      });
-    } else {
-       toast({
-        title: "Story Vibe",
-        description: `This story has a "${result.mood}" mood. Feature to find similar stories coming soon!`,
-      });
-    }
-    setIsMoodLoading(false);
-  };
 
   if (isLoading) {
     return (
@@ -209,15 +184,6 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
             data-ai-hint="book cover"
             priority
           />
-           <button
-            onClick={handleMoodMatcherClick}
-            aria-label="Mood Matcher"
-            className="absolute top-1 left-1 z-10 p-1 bg-black/50 text-white rounded-full hover:bg-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
-            title="AI Mood Matcher (Find similar vibes)"
-            disabled={isMoodLoading}
-          >
-            {isMoodLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          </button>
         </div>
 
         <div className="flex flex-col items-center sm:items-start flex-grow text-center sm:text-left">
