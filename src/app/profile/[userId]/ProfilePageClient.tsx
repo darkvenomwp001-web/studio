@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, FormEvent, useTransition } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -14,18 +14,12 @@ import {
   Settings, 
   LogOut, 
   Edit3, 
-  FileText, 
   ShieldAlert, 
-  PenSquare, 
-  Send, 
   MoreHorizontal, 
   Edit, 
   Trash2, 
-  LayoutGrid, 
   Megaphone, 
-  CheckCircle, 
   Star, 
-  Sparkles, 
   Music, 
   Lock, 
   Pin, 
@@ -33,7 +27,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Story, User as AppUser, Announcement, UserSummary, Letter as LetterType } from '@/types';
+import type { Story, User as AppUser, Announcement, Letter as LetterType } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -57,14 +51,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDistanceToNow } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogDescription } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import ProfilePhotoGrid from '@/components/profile/ProfilePhotoGrid';
 import VerifiedBadge from '@/components/icons/VerifiedBadge';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
 
@@ -327,7 +317,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [liveFollowersCount, setLiveFollowersCount] = useState<number | null>(null);
   const [announcementCount, setAnnouncementCount] = useState(0);
-  const [pinnedLetters, setPinnedLetters] = useState<LetterType[]>([]);
   const defaultTab = searchParams.get('tab') || 'works';
 
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
@@ -360,23 +349,10 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     const annoQuery = query(collection(db, 'announcements'), where('author.id', '==', userId));
     const unsubAnnoCount = onSnapshot(annoQuery, (snap) => setAnnouncementCount(snap.size));
 
-    const pinnedLettersQuery = query(
-        collection(db, 'letters'),
-        where('authorId', '==', userId),
-        where('isPinned', '==', true),
-        where('visibility', '==', 'public'),
-        orderBy('timestamp', 'desc'),
-        limit(6)
-    );
-    const unsubPinned = onSnapshot(pinnedLettersQuery, (snapshot) => {
-        setPinnedLetters(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as LetterType)));
-    });
-
     return () => {
       unsubscribeUser();
       unsubscribeFollowersCount();
       unsubAnnoCount();
-      unsubPinned();
     };
   }, [userId, router]);
 
@@ -419,9 +395,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
   const isFollowing = currentUser?.followingIds?.includes(profileUser.id) || false;
   const displayName = profileUser.displayName || profileUser.username;
   const showAnnouncementsTab = isOwnProfile || announcementCount > 0;
-  
-  const currentLevel = profileUser.level || 1;
-  const currentXP = profileUser.xp || 0;
 
   return (
     <div className="space-y-10 pb-20 animate-in fade-in duration-500">
@@ -449,30 +422,12 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                   </div>
 
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm font-semibold">
-                      <span className="text-primary flex items-center gap-1.5"><Star className="h-4 w-4 text-yellow-500" /> Level {currentLevel} ({currentXP} XP)</span>
                       <Link href={`/profile/${userId}/connections?tab=followers`} className="hover:underline">{liveFollowersCount ?? '...'} Followers</Link>
                       <Link href={`/profile/${userId}/connections?tab=following`} className="hover:underline">{profileUser.followingCount || 0} Following</Link>
                   </div>
 
                   {profileUser.bio && <p className="text-muted-foreground text-sm max-w-2xl">{profileUser.bio}</p>}
                   
-                  {profileUser.achievements && profileUser.achievements.length > 0 && (
-                      <div className="flex flex-wrap justify-center md:justify-start gap-2">
-                          {profileUser.achievements.map(ach => (
-                              <TooltipProvider key={ach.id}>
-                                  <Tooltip>
-                                      <TooltipTrigger asChild>
-                                          <div className="bg-muted p-1.5 rounded-lg border border-border/50">
-                                              <Sparkles className="h-4 w-4 text-primary" />
-                                          </div>
-                                      </TooltipTrigger>
-                                      <TooltipContent>{ach.name}</TooltipContent>
-                                  </Tooltip>
-                              </TooltipProvider>
-                          ))}
-                      </div>
-                  )}
-
                   <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-2">
                     {isOwnProfile ? (
                         <>
@@ -534,33 +489,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
               </div>
             )}
             
-            {pinnedLetters.length > 0 && (
-                <div>
-                    <h2 className="text-xl font-headline font-bold mb-4 flex items-center gap-2"><Star className="h-5 w-5 text-yellow-500" /> Reader Praise</h2>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {pinnedLetters.map(letter => (
-                            <Card key={letter.id} className="relative group">
-                                <CardHeader className="pb-2">
-                                    <div className="flex items-center gap-2">
-                                        <Avatar className="h-6 w-6">
-                                            <AvatarImage src={letter.reader.avatarUrl} />
-                                            <AvatarFallback>{letter.reader.username.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <p className="text-xs font-bold truncate">@{letter.reader.username}</p>
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-xs italic line-clamp-3">"{letter.content}"</p>
-                                </CardContent>
-                                <div className="absolute top-2 right-2 opacity-30">
-                                    <Pin className="h-3 w-3" />
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
-                </div>
-            )}
-
             {isOwnProfile && privateWorks.length > 0 && (
               <div>
                 <h2 className="text-xl font-headline font-bold mb-4 flex items-center gap-2"><Lock className="h-5 w-5" /> Private Archives</h2>
