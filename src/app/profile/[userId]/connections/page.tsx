@@ -1,4 +1,3 @@
-
 export async function generateStaticParams() {
   // This is a placeholder to fix the Vercel build error.
   // In a dynamic application like this, fully static generation of all user

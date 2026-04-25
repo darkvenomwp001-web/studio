@@ -7,19 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { 
   Save, 
-  History, 
-  EyeOff, 
-  BookOpen, 
-  CheckCircle, 
-  AlertTriangle, 
-  AlertCircle,
-  Maximize, 
-  Minimize, 
-  Send, 
-  FileText, 
-  Settings, 
   Loader2, 
-  Eye, 
   Undo, 
   Redo, 
   Bold, 
@@ -32,35 +20,34 @@ import {
   ListOrdered,
   Quote,
   X,
-  Plus,
   Target,
   Zap,
   Play,
   Pause,
   RotateCcw,
-  Palette
+  Palette,
+  ArrowLeft,
+  AlertCircle,
+  CheckCircle,
+  FileText,
+  BookOpen,
+  Send,
+  Settings,
+  Eye,
+  EyeOff,
+  Minimize,
+  Maximize,
+  History
 } from 'lucide-react';
-import StoryCompendium from '@/components/writing/StoryCompendium';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { 
-  AlertDialog, 
-  AlertDialogAction, 
-  AlertDialogCancel, 
-  AlertDialogContent, 
-  AlertDialogDescription, 
-  AlertDialogFooter, 
-  AlertDialogHeader, 
-  AlertDialogTitle, 
-  AlertDialogTrigger 
-} from '@/components/ui/alert-dialog';
 import { useSearchParams, useRouter } from 'next/navigation';
-import NextImage from 'next/image';
 import Link from 'next/link';
+import NextImage from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import type { Story, Chapter } from '@/types';
+import type { Story, Chapter, Note } from '@/types';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
@@ -69,8 +56,19 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { BubbleMenu, EditorContent, useEditor } from '@tiptap/react'
+import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
@@ -135,6 +133,14 @@ const VersionHistoryManager = {
   },
 };
 
+// A placeholder for the actual StoryCompendium component
+const StoryCompendium = ({ storyId, initialNotes }: { storyId: string, initialNotes?: Note[] }) => (
+    <div className="p-5 bg-card rounded-2xl border border-border/40 shadow-sm">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Story Compendium</h2>
+        <p className="text-sm text-muted-foreground">Compendium component is not implemented yet.</p>
+    </div>
+);
+
 function EditorContentInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -147,37 +153,30 @@ function EditorContentInner() {
   const [storyDetails, setStoryDetails] = useState<Story | null>(null); 
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
   const [chapterTitle, setChapterTitle] = useState('');
-  
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      TiptapUnderline,
-      TiptapHighlight.configure({ multicolor: true }),
-      CharacterCount,
-    ],
-    content: '',
-    editorProps: {
-        attributes: {
-            class: 'prose dark:prose-invert focus:outline-none min-h-[70vh] p-8 md:p-12 text-base leading-relaxed selection:bg-primary/20',
-        },
-    },
-    onUpdate: () => {
-        setAutoSaveStatus('Typing');
-    },
-  });
-
-  const [isDistractionFree, setIsDistractionFree] = useState(false);
-  const [isCompendiumOpen, setIsCompendiumOpen] = useState(false);
-  const [wordCount, setWordCount] = useState(0);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving...' | 'Error' | 'No Changes' | 'Typing'>('No Changes');
-  const [isFullScreen, setIsFullScreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isFrozen, setIsFrozen] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving...' | 'Error' | 'No Changes' | 'Typing'>('No Changes');
+  const [wordCount, setWordCount] = useState(0);
   
   const [isZenFocus, setIsZenFocus] = useState(false);
-  const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
-  const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
+  const [isDistractionFree, setIsDistractionFree] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isCompendiumOpen, setIsCompendiumOpen] = useState(false);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit, 
+      TiptapUnderline, 
+      TiptapHighlight.configure({ multicolor: true }), 
+      CharacterCount
+    ],
+    content: '',
+    editorProps: { 
+      attributes: { 
+        class: 'prose dark:prose-invert focus:outline-none min-h-full flex-grow p-8 md:p-12 text-base'
+      } 
+    },
+  });
 
   const isAuthorOrCollaborator = useMemo(() => {
     return !!(currentUser && storyDetails && (storyDetails.author?.id === currentUser.id || storyDetails.collaboratorIds?.includes(currentUser.id)));
@@ -185,23 +184,9 @@ function EditorContentInner() {
 
   useEffect(() => {
     if (editor) {
-      const isNowEditable = isAuthorOrCollaborator && !isFrozen;
-      if (editor.isEditable !== isNowEditable) {
-        editor.setEditable(isNowEditable || false);
-      }
+      editor.setEditable(!!isAuthorOrCollaborator);
     }
-  }, [isAuthorOrCollaborator, isFrozen, editor]);
-
-  useEffect(() => {
-    if (autoScrollSpeed > 0) {
-        autoScrollInterval.current = setInterval(() => {
-            window.scrollBy({ top: autoScrollSpeed, behavior: 'smooth' });
-        }, 50);
-    } else {
-        if (autoScrollInterval.current) clearInterval(autoScrollInterval.current);
-    }
-    return () => { if (autoScrollInterval.current) clearInterval(autoScrollInterval.current); };
-  }, [autoScrollSpeed]);
+  }, [isAuthorOrCollaborator, editor]);
 
   useEffect(() => {
     if (authLoading) {
@@ -316,7 +301,7 @@ function EditorContentInner() {
           path: storyDocRef.path,
           operation: 'update',
           requestResourceData: storyUpdateData,
-        } satisfies SecurityRuleContext);
+        } as SecurityRuleContext);
         errorEmitter.emit('permission-error', permissionError);
         setAutoSaveStatus('Error');
       });
@@ -396,7 +381,7 @@ function EditorContentInner() {
             path: storyDocRef.path,
             operation: 'update',
             requestResourceData: storyUpdateData,
-        } satisfies SecurityRuleContext);
+        } as SecurityRuleContext);
         errorEmitter.emit('permission-error', permissionError);
         setAutoSaveStatus('Error');
       });
@@ -417,39 +402,17 @@ function EditorContentInner() {
       }
     }
   };
-
-  useEffect(() => {
-    const fullscreenChangeHandler = () => setIsFullScreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', fullscreenChangeHandler);
-    return () => document.removeEventListener('fullscreenchange', fullscreenChangeHandler);
-  }, []);
-
-  if (isLoading || authLoading || !editor) {
-      return (
-        <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </div>
-      );
-  }
-
-  if (isDistractionFree) {
-    return (
-      <div className="fixed inset-0 bg-background z-[100] p-4 sm:p-8 flex flex-col items-center">
-        <EditorContent editor={editor} className="w-full max-w-3xl h-full"/>
-        <Button variant="ghost" size="sm" onClick={() => setIsDistractionFree(false)} className="mt-4 self-start">
-          <EyeOff className="mr-2 h-4 w-4" /> Exit Distraction-Free
-        </Button>
-         <div className="fixed bottom-4 right-4 text-xs font-bold text-muted-foreground bg-card p-2 rounded-md shadow uppercase tracking-widest">
-            {wordCount} words
-        </div>
-      </div>
-    );
+  
+  if (isLoading || authLoading || !editor || !storyDetails || !currentChapter) {
+    return <div className="fixed inset-0 flex justify-center items-center bg-background z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
+    <TooltipProvider>
     <AlertDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
       <div className={cn(
           "flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-10rem)] overflow-x-hidden",
+          isDistractionFree && "lg:!pr-0",
           isFullScreen && 'fixed inset-0 bg-background z-[99] p-4'
       )}>
         <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
@@ -469,108 +432,14 @@ function EditorContentInner() {
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" title="Workspace Appearance">
-                                <Palette className="h-4 w-4" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-card/95 backdrop-blur-xl">
-                            <div className="p-6 space-y-6">
-                                <header className="flex items-center justify-between mb-2">
-                                    <div>
-                                        <h4 className="font-headline font-bold text-foreground tracking-tight">Appearance</h4>
-                                        <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60">Customize workspace</p>
-                                    </div>
-                                    <Badge variant="outline" className={cn("gap-1.5 px-2 py-1", isFrozen ? "text-blue-500" : "text-orange-500")}>
-                                        <Snowflake className={cn("h-3 w-3", isFrozen && "animate-pulse")} />
-                                        {isFrozen ? "Frozen" : "Live Edit"}
-                                    </Badge>
-                                </header>
-
-                                <div className="grid gap-3">
-                                    <div className="p-4 rounded-2xl bg-card/50 border border-border/40 space-y-4 shadow-sm">
-                                        <div className="flex items-center justify-between">
-                                            <Label htmlFor="zen-focus" className="flex items-center gap-3 cursor-pointer group">
-                                                <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
-                                                    <Target className="h-4 w-4" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-sm font-bold block">Zen Focus</span>
-                                                    <span className="text-[10px] text-muted-foreground">Dim non-active text</span>
-                                                </div>
-                                            </Label>
-                                            <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
-                                        </div>
-                                        
-                                        <Separator className="opacity-40" />
-
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="p-2 rounded-lg bg-accent/10 text-accent">
-                                                        <Zap className="h-4 w-4" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-sm font-bold block">Auto-Pilot</span>
-                                                        <span className="text-[10px] text-muted-foreground">Hands-free scrolling</span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    {autoScrollSpeed > 0 ? (
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-red-500/10 text-red-500" onClick={() => setAutoScrollSpeed(0)}><Pause className="h-4 w-4"/></Button>
-                                                    ) : (
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-green-500/10 text-green-500" onClick={() => setAutoScrollSpeed(2)}><Play className="h-4 w-4"/></Button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="px-2">
-                                                <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter text-muted-foreground mb-2">
-                                                    <span>Speed</span>
-                                                    <span>{autoScrollSpeed === 0 ? "Off" : `${autoScrollSpeed}x`}</span>
-                                                </div>
-                                                <Slider
-                                                    value={[autoScrollSpeed]}
-                                                    onValueChange={([v]) => setAutoScrollSpeed(v)}
-                                                    max={10}
-                                                    step={1}
-                                                    className="py-2"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {isAuthorOrCollaborator && (
-                                        <div className="p-4 rounded-2xl bg-muted/30 border border-dashed flex items-center justify-between group">
-                                            <Label htmlFor="freeze-mode" className="flex items-center gap-3 cursor-pointer">
-                                                <Snowflake className="h-4 w-4 text-blue-500" />
-                                                <span className="text-sm font-bold">Freeze Mode</span>
-                                            </Label>
-                                            <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <footer className="p-4 bg-muted/30 border-t flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                                    <Target className="h-3 w-3" />
-                                    <span>Adaptive Space</span>
-                                </div>
-                                <Button variant="ghost" size="sm" className="h-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive text-[10px] font-bold uppercase tracking-widest gap-1.5" onClick={() => { setAutoScrollSpeed(0); setIsZenFocus(false); setIsFrozen(false); }}>
-                                    <RotateCcw className="h-3 w-3" /> 
-                                    Reset
-                                </Button>
-                            </footer>
-                        </PopoverContent>
-                    </Popover>
+                <div className="flex items-center gap-1">
                     <Link href={`/write/edit-details?storyId=${storyDetails?.id}`} passHref>
                         <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" title="Story Settings">
                             <Settings className="h-4 w-4" />
                         </Button>
                     </Link>
                 </div>
-            </div>
+             </div>
 
             <div className="space-y-4">
                 <Input
@@ -671,7 +540,10 @@ function EditorContentInner() {
           </footer>
         </div>
 
-        <aside className="hidden lg:block w-full lg:w-80 xl:w-96 space-y-6">
+        <aside className={cn(
+            "hidden lg:block w-full lg:w-80 xl:w-96 space-y-6 transition-all duration-300",
+            isDistractionFree && "lg:opacity-0 lg:w-0 lg:invisible"
+          )}>
           <div className="p-5 bg-card rounded-2xl border border-border/40 shadow-sm">
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Workspace Settings</h2>
               <div className="space-y-4">
@@ -710,19 +582,14 @@ function EditorContentInner() {
                     <h2 className="text-2xl font-headline font-bold text-foreground">{chapterTitle || 'Untitled Chapter'}</h2>
                     <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Preview Mode</p>
                 </div>
-                <AlertDialogAction asChild onClick={() => setIsPreviewOpen(false)}>
-                    <Button variant="ghost" size="icon" className="rounded-full"><X className="h-5 w-5" /></Button>
-                </AlertDialogAction>
+                 <AlertDialogCancel className="rounded-full h-8 w-8 p-0"><X className="h-4 w-4"/></AlertDialogCancel>
             </div>
-            <ScrollArea className="max-h-[70vh] bg-background">
-                <div className="prose dark:prose-invert prose-reading p-8 mx-auto" dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
-            </ScrollArea>
-            <div className="p-4 bg-muted/20 border-t flex justify-end">
-                <AlertDialogCancel className="rounded-full px-8 bg-background">Exit Preview</AlertDialogCancel>
-            </div>
+            <div className="prose dark:prose-invert max-h-[70vh] overflow-y-auto p-8" dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
         </AlertDialogContent>
+
       </div>
     </AlertDialog>
+    </TooltipProvider>
   );
 }
 
