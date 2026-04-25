@@ -147,7 +147,7 @@ function EditorContentInner() {
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
   const [chapterTitle, setChapterTitle] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving...' | 'Error' | 'No Changes' | 'Typing'>('No Changes');
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving...' | 'No Changes' | 'Typing'>('No Changes');
   const [wordCount, setWordCount] = useState(0);
   
   const [isZenFocus, setIsZenFocus] = useState(false);

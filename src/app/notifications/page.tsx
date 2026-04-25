@@ -75,6 +75,7 @@ import {
   DialogDescription,
   DialogTrigger,
   DialogClose,
+  DialogFooter
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -419,8 +420,8 @@ function MessagesClient() {
       orderBy('updatedAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const fetchedConversations = querySnapshot.docs.map(doc => ({
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedConversations = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
       } as Conversation));
@@ -447,8 +448,8 @@ function MessagesClient() {
       limit(100) 
     );
 
-    const unsubscribe = onSnapshot(messagesQuery, (querySnapshot) => {
-      const fetchedMessages = querySnapshot.docs.map(doc => ({
+    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+      const fetchedMessages = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
       } as Message));
@@ -1350,35 +1351,33 @@ export default function UnifiedInboxPage() {
     };
 
     return (
-        <>
+        <Suspense fallback={<div className="flex flex-col justify-center items-center min-h-screen gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-headline font-bold text-xl">Loading inbox...</p></div>}>
             <Header />
             <div className="max-w-7xl mx-auto space-y-6 pt-6 pb-24 md:pb-12 px-4 md:px-6">
-                <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin" /></div>}>
-                    <Tabs defaultValue={defaultTab} className="w-full" onValueChange={handleTabChange}>
-                        <div className="flex justify-center mb-6">
-                            <TabsList className="grid grid-cols-2 w-full max-w-[400px] h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-sm">
-                                <TabsTrigger value="messages" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
-                                    <MessageSquare className="h-4 w-4" /> 
-                                    Messages
-                                </TabsTrigger>
-                                <TabsTrigger value="notifications" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
-                                    <Bell className="h-4 w-4" /> 
-                                    Activity
-                                </TabsTrigger>
-                            </TabsList>
-                        </div>
-                        
-                        <TabsContent value="notifications" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
-                            <NotificationsList />
-                        </TabsContent>
-                        
-                        <TabsContent value="messages" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
-                            <MessagesClient />
-                        </TabsContent>
-                    </Tabs>
-                </Suspense>
+                <Tabs defaultValue={defaultTab} className="w-full" onValueChange={handleTabChange}>
+                    <div className="flex justify-center mb-6">
+                        <TabsList className="grid grid-cols-2 w-full max-w-[400px] h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-sm">
+                            <TabsTrigger value="messages" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
+                                <MessageSquare className="h-4 w-4" /> 
+                                Messages
+                            </TabsTrigger>
+                            <TabsTrigger value="notifications" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
+                                <Bell className="h-4 w-4" /> 
+                                Activity
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
+                    
+                    <TabsContent value="notifications" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
+                        <NotificationsList />
+                    </TabsContent>
+                    
+                    <TabsContent value="messages" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
+                        <MessagesClient />
+                    </TabsContent>
+                </Tabs>
             </div>
             <BottomNavigationBar />
-        </>
+        </Suspense>
     );
 }

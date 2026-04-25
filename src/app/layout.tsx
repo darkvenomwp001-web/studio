@@ -1,6 +1,6 @@
 'use client';
 
-import type { Metadata, Viewport } from 'next';
+import { Suspense } from 'react';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
@@ -45,7 +45,9 @@ export default function RootLayout({
                   <FirebaseErrorListener />
                   <ScrollToTop />
                   <div className="relative flex min-h-screen flex-col overflow-x-hidden max-w-[100vw]">
-                    {children}
+                    <Suspense fallback={null}>
+                      {children}
+                    </Suspense>
                   </div>
                   <Toaster />
                   <PasswordSetupDialog />

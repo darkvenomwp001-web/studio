@@ -46,7 +46,7 @@ function CreateStatusBubble({ onClick }: { onClick: () => void }) {
   );
 }
 
-function StatusBubble({ user, onSelect, hasStatus }: { user: User, onSelect: (user: User) => void, hasStatus: boolean }) {
+function StatusBubble({ user, onSelect, hasStatus, label }: { user: User, onSelect: (user: User) => void, hasStatus: boolean, label?: string }) {
   return (
     <div
       className="relative text-center flex-shrink-0 w-20 cursor-pointer group"
@@ -63,7 +63,7 @@ function StatusBubble({ user, onSelect, hasStatus }: { user: User, onSelect: (us
             </Avatar>
         </div>
       </div>
-      <p className="text-[10px] font-bold uppercase mt-1.5 truncate tracking-tighter">{user.displayName || user.username}</p>
+      <p className="text-[10px] font-bold uppercase mt-1.5 truncate tracking-tighter">{label || user.displayName || user.username}</p>
     </div>
   );
 }
@@ -142,14 +142,18 @@ export default function StatusFeature() {
     allStatuses.forEach(status => {
         if (!groups.has(status.authorId)) {
             groups.set(status.authorId, { user: status.authorInfo as User, statuses: [] });
-            newStatusOrder.push(status.authorId);
+            if (status.authorId === user?.id) {
+                newStatusOrder.unshift(status.authorId);
+            } else {
+                newStatusOrder.push(status.authorId);
+            }
         }
         groups.get(status.authorId)!.statuses.push(status);
     });
 
     setGroupedStatuses(groups);
     setStatusOrder(newStatusOrder);
-  }, [allStatuses]);
+  }, [allStatuses, user?.id]);
 
   const handleMediaSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -310,7 +314,7 @@ export default function StatusFeature() {
                 [...Array(6)].map((_, i) => <div key={i} className="w-16 h-16 rounded-full bg-muted animate-pulse flex-shrink-0" />)
             ) : (
                 <>
-                    {/* 1. Permanent Create Bubble for Current User */}
+                    {/* 1. Permanent Create Bubble */}
                     {user && !user.isAnonymous && (
                         <CreateStatusBubble onClick={() => setIsCreatorOpen(true)} />
                     )}
@@ -324,7 +328,8 @@ export default function StatusFeature() {
                                 key={userId} 
                                 user={group.user} 
                                 hasStatus={true} 
-                                onSelect={handleSelectUser} 
+                                onSelect={handleSelectUser}
+                                label={userId === user?.id ? 'My Status' : undefined}
                             />
                         );
                     })}
@@ -368,9 +373,9 @@ export default function StatusFeature() {
 
       <Dialog open={isUploaderOpen} onOpenChange={(o) => { setIsUploaderOpen(o); if(!o) resetUploader(); }}>
           <DialogContent className="p-0 border-none sm:max-w-md flex flex-col rounded-3xl overflow-hidden shadow-3xl">
-              <DialogHeader className="sr-only">
-                  <DialogTitle>Status Content Creator</DialogTitle>
-                  <DialogDescription>Compose and style your temporary status update.</DialogDescription>
+              <DialogHeader className="p-6 bg-muted/30 border-b">
+                  <DialogTitle className="font-headline text-xl">Status Content Creator</DialogTitle>
+                  <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Compose and style your temporary update</DialogDescription>
               </DialogHeader>
               <div className={cn(
                   "relative h-[450px] flex flex-col justify-center items-center text-white transition-all duration-500",

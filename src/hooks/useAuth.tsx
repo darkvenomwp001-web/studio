@@ -73,7 +73,7 @@ interface AuthContextType {
   reloadUser: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signUpWithEmailPassword: (data: { username: string; email: string; passwordOne: string; }) => Promise<void>;
-  signInWithEmailPassword: (data: { emailOrUsername: string; passwordOne: string; }) => Promise<void>;
+  signInWithEmailAndPassword: (data: { emailOrUsername: string; passwordOne: string; }) => Promise<void>;
   signOutFirebase: () => Promise<void>;
   updateUserProfile: (updates: Partial<AppUser>) => Promise<void>;
   updateUserEmailFirebase: (newEmail: string, currentPasswordForReAuth: string) => Promise<boolean>;
@@ -222,12 +222,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followersCount: firestoreUserData.followersCount || 0,
               followingCount: firestoreUserData.followingIds?.length || 0,
               followingIds: firestoreUserData.followingIds || [],
+              closeFriendIds: firestoreUserData.closeFriendIds || [],
               fcmTokens: firestoreUserData.fcmTokens || [],
               writtenStories: writtenStories,
               readingList: firestoreUserData.readingList || [],
               isAnonymous: firebaseUser.isAnonymous,
               isVerified: isOwner || firestoreUserData.isVerified,
               isBanned: firestoreUserData.isBanned,
+              profileSongUrl: firestoreUserData.profileSongUrl,
+              profileSongNote: firestoreUserData.profileSongNote,
+              appearanceSettings: firestoreUserData.appearanceSettings,
               createdAt: firestoreUserData.createdAt,
               updatedAt: firestoreUserData.updatedAt,
             };
@@ -265,6 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followersCount: 0,
               followingCount: 0,
               followingIds: [],
+              closeFriendIds: [],
               fcmTokens: [],
               writtenStories: [],
               readingList: [],
@@ -436,7 +441,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithEmailPassword = async ({ emailOrUsername, passwordOne }: { emailOrUsername: string; passwordOne: string; }) => {
+  const signInWithEmailAndPassword = async ({ emailOrUsername, passwordOne }: { emailOrUsername: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
       let email = emailOrUsername;
@@ -528,6 +533,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             await batch.commit();
         }
+        toast({ title: "Profile Updated!" });
     } catch (serverError: any) {
         const permissionError = new FirestorePermissionError({
             path: userRef.path,
@@ -583,7 +589,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(1) });
-    batch.commit();
+    batch.commit().then(() => toast({ title: "Following!" }));
   };
 
   const unfollowUser = async (targetUserId: string) => {
@@ -591,7 +597,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(-1) });
-    batch.commit();
+    batch.commit().then(() => toast({ title: "Unfollowed" }));
   };
 
   const addToLibrary = async (story: Story) => {
@@ -606,7 +612,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         status: story.status,
     };
     const userRef = doc(db, 'users', user.id);
-    updateDoc(userRef, { readingList: arrayUnion(item) });
+    updateDoc(userRef, { readingList: arrayUnion(item) }).then(() => toast({ title: "Added to Library!" }));
   };
 
   const removeFromLibrary = async (storyId: string) => {
@@ -614,7 +620,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const itemToRemove = user.readingList?.find(i => i.id === storyId);
     if (itemToRemove) {
         const userRef = doc(db, 'users', user.id);
-        updateDoc(userRef, { readingList: arrayRemove(itemToRemove) });
+        updateDoc(userRef, { readingList: arrayRemove(itemToRemove) }).then(() => toast({ title: "Removed from Library" }));
     }
   };
 
@@ -650,7 +656,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         reloadUser,
         signInWithGoogle,
         signUpWithEmailPassword,
-        signInWithEmailPassword,
+        signInWithEmailAndPassword,
         signOutFirebase,
         updateUserProfile,
         updateUserEmailFirebase,
