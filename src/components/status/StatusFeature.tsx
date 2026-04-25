@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -8,19 +9,17 @@ import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestam
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, X, Type, Palette, Image as LucideImageIcon, Sparkles, Music, BarChart2, BookOpen, Send, CheckCircle, ChevronRight, UserPlus } from 'lucide-react';
+import { Loader2, Plus, X, Type, Image as LucideImageIcon, Sparkles, Music, BarChart2, BookOpen, Send, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
-import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import StatusViewer from './StatusViewer';
 import { Textarea } from '../ui/textarea';
 import SongSearch from './SongSearch';
 import { Input } from '../ui/input';
+import { Badge } from '../ui/badge';
 import { getStatusCaptions } from '@/app/actions/aiActions';
 
 const gradientBackgrounds = [
@@ -32,10 +31,23 @@ const gradientBackgrounds = [
   'bg-gradient-to-br from-sky-400 to-sky-200',
 ];
 
-function StatusBubble({ user, onSelect, hasStatus }: { user: User, onSelect: (user: User) => void, hasStatus: boolean }) {
-  const { user: authUser } = useAuth();
-  const isOwn = authUser?.id === user.id;
+function CreateStatusBubble({ onClick }: { onClick: () => void }) {
+  return (
+    <div
+      className="relative text-center flex-shrink-0 w-20 cursor-pointer group"
+      onClick={onClick}
+    >
+      <div className="relative w-16 h-16 mx-auto group-hover:scale-105 transition-all">
+        <div className="w-16 h-16 rounded-full bg-muted border-2 border-dashed border-primary/40 flex items-center justify-center shadow-sm">
+            <Plus className="h-6 w-6 text-primary" />
+        </div>
+      </div>
+      <p className="text-[10px] font-bold uppercase mt-1.5 truncate tracking-tighter opacity-60">Add Status</p>
+    </div>
+  );
+}
 
+function StatusBubble({ user, onSelect, hasStatus }: { user: User, onSelect: (user: User) => void, hasStatus: boolean }) {
   return (
     <div
       className="relative text-center flex-shrink-0 w-20 cursor-pointer group"
@@ -51,14 +63,8 @@ function StatusBubble({ user, onSelect, hasStatus }: { user: User, onSelect: (us
                 <AvatarFallback>{user.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
         </div>
-        
-        {isOwn && !hasStatus && (
-           <div className="absolute bottom-0 right-0 z-10 w-6 h-6 bg-primary border-2 border-background rounded-full flex items-center justify-center shadow-md">
-              <Plus className="h-3 w-3 text-white" />
-           </div>
-        )}
       </div>
-      <p className="text-[10px] font-bold uppercase mt-1 truncate tracking-tighter">{isOwn ? 'Add Status' : user.displayName || user.username}</p>
+      <p className="text-[10px] font-bold uppercase mt-1.5 truncate tracking-tighter">{user.displayName || user.username}</p>
     </div>
   );
 }
@@ -78,17 +84,14 @@ export default function StatusFeature() {
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Status Content States
   const [noteContent, setNoteContent] = useState('');
   const [backgroundStyle, setBackgroundStyle] = useState<string>(gradientBackgrounds[0]);
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
-  const [storySearchQuery, setStorySearchQuery] = useState('');
   const [storySearchResults, setStorySearchResults] = useState<Story[]>([]);
   
-  // AI Suggestions
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [isGeneratingAi, startAiTransition] = useTransition();
 
@@ -100,7 +103,6 @@ export default function StatusFeature() {
   const [statusVisibility, setStatusVisibility] = useState<'public' | 'close-friends'>('public');
 
   const { toast } = useToast();
-  const router = useRouter();
 
   useEffect(() => {
     if (!user || user.isAnonymous) {
@@ -138,14 +140,7 @@ export default function StatusFeature() {
     const groups = new Map<string, {user: User, statuses: StatusUpdate[]}>(new Map());
     const newStatusOrder: string[] = [];
 
-    if (user && !user.isAnonymous) {
-      const currentUserLive = allStatuses.filter(s => s.authorId === user.id);
-      groups.set(user.id, { user: user as User, statuses: currentUserLive });
-      newStatusOrder.push(user.id);
-    }
-    
     allStatuses.forEach(status => {
-        if (status.authorId === user?.id) return;
         if (!groups.has(status.authorId)) {
             groups.set(status.authorId, { user: status.authorInfo as User, statuses: [] });
             newStatusOrder.push(status.authorId);
@@ -155,7 +150,7 @@ export default function StatusFeature() {
 
     setGroupedStatuses(groups);
     setStatusOrder(newStatusOrder);
-  }, [allStatuses, user]);
+  }, [allStatuses]);
 
   const handleMediaSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -292,13 +287,8 @@ export default function StatusFeature() {
   };
 
   const handleSelectUser = (selectedUser: User) => {
-    const group = groupedStatuses.get(selectedUser.id);
-    if (group && group.statuses.length > 0) {
-        setSelectedUserForViewing(selectedUser);
-        setIsViewerOpen(true);
-    } else {
-        setIsCreatorOpen(true);
-    }
+    setSelectedUserForViewing(selectedUser);
+    setIsViewerOpen(true);
   };
 
   const searchMyStories = async () => {
@@ -320,11 +310,26 @@ export default function StatusFeature() {
             {isLoading ? (
                 [...Array(6)].map((_, i) => <div key={i} className="w-16 h-16 rounded-full bg-muted animate-pulse flex-shrink-0" />)
             ) : (
-                statusOrder.map((userId) => {
-                    const group = groupedStatuses.get(userId);
-                    if (!group) return null;
-                    return <StatusBubble key={userId} user={group.user} hasStatus={group.statuses.length > 0} onSelect={handleSelectUser} />
-                })
+                <>
+                    {/* 1. Permanent Create Bubble for Current User */}
+                    {user && !user.isAnonymous && (
+                        <CreateStatusBubble onClick={() => setIsCreatorOpen(true)} />
+                    )}
+
+                    {/* 2. All Users with Active Statuses */}
+                    {statusOrder.map((userId) => {
+                        const group = groupedStatuses.get(userId);
+                        if (!group || group.statuses.length === 0) return null;
+                        return (
+                            <StatusBubble 
+                                key={userId} 
+                                user={group.user} 
+                                hasStatus={true} 
+                                onSelect={handleSelectUser} 
+                            />
+                        );
+                    })}
+                </>
             )}
         </div>
         <ScrollBar orientation="horizontal" />

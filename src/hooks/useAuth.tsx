@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
@@ -129,7 +130,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Presence Tracking Logic
   useEffect(() => {
     if (!user || user.isAnonymous) return;
 
@@ -255,7 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: firebaseUser.email || '',
               emailVerified: firebaseUser.emailVerified,
               avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`,
-              bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse! Ready to explore.',
+              bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse!',
               role: 'reader',
               isVerified: isOwner,
               messagingPreference: 'everyone',
@@ -289,15 +289,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           setLoading(false);
         }, (error) => {
-            const permissionError = new FirestorePermissionError({
-                path: userRef.path,
-                operation: 'get',
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
             setLoading(false);
         });
 
-        // Notifications listener
         const notifsQuery = query(
             collection(db, 'notifications'),
             where('userId', '==', firebaseUser.uid),
@@ -306,12 +300,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType)));
-        }, (error) => {
-            const permissionError = new FirestorePermissionError({
-                path: 'notifications',
-                operation: 'list',
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
         });
         
       } else {
@@ -337,12 +325,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
     if (user && !user.isAnonymous) {
-        // User is signed in
         if (isAuthRoute) {
             router.push(DEFAULT_REDIRECT_AUTHENTICATED);
         }
     } else {
-        // User is NOT signed in
         if (!isAuthRoute) {
             router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
         }
@@ -368,14 +354,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const markNotificationAsRead = async (notificationId: string) => {
     const notifRef = doc(db, 'notifications', notificationId);
-    updateDoc(notifRef, { isRead: true }).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: notifRef.path,
-            operation: 'update',
-            requestResourceData: { isRead: true },
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    updateDoc(notifRef, { isRead: true });
   };
 
   const markAllNotificationsAsRead = async () => {
@@ -386,14 +365,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     snapshot.forEach(doc => {
         batch.update(doc.ref, { isRead: true });
     });
-    batch.commit().catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'notifications',
-            operation: 'update',
-            requestResourceData: { isRead: true },
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    batch.commit();
   };
 
   const enablePushNotifications = async () => {
@@ -409,13 +381,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const userRef = doc(db, 'users', user.id);
                 updateDoc(userRef, {
                     fcmTokens: arrayUnion(token)
-                }).catch(async (serverError) => {
-                    const permissionError = new FirestorePermissionError({
-                        path: userRef.path,
-                        operation: 'update',
-                        requestResourceData: { fcmTokens: 'arrayUnion' },
-                    } satisfies SecurityRuleContext);
-                    errorEmitter.emit('permission-error', permissionError);
                 });
             }
         }
@@ -423,14 +388,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const sendVerificationEmail = async () => {
-    // No-op as requested: removed email verification requirement.
-    toast({ title: "Note", description: "Email verification is currently disabled." });
+    toast({ title: "Note", description: "Email verification is disabled." });
   };
 
   const reloadUser = async () => {
     if (auth.currentUser) {
         await auth.currentUser.reload();
-        toast({ title: "Status Updated", description: "Your account info has been refreshed." });
     }
   };
 
@@ -439,9 +402,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      toast({ title: "Welcome back to LitVerse!" });
+      toast({ title: "Welcome back!" });
     } catch (error) {
-      console.error(error);
       toast({ title: "Login Error", description: (error as Error).message, variant: "destructive" });
     } finally {
       setAuthLoading(false);
@@ -461,15 +423,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const taken = await isUsernameTaken(username);
       if (taken) {
-        toast({ title: "Username Taken", description: "This handle is already in use. Please try another.", variant: "destructive" });
+        toast({ title: "Username Taken", variant: "destructive" });
         setAuthLoading(false);
         return;
       }
 
       await createUserWithEmailAndPassword(auth, email, passwordOne);
-      toast({ title: "Account Created!", description: "Welcome to D4RKV3NOM." });
+      toast({ title: "Account Created!" });
     } catch (error) {
-      console.error(error);
       toast({ title: "Sign Up Error", description: (error as Error).message, variant: "destructive" });
     } finally {
       setAuthLoading(false);
@@ -487,13 +448,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!snapshot.empty) {
           email = snapshot.docs[0].data().email;
         } else {
-            throw new Error("No user found with that username.");
+            throw new Error("No user found.");
         }
       }
       await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
-      toast({ title: "Welcome back!" });
     } catch (error) {
-      console.error(error);
       toast({ title: "Sign In Error", description: (error as Error).message, variant: "destructive" });
     } finally {
       setAuthLoading(false);
@@ -514,7 +473,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (typeof window !== 'undefined') {
           sessionStorage.removeItem(USER_CACHE_KEY);
       }
-      toast({ title: "Signed Out" });
       router.push('/auth/signin');
     } catch (error) {
       console.error(error);
@@ -529,7 +487,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (updates.username && updates.username !== user.username) {
         const taken = await isUsernameTaken(updates.username, user.id);
         if (taken) {
-            toast({ title: "Username Taken", description: "The handle you selected is already claimed by another user.", variant: "destructive" });
+            toast({ title: "Username Taken", variant: "destructive" });
             return;
         }
     }
@@ -540,7 +498,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
         await updateDoc(userRef, updateData);
         
-        // Denormalized Sync: Update user's info in their stories, feed posts, and comments
         if (updates.username || updates.displayName || updates.avatarUrl) {
             const batch = writeBatch(db);
             const newSummary = {
@@ -550,17 +507,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 avatarUrl: updates.avatarUrl || user.avatarUrl
             };
 
-            // 1. Sync Stories authored by this user
             const storiesQuery = query(collection(db, 'stories'), where('author.id', '==', user.id));
             const storiesSnapshot = await getDocs(storiesQuery);
             storiesSnapshot.forEach(d => batch.update(d.ref, { author: newSummary }));
 
-            // 2. Sync Feed Posts
             const postsQuery = query(collection(db, 'feedPosts'), where('author.id', '==', user.id));
             const postsSnapshot = await getDocs(postsQuery);
             postsSnapshot.forEach(d => batch.update(d.ref, { author: newSummary }));
 
-            // 3. Sync Comments
             const commentsQuery = query(collection(db, 'comments'), where('user.id', '==', user.id));
             const commentsSnapshot = await getDocs(commentsQuery);
             commentsSnapshot.forEach(d => batch.update(d.ref, { user: newSummary }));
@@ -587,7 +541,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "Email Updated" });
       return true;
     } catch (error) {
-      console.error(error);
       toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
       return false;
     }
@@ -602,7 +555,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "Password Updated" });
       return true;
     } catch (error) {
-      console.error(error);
       toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
       return false;
     }
@@ -611,10 +563,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sendPasswordResetFirebase = async (email: string) => {
     try {
       await sendPasswordResetEmail(auth, email);
-      toast({ title: "Reset Link Sent", description: "Please check your inbox." });
+      toast({ title: "Reset Link Sent" });
       return true;
     } catch (error) {
-      console.error(error);
       toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
       return false;
     }
@@ -625,14 +576,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(1) });
-    batch.commit().catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'users',
-            operation: 'update',
-            requestResourceData: { followingIds: 'arrayUnion' },
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    batch.commit();
   };
 
   const unfollowUser = async (targetUserId: string) => {
@@ -640,14 +584,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(-1) });
-    batch.commit().catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'users',
-            operation: 'update',
-            requestResourceData: { followingIds: 'arrayRemove' },
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    batch.commit();
   };
 
   const addToLibrary = async (story: Story) => {
@@ -662,14 +599,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         status: story.status,
     };
     const userRef = doc(db, 'users', user.id);
-    updateDoc(userRef, { readingList: arrayUnion(item) }).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'update',
-            requestResourceData: { readingList: 'arrayUnion' },
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    updateDoc(userRef, { readingList: arrayUnion(item) });
   };
 
   const removeFromLibrary = async (storyId: string) => {
@@ -677,14 +607,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const itemToRemove = user.readingList?.find(i => i.id === storyId);
     if (itemToRemove) {
         const userRef = doc(db, 'users', user.id);
-        updateDoc(userRef, { readingList: arrayRemove(itemToRemove) }).catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: userRef.path,
-                operation: 'update',
-                requestResourceData: { readingList: 'arrayRemove' },
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
-        });
+        updateDoc(userRef, { readingList: arrayRemove(itemToRemove) });
     }
   };
 
@@ -696,7 +619,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             toast({ title: "Password Set Successfully" });
             return true;
         } catch (error) {
-            console.error(error);
             toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
             return false;
         }

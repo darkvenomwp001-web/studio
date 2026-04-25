@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
@@ -70,7 +71,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
+import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
@@ -78,8 +79,6 @@ import CharacterCount from '@tiptap/extension-character-count'
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Slider } from '@/components/ui/slider';
-import { Textarea } from '@/components/ui/textarea';
 
 interface ToolbarButtonProps {
   onClick: () => void;
@@ -156,7 +155,6 @@ function EditorContentInner() {
   const [isDistractionFree, setIsDistractionFree] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isCompendiumOpen, setIsCompendiumOpen] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -204,7 +202,7 @@ function EditorContentInner() {
           const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
           
           if (storyData.author.id !== currentUser.id && !storyData.collaboratorIds?.includes(currentUser.id)) {
-            toast({ title: "Access Denied", description: "You don't have permission to edit this manuscript.", variant: "destructive" });
+            toast({ title: "Access Denied", description: "No editing permission.", variant: "destructive" });
             router.push(`/stories/${queryStoryId}`);
             return;
           }
@@ -227,7 +225,7 @@ function EditorContentInner() {
             const newChapterInstance: Chapter = {
               id: `chapter-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
               title: `Part ${newChapterOrder}`,
-              content: '<p>Start writing your amazing story here...</p>',
+              content: '<p>Start writing...</p>',
               order: newChapterOrder,
               status: 'Draft',
               accessType: 'public'
@@ -588,19 +586,6 @@ export default function WriteEditorPage() {
   return (
     <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
       <EditorContentInner />
-      <style jsx global>{`
-          .zen-focus-enabled .ProseMirror p {
-              opacity: 0.2;
-              transition: opacity 0.4s ease, filter 0.4s ease;
-              filter: blur(1px);
-          }
-          .zen-focus-enabled .ProseMirror p:hover,
-          .zen-focus-enabled .ProseMirror p:focus,
-          .zen-focus-enabled .ProseMirror p:active {
-              opacity: 1;
-              filter: blur(0);
-          }
-      `}</style>
     </Suspense>
   );
 }

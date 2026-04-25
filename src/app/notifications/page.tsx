@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useTransition, useMemo, ChangeEvent, Suspense } from 'react';
@@ -23,7 +24,6 @@ import {
   Users, 
   Phone, 
   Video, 
-  Info, 
   Smile, 
   Send,
   Trash2,
@@ -31,23 +31,17 @@ import {
   Image as ImageIcon,
   Mic,
   FileUp,
-  MoreVertical,
   MoreHorizontal,
   Link2 as LinkIcon,
   Repeat,
-  Check,
   PhoneOff,
   VideoOff,
-  Volume2,
   BellOff,
-  SearchCode,
-  Square,
   FileText,
   X,
   Play,
-  Pause,
+  Square,
   Music,
-  AppWindow,
   AlertCircle
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
@@ -66,10 +60,8 @@ import {
   updateDoc,
   doc,
   serverTimestamp,
-  Timestamp,
   limit,
   getDocs,
-  setDoc,
   getDoc,
   deleteDoc
 } from 'firebase/firestore';
@@ -82,7 +74,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -116,7 +107,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import Image from 'next/image';
 
-// Debounce function
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: NodeJS.Timeout;
   return (...args: Parameters<F>): Promise<ReturnType<F>> =>
@@ -128,7 +118,6 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
     });
 }
 
-// Robust date parser for Firestore Timestamps, Strings, or Date objects
 const parseSafeDate = (timestamp: any): Date | null => {
     if (!timestamp) return null;
     if (timestamp instanceof Date) return timestamp;
@@ -145,7 +134,6 @@ function NotificationsList() {
     const [searchTerm, setSearchTerm] = useState('');
     const [userStatuses, setUserStatuses] = useState<Record<string, 'online' | 'offline'>>({});
 
-    // Real-time Status Sync from RTDB for Actors
     useEffect(() => {
         const statusRef = ref(rtdb, 'status');
         const unsubscribe = onValue(statusRef, (snapshot) => {
@@ -195,7 +183,7 @@ function NotificationsList() {
             case 'letter_response': return <MailCheck className="h-4 w-4 text-teal-500" />;
             case 'achievement_unlocked': return <Bell className="h-4 w-4 text-yellow-500" />;
             case 'announcement': return <Bell className="h-4 w-4 text-orange-500" />;
-            case 'app_update': return <MessageSquare className="h-4 w-4 text-primary" />; // Thread icon for app updates
+            case 'app_update': return <MessageSquare className="h-4 w-4 text-primary" />;
             case 'user_update': return <User className="h-4 w-4 text-blue-400" />;
             case 'notice_update': return <AlertCircle className="h-4 w-4 text-orange-400" />;
             default: return <Bell className="h-4 w-4 text-muted-foreground" />;
@@ -373,7 +361,6 @@ function MessagesClient() {
 
   const [isDeletingThread, setIsDeletingThread] = useState(false);
 
-  // Attachment states
   const [pendingMedia, setPendingMedia] = useState<File | null>(null);
   const [pendingMediaPreview, setPendingMediaPreview] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -392,7 +379,6 @@ function MessagesClient() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, otherUserTyping]);
 
-  // Real-time Status Sync from RTDB
   useEffect(() => {
     const statusRef = ref(rtdb, 'status');
     const unsubscribe = onValue(statusRef, (snapshot) => {
@@ -406,7 +392,6 @@ function MessagesClient() {
     return () => unsubscribe();
   }, []);
 
-  // Listen for other person typing
   useEffect(() => {
     if (!activeConversation || !currentUser) return;
     const otherId = activeConversation.participantIds.find(id => id !== currentUser.id);
@@ -471,7 +456,7 @@ function MessagesClient() {
       setMessages(fetchedMessages);
       setIsLoadingMessages(false);
     }, (error) => {
-      console.error(`Error fetching messages for ${activeConversation.id}: `, error);
+      console.error(`Error fetching messages: `, error);
       setIsLoadingMessages(false);
     });
 
@@ -527,7 +512,6 @@ function MessagesClient() {
             type = 'audio';
         }
 
-        // Build data object dynamically to avoid 'undefined' values
         const messageData: any = {
             senderId: currentUser.id,
             content: finalContent.trim(),
@@ -538,7 +522,6 @@ function MessagesClient() {
         if (mediaUrl) messageData.mediaUrl = mediaUrl;
         if (fileName) messageData.fileName = fileName;
 
-        // Clean up typing status immediately
         const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
         remove(typingRef);
 
@@ -587,14 +570,16 @@ function MessagesClient() {
         usersRef, where('username', '>=', searchTerm.trim()), where('username', '<=', searchTerm.trim() + '\uf8ff'), orderBy('username'), limit(5)
       );
       const usernameSnapshot = await getDocs(usernameQuery);
-      let usersFound = usernameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUserType));
       
       const uniqueUsers = new Map<string, UserSummary>();
-      usersFound
-        .filter(u => u.id !== currentUser.id) 
-        .forEach(u => uniqueUsers.set(u.id, { 
-            id: u.id, username: u.username, displayName: u.displayName || u.username, avatarUrl: u.avatarUrl
-        }));
+      usernameSnapshot.docs
+        .filter(d => d.id !== currentUser.id) 
+        .forEach(d => {
+            const u = d.data();
+            uniqueUsers.set(d.id, { 
+                id: d.id, username: u.username, displayName: u.displayName || u.username, avatarUrl: u.avatarUrl
+            });
+        });
       setSearchedUsers(Array.from(uniqueUsers.values()));
     } catch (error) {
       console.error("Error searching users:", error);
@@ -789,12 +774,13 @@ function MessagesClient() {
         const userDocRef = doc(db, 'users', startConversationWithId);
         const userSnap = await getDoc(userDocRef);
         if (userSnap.exists()) {
+          const uData = userSnap.data();
           const targetUser: UserSummary = {
-            id: userSnap.id, username: userSnap.data().username, displayName: userSnap.data().displayName, avatarUrl: userSnap.data().avatarUrl,
+            id: userSnap.id, username: uData.username, displayName: uData.displayName, avatarUrl: uData.avatarUrl,
           };
           await handleStartNewConversation(targetUser);
         } else {
-          toast({ title: "User not found", description: "Could not find the user to start a conversation with.", variant: "destructive" });
+          toast({ title: "User not found", variant: "destructive" });
         }
       };
       fetchAndStart();
@@ -818,7 +804,7 @@ function MessagesClient() {
 
     const renderMessageStatus = (msg: Message, isLast: boolean) => {
         if (msg.senderId !== currentUser?.id || !isLast) return null;
-        return <div className="text-[10px] text-muted-foreground/60 mt-1 self-end mr-1 flex items-center gap-1 animate-in fade-in duration-500">Sent <CheckCheck className="h-2.5 w-2.5 text-primary" /></div>;
+        return <div className="text-[10px] text-muted-foreground/60 mt-1 self-end mr-1 flex items-center gap-1">Sent <CheckCheck className="h-2.5 w-2.5 text-primary" /></div>;
     };
 
     const renderMessageContent = (msg: Message) => {
@@ -1092,7 +1078,7 @@ function MessagesClient() {
                                         variant="ghost" 
                                         size="icon" 
                                         className={cn("rounded-full h-10 w-10", isOtherParticipantOnline ? "text-primary" : "text-muted-foreground/40")}
-                                        onClick={() => !isOtherParticipantOnline && toast({ title: "User is away", description: "You can call them once they are back online." })}
+                                        onClick={() => !isOtherParticipantOnline && toast({ title: "User is away" })}
                                     >
                                         {isOtherParticipantOnline ? <Phone className="h-5 w-5" /> : <PhoneOff className="h-5 w-5" />}
                                     </Button>
@@ -1105,7 +1091,7 @@ function MessagesClient() {
                                         variant="ghost" 
                                         size="icon" 
                                         className={cn("rounded-full h-10 w-10", isOtherParticipantOnline ? "text-primary" : "text-muted-foreground/40")}
-                                        onClick={() => !isOtherParticipantOnline && toast({ title: "User is away", description: "You can video call them once they are back online." })}
+                                        onClick={() => !isOtherParticipantOnline && toast({ title: "User is away" })}
                                     >
                                         {isOtherParticipantOnline ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
                                     </Button>
@@ -1124,7 +1110,7 @@ function MessagesClient() {
                                     <DropdownMenuItem onClick={() => router.push(`/profile/${getOtherParticipant(activeConversation)?.id}`)}>
                                         <User className="mr-2 h-4 w-4" /> View Profile
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => toast({ title: "Muted", description: "You won't receive notifications for this chat." })}>
+                                    <DropdownMenuItem onClick={() => toast({ title: "Muted" })}>
                                         <BellOff className="mr-2 h-4 w-4" /> Mute Notifications
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
@@ -1138,13 +1124,12 @@ function MessagesClient() {
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle>Delete this entire thread?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    This will permanently remove the conversation and its history for you. This action cannot be undone.
+                                                    This will permanently remove the conversation and its history for you.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
                                                 <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
                                                 <AlertDialogAction onClick={handleDeleteConversation} disabled={isDeletingThread} className="bg-destructive hover:bg-destructive/90 rounded-full px-6">
-                                                    {isDeletingThread ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
                                                     Delete Thread
                                                 </AlertDialogAction>
                                             </AlertDialogFooter>
@@ -1172,7 +1157,7 @@ function MessagesClient() {
                                         <p className="text-sm max-w-[200px] mx-auto">Send a wave or use AI to break the ice.</p>
                                     </div>
                                     <div className="flex flex-col gap-2 w-full max-w-xs">
-                                        <Button onClick={handleGenerateStarters} disabled={isGeneratingStarters} className="rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
+                                        <Button onClick={handleGenerateStarters} disabled={isGeneratingStarters} className="rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all">
                                             {isGeneratingStarters ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Sparkles className="h-4 w-4 mr-2" />}
                                             Get AI Icebreakers
                                         </Button>
@@ -1180,15 +1165,6 @@ function MessagesClient() {
                                             Wave 👋
                                         </Button>
                                     </div>
-                                    {conversationStarters.length > 0 && (
-                                        <div className="mt-4 grid gap-2 w-full max-w-sm">
-                                            {conversationStarters.map((starter, i) => (
-                                                <Button key={i} variant="outline" size="sm" className="w-full text-wrap h-auto text-left justify-start p-3 rounded-2xl hover:bg-primary/5 transition-all text-xs" onClick={() => handleSendMessage(starter)}>
-                                                    "{starter}"
-                                                </Button>
-                                            ))}
-                                        </div>
-                                    )}
                                 </div>
                             ) : (
                                 <>
@@ -1197,11 +1173,6 @@ function MessagesClient() {
                                     </div>
                                     {otherUserTyping && (
                                         <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest animate-pulse ml-10 mb-4">
-                                            <div className="flex gap-1">
-                                                <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                                <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                                <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                                            </div>
                                             Typing...
                                         </div>
                                     )}
@@ -1214,88 +1185,42 @@ function MessagesClient() {
                     <footer className="p-4 border-t bg-card/50 backdrop-blur-md">
                         <div className="flex flex-col gap-3">
                             {(pendingMediaPreview || pendingFile || audioURL) && (
-                                <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-2xl border border-dashed border-primary/20 animate-in slide-in-from-bottom-2">
+                                <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-2xl border border-dashed border-primary/20">
                                     {pendingMediaPreview && (
                                         <div className="relative h-16 w-16 rounded-xl overflow-hidden shadow-sm">
-                                            {pendingMedia?.type.startsWith('video/') ? (
-                                                <div className="w-full h-full bg-black flex items-center justify-center"><Video className="h-6 w-6 text-white"/></div>
-                                            ) : (
-                                                <Image src={pendingMediaPreview} alt="Preview" layout="fill" objectFit="cover" />
-                                            )}
+                                            <Image src={pendingMediaPreview} alt="Preview" layout="fill" objectFit="cover" />
                                             <Button variant="destructive" size="icon" className="absolute top-0 right-0 h-5 w-5 rounded-bl-xl rounded-tr-none" onClick={() => { setPendingMedia(null); setPendingMediaPreview(null); }}>
                                                 <X className="h-3 w-3" />
                                             </Button>
                                         </div>
                                     )}
-                                    {pendingFile && (
-                                        <div className="flex items-center gap-2 p-2 bg-card rounded-xl border">
-                                            <FileText className="h-5 w-5 text-primary" />
-                                            <span className="text-xs font-bold truncate max-w-[100px]">{pendingFile.name}</span>
-                                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setPendingFile(null)}><X className="h-3 w-3"/></Button>
-                                        </div>
-                                    )}
-                                    {audioURL && (
-                                        <div className="flex items-center gap-2 flex-1">
-                                            <audio src={audioURL} controls className="h-8 flex-1" />
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { setAudioBlob(null); setAudioURL(null); }}><X className="h-4 w-4"/></Button>
-                                        </div>
-                                    )}
                                     <div className="text-[10px] font-bold uppercase tracking-widest text-primary/60">Ready to send</div>
                                 </div>
-                            )}
-
-                            {conversationStarters.length > 0 && messages.length > 0 && (
-                                <ScrollArea className="w-full whitespace-nowrap">
-                                    <div className="flex gap-2 pb-2">
-                                        {conversationStarters.map((starter, i) => (
-                                            <Button key={i} variant="outline" size="sm" className="rounded-full h-8 text-[10px] uppercase font-bold border-primary/20 bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all px-4" onClick={() => handleSendMessage(starter)}>
-                                                {starter}
-                                            </Button>
-                                        ))}
-                                    </div>
-                                    <ScrollBar orientation="horizontal" />
-                                </ScrollArea>
                             )}
                             <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-1">
                                     <input type="file" ref={galleryInputRef} className="hidden" accept="image/*,video/*" onChange={handleGallerySelect} />
                                     <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
-                                    
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => galleryInputRef.current?.click()}>
-                                                <ImageIcon className="h-5 w-5" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="text-[10px] font-bold uppercase">Gallery</TooltipContent>
-                                    </Tooltip>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => fileInputRef.current?.click()}>
-                                                <FileUp className="h-5 w-5" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="text-[10px] font-bold uppercase">Upload File</TooltipContent>
-                                    </Tooltip>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className={cn("rounded-full transition-colors", isRecording ? "text-destructive animate-pulse bg-destructive/10" : "text-primary hover:bg-primary/10")} 
-                                                onClick={isRecording ? stopRecording : startRecording}
-                                            >
-                                                {isRecording ? <Square className="h-5 w-5 fill-current" /> : <Mic className="h-5 w-5" />}
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="text-[10px] font-bold uppercase">{isRecording ? `Stop (${recordingDuration}s)` : 'Voice Note'}</TooltipContent>
-                                    </Tooltip>
+                                    <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => galleryInputRef.current?.click()}>
+                                        <ImageIcon className="h-5 w-5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => fileInputRef.current?.click()}>
+                                        <FileUp className="h-5 w-5" />
+                                    </Button>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className={cn("rounded-full transition-colors", isRecording ? "text-destructive animate-pulse bg-destructive/10" : "text-primary hover:bg-primary/10")} 
+                                        onClick={isRecording ? stopRecording : startRecording}
+                                    >
+                                        {isRecording ? <Square className="h-5 w-5 fill-current" /> : <Mic className="h-5 w-5" />}
+                                    </Button>
                                 </div>
                                 <div className="relative flex-1 group">
                                     <Input 
                                         type="text" 
-                                        placeholder={isRecording ? `Recording... ${recordingDuration}s` : "Type a message..."} 
-                                        className="flex-1 bg-background focus-visible:ring-primary/20 rounded-full px-5 pr-12 h-11 border-none shadow-inner" 
+                                        placeholder={isRecording ? `Recording...` : "Type a message..."} 
+                                        className="flex-1 bg-background focus-visible:ring-primary/20 rounded-full px-5 pr-12 h-11 border-none" 
                                         value={newMessageContent} 
                                         onChange={(e) => handleInputChange(e.target.value)} 
                                         disabled={isSendingMessage || isRecording} 
@@ -1317,7 +1242,7 @@ function MessagesClient() {
                                 <Button 
                                     type="button" 
                                     size="icon" 
-                                    className="bg-primary hover:bg-primary/90 rounded-full h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95" 
+                                    className="bg-primary hover:bg-primary/90 rounded-full h-11 w-11 flex-shrink-0" 
                                     disabled={isSendingMessage || isRecording || (!newMessageContent.trim() && !pendingMedia && !pendingFile && !audioBlob)} 
                                     onClick={() => handleSendMessage()}
                                 >
@@ -1329,14 +1254,11 @@ function MessagesClient() {
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-background/20 backdrop-blur-sm">
-                        <div className="relative mb-8">
-                            <div className="absolute inset-0 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
-                            <MessageSquare className="h-32 w-32 text-primary/30 relative z-10" />
-                        </div>
+                        <MessageSquare className="h-32 w-32 text-primary/30 mb-8" />
                         <h2 className="text-3xl font-headline font-bold mb-3 tracking-tight">Your Direct Feed</h2>
-                        <p className="text-muted-foreground max-sm leading-relaxed">Select a thread to start chatting with your fellow creators and readers.</p>
+                        <p className="text-muted-foreground max-sm leading-relaxed">Select a thread to start chatting with your fellow creators.</p>
                         <DialogTrigger asChild>
-                            <Button className="mt-8 rounded-full px-10 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 transition-all hover:scale-105">
+                            <Button className="mt-8 rounded-full px-10 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20">
                                 <Plus className="mr-2 h-5 w-5" /> New Conversation
                             </Button>
                         </DialogTrigger>
@@ -1357,9 +1279,9 @@ function MessagesClient() {
                         id="search-username" 
                         value={searchUsername} 
                         onChange={(e) => setSearchUsername(e.target.value)}
-                        placeholder="Search handle (e.g. authorrafaelnv)" 
+                        placeholder="Search handle..." 
                         disabled={isCreatingConversation} 
-                        className="pl-10 h-12 rounded-2xl bg-muted/50 border-none focus-visible:ring-primary/30"
+                        className="pl-10 h-12 rounded-2xl bg-muted/50 border-none"
                     />
                     {isSearchingUsers && <div className="absolute right-3 top-1/2 -translate-y-1/2"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}
                 </div>
@@ -1370,7 +1292,7 @@ function MessagesClient() {
                             {searchedUsers.map(u => (
                                 <div 
                                     key={u.id} 
-                                    className="flex items-center justify-between p-3 rounded-2xl border border-transparent hover:border-primary/20 hover:bg-primary/5 cursor-pointer transition-all group"
+                                    className="flex items-center justify-between p-3 rounded-2xl border border-transparent hover:border-primary/20 hover:bg-primary/5 cursor-pointer transition-all"
                                     onClick={() => !isCreatingConversation && handleStartNewConversation(u)}
                                 >
                                     <div className="flex items-center gap-3">
@@ -1383,20 +1305,15 @@ function MessagesClient() {
                                             <p className="text-xs text-muted-foreground">{u.displayName}</p>
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="rounded-full group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-                                        {isCreatingConversation ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+                                    <Button variant="ghost" size="icon" className="rounded-full">
+                                        <MessageSquare className="h-4 w-4" />
                                     </Button>
                                 </div>
                             ))}
                         </div>
-                    ) : searchUsername.trim().length > 0 && !isSearchingUsers ? (
-                        <div className="py-10 text-center text-muted-foreground italic">
-                            No creators found matching "@{searchUsername}"
-                        </div>
                     ) : (
-                        <div className="py-10 text-center text-muted-foreground flex flex-col items-center gap-3">
-                            <Users className="h-10 w-10 opacity-20" />
-                            <p className="text-xs font-bold uppercase tracking-widest opacity-40">Start typing to search...</p>
+                        <div className="py-10 text-center text-muted-foreground italic">
+                            Search for creators by handle...
                         </div>
                     )}
                 </ScrollArea>
@@ -1419,7 +1336,7 @@ export default function UnifiedInboxPage() {
         return (
             <div className="flex flex-col justify-center items-center min-h-screen gap-4">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="font-headline font-bold text-xl animate-pulse">Syncing your literary universe...</p>
+                <p className="font-headline font-bold text-xl">Updating inbox...</p>
             </div>
         );
     }
