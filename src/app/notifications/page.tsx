@@ -1329,8 +1329,8 @@ function MessagesClient() {
 export default function UnifiedInboxPage() {
     const { user, loading } = useAuth();
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const defaultTab = searchParams.get('tab') || 'messages'; 
+    const searchParamsHook = useSearchParams();
+    const defaultTab = searchParamsHook.get('tab') || 'messages'; 
 
     if (loading && !user) {
         return (

@@ -45,7 +45,7 @@ export default function RootLayout({
                   <FirebaseErrorListener />
                   <ScrollToTop />
                   <div className="relative flex min-h-screen flex-col overflow-x-hidden max-w-[100vw]">
-                    <Suspense fallback={null}>
+                    <Suspense fallback={<div className="flex justify-center items-center h-screen bg-background"><Loader2 className="animate-spin text-primary" /></div>}>
                       {children}
                     </Suspense>
                   </div>
@@ -60,3 +60,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+import { Loader2 } from 'lucide-react';

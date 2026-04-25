@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2, Book, Feather, ShieldAlert, PenSquare } from 'lucide-react';
+import { PlusCircle, Loader2, Book, Feather, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState, useEffect, useMemo, Suspense } from 'react';

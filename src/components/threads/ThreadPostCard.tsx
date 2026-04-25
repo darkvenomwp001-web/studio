@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
@@ -361,17 +360,17 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
           </DialogContent>
 
           <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-            <AlertDialogContent>
+            <AlertDialogContent className="rounded-2xl">
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete this update?</AlertDialogTitle>
+                <AlertDialogTitle className="font-headline text-2xl">Delete this update?</AlertDialogTitle>
                 <AlertDialogDescription>
                   This action is permanent and cannot be undone. The post and all of its comments will be removed from D4RKV3NOM.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
                 <AlertDialogAction 
-                  className="bg-destructive hover:bg-destructive/90"
+                  className="bg-destructive hover:bg-destructive/90 rounded-full px-8"
                   onClick={handleDeletePost}
                 >
                   Delete Permanently

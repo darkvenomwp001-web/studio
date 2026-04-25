@@ -452,7 +452,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!snapshot.empty) {
           email = snapshot.docs[0].data().email;
         } else {
-            throw new Error("No user found.");
+            throw new Error("No user found with that username.");
         }
       }
       await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
