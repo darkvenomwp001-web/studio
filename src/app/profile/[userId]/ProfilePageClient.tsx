@@ -364,7 +364,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
         : query(collection(db, 'stories'), where('author.id', '==', profileUser.id), where('visibility', '==', 'Public'), orderBy('lastUpdated', 'desc'));
     
     const unsubStories = onSnapshot(storiesQuery, (snapshot) => {
-        const userWrittenStories = snapshot.docs.map(storyDoc => ({ id: storyDoc.id, ...storyDoc.data() } as Story));
+        const userWrittenStories = snapshot.docs.map(storyDoc => ({ id: storyDoc.id, ...docSnap.data() } as Story));
         setPublishedWorks(userWrittenStories.filter(s => s.status !== 'Draft' && s.visibility === 'Public'));
         if (isOwnProfile) {
             setPrivateWorks(userWrittenStories.filter(s => s.status === 'Draft' || s.visibility !== 'Public'));
@@ -405,11 +405,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                       <AvatarImage src={profileUser.avatarUrl} />
                       <AvatarFallback className="text-4xl bg-muted text-primary">{displayName.substring(0, 1).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                  {isOwnProfile && (
-                      <Link href="/settings/profile" className="absolute bottom-1 right-1 p-2 bg-primary text-white rounded-full shadow-lg border-2 border-background">
-                          <Edit className="h-4 w-4" />
-                      </Link>
-                  )}
               </div>
               
               <div className="flex-1 text-center md:text-left space-y-3">
