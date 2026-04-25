@@ -37,7 +37,9 @@ import {
   EyeOff,
   Minimize,
   Maximize,
-  History
+  History,
+  Pencil,
+  BookmarkPlus
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -49,7 +51,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import type { Story, Chapter, Note } from '@/types';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -77,6 +79,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ToolbarButtonProps {
   onClick: () => void;
@@ -133,11 +136,10 @@ const VersionHistoryManager = {
   },
 };
 
-// A placeholder for the actual StoryCompendium component
-const StoryCompendium = ({ storyId, initialNotes }: { storyId: string, initialNotes?: Note[] }) => (
+const StoryCompendium = ({ storyId, initialNotes }: { storyId: string, initialNotes?: string }) => (
     <div className="p-5 bg-card rounded-2xl border border-border/40 shadow-sm">
         <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Story Compendium</h2>
-        <p className="text-sm text-muted-foreground">Compendium component is not implemented yet.</p>
+        <p className="text-sm text-muted-foreground">{initialNotes || "No notes yet for this story manuscript."}</p>
     </div>
 );
 
@@ -408,7 +410,6 @@ function EditorContentInner() {
   }
 
   return (
-    <TooltipProvider>
     <AlertDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
       <div className={cn(
           "flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-10rem)] overflow-x-hidden",
@@ -548,8 +549,15 @@ function EditorContentInner() {
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Workspace Settings</h2>
               <div className="space-y-4">
                   <div className="flex items-center justify-between group">
-                      <Label htmlFor="distraction-free-mode" className="flex items-center gap-3 cursor-pointer group-hover:text-primary transition-colors">
+                      <Label htmlFor="zen-focus-switch" className="flex items-center gap-3 cursor-pointer group-hover:text-primary transition-colors">
                           <EyeOff className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                          <span className="text-sm font-medium">Zen Focus</span>
+                      </Label>
+                      <Switch id="zen-focus-switch" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
+                  </div>
+                  <div className="flex items-center justify-between group">
+                      <Label htmlFor="distraction-free-mode" className="flex items-center gap-3 cursor-pointer group-hover:text-primary transition-colors">
+                          <AlertCircle className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
                           <span className="text-sm font-medium">Distraction-Free</span>
                       </Label>
                       <Switch id="distraction-free-mode" checked={isDistractionFree} onCheckedChange={setIsDistractionFree} />
@@ -589,7 +597,6 @@ function EditorContentInner() {
 
       </div>
     </AlertDialog>
-    </TooltipProvider>
   );
 }
 

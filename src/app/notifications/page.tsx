@@ -1334,7 +1334,7 @@ function MessagesClient() {
                             <MessageSquare className="h-32 w-32 text-primary/30 relative z-10" />
                         </div>
                         <h2 className="text-3xl font-headline font-bold mb-3 tracking-tight">Your Direct Feed</h2>
-                        <p className="text-muted-foreground max-w-sm leading-relaxed">Select a thread to start chatting with your fellow creators and readers.</p>
+                        <p className="text-muted-foreground max-sm leading-relaxed">Select a thread to start chatting with your fellow creators and readers.</p>
                         <DialogTrigger asChild>
                             <Button className="mt-8 rounded-full px-10 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 transition-all hover:scale-105">
                                 <Plus className="mr-2 h-5 w-5" /> New Conversation
