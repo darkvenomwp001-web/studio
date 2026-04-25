@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,8 +80,6 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
 
-// --- Global Sub-components ---
-
 interface ToolbarButtonProps {
   onClick: () => void;
   isActive?: boolean;
@@ -137,7 +135,7 @@ const VersionHistoryManager = {
   },
 };
 
-export default function WriteEditorPage() {
+function EditorContentInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user: currentUser, addNotification, loading: authLoading } = useAuth();
@@ -181,7 +179,9 @@ export default function WriteEditorPage() {
   const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
   const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
 
-  const isAuthorOrCollaborator = currentUser && storyDetails && (storyDetails.author.id === currentUser.id || storyDetails.collaboratorIds?.includes(currentUser.id));
+  const isAuthorOrCollaborator = useMemo(() => {
+    return !!(currentUser && storyDetails && (storyDetails.author?.id === currentUser.id || storyDetails.collaboratorIds?.includes(currentUser.id)));
+  }, [currentUser, storyDetails]);
 
   useEffect(() => {
     if (editor) {
@@ -447,7 +447,6 @@ export default function WriteEditorPage() {
   }
 
   return (
-    <TooltipProvider delayDuration={300}>
     <AlertDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
       <div className={cn(
           "flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-10rem)] overflow-x-hidden",
@@ -724,26 +723,33 @@ export default function WriteEditorPage() {
         </AlertDialogContent>
       </div>
     </AlertDialog>
-    <style jsx global>{`
-        .zen-focus-enabled .ProseMirror p {
-            opacity: 0.2;
-            transition: opacity 0.4s ease, filter 0.4s ease;
-            filter: blur(1px);
-        }
-        .zen-focus-enabled .ProseMirror p:hover,
-        .zen-focus-enabled .ProseMirror p:focus,
-        .zen-focus-enabled .ProseMirror p:active {
-            opacity: 1;
-            filter: blur(0);
-        }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-    `}</style>
-    </TooltipProvider>
+  );
+}
+
+export default function WriteEditorPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin" /></div>}>
+      <EditorContentInner />
+      <style jsx global>{`
+          .zen-focus-enabled .ProseMirror p {
+              opacity: 0.2;
+              transition: opacity 0.4s ease, filter 0.4s ease;
+              filter: blur(1px);
+          }
+          .zen-focus-enabled .ProseMirror p:hover,
+          .zen-focus-enabled .ProseMirror p:focus,
+          .zen-focus-enabled .ProseMirror p:active {
+              opacity: 1;
+              filter: blur(0);
+          }
+          .no-scrollbar::-webkit-scrollbar {
+              display: none;
+          }
+          .no-scrollbar {
+              -ms-overflow-style: none;
+              scrollbar-width: none;
+          }
+      `}</style>
+    </Suspense>
   );
 }

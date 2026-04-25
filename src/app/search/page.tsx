@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import type { Story, User as AppUser } from '@/types'; 
 import StoryCard from '@/components/shared/StoryCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -34,7 +34,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
     });
 }
 
-export default function SearchResultsPage() {
+function SearchResults() {
   const searchParamsHook = useSearchParams();
   const router = useRouter();
   const queryFromUrl = searchParamsHook.get('q') || '';
@@ -53,11 +53,10 @@ export default function SearchResultsPage() {
       return;
     }
     setIsLoading(true);
-    setStoryResults([]); // Clear previous results
-    setUserResults([]);   // Clear previous results
+    setStoryResults([]); 
+    setUserResults([]);   
 
     try {
-      // Search Stories by title (prefix match for public stories)
       const storiesRef = collection(db, 'stories');
       const storyQuery = query(
         storiesRef,
@@ -85,7 +84,6 @@ export default function SearchResultsPage() {
       });
       setStoryResults(storiesFound);
 
-      // Search Users by username (prefix match)
       const usersRef = collection(db, 'users');
       const usernameQuery = query(
         usersRef,
@@ -97,7 +95,6 @@ export default function SearchResultsPage() {
       const usernameSnapshot = await getDocs(usernameQuery);
       const usersByUsername = usernameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
 
-      // Search Users by displayName (prefix match)
       const displayNameQuery = query(
         usersRef,
         where('displayName', '>=', currentQuery.trim()),
@@ -108,7 +105,6 @@ export default function SearchResultsPage() {
       const displayNameSnapshot = await getDocs(displayNameQuery);
       const usersByDisplayName = displayNameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
       
-      // Merge and deduplicate user results
       const combinedUsers = new Map<string, AppUser>();
       usersByUsername.forEach(user => combinedUsers.set(user.id, user));
       usersByDisplayName.forEach(user => combinedUsers.set(user.id, user)); 
@@ -117,15 +113,12 @@ export default function SearchResultsPage() {
 
     } catch (error) {
       console.error("Error performing search:", error);
-      toast({ title: "Search Error", description: "Could not perform search. Ensure Firestore indexes are set up if prompted.", variant: "destructive" });
-      setStoryResults([]);
-      setUserResults([]);
+      toast({ title: "Search Error", description: "Could not perform search.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedSearch = useCallback(debounce(performSearch, 500), [toast]);
 
   useEffect(() => {
@@ -250,5 +243,13 @@ export default function SearchResultsPage() {
         </Tabs>
       )}
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>}>
+      <SearchResults />
+    </Suspense>
   );
 }

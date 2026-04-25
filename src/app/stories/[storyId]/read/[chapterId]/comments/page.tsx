@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import CommentSection from '@/components/comments/CommentSection';
@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-export default function CommentsPage() {
+function CommentsContent() {
     const params = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -123,5 +123,13 @@ export default function CommentsPage() {
                 </main>
             </div>
         </div>
+    );
+}
+
+export default function CommentsPage() {
+    return (
+        <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
+            <CommentsContent />
+        </Suspense>
     );
 }

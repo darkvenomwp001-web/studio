@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useTransition, useMemo, ChangeEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, useTransition, useMemo, ChangeEvent, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -33,6 +32,7 @@ import {
   Mic,
   FileUp,
   MoreVertical,
+  MoreHorizontal,
   Link2 as LinkIcon,
   Repeat,
   Check,
@@ -1437,28 +1437,30 @@ export default function UnifiedInboxPage() {
         <>
             <Header />
             <div className="max-w-7xl mx-auto space-y-6 pt-6 pb-24 md:pb-12 px-4 md:px-6">
-                <Tabs defaultValue={defaultTab} className="w-full" onValueChange={handleTabChange}>
-                    <div className="flex justify-center mb-6">
-                        <TabsList className="grid grid-cols-2 w-full max-w-[400px] h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-sm">
-                            <TabsTrigger value="messages" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
-                                <MessageSquare className="h-4 w-4" /> 
-                                Messages
-                            </TabsTrigger>
-                            <TabsTrigger value="notifications" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
-                                <Bell className="h-4 w-4" /> 
-                                Activity
-                            </TabsTrigger>
-                        </TabsList>
-                    </div>
-                    
-                    <TabsContent value="notifications" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
-                        <NotificationsList />
-                    </TabsContent>
-                    
-                    <TabsContent value="messages" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
-                        <MessagesClient />
-                    </TabsContent>
-                </Tabs>
+                <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin" /></div>}>
+                    <Tabs defaultValue={defaultTab} className="w-full" onValueChange={handleTabChange}>
+                        <div className="flex justify-center mb-6">
+                            <TabsList className="grid grid-cols-2 w-full max-w-[400px] h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-sm">
+                                <TabsTrigger value="messages" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
+                                    <MessageSquare className="h-4 w-4" /> 
+                                    Messages
+                                </TabsTrigger>
+                                <TabsTrigger value="notifications" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
+                                    <Bell className="h-4 w-4" /> 
+                                    Activity
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
+                        
+                        <TabsContent value="notifications" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
+                            <NotificationsList />
+                        </TabsContent>
+                        
+                        <TabsContent value="messages" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
+                            <MessagesClient />
+                        </TabsContent>
+                    </Tabs>
+                </Suspense>
             </div>
             <BottomNavigationBar />
         </>

@@ -49,10 +49,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="overflow-x-hidden max-w-[100vw]">
       <body 
         className={cn(
-          "min-h-screen bg-background font-body antialiased overflow-x-hidden",
+          "min-h-screen bg-background font-body antialiased overflow-x-hidden max-w-[100vw]",
           inter.variable,
           spaceGrotesk.variable
         )}
@@ -69,7 +69,7 @@ export default function RootLayout({
                 <StoryPreviewProvider>
                   <FirebaseErrorListener />
                   <ScrollToTop />
-                  <div className="relative flex min-h-screen flex-col overflow-x-hidden">
+                  <div className="relative flex min-h-screen flex-col overflow-x-hidden max-w-[100vw]">
                     {children}
                   </div>
                   <Toaster />

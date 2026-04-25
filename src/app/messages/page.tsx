@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
-export default function MessagesRedirectPage() {
+function MessagesRedirect() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -22,5 +22,13 @@ export default function MessagesRedirectPage() {
       <Loader2 className="h-12 w-12 animate-spin text-primary" />
       <p className="ml-4 text-muted-foreground">Redirecting to your inbox...</p>
     </div>
+  );
+}
+
+export default function MessagesRedirectPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
+      <MessagesRedirect />
+    </Suspense>
   );
 }

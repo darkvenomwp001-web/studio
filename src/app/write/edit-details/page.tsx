@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, ChangeEvent, useRef, useCallback } from 'react';
+import { useState, useEffect, ChangeEvent, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -100,7 +100,7 @@ const AutoSaveStatusIndicator = ({ status, isUploading }: { status: string, isUp
     }
 };
 
-export default function EditStoryDetailsPage() {
+function StoryDetailsInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, loading: authLoading, addNotification } = useAuth();
@@ -125,14 +125,8 @@ export default function EditStoryDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
-  const [storyToDelete, setStoryToDelete] = useState<Story | null>(null);
   const [collaboratorUsername, setCollaboratorUsername] = useState('');
   const [isProcessingCollaboration, setIsProcessingCollaboration] = useState(false);
-
-  const [premiumAccessChapter, setPremiumAccessChapter] = useState<Chapter | null>(null);
-  const [premiumUsername, setPremiumUsername] = useState('');
-  const [premiumDuration, setPremiumDuration] = useState('24h');
-  const [isProcessingPremium, setIsProcessingPremium] = useState(false);
 
   const [autoSaveStatus, setAutoSaveStatus] = useState<'Idle' | 'Typing' | 'Saving' | 'Saved' | 'Error'>('Idle');
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
@@ -178,7 +172,7 @@ export default function EditStoryDetailsPage() {
           router.push('/write');
         }
         setIsLoading(false);
-      }, async (serverError) => {
+      }, (error) => {
         setIsLoading(false);
       });
     } else if (user && !queryStoryId) { 
@@ -210,8 +204,6 @@ export default function EditStoryDetailsPage() {
         router.push('/write');
         setIsLoading(false);
       });
-    } else if (!user && !authLoading) {
-        setIsLoading(false);
     }
     return () => {
       if (unsubscribeStory) unsubscribeStory();
@@ -345,6 +337,14 @@ export default function EditStoryDetailsPage() {
     } finally {
         setIsProcessingCollaboration(false);
     }
+  };
+
+  const handleRemoveCollaborator = async (collaboratorId: string) => {
+    if (!story) return;
+    const updatedCollabs = story.collaborators?.filter(collab => collab.id !== collaboratorId);
+    const updatedIds = story.collaboratorIds?.filter(id => id !== collaboratorId);
+    await updateDoc(doc(db, 'stories', story.id), { collaborators: updatedCollabs, collaboratorIds: updatedIds, lastUpdated: serverTimestamp() });
+    toast({ title: "Collaborator Removed" });
   };
 
   const isSaving = isUploadingCover || autoSaveStatus === 'Saving';
@@ -481,11 +481,7 @@ export default function EditStoryDetailsPage() {
                               {story.collaborators?.map(c => (
                                   <div key={c.id} className="flex items-center justify-between p-2 border rounded-lg">
                                       <span className="text-sm font-bold">@{c.username}</span>
-                                      <Button variant="ghost" size="icon" onClick={() => {
-                                          const updatedCollabs = story.collaborators?.filter(collab => collab.id !== c.id);
-                                          const updatedIds = story.collaboratorIds?.filter(id => id !== c.id);
-                                          updateDoc(doc(db, 'stories', story.id), { collaborators: updatedCollabs, collaboratorIds: updatedIds, lastUpdated: serverTimestamp() });
-                                      }} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                      <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(c.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
                                   </div>
                               ))}
                           </div>
@@ -506,4 +502,12 @@ export default function EditStoryDetailsPage() {
       </AlertDialog>
     </div>
   );
+}
+
+export default function EditStoryDetailsPage() {
+    return (
+        <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
+            <StoryDetailsInner />
+        </Suspense>
+    );
 }

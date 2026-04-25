@@ -1,8 +1,7 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  output: 'export',
+  /* Dynamic deployment config optimized for Vercel */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -37,6 +36,19 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Fix for @opentelemetry/exporter-jaeger error on Vercel/Genkit
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@opentelemetry/exporter-jaeger': false,
+        '@opentelemetry/otlp-grpc-exporter-base': false,
+        '@opentelemetry/otlp-proto-exporter-base': false,
+        '@opentelemetry/otlp-transformer': false,
+      };
+    }
+    return config;
   },
 };
 
