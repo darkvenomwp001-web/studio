@@ -595,7 +595,7 @@ function EditorContentInner() {
 
 export default function WriteEditorPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin" /></div>}>
+    <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
       <EditorContentInner />
       <style jsx global>{`
           .zen-focus-enabled .ProseMirror p {
