@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
@@ -507,17 +506,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 avatarUrl: updates.avatarUrl || user.avatarUrl
             };
 
+            // Cascading updates for Stories
             const storiesQuery = query(collection(db, 'stories'), where('author.id', '==', user.id));
             const storiesSnapshot = await getDocs(storiesQuery);
             storiesSnapshot.forEach(d => batch.update(d.ref, { author: newSummary }));
 
+            // Cascading updates for Feed Posts
             const postsQuery = query(collection(db, 'feedPosts'), where('author.id', '==', user.id));
             const postsSnapshot = await getDocs(postsQuery);
             postsSnapshot.forEach(d => batch.update(d.ref, { author: newSummary }));
 
+            // Cascading updates for Comments
             const commentsQuery = query(collection(db, 'comments'), where('user.id', '==', user.id));
             const commentsSnapshot = await getDocs(commentsQuery);
             commentsSnapshot.forEach(d => batch.update(d.ref, { user: newSummary }));
+
+            // Cascading updates for Notifications (where user is the actor)
+            const notificationsQuery = query(collection(db, 'notifications'), where('actor.id', '==', user.id));
+            const notificationsSnapshot = await getDocs(notificationsQuery);
+            notificationsSnapshot.forEach(d => batch.update(d.ref, { actor: newSummary }));
 
             await batch.commit();
         }

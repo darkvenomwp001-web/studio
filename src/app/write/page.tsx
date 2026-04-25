@@ -63,7 +63,7 @@ function DashboardContent() {
         const combined = Array.from(allStoriesMap.values());
         combined.sort((a,b) => {
             const timeA = a.lastUpdated?.toDate ? a.lastUpdated.toDate().getTime() : new Date(a.lastUpdated).getTime();
-            const timeB = b.lastUpdated?.toDate ? b.lastUpdated.toDate().getTime() : new Date(a.lastUpdated).getTime();
+            const timeB = b.lastUpdated?.toDate ? b.lastUpdated.toDate().getTime() : new Date(b.lastUpdated).getTime();
             return timeB - timeA;
         });
         setUserStories(combined);

@@ -1,3 +1,4 @@
+'use client';
 
 import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
@@ -14,36 +15,8 @@ import StoryPreviewDrawer from '@/components/story/StoryPreviewDrawer';
 import FirebaseErrorListener from '@/components/FirebaseErrorListener';
 import AppearanceManager from '@/components/layout/AppearanceManager';
 
-export const dynamic = 'force-dynamic';
-
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
-
-export const metadata: Metadata = {
-  title: 'D4RKV3NOM - Your Next Literary Adventure',
-  description: 'Discover, write, and connect with a global community of readers and writers on D4RKV3NOM.',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'D4RKV3NOM',
-  },
-  formatDetection: {
-    telephone: false,
-  },
-  icons: {
-    icon: '/favicon.ico', 
-  }
-};
-
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  viewportFit: 'cover',
-  themeColor: '#000000',
-};
 
 export default function RootLayout({
   children,
