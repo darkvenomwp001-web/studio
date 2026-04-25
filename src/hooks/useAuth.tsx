@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
@@ -20,7 +19,6 @@ import {
   sendPasswordResetEmail,
   EmailAuthProvider,
   reauthenticateWithCredential,
-  sendEmailVerification,
   type User as FirebaseUser
 } from 'firebase/auth';
 import {
@@ -91,8 +89,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_ROUTES = ['/auth/signin', '/auth/signup', '/auth/verify-email'];
-const PUBLIC_ROUTES: string[] = ['/stories', '/search', '/profile/']; 
+const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
 const DEFAULT_REDIRECT_AUTHENTICATED = '/';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
@@ -326,20 +323,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading) return;
 
-    if (user && !user.isAnonymous) {
-        // Enforce Email Verification for non-anonymous users
-        if (!user.emailVerified && pathname !== '/auth/verify-email') {
-            router.push('/auth/verify-email');
-            return;
-        }
+    const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
-        if (AUTH_ROUTES.includes(pathname) && pathname !== '/auth/verify-email') {
+    if (user && !user.isAnonymous) {
+        // User is signed in
+        if (isAuthRoute) {
             router.push(DEFAULT_REDIRECT_AUTHENTICATED);
         }
     } else {
-        const isAuthRoute = AUTH_ROUTES.includes(pathname);
-        const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
-        if (!isAuthRoute && !isPublicRoute && pathname !== '/') {
+        // User is NOT signed in
+        if (!isAuthRoute) {
             router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
         }
     }
@@ -419,10 +412,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const sendVerificationEmail = async () => {
-    if (auth.currentUser) {
-        await sendEmailVerification(auth.currentUser);
-        toast({ title: "Email Sent", description: "Verification email has been sent." });
-    }
+    // No-op as requested: removed email verification requirement.
+    toast({ title: "Note", description: "Email verification is currently disabled." });
   };
 
   const reloadUser = async () => {
@@ -464,11 +455,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email, passwordOne);
-      // Immediately send verification
-      await sendEmailVerification(userCredential.user);
-      
-      toast({ title: "Account Created!", description: "Please check your email to verify your account." });
+      await createUserWithEmailAndPassword(auth, email, passwordOne);
+      toast({ title: "Account Created!", description: "Welcome to D4RKV3NOM." });
     } catch (error) {
       console.error(error);
       toast({ title: "Sign Up Error", description: (error as Error).message, variant: "destructive" });
@@ -514,7 +502,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut(auth);
       sessionStorage.removeItem(USER_CACHE_KEY);
       toast({ title: "Signed Out" });
-      router.push('/');
+      router.push('/auth/signin');
     } catch (error) {
       console.error(error);
     } finally {
