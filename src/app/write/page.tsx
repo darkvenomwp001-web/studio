@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2, Book, Feather, ShieldAlert, PenSquare } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import type { Story } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -20,8 +19,7 @@ import {
 } from 'firebase/firestore';
 import DashboardStoryCard from '@/components/shared/DashboardStoryCard';
 
-
-export default function WriteDashboardPage() {
+function DashboardContent() {
   const { user, loading: authLoading } = useAuth();
   const [userStories, setUserStories] = useState<Story[]>([]);
   const [isLoadingStories, setIsLoadingStories] = useState(true);
@@ -77,7 +75,6 @@ export default function WriteDashboardPage() {
         setIsLoadingStories(false);
       }, (error) => {
         console.error("Error fetching authored stories: ", error);
-        toast({ title: "Error", description: "Could not load your authored stories. Check Firestore rules.", variant: "destructive" });
         setIsLoadingStories(false);
       });
 
@@ -87,10 +84,8 @@ export default function WriteDashboardPage() {
         setIsLoadingStories(false);
       }, (error) => {
         console.error("Error fetching collaborating stories: ", error);
-        toast({ title: "Error", description: "Could not load stories you collaborate on. Check Firestore rules.", variant: "destructive" });
         setIsLoadingStories(false);
       });
-
 
       return () => {
           unsubscribeAuthor();
@@ -133,7 +128,7 @@ export default function WriteDashboardPage() {
       <div className="space-y-8 text-center py-10">
         <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
         <h1 className="text-3xl font-headline font-bold text-foreground">Writer Access Required</h1>
-        <p className="text-muted-foreground max-w-md mx-auto">This dashboard is for creating and managing stories. The site administrator can grant you writer access if you wish to contribute.</p>
+        <p className="text-muted-foreground max-w-md mx-auto">This dashboard is for creating and managing stories. Contributors can grant you writer access to use this feature.</p>
       </div>
     );
   }
@@ -196,5 +191,13 @@ export default function WriteDashboardPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function WriteDashboardPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }

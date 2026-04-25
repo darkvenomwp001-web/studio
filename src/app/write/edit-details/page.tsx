@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense, useCallback, useRef, ChangeEvent } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,9 +17,6 @@ import {
   UploadCloud,
   Lock,
   Globe,
-  Languages,
-  Tag,
-  AlertCircle,
   Plus,
   BookOpen,
   Edit,
@@ -33,15 +31,17 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; 
-import { doc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
-import type { Story, Chapter, UserSummary } from '@/types';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { doc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
+import type { Story, UserSummary } from '@/types';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const GENRES = [
     'Fantasy', 'Romance', 'Mystery', 'Thriller', 'Horror', 'Sci-Fi', 
@@ -59,11 +59,9 @@ function StoryDetailsInner() {
 
   const [story, setStory] = useState<Story | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'Saved' | 'Saving...' | 'No Changes'>('No Changes');
   
-  // Local form states
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [genre, setGenre] = useState('');
@@ -286,7 +284,6 @@ function StoryDetailsInner() {
               <TabsTrigger value="team" className="rounded-full font-bold">Team</TabsTrigger>
           </TabsList>
 
-          {/* Manuscript Canvas Tab */}
           <TabsContent value="canvas" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="flex flex-col md:flex-row gap-10">
                   <div className="w-full md:w-64 space-y-4">
@@ -305,7 +302,7 @@ function StoryDetailsInner() {
                           ) : (
                               <div className="flex flex-col items-center justify-center h-full gap-2 p-6 text-center">
                                   <UploadCloud className="h-10 w-10 text-muted-foreground/40" />
-                                  <p className="text-xs font-medium text-muted-foreground/60">Upload 512x800 for best results</p>
+                                  <p className="text-xs font-medium text-muted-foreground/60">Upload Cover</p>
                               </div>
                           )}
                           {isUploading && (
@@ -328,7 +325,7 @@ function StoryDetailsInner() {
                             value={title} 
                             onChange={e => setTitle(e.target.value)}
                             onBlur={() => handleUpdateField('title', title)}
-                            placeholder="Enter a compelling title..."
+                            placeholder="Enter title..."
                             className="h-14 text-xl md:text-2xl font-bold rounded-2xl bg-card border-none shadow-inner focus-visible:ring-primary/30" 
                           />
                       </div>
@@ -346,7 +343,7 @@ function StoryDetailsInner() {
                                 </Select>
                            </div>
                            <div className="space-y-2">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Primary Language</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Language</Label>
                                 <Select value={language} onValueChange={(v) => { setLanguage(v); handleUpdateField('language', v); }}>
                                     <SelectTrigger className="h-12 rounded-xl bg-card border-none shadow-inner">
                                         <SelectValue placeholder="Language..." />
@@ -359,20 +356,20 @@ function StoryDetailsInner() {
                       </div>
 
                       <div className="space-y-2">
-                          <Label htmlFor="summary" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Story Summary</Label>
+                          <Label htmlFor="summary" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Summary</Label>
                           <Textarea 
                             id="summary"
                             value={summary} 
                             onChange={e => setSummary(e.target.value)}
                             onBlur={() => handleUpdateField('summary', summary)}
-                            placeholder="What is your story about? (This appears on your story page)"
+                            placeholder="Manuscript summary..."
                             rows={8} 
                             className="rounded-2xl bg-card border-none shadow-inner resize-none text-base p-4 focus-visible:ring-primary/30" 
                           />
                       </div>
 
                       <div className="space-y-3">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Discoverability Tags</Label>
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Tags</Label>
                           <div className="flex flex-wrap gap-2 mb-3">
                               {tags.map(t => (
                                   <Badge key={t} variant="secondary" className="px-3 py-1 rounded-full gap-1 text-[11px] font-bold uppercase">
@@ -380,11 +377,10 @@ function StoryDetailsInner() {
                                       <button onClick={() => handleRemoveTag(t)} className="hover:text-destructive"><X className="h-3 w-3" /></button>
                                   </Badge>
                               ))}
-                              {tags.length === 0 && <p className="text-xs text-muted-foreground italic ml-1">No tags added yet (max 10).</p>}
                           </div>
                           <div className="flex gap-2">
                               <Input 
-                                placeholder="Add a tag (e.g. detective, slowburn)" 
+                                placeholder="Add a tag..." 
                                 value={tagInput}
                                 onChange={e => setTagInput(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleAddTag()}
@@ -399,13 +395,12 @@ function StoryDetailsInner() {
               </div>
           </TabsContent>
 
-          {/* Chapters Tab */}
           <TabsContent value="chapters" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-3xl border-none shadow-xl overflow-hidden bg-card/50 backdrop-blur-sm">
                   <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20">
                       <div>
                           <CardTitle className="font-headline text-xl">Table of Contents</CardTitle>
-                          <CardDescription>{story.chapters.length} Parts in this manuscript</CardDescription>
+                          <CardDescription>{story.chapters.length} Parts total</CardDescription>
                       </div>
                       <Button onClick={handleAddChapter} className="rounded-full shadow-lg shadow-primary/20 gap-2">
                           <Plus className="h-4 w-4" />
@@ -447,7 +442,7 @@ function StoryDetailsInner() {
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle>Delete this chapter?</AlertDialogTitle>
                                                     <AlertDialogDescription>
-                                                        This action cannot be undone. "{ch.title}" will be permanently removed from your manuscript.
+                                                        This action cannot be undone.
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
@@ -462,10 +457,8 @@ function StoryDetailsInner() {
                         </div>
                       ) : (
                           <div className="py-20 text-center space-y-4">
-                              <div className="w-20 h-20 bg-muted/40 rounded-full flex items-center justify-center mx-auto">
-                                  <BookOpen className="h-10 w-10 text-muted-foreground/30" />
-                              </div>
-                              <p className="text-muted-foreground font-medium">Your manuscript is empty. Start your first part!</p>
+                              <BookOpen className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                              <p className="text-muted-foreground font-medium">Your manuscript is empty.</p>
                               <Button onClick={handleAddChapter} variant="outline" className="rounded-full px-8">Add First Chapter</Button>
                           </div>
                       )}
@@ -473,7 +466,6 @@ function StoryDetailsInner() {
               </Card>
           </TabsContent>
 
-          {/* Advanced Settings Tab */}
           <TabsContent value="advanced" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="grid md:grid-cols-2 gap-6">
                   <Card className="rounded-3xl border-none shadow-xl">
@@ -487,21 +479,21 @@ function StoryDetailsInner() {
                                   <RadioGroupItem value="Public" id="pub" />
                                   <Label htmlFor="pub" className="flex-1 cursor-pointer">
                                       <span className="font-bold block">Public</span>
-                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Everyone can find and read this story</span>
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Everyone can read</span>
                                   </Label>
                               </div>
                               <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
                                   <RadioGroupItem value="Unlisted" id="unl" />
                                   <Label htmlFor="unl" className="flex-1 cursor-pointer">
                                       <span className="font-bold block">Unlisted</span>
-                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Only people with the link can view</span>
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Link only access</span>
                                   </Label>
                               </div>
                               <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
                                   <RadioGroupItem value="Private" id="pri" />
                                   <Label htmlFor="pri" className="flex-1 cursor-pointer">
                                       <span className="font-bold block">Private</span>
-                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Only you and your team can see this</span>
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Author only</span>
                                   </Label>
                               </div>
                           </RadioGroup>
@@ -510,14 +502,14 @@ function StoryDetailsInner() {
 
                   <Card className="rounded-3xl border-none shadow-xl">
                       <CardHeader>
-                          <CardTitle className="text-lg flex items-center gap-2"><AlertCircle className="h-5 w-5 text-red-500" /> Content Rating</CardTitle>
-                          <CardDescription>Guidelines for appropriate audience.</CardDescription>
+                          <CardTitle className="text-lg flex items-center gap-2">Content Rating</CardTitle>
+                          <CardDescription>Guidelines for audience.</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
                           <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border border-dashed border-red-500/20">
                               <div className="space-y-0.5">
                                   <Label className="text-sm font-bold block">Mature Content (18+)</Label>
-                                  <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Includes explicit scenes or violence</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Explicit scenes or violence</p>
                               </div>
                               <Switch checked={isMature} onCheckedChange={(v) => { setIsMature(v); handleUpdateField('isMature', v); }} />
                           </div>
@@ -543,21 +535,19 @@ function StoryDetailsInner() {
               </div>
           </TabsContent>
 
-          {/* Team Tab */}
           <TabsContent value="team" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="max-w-2xl mx-auto space-y-6">
                 <Card className="rounded-3xl border-none shadow-xl overflow-hidden">
                     <CardHeader className="bg-muted/30 border-b">
                         <CardTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Story Collaboration</CardTitle>
-                        <CardDescription>Grant editing access to fellow writers. Collaborators can edit all chapters but cannot delete the story.</CardDescription>
+                        <CardDescription>Grant editing access to fellow writers.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6 space-y-6">
                         <div className="flex gap-2">
                             <Input 
-                                placeholder="Enter username (e.g. d4rkv3nom)" 
+                                placeholder="Enter username..." 
                                 value={collaboratorUsername} 
                                 onChange={e => setCollaboratorUsername(e.target.value)} 
-                                onKeyDown={e => e.key === 'Enter' && handleAddCollaborator()}
                                 className="h-12 rounded-xl bg-muted/20 border-none shadow-inner"
                                 disabled={isProcessingCollaboration}
                             />
@@ -577,7 +567,6 @@ function StoryDetailsInner() {
                                         </Avatar>
                                         <div>
                                             <p className="font-bold text-sm">@{story.author.username} <Badge className="ml-1 bg-primary text-[8px] uppercase h-4">Owner</Badge></p>
-                                            <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{story.author.displayName}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -590,7 +579,6 @@ function StoryDetailsInner() {
                                             </Avatar>
                                             <div>
                                                 <p className="font-bold text-sm">@{c.username}</p>
-                                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{c.displayName}</p>
                                             </div>
                                         </div>
                                         <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(c.id)} className="text-destructive hover:bg-destructive/10 rounded-full"><Trash2 className="h-4 w-4"/></Button>
@@ -606,10 +594,6 @@ function StoryDetailsInner() {
     </div>
   );
 }
-
-import { arrayRemove, arrayUnion } from 'firebase/firestore';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function EditStoryDetailsPage() {
     return (
