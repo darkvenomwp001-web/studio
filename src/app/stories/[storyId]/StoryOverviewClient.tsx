@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -133,11 +134,35 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
           </div>
           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Fan Votes</span>
         </div>
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-1.5 text-foreground">
+            <MessageSquare className="h-5 w-5 opacity-70" />
+            <strong className="text-2xl font-bold">{(commentCount || 0).toLocaleString()}</strong>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Community Chat</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-1.5 text-foreground">
+            <ListOrdered className="h-5 w-5 opacity-70" />
+            <strong className="text-2xl font-bold">{(publishedChapters.length || 0).toLocaleString()}</strong>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Story Parts</span>
+        </div>
       </div>
       
       <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none pt-4">
-        <h2 className="text-2xl font-headline font-bold mb-4 text-foreground flex items-center gap-2">Summary</h2>
-        <p className="whitespace-pre-line text-muted-foreground leading-relaxed text-base">{story.summary}</p>
+        <h2 className="text-2xl font-headline font-bold mb-4 text-foreground flex items-center gap-2">
+            Description
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", isDescriptionExpanded && "rotate-180")} />
+        </h2>
+        <p className={cn(!isDescriptionExpanded && "line-clamp-5", "whitespace-pre-line text-muted-foreground leading-relaxed text-base")}>
+          {story.summary || "No description available."}
+        </p>
+        {story.summary && story.summary.length > 200 && (
+              <Button variant="link" onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="p-0 h-auto text-xs text-primary hover:underline font-bold uppercase tracking-widest mt-2">
+                {isDescriptionExpanded ? "Show Less" : "Show More"}
+            </Button>
+        )}
       </div>
 
       <Separator className="my-8 opacity-40" />
@@ -154,6 +179,7 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
                       <span className="font-bold text-base text-foreground group-hover:text-primary transition-colors flex items-center gap-3">
                         <span className="text-[10px] font-bold text-muted-foreground bg-muted w-6 h-6 flex items-center justify-center rounded-full">{chapter.order}</span>
                         {chapter.title}
+                        {chapter.accessType === 'premium' && <Lock className="h-4 w-4 text-yellow-500" />}
                       </span>
                     </div>
                   </Link>
