@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback, useRef, ChangeEvent } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -12,14 +12,43 @@ import {
   Loader2, 
   Trash2, 
   ArrowLeft,
-  CheckCircle
+  CheckCircle,
+  UploadCloud,
+  Lock,
+  Globe,
+  Languages,
+  Tag,
+  AlertCircle,
+  Plus,
+  BookOpen,
+  Edit,
+  Eye,
+  Settings,
+  X,
+  Sparkles,
+  ChevronRight,
+  ShieldCheck,
+  UserPlus
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; 
-import { doc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
-import type { Story, Chapter, UserSummary, User as AppUser } from '@/types';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { doc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
+import type { Story, Chapter, UserSummary } from '@/types';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const GENRES = [
+    'Fantasy', 'Romance', 'Mystery', 'Thriller', 'Horror', 'Sci-Fi', 
+    'Adventure', 'Historical', 'Poetry', 'Non-Fiction', 'Fanfiction', 'Action'
+];
+
+const LANGUAGES = ['English', 'Filipino', 'Spanish', 'French', 'German', 'Japanese'];
 
 function StoryDetailsInner() {
   const searchParams = useSearchParams();
@@ -29,11 +58,25 @@ function StoryDetailsInner() {
   const queryStoryId = searchParams.get('storyId');
 
   const [story, setStory] = useState<Story | null>(null);
-  const [storyTitle, setStoryTitle] = useState('');
-  const [summary, setSummary] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'Saved' | 'Saving...' | 'No Changes'>('No Changes');
+  
+  // Local form states
+  const [title, setTitle] = useState('');
+  const [summary, setSummary] = useState('');
+  const [genre, setGenre] = useState('');
+  const [language, setLanguage] = useState('');
+  const [isMature, setIsMature] = useState(false);
+  const [visibility, setVisibility] = useState<'Public' | 'Private' | 'Unlisted'>('Private');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  
   const [collaboratorUsername, setCollaboratorUsername] = useState('');
   const [isProcessingCollaboration, setIsProcessingCollaboration] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!queryStoryId && user) {
@@ -41,9 +84,9 @@ function StoryDetailsInner() {
       const newStoryId = doc(collection(db, 'stories')).id;
       const newStoryData: Story = {
         id: newStoryId,
-        title: 'New Story Title',
+        title: 'Untitled Manuscript',
         author: { id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl },
-        genre: 'fantasy',
+        genre: 'Fantasy',
         summary: '',
         tags: [],
         chapters: [],
@@ -74,8 +117,13 @@ function StoryDetailsInner() {
         if (docSnap.exists()) {
           const data = { id: docSnap.id, ...docSnap.data() } as Story;
           setStory(data);
-          setStoryTitle(data.title);
-          setSummary(data.summary);
+          setTitle(data.title || '');
+          setSummary(data.summary || '');
+          setGenre(data.genre || 'Fantasy');
+          setLanguage(data.language || 'English');
+          setIsMature(data.isMature || false);
+          setVisibility(data.visibility || 'Private');
+          setTags(data.tags || []);
         }
         setIsLoading(false);
       }, (error) => {
@@ -86,6 +134,70 @@ function StoryDetailsInner() {
 
   }, [queryStoryId, user, router]);
 
+  const handleUpdateField = useCallback(async (fieldName: string, value: any) => {
+    if (!story) return;
+    setSaveStatus('Saving...');
+    
+    const storyRef = doc(db, 'stories', story.id);
+    updateDoc(storyRef, {
+        [fieldName]: value,
+        lastUpdated: serverTimestamp()
+    }).then(() => {
+        setSaveStatus('Saved');
+    }).catch(() => {
+        setSaveStatus('No Changes');
+        toast({ title: "Update Failed", description: "Could not save your changes.", variant: "destructive" });
+    });
+  }, [story, toast]);
+
+  const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0] || !story) return;
+    const file = e.target.files[0];
+    
+    setIsUploading(true);
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+        toast({ title: "Configuration Error", description: "Cloudinary settings missing.", variant: "destructive"});
+        setIsUploading(false);
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+
+    try {
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.secure_url) {
+            await handleUpdateField('coverImageUrl', data.secure_url);
+            toast({ title: "Cover Updated!" });
+        }
+    } catch (error) {
+        toast({ title: "Upload Failed", variant: "destructive" });
+    } finally {
+        setIsUploading(false);
+    }
+  };
+
+  const handleAddTag = () => {
+    const trimmedTag = tagInput.trim().toLowerCase();
+    if (trimmedTag && !tags.includes(trimmedTag) && tags.length < 10) {
+        const newTags = [...tags, trimmedTag];
+        setTags(newTags);
+        handleUpdateField('tags', newTags);
+        setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    const newTags = tags.filter(t => t !== tagToRemove);
+    setTags(newTags);
+    handleUpdateField('tags', newTags);
+  };
+
   const handleAddCollaborator = async () => {
     if (!story || !collaboratorUsername.trim()) return;
     setIsProcessingCollaboration(true);
@@ -93,12 +205,22 @@ function StoryDetailsInner() {
     const snap = await getDocs(q);
     if (!snap.empty) {
       const newUser = { id: snap.docs[0].id, ...snap.docs[0].data() } as UserSummary;
-      await updateDoc(doc(db, 'stories', story.id), {
-        collaboratorIds: [...(story.collaboratorIds || []), newUser.id],
-        collaborators: [...(story.collaborators || []), newUser]
-      });
-      setCollaboratorUsername('');
-      toast({ title: "Collaborator Added!" });
+      
+      if (story.collaboratorIds?.includes(newUser.id)) {
+          toast({ title: "Already added", description: "This user is already a collaborator." });
+      } else {
+          await updateDoc(doc(db, 'stories', story.id), {
+            collaboratorIds: arrayUnion(newUser.id),
+            collaborators: arrayUnion({ 
+                id: newUser.id, 
+                username: newUser.username, 
+                displayName: newUser.displayName || newUser.username, 
+                avatarUrl: newUser.avatarUrl 
+            })
+          });
+          setCollaboratorUsername('');
+          toast({ title: "Collaborator Added!" });
+      }
     } else {
       toast({ title: "User not found", variant: "destructive" });
     }
@@ -107,10 +229,27 @@ function StoryDetailsInner() {
 
   const handleRemoveCollaborator = async (collaboratorId: string) => {
     if (!story) return;
-    const updatedCollabs = story.collaborators?.filter(collab => collab.id !== collaboratorId);
-    const updatedIds = story.collaboratorIds?.filter(id => id !== collaboratorId);
-    await updateDoc(doc(db, 'stories', story.id), { collaborators: updatedCollabs, collaboratorIds: updatedIds, lastUpdated: serverTimestamp() });
-    toast({ title: "Collaborator Removed" });
+    const targetCollab = story.collaborators?.find(c => c.id === collaboratorId);
+    if (targetCollab) {
+        await updateDoc(doc(db, 'stories', story.id), { 
+            collaborators: arrayRemove(targetCollab), 
+            collaboratorIds: arrayRemove(collaboratorId), 
+            lastUpdated: serverTimestamp() 
+        });
+        toast({ title: "Collaborator Removed" });
+    }
+  };
+
+  const handleAddChapter = () => {
+      if (!story) return;
+      router.push(`/write/edit?storyId=${story.id}`);
+  };
+
+  const handleDeleteChapter = async (chapterId: string) => {
+      if (!story) return;
+      const updatedChapters = story.chapters.filter(ch => ch.id !== chapterId);
+      await updateDoc(doc(db, 'stories', story.id), { chapters: updatedChapters, lastUpdated: serverTimestamp() });
+      toast({ title: "Chapter deleted" });
   };
 
   if (isLoading || authLoading || !story) {
@@ -122,56 +261,355 @@ function StoryDetailsInner() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-10">
-      <header className="space-y-1">
-          <Button variant="ghost" size="sm" onClick={() => router.push('/write')} className="mb-2 -ml-2 text-muted-foreground">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-          </Button>
-          <h1 className="text-3xl md:text-5xl font-headline font-bold">{storyTitle || 'Manuscript'}</h1>
+    <div className="max-w-5xl mx-auto p-4 space-y-10 pb-20">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-1">
+              <Button variant="ghost" size="sm" onClick={() => router.push('/write')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+              </Button>
+              <h1 className="text-3xl md:text-5xl font-headline font-bold">{title || 'Untitled Manuscript'}</h1>
+          </div>
+          <div className={cn(
+              "flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-full border shadow-sm",
+              saveStatus === 'Saved' ? 'bg-green-500/10 text-green-600 border-green-500/20' : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+          )}>
+              {saveStatus === 'Saving...' ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+              {saveStatus}
+          </div>
       </header>
 
-      <Tabs defaultValue="content" className="w-full">
-          <TabsList className="grid grid-cols-2 max-w-md bg-muted/50 p-1 rounded-full mb-10">
-              <TabsTrigger value="content" className="rounded-full font-bold">Canvas</TabsTrigger>
-              <TabsTrigger value="settings" className="rounded-full font-bold">Team</TabsTrigger>
+      <Tabs defaultValue="canvas" className="w-full">
+          <TabsList className="grid grid-cols-4 max-w-2xl bg-muted/50 p-1 rounded-full mb-10 shadow-inner">
+              <TabsTrigger value="canvas" className="rounded-full font-bold">Manuscript</TabsTrigger>
+              <TabsTrigger value="chapters" className="rounded-full font-bold">Parts</TabsTrigger>
+              <TabsTrigger value="advanced" className="rounded-full font-bold">Settings</TabsTrigger>
+              <TabsTrigger value="team" className="rounded-full font-bold">Team</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="content" className="space-y-8 animate-in fade-in">
-              <div className="grid gap-6">
-                  <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Title</Label>
-                      <Input value={storyTitle} onChange={e => setStoryTitle(e.target.value)} className="h-14 text-xl font-bold rounded-2xl" />
+          {/* Manuscript Canvas Tab */}
+          <TabsContent value="canvas" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div className="flex flex-col md:flex-row gap-10">
+                  <div className="w-full md:w-64 space-y-4">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Cover Art</Label>
+                      <div 
+                        className="relative aspect-[2/3] rounded-2xl overflow-hidden border-2 border-dashed border-border/60 group cursor-pointer bg-muted/30 hover:bg-muted/50 transition-all"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                          {story.coverImageUrl ? (
+                              <>
+                                <Image src={story.coverImageUrl} alt="Cover" fill className="object-cover transition-transform group-hover:scale-105" />
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <UploadCloud className="text-white h-10 w-10" />
+                                </div>
+                              </>
+                          ) : (
+                              <div className="flex flex-col items-center justify-center h-full gap-2 p-6 text-center">
+                                  <UploadCloud className="h-10 w-10 text-muted-foreground/40" />
+                                  <p className="text-xs font-medium text-muted-foreground/60">Upload 512x800 for best results</p>
+                              </div>
+                          )}
+                          {isUploading && (
+                              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+                                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                              </div>
+                          )}
+                      </div>
+                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleCoverUpload} />
+                      <Button variant="outline" className="w-full rounded-xl" onClick={() => fileInputRef.current?.click()}>
+                          {story.coverImageUrl ? 'Change Cover' : 'Upload Cover'}
+                      </Button>
                   </div>
-                  <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Summary</Label>
-                      <Textarea value={summary} onChange={e => setSummary(e.target.value)} rows={6} className="rounded-2xl" />
+
+                  <div className="flex-1 space-y-8">
+                      <div className="space-y-2">
+                          <Label htmlFor="storyTitle" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Story Title</Label>
+                          <Input 
+                            id="storyTitle"
+                            value={title} 
+                            onChange={e => setTitle(e.target.value)}
+                            onBlur={() => handleUpdateField('title', title)}
+                            placeholder="Enter a compelling title..."
+                            className="h-14 text-xl md:text-2xl font-bold rounded-2xl bg-card border-none shadow-inner focus-visible:ring-primary/30" 
+                          />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                           <div className="space-y-2">
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Genre</Label>
+                                <Select value={genre} onValueChange={(v) => { setGenre(v); handleUpdateField('genre', v); }}>
+                                    <SelectTrigger className="h-12 rounded-xl bg-card border-none shadow-inner">
+                                        <SelectValue placeholder="Select genre..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {GENRES.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                           </div>
+                           <div className="space-y-2">
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Primary Language</Label>
+                                <Select value={language} onValueChange={(v) => { setLanguage(v); handleUpdateField('language', v); }}>
+                                    <SelectTrigger className="h-12 rounded-xl bg-card border-none shadow-inner">
+                                        <SelectValue placeholder="Language..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {LANGUAGES.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                           </div>
+                      </div>
+
+                      <div className="space-y-2">
+                          <Label htmlFor="summary" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Story Summary</Label>
+                          <Textarea 
+                            id="summary"
+                            value={summary} 
+                            onChange={e => setSummary(e.target.value)}
+                            onBlur={() => handleUpdateField('summary', summary)}
+                            placeholder="What is your story about? (This appears on your story page)"
+                            rows={8} 
+                            className="rounded-2xl bg-card border-none shadow-inner resize-none text-base p-4 focus-visible:ring-primary/30" 
+                          />
+                      </div>
+
+                      <div className="space-y-3">
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Discoverability Tags</Label>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                              {tags.map(t => (
+                                  <Badge key={t} variant="secondary" className="px-3 py-1 rounded-full gap-1 text-[11px] font-bold uppercase">
+                                      {t}
+                                      <button onClick={() => handleRemoveTag(t)} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+                                  </Badge>
+                              ))}
+                              {tags.length === 0 && <p className="text-xs text-muted-foreground italic ml-1">No tags added yet (max 10).</p>}
+                          </div>
+                          <div className="flex gap-2">
+                              <Input 
+                                placeholder="Add a tag (e.g. detective, slowburn)" 
+                                value={tagInput}
+                                onChange={e => setTagInput(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleAddTag()}
+                                className="h-11 rounded-xl bg-card border-none shadow-inner"
+                              />
+                              <Button variant="outline" className="h-11 rounded-xl" onClick={handleAddTag} disabled={tags.length >= 10}>
+                                  Add
+                              </Button>
+                          </div>
+                      </div>
                   </div>
               </div>
           </TabsContent>
 
-          <TabsContent value="settings" className="space-y-6 animate-in fade-in">
-              <Card>
-                  <CardHeader><CardTitle>Collaborators</CardTitle></CardHeader>
-                  <CardContent className="space-y-4">
-                      <div className="flex gap-2">
-                          <Input placeholder="@handle" value={collaboratorUsername} onChange={e => setCollaboratorUsername(e.target.value)} />
-                          <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration}>Add</Button>
+          {/* Chapters Tab */}
+          <TabsContent value="chapters" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Card className="rounded-3xl border-none shadow-xl overflow-hidden bg-card/50 backdrop-blur-sm">
+                  <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20">
+                      <div>
+                          <CardTitle className="font-headline text-xl">Table of Contents</CardTitle>
+                          <CardDescription>{story.chapters.length} Parts in this manuscript</CardDescription>
                       </div>
-                      <div className="space-y-2">
-                          {story.collaborators?.map(c => (
-                              <div key={c.id} className="flex items-center justify-between p-3 border rounded-xl">
-                                  <span className="font-bold text-sm">@{c.username}</span>
-                                  <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(c.id)} className="text-destructive"><Trash2 className="h-4 w-4"/></Button>
+                      <Button onClick={handleAddChapter} className="rounded-full shadow-lg shadow-primary/20 gap-2">
+                          <Plus className="h-4 w-4" />
+                          New Part
+                      </Button>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                      {story.chapters.length > 0 ? (
+                        <div className="divide-y divide-border/40">
+                            {story.chapters.sort((a,b) => a.order - b.order).map(ch => (
+                                <div key={ch.id} className="p-5 flex items-center justify-between hover:bg-primary/5 transition-colors group">
+                                    <div className="flex items-center gap-4 min-w-0">
+                                        <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors">
+                                            {ch.order}
+                                        </div>
+                                        <div className="truncate">
+                                            <h4 className="font-bold text-sm truncate flex items-center gap-2">
+                                                {ch.title}
+                                                {ch.accessType === 'premium' && <Sparkles className="h-3 w-3 text-yellow-500" />}
+                                            </h4>
+                                            <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground">
+                                                <span>{ch.wordCount || 0} words</span>
+                                                <span className="w-1 h-1 bg-border rounded-full" />
+                                                <span className={cn(
+                                                    ch.status === 'Published' ? "text-green-600" : "text-yellow-600"
+                                                )}>{ch.status}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Link href={`/write/edit?storyId=${story.id}&chapterId=${ch.id}`} passHref>
+                                            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
+                                        </Link>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent className="rounded-3xl">
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Delete this chapter?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        This action cannot be undone. "{ch.title}" will be permanently removed from your manuscript.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteChapter(ch.id)} className="bg-destructive hover:bg-destructive/90 rounded-full px-6">Delete Forever</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                      ) : (
+                          <div className="py-20 text-center space-y-4">
+                              <div className="w-20 h-20 bg-muted/40 rounded-full flex items-center justify-center mx-auto">
+                                  <BookOpen className="h-10 w-10 text-muted-foreground/30" />
                               </div>
-                          ))}
-                      </div>
+                              <p className="text-muted-foreground font-medium">Your manuscript is empty. Start your first part!</p>
+                              <Button onClick={handleAddChapter} variant="outline" className="rounded-full px-8">Add First Chapter</Button>
+                          </div>
+                      )}
                   </CardContent>
               </Card>
+          </TabsContent>
+
+          {/* Advanced Settings Tab */}
+          <TabsContent value="advanced" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div className="grid md:grid-cols-2 gap-6">
+                  <Card className="rounded-3xl border-none shadow-xl">
+                      <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2"><Globe className="h-5 w-5 text-primary" /> Distribution</CardTitle>
+                          <CardDescription>Control who can access this story.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                          <RadioGroup value={visibility} onValueChange={(v) => { setVisibility(v as any); handleUpdateField('visibility', v); }} className="space-y-3">
+                              <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
+                                  <RadioGroupItem value="Public" id="pub" />
+                                  <Label htmlFor="pub" className="flex-1 cursor-pointer">
+                                      <span className="font-bold block">Public</span>
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Everyone can find and read this story</span>
+                                  </Label>
+                              </div>
+                              <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
+                                  <RadioGroupItem value="Unlisted" id="unl" />
+                                  <Label htmlFor="unl" className="flex-1 cursor-pointer">
+                                      <span className="font-bold block">Unlisted</span>
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Only people with the link can view</span>
+                                  </Label>
+                              </div>
+                              <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
+                                  <RadioGroupItem value="Private" id="pri" />
+                                  <Label htmlFor="pri" className="flex-1 cursor-pointer">
+                                      <span className="font-bold block">Private</span>
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Only you and your team can see this</span>
+                                  </Label>
+                              </div>
+                          </RadioGroup>
+                      </CardContent>
+                  </Card>
+
+                  <Card className="rounded-3xl border-none shadow-xl">
+                      <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2"><AlertCircle className="h-5 w-5 text-red-500" /> Content Rating</CardTitle>
+                          <CardDescription>Guidelines for appropriate audience.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                          <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border border-dashed border-red-500/20">
+                              <div className="space-y-0.5">
+                                  <Label className="text-sm font-bold block">Mature Content (18+)</Label>
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Includes explicit scenes or violence</p>
+                              </div>
+                              <Switch checked={isMature} onCheckedChange={(v) => { setIsMature(v); handleUpdateField('isMature', v); }} />
+                          </div>
+                          
+                          <div className="bg-muted/30 p-4 rounded-2xl">
+                                <h5 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Manuscript Status</h5>
+                                <div className="flex gap-2">
+                                    {['Ongoing', 'Completed', 'Draft'].map(s => (
+                                        <Button 
+                                            key={s} 
+                                            variant={story.status === s ? 'default' : 'outline'} 
+                                            size="sm" 
+                                            className="rounded-full text-[10px] font-bold uppercase h-8 px-4"
+                                            onClick={() => handleUpdateField('status', s)}
+                                        >
+                                            {s}
+                                        </Button>
+                                    ))}
+                                </div>
+                          </div>
+                      </CardContent>
+                  </Card>
+              </div>
+          </TabsContent>
+
+          {/* Team Tab */}
+          <TabsContent value="team" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div className="max-w-2xl mx-auto space-y-6">
+                <Card className="rounded-3xl border-none shadow-xl overflow-hidden">
+                    <CardHeader className="bg-muted/30 border-b">
+                        <CardTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Story Collaboration</CardTitle>
+                        <CardDescription>Grant editing access to fellow writers. Collaborators can edit all chapters but cannot delete the story.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                        <div className="flex gap-2">
+                            <Input 
+                                placeholder="Enter username (e.g. d4rkv3nom)" 
+                                value={collaboratorUsername} 
+                                onChange={e => setCollaboratorUsername(e.target.value)} 
+                                onKeyDown={e => e.key === 'Enter' && handleAddCollaborator()}
+                                className="h-12 rounded-xl bg-muted/20 border-none shadow-inner"
+                                disabled={isProcessingCollaboration}
+                            />
+                            <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim()} className="rounded-xl h-12 px-6">
+                                {isProcessingCollaboration ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Invite'}
+                            </Button>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Current Team</Label>
+                            <div className="grid gap-2">
+                                <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/20 rounded-2xl">
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-10 w-10 border-2 border-background">
+                                            <AvatarImage src={story.author.avatarUrl} />
+                                            <AvatarFallback>{story.author.username.charAt(0).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-bold text-sm">@{story.author.username} <Badge className="ml-1 bg-primary text-[8px] uppercase h-4">Owner</Badge></p>
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{story.author.displayName}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {story.collaborators?.map(c => (
+                                    <div key={c.id} className="flex items-center justify-between p-3 border rounded-2xl hover:bg-muted/30 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-10 w-10">
+                                                <AvatarImage src={c.avatarUrl} />
+                                                <AvatarFallback>{c.username.charAt(0).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <p className="font-bold text-sm">@{c.username}</p>
+                                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{c.displayName}</p>
+                                            </div>
+                                        </div>
+                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(c.id)} className="text-destructive hover:bg-destructive/10 rounded-full"><Trash2 className="h-4 w-4"/></Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+              </div>
           </TabsContent>
       </Tabs>
     </div>
   );
 }
+
+import { arrayRemove, arrayUnion } from 'firebase/firestore';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function EditStoryDetailsPage() {
     return (
