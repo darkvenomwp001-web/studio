@@ -109,13 +109,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newAchievements.length > oldAchievements.length) {
           const latestAchievement = newAchievements[newAchievements.length - 1];
           const toastId = `ach-toast-${latestAchievement.id}`;
-          const hasSeenToast = sessionStorage.getItem(toastId);
-          if (!hasSeenToast) {
-            toast({
-              title: "🏆 Achievement Unlocked!",
-              description: latestAchievement.name,
-            });
-            sessionStorage.setItem(toastId, 'true');
+          
+          if (typeof window !== 'undefined') {
+              const hasSeenToast = sessionStorage.getItem(toastId);
+              if (!hasSeenToast) {
+                toast({
+                  title: "🏆 Achievement Unlocked!",
+                  description: latestAchievement.name,
+                });
+                sessionStorage.setItem(toastId, 'true');
+              }
           }
       }
   }, [toast]);
@@ -160,13 +163,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let unsubscribeUserDoc: (() => void) | undefined;
     let unsubscribeNotifs: (() => void) | undefined;
     
-    try {
-        const cachedUser = sessionStorage.getItem(USER_CACHE_KEY);
-        if (cachedUser) {
-            setUser(JSON.parse(cachedUser));
+    if (typeof window !== 'undefined') {
+        try {
+            const cachedUser = sessionStorage.getItem(USER_CACHE_KEY);
+            if (cachedUser) {
+                setUser(JSON.parse(cachedUser));
+            }
+        } catch (e) {
+            console.warn("Could not read user cache", e);
         }
-    } catch (e) {
-        console.warn("Could not read user cache", e);
     }
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
@@ -229,7 +234,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
 
             setUser(fullUser);
-            sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(fullUser));
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(fullUser));
+            }
             if(fullUser.achievements) {
                 handleAchievementUnlock(fullUser.achievements, oldAchievements);
             }
@@ -276,7 +283,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 errorEmitter.emit('permission-error', permissionError);
             });
             setUser(newUserProfile); 
-            sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(newUserProfile));
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(newUserProfile));
+            }
           }
           setLoading(false);
         }, (error) => {
@@ -309,7 +318,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setLoading(false);
         setNotifications([]);
-        sessionStorage.removeItem(USER_CACHE_KEY);
+        if (typeof window !== 'undefined') {
+            sessionStorage.removeItem(USER_CACHE_KEY);
+        }
       }
     });
 
@@ -500,7 +511,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
       await signOut(auth);
-      sessionStorage.removeItem(USER_CACHE_KEY);
+      if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(USER_CACHE_KEY);
+      }
       toast({ title: "Signed Out" });
       router.push('/auth/signin');
     } catch (error) {

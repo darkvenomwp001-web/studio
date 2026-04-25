@@ -364,6 +364,10 @@ export default function StatusFeature() {
 
       <Dialog open={isUploaderOpen} onOpenChange={(o) => { setIsUploaderOpen(o); if(!o) resetUploader(); }}>
           <DialogContent className="p-0 border-none sm:max-w-md flex flex-col rounded-3xl overflow-hidden shadow-3xl">
+              <DialogHeader className="sr-only">
+                  <DialogTitle>Status Content Creator</DialogTitle>
+                  <DialogDescription>Compose and style your temporary status update.</DialogDescription>
+              </DialogHeader>
               <div className={cn(
                   "relative h-[450px] flex flex-col justify-center items-center text-white transition-all duration-500",
                   activeUploaderTab === 'text' ? backgroundStyle : 'bg-black'

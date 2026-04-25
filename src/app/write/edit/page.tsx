@@ -568,13 +568,13 @@ function EditorContentInner() {
             </aside>
 
             <AlertDialogContent className="max-w-4xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-                <div className="bg-muted/30 p-6 border-b flex justify-between items-center">
+                <AlertDialogHeader className="bg-muted/30 p-6 border-b flex flex-row justify-between items-center space-y-0">
                     <div>
-                        <h2 className="text-2xl font-headline font-bold text-foreground">{chapterTitle || 'Untitled Chapter'}</h2>
-                        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Preview Mode</p>
+                        <AlertDialogTitle className="text-2xl font-headline font-bold text-foreground">{chapterTitle || 'Untitled Chapter'}</AlertDialogTitle>
+                        <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Preview Mode</AlertDialogDescription>
                     </div>
-                    <AlertDialogCancel className="rounded-full h-8 w-8 p-0"><X className="h-4 w-4"/></AlertDialogCancel>
-                </div>
+                    <AlertDialogCancel className="rounded-full h-8 w-8 p-0 border-none bg-transparent hover:bg-muted"><X className="h-4 w-4"/></AlertDialogCancel>
+                </AlertDialogHeader>
                 <div className="prose dark:prose-invert max-h-[70vh] overflow-y-auto p-8" dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
             </AlertDialogContent>
 
