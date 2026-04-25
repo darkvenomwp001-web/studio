@@ -19,11 +19,6 @@ export default function AppLogo({ className }: { className?: string }) {
             d="M14 4H10C7.79086 4 6 5.79086 6 8V40C6 42.2091 7.79086 44 10 44H14V4Z"
             fill="hsl(var(--accent))"
         />
-        {/* The new 'V' shaped cutout */}
-        <path
-            d="M22 34 L 30 34 L 26 14 Z"
-            fill="hsl(var(--background))"
-        />
     </svg>
   );
 }
