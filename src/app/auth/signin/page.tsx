@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Button } from "@/components/ui/button"
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 export default function SignInPage() {
-  const { signInWithEmailPassword, signInWithGoogle, sendPasswordResetFirebase, authLoading, loading: initialAuthLoading } = useAuth();
+  const { signInWithEmailAndPassword, signInWithGoogle, sendPasswordResetFirebase, authLoading, loading: initialAuthLoading } = useAuth();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -43,7 +44,7 @@ export default function SignInPage() {
       toast({ title: "Input Required", description: "Please enter both email/username and password.", variant: "destructive" });
       return;
     }
-    await signInWithEmailPassword({ emailOrUsername, passwordOne: password });
+    await signInWithEmailAndPassword({ emailOrUsername, passwordOne: password });
   };
 
   const handleGoogleSignIn = async () => {

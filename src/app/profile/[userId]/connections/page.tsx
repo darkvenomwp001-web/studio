@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, query, where, doc, onSnapshot, getDocs, limit } from 'firebase/firestore';
@@ -11,7 +12,7 @@ import { Loader2, ArrowLeft, Users, UserPlus } from 'lucide-react';
 import FollowerUserCard from '@/components/shared/FollowerUserCard';
 import { useAuth } from '@/hooks/useAuth';
 
-export default function UserConnectionsPage() {
+function ConnectionsContent() {
     const params = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -45,7 +46,6 @@ export default function UserConnectionsPage() {
     useEffect(() => {
         if (!userId) return;
 
-        // Fetch Followers (Users who follow this user)
         setIsLoadingFollowers(true);
         const followersQuery = query(
             collection(db, 'users'),
@@ -66,8 +66,6 @@ export default function UserConnectionsPage() {
             return;
         }
 
-        // Fetch Following (Users this user follows)
-        // Firestore 'in' query has a limit of 30. For MVP we'll show first 30 or handle limit.
         setIsLoadingFollowing(true);
         const followingIds = profileUser.followingIds.slice(0, 30);
         const followingQuery = query(
@@ -155,4 +153,12 @@ export default function UserConnectionsPage() {
             </Tabs>
         </div>
     );
+}
+
+export default function UserConnectionsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
+      <ConnectionsContent />
+    </Suspense>
+  );
 }
