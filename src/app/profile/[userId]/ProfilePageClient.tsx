@@ -13,21 +13,16 @@ import {
   UserX, 
   Settings, 
   LogOut, 
-  Edit3, 
   ShieldAlert, 
   MoreHorizontal, 
-  Edit, 
   Trash2, 
-  Megaphone, 
-  Star, 
-  Music, 
   Lock, 
   Pin, 
   BookOpen 
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Story, User as AppUser, Announcement, Letter as LetterType } from '@/types';
+import type { Story, User as AppUser, Announcement } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -364,7 +359,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
         : query(collection(db, 'stories'), where('author.id', '==', profileUser.id), where('visibility', '==', 'Public'), orderBy('lastUpdated', 'desc'));
     
     const unsubStories = onSnapshot(storiesQuery, (snapshot) => {
-        const userWrittenStories = snapshot.docs.map(storyDoc => ({ id: storyDoc.id, ...docSnap.data() } as Story));
+        const userWrittenStories = snapshot.docs.map(storyDoc => ({ id: storyDoc.id, ...storyDoc.data() } as Story));
         setPublishedWorks(userWrittenStories.filter(s => s.status !== 'Draft' && s.visibility === 'Public'));
         if (isOwnProfile) {
             setPrivateWorks(userWrittenStories.filter(s => s.status === 'Draft' || s.visibility !== 'Public'));
