@@ -18,7 +18,7 @@ service cloud.firestore {
     function isAppOwner() {
         return isSignedIn() && 
                exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username in ['arnv'];
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == 'arnv';
     }
     
     function getRole(userId) {
@@ -96,10 +96,6 @@ service cloud.firestore {
 
     // Status Updates
     match /statusUpdates/{statusId} {
-      // Allow owners and authors to see everything.
-      // For general users, allow reading any status that is published and not hidden.
-      // The client-side query handles the expiration filtering (expiresAt > now).
-      // We avoid brittle timestamp comparisons in rules to prevent PERMISSION_DENIED on queries.
       allow read: if isAppOwner() 
                     || (isSignedIn() && resource.data.authorId == request.auth.uid)
                     || (resource.data.status == 'published' && resource.data.isHidden == false);
@@ -125,7 +121,9 @@ service cloud.firestore {
 
     // Annotations
     match /annotations/{annotationId} {
-      allow read, create, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      allow read: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
+      allow create: if isSignedIn() && (isOwner(request.resource.data.userId) || isAppOwner());
+      allow update, delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
     }
 
     // Announcements

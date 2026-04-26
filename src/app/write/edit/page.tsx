@@ -165,7 +165,7 @@ function EditorContentInner() {
     content: '',
     editorProps: { 
       attributes: { 
-        class: 'prose dark:prose-invert focus:outline-none min-h-full flex-grow p-8 md:p-12 text-base'
+        class: 'prose dark:prose-invert focus:outline-none min-h-full flex-grow p-8 md:p-12 text-base leading-relaxed font-body'
       } 
     },
   });
@@ -439,7 +439,7 @@ function EditorContentInner() {
                         value={chapterTitle}
                         onChange={(e) => setChapterTitle(e.target.value)}
                         placeholder="Chapter Title"
-                        className="text-3xl font-headline font-bold h-auto py-2 focus-visible:ring-0 border-0 bg-transparent shadow-none px-0 placeholder:text-muted-foreground/30"
+                        className="text-3xl font-headline font-bold h-auto py-2 focus-visible:ring-0 border-0 bg-transparent shadow-none px-0 placeholder:text-muted-foreground/30 text-center"
                     />
                     
                     <div className="p-1 px-2 bg-background border rounded-xl flex items-center justify-between shadow-sm sticky top-0 z-20 overflow-x-auto no-scrollbar">
@@ -572,7 +572,7 @@ function EditorContentInner() {
                     </div>
                     <AlertDialogCancel className="rounded-full h-8 w-8 p-0 border-none bg-transparent hover:bg-muted"><X className="h-4 w-4"/></AlertDialogCancel>
                 </AlertDialogHeader>
-                <div className="prose dark:prose-invert max-h-[70vh] overflow-y-auto p-8" dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
+                <div className="prose dark:prose-invert max-h-[70vh] overflow-y-auto p-8 font-body leading-relaxed text-base" dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
             </AlertDialogContent>
 
         </div>
