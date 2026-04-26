@@ -31,7 +31,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; 
-import { doc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import type { Story, UserSummary } from '@/types';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -148,6 +148,21 @@ function StoryDetailsInner() {
     });
   }, [story, toast]);
 
+  const handleDeleteStory = async () => {
+    if (!story || !user || story.author.id !== user.id) return;
+    setIsLoading(true);
+    const storyRef = doc(db, 'stories', story.id);
+    deleteDoc(storyRef)
+      .then(() => {
+        toast({ title: "Manuscript Deleted", description: "Your story has been permanently removed." });
+        router.push('/write');
+      })
+      .catch((error) => {
+        setIsLoading(false);
+        toast({ title: "Error", description: "Could not delete story.", variant: "destructive" });
+      });
+  };
+
   const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0] || !story) return;
     const file = e.target.files[0];
@@ -257,6 +272,8 @@ function StoryDetailsInner() {
       </div>
     );
   }
+
+  const isOwner = user?.id === story.author.id;
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-10 pb-20">
@@ -533,6 +550,42 @@ function StoryDetailsInner() {
                       </CardContent>
                   </Card>
               </div>
+
+              {isOwner && (
+                <Card className="rounded-3xl border-2 border-destructive/20 shadow-xl overflow-hidden mt-6 bg-destructive/5">
+                    <CardHeader className="bg-destructive/10 border-b border-destructive/10">
+                        <CardTitle className="text-lg text-destructive flex items-center gap-2">
+                            <Trash2 className="h-5 w-5" /> Danger Zone
+                        </CardTitle>
+                        <CardDescription className="text-destructive/70">Irreversible actions for this manuscript.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <h4 className="font-bold text-sm text-foreground">Delete Manuscript</h4>
+                                <p className="text-xs text-muted-foreground">Once deleted, all parts, comments, and data are gone forever.</p>
+                            </div>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" className="rounded-xl px-6">Delete Story</Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="rounded-3xl">
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle className="text-2xl font-headline font-bold">Are you absolutely sure?</AlertDialogTitle>
+                                        <AlertDialogDescription className="text-base">
+                                            This action cannot be undone. This will permanently delete your story <strong>"{title}"</strong> and all its associated chapters and data.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDeleteStory} className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold">Delete Forever</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    </CardContent>
+                </Card>
+              )}
           </TabsContent>
 
           <TabsContent value="team" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -543,18 +596,20 @@ function StoryDetailsInner() {
                         <CardDescription>Grant editing access to fellow writers.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6 space-y-6">
-                        <div className="flex gap-2">
-                            <Input 
-                                placeholder="Enter username..." 
-                                value={collaboratorUsername} 
-                                onChange={e => setCollaboratorUsername(e.target.value)} 
-                                className="h-12 rounded-xl bg-muted/20 border-none shadow-inner"
-                                disabled={isProcessingCollaboration}
-                            />
-                            <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim()} className="rounded-xl h-12 px-6">
-                                {isProcessingCollaboration ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Invite'}
-                            </Button>
-                        </div>
+                        {isOwner && (
+                            <div className="flex gap-2">
+                                <Input 
+                                    placeholder="Enter username..." 
+                                    value={collaboratorUsername} 
+                                    onChange={e => setCollaboratorUsername(e.target.value)} 
+                                    className="h-12 rounded-xl bg-muted/20 border-none shadow-inner"
+                                    disabled={isProcessingCollaboration}
+                                />
+                                <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim()} className="rounded-xl h-12 px-6">
+                                    {isProcessingCollaboration ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Invite'}
+                                </Button>
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Current Team</Label>
@@ -570,20 +625,54 @@ function StoryDetailsInner() {
                                         </div>
                                     </div>
                                 </div>
-                                {story.collaborators?.map(c => (
-                                    <div key={c.id} className="flex items-center justify-between p-3 border rounded-2xl hover:bg-muted/30 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="h-10 w-10">
-                                                <AvatarImage src={c.avatarUrl} />
-                                                <AvatarFallback>{c.username.charAt(0).toUpperCase()}</AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <p className="font-bold text-sm">@{c.username}</p>
+                                {story.collaborators?.map(c => {
+                                    const isSelf = user?.id === c.id;
+                                    const canRemove = isOwner || isSelf;
+
+                                    return (
+                                        <div key={c.id} className="flex items-center justify-between p-3 border rounded-2xl hover:bg-muted/30 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-10 w-10">
+                                                    <AvatarImage src={c.avatarUrl} />
+                                                    <AvatarFallback>{c.username.charAt(0).toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <p className="font-bold text-sm">@{c.username}</p>
+                                                </div>
                                             </div>
+                                            {canRemove && (
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-full">
+                                                            <Trash2 className="h-4 w-4"/>
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent className="rounded-3xl">
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle className="text-2xl font-headline font-bold">
+                                                                {isSelf ? "Leave the team?" : "Remove collaborator?"}
+                                                            </AlertDialogTitle>
+                                                            <AlertDialogDescription className="text-base">
+                                                                {isSelf 
+                                                                    ? "You will lose editing access to this manuscript immediately." 
+                                                                    : `This will remove @${c.username}'s access to edit this manuscript.`}
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction 
+                                                                onClick={() => handleRemoveCollaborator(c.id)} 
+                                                                className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold"
+                                                            >
+                                                                {isSelf ? "Leave Story" : "Remove Access"}
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            )}
                                         </div>
-                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(c.id)} className="text-destructive hover:bg-destructive/10 rounded-full"><Trash2 className="h-4 w-4"/></Button>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </CardContent>
