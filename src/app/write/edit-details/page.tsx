@@ -620,8 +620,9 @@ function StoryDetailsInner() {
                                             <AvatarImage src={story.author.avatarUrl} />
                                             <AvatarFallback>{story.author.username.charAt(0).toUpperCase()}</AvatarFallback>
                                         </Avatar>
-                                        <div>
-                                            <p className="font-bold text-sm">@{story.author.username} <Badge className="ml-1 bg-primary text-[8px] uppercase h-4">Owner</Badge></p>
+                                        <div className="font-bold text-sm">
+                                            @{story.author.username} 
+                                            <Badge className="ml-1 bg-primary text-[8px] uppercase h-4">Owner</Badge>
                                         </div>
                                     </div>
                                 </div>
