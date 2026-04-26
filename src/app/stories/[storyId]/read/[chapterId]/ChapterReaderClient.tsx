@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -43,6 +42,7 @@ import {
   Timer,
   Play,
   Pause,
+  Eye,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -72,6 +72,17 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const OWNER_HANDLES = ['arnv'];
 
@@ -537,194 +548,218 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         <div className="truncate text-center mx-2 flex-1">
             <h1 className="text-md sm:text-lg font-headline font-semibold text-primary truncate">{story.title}</h1>
         </div>
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Appearance Settings">
-                    <Palette className="h-5 w-5" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-0 bg-background/20 backdrop-blur-2xl border-white/10 shadow-3xl rounded-3xl overflow-hidden">
-                <ScrollArea className="max-h-[85vh]">
-                <div className="p-6 space-y-6">
-                    <header className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1">
+            <AlertDialog>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" aria-label="Quick Preview">
+                                <Eye className="h-5 w-5" />
+                            </Button>
+                        </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px] font-bold uppercase tracking-widest">Preview Mode</TooltipContent>
+                </Tooltip>
+                <AlertDialogContent className="max-w-4xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+                    <AlertDialogHeader className="bg-muted/30 p-6 border-b flex flex-row justify-between items-center space-y-0">
                         <div>
-                            <h4 className="font-headline font-bold text-foreground tracking-tight">Appearance</h4>
-                            <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60">Customize workspace</p>
+                            <AlertDialogTitle className="text-2xl font-headline font-bold text-foreground">{currentChapter.title || 'Untitled Part'}</AlertDialogTitle>
+                            <AlertDialogDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Reader Simulation</AlertDialogDescription>
                         </div>
-                        {isAuthorOrCollaborator && (
-                            <Badge variant="outline" className={cn("gap-1.5 px-2 py-1", isFrozen ? "text-blue-500" : "text-orange-500")}>
-                                <Snowflake className={cn("h-3 w-3", isFrozen && "animate-pulse")} />
-                                {isFrozen ? "Frozen" : "Live Edit"}
-                            </Badge>
-                        )}
-                    </header>
-
-                    <div className="grid gap-3">
-                        <div className="p-4 rounded-2xl bg-card/50 border border-border/40 space-y-4 shadow-sm">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="zen-focus" className="flex items-center gap-3 cursor-pointer group">
-                                    <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
-                                        <Target className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <span className="text-sm font-bold block">Zen Focus</span>
-                                        <span className="text-[10px] text-muted-foreground">Dim non-active text</span>
-                                    </div>
-                                </Label>
-                                <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
+                        <AlertDialogCancel className="rounded-full h-8 w-8 p-0 border-none bg-transparent hover:bg-muted"><X className="h-4 w-4"/></AlertDialogCancel>
+                    </AlertDialogHeader>
+                    <div className={cn(
+                        "prose dark:prose-invert max-h-[70vh] overflow-y-auto p-8 sm:p-12 leading-relaxed text-base",
+                        fontFamily === 'serif' ? 'font-serif' : 'font-body'
+                    )} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
+                    <AlertDialogFooter className="p-4 bg-muted/30 border-t">
+                        <AlertDialogCancel className="rounded-full px-6">Close Preview</AlertDialogCancel>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" aria-label="Appearance Settings">
+                        <Palette className="h-5 w-5" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0 bg-background/20 backdrop-blur-2xl border-white/10 shadow-3xl rounded-3xl overflow-hidden">
+                    <ScrollArea className="max-h-[85vh]">
+                    <div className="p-6 space-y-6">
+                        <header className="flex items-center justify-between mb-2">
+                            <div>
+                                <h4 className="font-headline font-bold text-foreground tracking-tight">Appearance</h4>
+                                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60">Customize workspace</p>
                             </div>
-                            
-                            <Separator className="opacity-40" />
+                        </header>
 
-                            <div className="space-y-3">
+                        <div className="grid gap-3">
+                            <div className="p-4 rounded-2xl bg-card/50 border border-border/40 space-y-4 shadow-sm">
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-lg bg-accent/10 text-accent">
-                                            <Zap className="h-4 w-4" />
+                                    <Label htmlFor="zen-focus" className="flex items-center gap-3 cursor-pointer group">
+                                        <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
+                                            <Target className="h-4 w-4" />
                                         </div>
                                         <div>
-                                            <span className="text-sm font-bold block">Auto-Pilot</span>
-                                            <span className="text-[10px] text-muted-foreground">Hands-free scrolling</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {autoScrollSpeed > 0 ? (
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-red-500/10 text-red-500" onClick={() => setAutoScrollSpeed(0)}><Pause className="h-4 w-4"/></Button>
-                                        ) : (
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-green-500/10 text-green-500" onClick={() => setAutoScrollSpeed(2)}><Play className="h-4 w-4"/></Button>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="px-2">
-                                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter text-muted-foreground mb-2">
-                                        <span>Speed</span>
-                                        <span>{autoScrollSpeed === 0 ? "Off" : `${autoScrollSpeed}x`}</span>
-                                    </div>
-                                    <Slider
-                                        value={[autoScrollSpeed]}
-                                        onValueChange={([v]) => setAutoScrollSpeed(v)}
-                                        max={10}
-                                        step={1}
-                                        className="py-2"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {isAuthorOrCollaborator && (
-                            <div className="p-4 rounded-2xl bg-muted/30 border border-dashed flex flex-col gap-2 group">
-                                <div className="flex items-center justify-between">
-                                    <Label htmlFor="freeze-mode" className="flex items-center gap-3 cursor-pointer">
-                                        <Snowflake className="h-4 w-4 text-blue-500" />
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-bold">Freeze Mode</span>
-                                            <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">Writer Perspective</span>
+                                            <span className="text-sm font-bold block">Zen Focus</span>
+                                            <span className="text-[10px] text-muted-foreground">Dim non-active text</span>
                                         </div>
                                     </Label>
-                                    <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} />
+                                    <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
                                 </div>
-                                <p className="text-[10px] text-muted-foreground/60 leading-tight">
-                                    Stop accidental typing while reviewing. Readers are always frozen.
-                                </p>
+                                
+                                <Separator className="opacity-40" />
+
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 rounded-lg bg-accent/10 text-accent">
+                                                <Zap className="h-4 w-4" />
+                                            </div>
+                                            <div>
+                                                <span className="text-sm font-bold block">Auto-Pilot</span>
+                                                <span className="text-[10px] text-muted-foreground">Hands-free scrolling</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {autoScrollSpeed > 0 ? (
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-red-500/10 text-red-500" onClick={() => setAutoScrollSpeed(0)}><Pause className="h-4 w-4"/></Button>
+                                            ) : (
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-green-500/10 text-green-500" onClick={() => setAutoScrollSpeed(2)}><Play className="h-4 w-4"/></Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="px-2">
+                                        <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter text-muted-foreground mb-2">
+                                            <span>Speed</span>
+                                            <span>{autoScrollSpeed === 0 ? "Off" : `${autoScrollSpeed}x`}</span>
+                                        </div>
+                                        <Slider
+                                            value={[autoScrollSpeed]}
+                                            onValueChange={([v]) => setAutoScrollSpeed(v)}
+                                            max={10}
+                                            step={1}
+                                            className="py-2"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                        )}
-                    </div>
 
-                     <Tabs defaultValue="theme" className="w-full">
-                        <TabsList className="grid w-full grid-cols-3 bg-muted/50 rounded-xl p-1">
-                            <TabsTrigger value="theme" className="rounded-lg font-bold text-[10px] uppercase">Vibe</TabsTrigger>
-                            <TabsTrigger value="text" className="rounded-lg font-bold text-[10px] uppercase">Type</TabsTrigger>
-                            <TabsTrigger value="layout" className="rounded-lg font-bold text-[10px] uppercase">View</TabsTrigger>
-                        </TabsList>
-                        
-                        <TabsContent value="theme" className="pt-4 space-y-4">
-                            <RadioGroup defaultValue={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
-                                <Label htmlFor="light" className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
-                                    <RadioGroupItem value="light" id="light" className="sr-only" />
-                                    <Sun className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
-                                    <span className="text-[10px] font-bold uppercase">Light</span>
-                                </Label>
-                                <Label htmlFor="dark" className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
-                                    <RadioGroupItem value="dark" id="dark" className="sr-only" />
-                                    <Moon className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
-                                    <span className="text-[10px] font-bold uppercase">Dark</span>
-                                </Label>
-                                <Label htmlFor="system" className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
-                                    <RadioGroupItem value="system" id="system" className="sr-only" />
-                                    <Monitor className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
-                                    <span className="text-[10px] font-bold uppercase">Auto</span>
-                                </Label>
-                            </RadioGroup>
-                            <Button 
-                                variant={isNightPortalActive ? "default" : "outline"} 
-                                size="sm" 
-                                className={cn("w-full h-11 rounded-xl gap-2 font-bold uppercase text-[10px] tracking-widest", isNightPortalActive ? "bg-black text-white" : "border-black/10")} 
-                                onClick={() => setIsNightPortalActive(!isNightPortalActive)}
-                            >
-                                <Moon className="h-4 w-4" /> 
-                                Night Portal
-                            </Button>
-                        </TabsContent>
-
-                         <TabsContent value="text" className="pt-4 space-y-6">
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center px-1">
-                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Font Size</Label>
-                                    <span className="text-xs font-bold uppercase text-primary">{fontSize}</span>
-                                </div>
-                                <RadioGroup defaultValue={fontSize} onValueChange={(v) => setFontSize(v as FontSize)} className="grid grid-cols-4 gap-2">
-                                    {fontSizes.map(size => (
-                                        <Label key={size} htmlFor={`font-${size}`} className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-2 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
-                                            <RadioGroupItem value={size} id={`font-${size}`} className="sr-only" />
-                                            <TextIcon className={cn("h-4 w-4 mb-1", size === 'sm' ? 'scale-75' : size === 'lg' ? 'scale-110' : size === 'xl' ? 'scale-125' : '')} />
-                                            <span className="text-[8px] font-bold uppercase">{size}</span>
+                            {isAuthorOrCollaborator && (
+                                <div className="p-4 rounded-2xl bg-muted/30 border border-dashed flex flex-col gap-2 group">
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="freeze-mode" className="flex items-center gap-3 cursor-pointer">
+                                            <Snowflake className="h-4 w-4 text-blue-500" />
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold">Freeze Mode</span>
+                                                <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">Writer Perspective</span>
+                                            </div>
                                         </Label>
-                                    ))}
-                                </RadioGroup>
-                            </div>
-                             <div className="space-y-3">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Typography</Label>
-                                <RadioGroup defaultValue={fontFamily} onValueChange={(v) => setFontFamily(v as FontFamily)} className="grid grid-cols-2 gap-2">
-                                    <Label htmlFor="font-sans" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer text-xs font-bold text-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">Modern Sans</Label>
-                                    <RadioGroupItem value="sans" id="font-sans" className="sr-only" />
-                                    <Label htmlFor="font-serif" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer text-xs font-bold text-center font-serif data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">Classic Serif</Label>
-                                    <RadioGroupItem value="serif" id="font-serif" className="sr-only" />
-                                </RadioGroup>
-                            </div>
-                         </TabsContent>
+                                        <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} />
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground/60 leading-tight">
+                                        Stop accidental typing while reviewing. Readers are always frozen.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
 
-                         <TabsContent value="layout" className="pt-4 space-y-6">
-                             <div className="space-y-3">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Line Spacing</Label>
-                                <RadioGroup defaultValue={lineHeight} onValueChange={(v) => setLineHeight(v as LineHeight)} className="grid grid-cols-3 gap-2">
-                                    <Label htmlFor="lh-tight" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="tight" id="lh-tight" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
-                                    <Label htmlFor="lh-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="normal" id="lh-normal" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
-                                    <Label htmlFor="lh-loose" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="loose" id="lh-loose" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                         <Tabs defaultValue="theme" className="w-full">
+                            <TabsList className="grid w-full grid-cols-3 bg-muted/50 rounded-xl p-1">
+                                <TabsTrigger value="theme" className="rounded-lg font-bold text-[10px] uppercase">Vibe</TabsTrigger>
+                                <TabsTrigger value="text" className="rounded-lg font-bold text-[10px] uppercase">Type</TabsTrigger>
+                                <TabsTrigger value="layout" className="rounded-lg font-bold text-[10px] uppercase">View</TabsTrigger>
+                            </TabsList>
+                            
+                            <TabsContent value="theme" className="pt-4 space-y-4">
+                                <RadioGroup defaultValue={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
+                                    <Label htmlFor="light" className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
+                                        <RadioGroupItem value="light" id="light" className="sr-only" />
+                                        <Sun className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                        <span className="text-[10px] font-bold uppercase">Light</span>
+                                    </Label>
+                                    <Label htmlFor="dark" className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
+                                        <RadioGroupItem value="dark" id="dark" className="sr-only" />
+                                        <Moon className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                        <span className="text-[10px] font-bold uppercase">Dark</span>
+                                    </Label>
+                                    <Label htmlFor="system" className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
+                                        <RadioGroupItem value="system" id="system" className="sr-only" />
+                                        <Monitor className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                        <span className="text-[10px] font-bold uppercase">Auto</span>
+                                    </Label>
                                 </RadioGroup>
-                            </div>
-                             <div className="space-y-3">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Canvas Width</Label>
-                                <RadioGroup defaultValue={layoutWidth} onValueChange={(v) => setLayoutWidth(v as LayoutWidth)} className="grid grid-cols-2 gap-2">
-                                   <Label htmlFor="lw-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RadioGroupItem value="normal" id="lw-normal" className="sr-only" /><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-90 transition-transform"/></Label>
-                                   <Label htmlFor="lw-wide" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RadioGroupItem value="wide" id="lw-wide" className="sr-only" /><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-110 transition-transform"/></Label>
-                                </RadioGroup>
-                            </div>
-                         </TabsContent>
-                     </Tabs>
-                </div>
-                <footer className="p-4 bg-muted/30 border-t flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                        <Timer className="h-3 w-3" />
-                        <span>Adaptive Reader</span>
+                                <Button 
+                                    variant={isNightPortalActive ? "default" : "outline"} 
+                                    size="sm" 
+                                    className={cn("w-full h-11 rounded-xl gap-2 font-bold uppercase text-[10px] tracking-widest", isNightPortalActive ? "bg-black text-white" : "border-black/10")} 
+                                    onClick={() => setIsNightPortalActive(!isNightPortalActive)}
+                                >
+                                    <Moon className="h-4 w-4" /> 
+                                    Night Portal
+                                </Button>
+                            </TabsContent>
+
+                             <TabsContent value="text" className="pt-4 space-y-6">
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center px-1">
+                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Font Size</Label>
+                                        <span className="text-xs font-bold uppercase text-primary">{fontSize}</span>
+                                    </div>
+                                    <RadioGroup defaultValue={fontSize} onValueChange={(v) => setFontSize(v as FontSize)} className="grid grid-cols-4 gap-2">
+                                        {fontSizes.map(size => (
+                                            <Label key={size} htmlFor={`font-${size}`} className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-2 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
+                                                <RadioGroupItem value={size} id={`font-${size}`} className="sr-only" />
+                                                <TextIcon className={cn("h-4 w-4 mb-1", size === 'sm' ? 'scale-75' : size === 'lg' ? 'scale-110' : size === 'xl' ? 'scale-125' : '')} />
+                                                <span className="text-[8px] font-bold uppercase">{size}</span>
+                                            </Label>
+                                        ))}
+                                    </RadioGroup>
+                                </div>
+                                 <div className="space-y-3">
+                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Typography</Label>
+                                    <RadioGroup defaultValue={fontFamily} onValueChange={(v) => setFontFamily(v as FontFamily)} className="grid grid-cols-2 gap-2">
+                                        <Label htmlFor="font-sans" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer text-xs font-bold text-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">Modern Sans</Label>
+                                        <RadioGroupItem value="sans" id="font-sans" className="sr-only" />
+                                        <Label htmlFor="font-serif" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer text-xs font-bold text-center font-serif data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">Classic Serif</Label>
+                                        <RadioGroupItem value="serif" id="font-serif" className="sr-only" />
+                                    </RadioGroup>
+                                </div>
+                             </TabsContent>
+
+                             <TabsContent value="layout" className="pt-4 space-y-6">
+                                 <div className="space-y-3">
+                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Line Spacing</Label>
+                                    <RadioGroup defaultValue={lineHeight} onValueChange={(v) => setLineHeight(v as LineHeight)} className="grid grid-cols-3 gap-2">
+                                        <Label htmlFor="lh-tight" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="tight" id="lh-tight" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                        <Label htmlFor="lh-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="normal" id="lh-normal" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                        <Label htmlFor="lh-loose" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="loose" id="lh-loose" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                    </RadioGroup>
+                                </div>
+                                 <div className="space-y-3">
+                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Canvas Width</Label>
+                                    <RadioGroup defaultValue={layoutWidth} onValueChange={(v) => setLayoutWidth(v as LayoutWidth)} className="grid grid-cols-2 gap-2">
+                                       <Label htmlFor="lw-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RadioGroupItem value="normal" id="lw-normal" className="sr-only" /><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-90 transition-transform"/></Label>
+                                       <Label htmlFor="lw-wide" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RadioGroupItem value="wide" id="lw-wide" className="sr-only" /><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-110 transition-transform"/></Label>
+                                    </RadioGroup>
+                                </div>
+                             </TabsContent>
+                         </Tabs>
                     </div>
-                    <Button variant="ghost" size="sm" className="h-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive text-[10px] font-bold uppercase tracking-widest gap-1.5" onClick={resetAppearanceSettings}>
-                        <RotateCcw className="h-3 w-3" /> 
-                        Reset
-                    </Button>
-                </footer>
-                </ScrollArea>
-            </PopoverContent>
-        </Popover>
+                    <footer className="p-4 bg-muted/30 border-t flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            <Timer className="h-3 w-3" />
+                            <span>Adaptive Reader</span>
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive text-[10px] font-bold uppercase tracking-widest gap-1.5" onClick={resetAppearanceSettings}>
+                            <RotateCcw className="h-3 w-3" /> 
+                            Reset
+                        </Button>
+                    </footer>
+                    </ScrollArea>
+                </PopoverContent>
+            </Popover>
+        </div>
       </header>
 
       <aside

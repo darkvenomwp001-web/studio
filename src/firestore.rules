@@ -14,11 +14,13 @@ service cloud.firestore {
     }
     
     // Unified Owner Check - Recognizes the creator handle
-    // Grants absolute authority based on identity
+    // Grants absolute authority based on identity or specific UID
     function isAppOwner() {
-        return isSignedIn() && 
-               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == 'arnv';
+        return isSignedIn() && (
+               request.auth.uid == 'rpTmIq5pnKc91aSSgMJiF26zIYy2' ||
+               (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username in ['arnv', '@arnv'])
+        );
     }
     
     function getRole(userId) {
