@@ -51,7 +51,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ProfilePhotoGrid from '@/components/profile/ProfilePhotoGrid';
 import VerifiedBadge from '@/components/icons/VerifiedBadge';
 
-const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_HANDLES = ['arnv'];
 
 function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>, isPrivate?: boolean }) {
   const editLink = `/write/edit-details?storyId=${story.id}`;

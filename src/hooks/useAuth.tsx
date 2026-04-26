@@ -43,7 +43,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const USER_CACHE_KEY = 'litverse_user_cache';
-const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_HANDLES = ['arnv'];
 
 interface AppUser extends AppUserType {
   email?: string;
@@ -77,6 +77,7 @@ interface AuthContextType {
   signOutFirebase: () => Promise<void>;
   updateUserProfile: (updates: Partial<AppUser>) => Promise<void>;
   updateUserEmailFirebase: (newEmail: string, currentPasswordForReAuth: string) => Promise<boolean>;
+  updateUserPasswordFirebase: (currentPasswordForReReAuth: string, newPasswordVal: string) => Promise<boolean>;
   updateUserPasswordFirebase: (currentPasswordForReReAuth: string, newPasswordVal: string) => Promise<boolean>;
   sendPasswordResetFirebase: (email: string) => Promise<boolean>;
   followUser: (targetUserId: string) => Promise<void>;

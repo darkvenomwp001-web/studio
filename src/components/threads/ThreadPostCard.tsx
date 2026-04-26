@@ -24,7 +24,7 @@ import { doc, deleteDoc, updateDoc, serverTimestamp, runTransaction, collection,
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
-const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_HANDLES = ['arnv'];
 
 export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   const { user } = useAuth();

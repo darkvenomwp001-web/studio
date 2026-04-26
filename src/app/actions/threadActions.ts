@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase-server';
@@ -18,7 +17,7 @@ import type { UserSummary, ThreadPost, ReactionType } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { addNotification } from './notificationActions';
 
-const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_HANDLES = ['arnv'];
 
 async function checkIsAppOwner(userId: string) {
     const userDoc = await getDoc(doc(db, 'users', userId));
@@ -265,8 +264,8 @@ export async function repostThreadPost(originalPostId: string, user: UserSummary
                     storyId: originalPostData.storyId,
                     storyTitle: originalPostData.storyTitle,
                     storyCoverUrl: originalPostData.storyCoverUrl,
-                    imageUrl: originalPostData.imageUrl,
-                    songUrl: originalPostData.songUrl,
+                    imageUrl: originalData.imageUrl,
+                    songUrl: originalData.songUrl,
                 },
             };
 

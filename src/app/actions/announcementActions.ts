@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
-const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_USERNAMES = ['arnv'];
 
 async function checkIsAppOwner(userId: string) {
     const userDoc = await getDoc(doc(db, 'users', userId));

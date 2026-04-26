@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
@@ -45,7 +44,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_HANDLES = ['arnv'];
 
 interface ThreadCommentProps {
     comment: CommentType;

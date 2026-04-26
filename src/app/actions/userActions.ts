@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase-server';
@@ -6,7 +5,7 @@ import { doc, getDoc, updateDoc, arrayUnion, increment, collection, query, where
 import type { Achievement, User, UserSummary } from '@/types';
 import { addNotification } from './notificationActions';
 
-const OWNER_HANDLES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_HANDLES = ['arnv'];
 
 const XP_AMOUNTS = {
   vote: 10,

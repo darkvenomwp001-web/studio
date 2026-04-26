@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -13,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 
-const OWNER_USERNAMES = ['authorrafaelnv', 'd4rkv3nom'];
+const OWNER_USERNAMES = ['arnv'];
 
 export default function AiAssistantPage() {
   const { user, loading } = useAuth();

@@ -13,12 +13,12 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
-    // Unified Owner Check - Recognizes both creator handles
+    // Unified Owner Check - Recognizes the creator handle
     // Grants absolute authority based on identity
     function isAppOwner() {
         return isSignedIn() && 
                exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username in ['authorrafaelnv', 'd4rkv3nom'];
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username in ['arnv'];
     }
     
     function getRole(userId) {
@@ -166,7 +166,7 @@ service cloud.firestore {
       allow read: if resource.data.status == 'answered' || (isSignedIn() && (isOwner(resource.data.authorId) || isAppOwner()));
       allow create: if isSignedIn() && isOwner(request.resource.data.asker.id);
       allow update: if isSignedIn() && (isOwner(resource.data.authorId) || isAppOwner());
-      allow delete: if isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.asker.id) || isAppOwner());
+      allow delete: if isSignedIn() && (isOwner(resource.data.authorId) || isOwner(request.resource.data.asker.id) || isAppOwner());
     }
 
     match /polls/{pollId} {
