@@ -73,6 +73,8 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
 
+const OWNER_HANDLES = ['arnv'];
+
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
 const fontSizes: FontSize[] = ['sm', 'base', 'lg', 'xl'];
 type FontFamily = 'sans' | 'serif';
@@ -135,7 +137,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     ],
   });
 
-  const isAuthorOrCollaborator = currentUser && story && (story.author.id === currentUser.id || story.collaboratorIds?.includes(currentUser.id));
+  const isAppOwner = currentUser && OWNER_HANDLES.includes(currentUser.username || '');
+  const isAuthorOrCollaborator = currentUser && story && (story.author.id === currentUser.id || story.collaboratorIds?.includes(currentUser.id) || isAppOwner);
 
   useEffect(() => {
     if (editor) {
@@ -609,12 +612,20 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         </div>
 
                         {isAuthorOrCollaborator && (
-                            <div className="p-4 rounded-2xl bg-muted/30 border border-dashed flex items-center justify-between group">
-                                <Label htmlFor="freeze-mode" className="flex items-center gap-3 cursor-pointer">
-                                    <Snowflake className="h-4 w-4 text-blue-500" />
-                                    <span className="text-sm font-bold">Freeze Mode</span>
-                                </Label>
-                                <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} />
+                            <div className="p-4 rounded-2xl bg-muted/30 border border-dashed flex flex-col gap-2 group">
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="freeze-mode" className="flex items-center gap-3 cursor-pointer">
+                                        <Snowflake className="h-4 w-4 text-blue-500" />
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold">Freeze Mode</span>
+                                            <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">Writer Perspective</span>
+                                        </div>
+                                    </Label>
+                                    <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground/60 leading-tight">
+                                    Stop accidental typing while reviewing. Readers are always frozen.
+                                </p>
                             </div>
                         )}
                     </div>
