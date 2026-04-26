@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -102,26 +103,41 @@ body.night-portal {
     --border: 0 0% 15%;
   }
 
-  /* Accent Color Variants */
-  [data-accent="romance"] {
-    --primary: 340 70% 55%;
-    --accent: 340 70% 45%;
-    --ring: 340 70% 55%;
+  /* Redesigned Accent Color Variants */
+  [data-accent="ube"] {
+    --primary: 262 48% 68%;
+    --accent: 262 48% 58%;
+    --ring: 262 48% 68%;
   }
-  [data-accent="emerald"] {
-    --primary: 160 60% 45%;
-    --accent: 160 60% 35%;
-    --ring: 160 60% 45%;
+  [data-accent="matcha"] {
+    --primary: 84 28% 54%;
+    --accent: 84 28% 44%;
+    --ring: 84 28% 54%;
   }
-  [data-accent="amber"] {
-    --primary: 35 80% 55%;
-    --accent: 35 80% 45%;
-    --ring: 35 80% 55%;
+  [data-accent="chocolate"] {
+    --primary: 21 44% 28%;
+    --accent: 21 44% 20%;
+    --ring: 21 44% 28%;
   }
-  [data-accent="midnight"] {
-    --primary: 240 60% 60%;
-    --accent: 240 60% 50%;
-    --ring: 240 60% 60%;
+  [data-accent="hazel"] {
+    --primary: 30 33% 65%;
+    --accent: 30 33% 55%;
+    --ring: 30 33% 65%;
+  }
+  [data-accent="tangerine"] {
+    --primary: 20 100% 64%;
+    --accent: 20 100% 54%;
+    --ring: 20 100% 64%;
+  }
+  [data-accent="blueberry"] {
+    --primary: 210 70% 60%;
+    --accent: 210 70% 50%;
+    --ring: 210 70% 60%;
+  }
+  [data-accent="mint"] {
+    --primary: 160 50% 75%;
+    --accent: 160 50% 65%;
+    --ring: 160 50% 75%;
   }
 
   /* Glassmorphism Classes */

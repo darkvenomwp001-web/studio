@@ -45,7 +45,7 @@ export interface User {
     emailOnNews: boolean;
   };
   appearanceSettings?: {
-    accentColor: 'default' | 'romance' | 'emerald' | 'amber' | 'midnight';
+    accentColor: string;
     fontFamily: 'sans' | 'serif';
     density: 'cozy' | 'compact';
     glassmorphism: boolean;

@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Loader2, ArrowLeft, Palette, Moon, Sun, Monitor, Type, LayoutGrid, Zap, EyeOff, Sparkles, Wand2, Check } from 'lucide-react';
+import { Loader2, ArrowLeft, Palette, Moon, Sun, Monitor, Type, LayoutGrid, Zap, EyeOff, Sparkles, Wand2, Check, Coffee } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTheme } from 'next-themes';
 import { Switch } from '@/components/ui/switch';
@@ -16,10 +16,13 @@ import { useToast } from '@/hooks/use-toast';
 
 const accentColors = [
     { id: 'default', name: 'LitVerse Blue', color: 'bg-blue-500' },
-    { id: 'romance', name: 'Rose Romance', color: 'bg-rose-500' },
-    { id: 'emerald', name: 'Emerald Quest', color: 'bg-emerald-500' },
-    { id: 'amber', name: 'Amber Archive', color: 'bg-amber-500' },
-    { id: 'midnight', name: 'Midnight', color: 'bg-indigo-600' },
+    { id: 'ube', name: 'Ube Latte', color: 'bg-[#A188D3]' },
+    { id: 'matcha', name: 'Matcha Latte', color: 'bg-[#96AD6B]' },
+    { id: 'chocolate', name: 'Rich Chocolate', color: 'bg-[#4B2E1D]' },
+    { id: 'hazel', name: 'Hazel Latte', color: 'bg-[#C4A484]' },
+    { id: 'tangerine', name: 'Tangerine Latte', color: 'bg-[#FF8C00]' },
+    { id: 'blueberry', name: 'Blueberry Cool', color: 'bg-[#4A90E2]' },
+    { id: 'mint', name: 'Fresh Mint', color: 'bg-[#AEE1E1]' },
 ];
 
 export default function AppearanceSettingsPage() {
@@ -68,7 +71,7 @@ export default function AppearanceSettingsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 py-10 px-4 pb-24">
+    <div className="max-w-3xl mx-auto space-y-8 py-10 px-4 pb-24 animate-in fade-in duration-500">
       <header className="flex items-center justify-between">
         <div>
             <Button variant="ghost" onClick={() => router.push('/settings')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
@@ -104,26 +107,30 @@ export default function AppearanceSettingsPage() {
             </CardContent>
         </Card>
 
-        {/* Accent Palette */}
-        <Card className="border-border/50 shadow-sm">
+        {/* Cafe-inspired Accent Palette */}
+        <Card className="border-border/50 shadow-sm overflow-hidden">
             <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Accent Palette</CardTitle>
-                <CardDescription>Customize the primary branding colors across the app.</CardDescription>
+                <CardTitle className="text-lg flex items-center gap-2"><Coffee className="h-4 w-4 text-primary" /> The Cafe Palette</CardTitle>
+                <CardDescription>Choose a delicious accent color to spice up your interface.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {accentColors.map((acc) => (
                         <button
                             key={acc.id}
                             onClick={() => updateAppearance('accentColor', acc.id)}
                             className={cn(
-                                "flex flex-col items-center gap-2 group p-3 rounded-xl border-2 transition-all relative",
-                                localSettings.accentColor === acc.id ? "border-primary bg-primary/5" : "border-transparent bg-muted/50 hover:bg-muted"
+                                "flex flex-col items-center gap-2 group p-4 rounded-2xl border-2 transition-all relative overflow-hidden",
+                                localSettings.accentColor === acc.id ? "border-primary bg-primary/5 shadow-md" : "border-transparent bg-muted/30 hover:bg-muted/50"
                             )}
                         >
-                            <div className={cn("h-8 w-8 rounded-full shadow-inner", acc.color)} />
+                            <div className={cn("h-10 w-10 rounded-full shadow-inner ring-4 ring-background", acc.color)} />
                             <span className="text-[10px] uppercase tracking-tighter font-bold">{acc.name}</span>
-                            {localSettings.accentColor === acc.id && <Check className="absolute top-1 right-1 h-3 w-3 text-primary" />}
+                            {localSettings.accentColor === acc.id && (
+                                <div className="absolute top-2 right-2 bg-primary text-primary-foreground p-0.5 rounded-full">
+                                    <Check className="h-3 w-3" />
+                                </div>
+                            )}
                         </button>
                     ))}
                 </div>
@@ -221,7 +228,7 @@ export default function AppearanceSettingsPage() {
       </div>
       
       <div className="pt-6">
-        <Button variant="outline" className="w-full h-12" onClick={() => router.push('/')}>
+        <Button variant="outline" className="w-full h-12 rounded-xl" onClick={() => router.push('/')}>
             Return to Dashboard
         </Button>
       </div>
