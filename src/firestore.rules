@@ -127,7 +127,7 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         isOwner(resource.data.userId) || 
         isAppOwner() || 
-        request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts'])
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'commentsCount'])
       );
       
       allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());

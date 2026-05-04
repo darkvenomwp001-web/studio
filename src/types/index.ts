@@ -152,6 +152,7 @@ export interface Annotation {
     visibility?: 'public' | 'private';
     reactionsCount?: number;
     reactionCounts?: Record<string, number>;
+    commentsCount?: number;
 }
 
 export interface NotificationType {

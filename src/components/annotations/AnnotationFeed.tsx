@@ -34,7 +34,9 @@ import {
   Trash2,
   MessageSquare,
   Send,
-  X
+  X,
+  Edit3,
+  Save
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
@@ -52,6 +54,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatDistanceToNow } from 'date-fns';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Textarea } from '@/components/ui/textarea';
+
+const OWNER_HANDLES = ['arnv', '@arnv'];
 
 const REACTION_OPTIONS = [
     { type: 'love' as const, emoji: '❤️', label: 'Love' },
@@ -113,6 +120,109 @@ function HighlightPoster({ annotation }: { annotation: Annotation }) {
     );
 }
 
+function AnnotationCommentItem({ comment, annotationId, onUpdate, onDelete }: { comment: CommentType, annotationId: string, onUpdate: any, onDelete: any }) {
+    const { user } = useAuth();
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedContent, setEditedContent] = useState(comment.content);
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    const isOwner = user?.id === comment.user.id;
+    const isAppOwner = user && OWNER_HANDLES.includes(user.username);
+    const canManage = isOwner || isAppOwner;
+
+    const handleSave = () => {
+        if (!editedContent.trim() || editedContent === comment.content) {
+            setIsEditing(false);
+            return;
+        }
+        setIsSaving(true);
+        onUpdate(comment.id, editedContent.trim())
+            .then(() => setIsEditing(false))
+            .finally(() => setIsSaving(false));
+    };
+
+    return (
+        <div className="flex gap-3 group">
+            <Link href={`/profile/${comment.user.id}`} className="flex-shrink-0">
+                <Avatar className="h-8 w-8">
+                    <AvatarImage src={comment.user.avatarUrl} />
+                    <AvatarFallback>{comment.user.username.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+            </Link>
+            <div className="flex-1 min-w-0">
+                <div className="bg-muted/30 p-3 rounded-2xl relative">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                        <Link href={`/profile/${comment.user.id}`} className="font-bold text-xs hover:underline truncate">
+                            @{comment.user.username}
+                        </Link>
+                        <div className="flex items-center gap-2">
+                             <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                {comment.timestamp?.toDate ? formatDistanceToNow(comment.timestamp.toDate(), { addSuffix: true }) : 'Just now'}
+                            </span>
+                            {canManage && !isEditing && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <MoreHorizontal className="h-3 w-3" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                                            <Edit3 className="mr-2 h-3 w-3" /> Edit
+                                        </DropdownMenuItem>
+                                        <AlertDialogTrigger asChild>
+                                            <DropdownMenuItem className="text-destructive">
+                                                <Trash2 className="mr-2 h-3 w-3" /> Delete
+                                            </DropdownMenuItem>
+                                        </AlertDialogTrigger>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                        </div>
+                    </div>
+
+                    {isEditing ? (
+                        <div className="space-y-2 mt-1">
+                            <Textarea
+                                value={editedContent}
+                                onChange={(e) => setEditedContent(e.target.value)}
+                                className="min-h-[60px] text-sm bg-background"
+                                disabled={isSaving}
+                            />
+                            <div className="flex justify-end gap-2">
+                                <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
+                                <Button size="sm" onClick={handleSave} disabled={isSaving || !editedContent.trim()}>
+                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+                                    Save
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-foreground/80 whitespace-pre-line">{comment.content}</p>
+                    )}
+                </div>
+            </div>
+
+            <AlertDialogContent className="rounded-3xl">
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Delete comment?</AlertDialogTitle>
+                    <AlertDialogDescription>This cannot be undone. Your thought will be removed from the conversation.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                        className="bg-destructive hover:bg-destructive/90 rounded-full"
+                        onClick={() => onDelete(comment.id)}
+                    >
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </div>
+    );
+}
+
 function AnnotationComments({ annotationId }: { annotationId: string }) {
     const { user } = useAuth();
     const [comments, setComments] = useState<CommentType[]>([]);
@@ -148,59 +258,111 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
             timestamp: serverTimestamp(),
         };
 
-        addDoc(collection(db, 'annotations', annotationId, 'comments'), commentData)
-            .then(() => {
-                setNewComment('');
-                toast({ title: "Comment posted!" });
-            })
+        const annoRef = doc(db, 'annotations', annotationId);
+        const commentsRef = collection(annoRef, 'comments');
+
+        runTransaction(db, async (transaction) => {
+            const annoDoc = await transaction.get(annoRef);
+            if (!annoDoc.exists()) throw "Annotation does not exist.";
+            const newCount = (annoDoc.data().commentsCount || 0) + 1;
+            transaction.update(annoRef, { commentsCount: newCount });
+            transaction.set(doc(commentsRef), commentData);
+        })
+        .then(() => {
+            setNewComment('');
+            toast({ title: "Comment posted!" });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `annotations/${annotationId}/comments`,
+                operation: 'create',
+                requestResourceData: commentData,
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => setIsPosting(false));
+    };
+
+    const handleUpdateComment = async (commentId: string, content: string) => {
+        const commentRef = doc(db, 'annotations', annotationId, 'comments', commentId);
+        updateDoc(commentRef, { content, updatedAt: serverTimestamp() })
             .catch(async (serverError) => {
                 const permissionError = new FirestorePermissionError({
-                    path: `annotations/${annotationId}/comments`,
-                    operation: 'create',
-                    requestResourceData: commentData,
+                    path: commentRef.path,
+                    operation: 'update',
+                    requestResourceData: { content },
                 } satisfies SecurityRuleContext);
                 errorEmitter.emit('permission-error', permissionError);
-            })
-            .finally(() => setIsPosting(false));
+            });
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        const annoRef = doc(db, 'annotations', annotationId);
+        const commentRef = doc(db, 'annotations', annotationId, 'comments', commentId);
+
+        runTransaction(db, async (transaction) => {
+            const annoDoc = await transaction.get(annoRef);
+            if (!annoDoc.exists()) throw "Annotation does not exist.";
+            const newCount = Math.max(0, (annoDoc.data().commentsCount || 0) - 1);
+            transaction.update(annoRef, { commentsCount: newCount });
+            transaction.delete(commentRef);
+        })
+        .then(() => toast({ title: "Comment deleted" }))
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: commentRef.path,
+                operation: 'delete',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        });
     };
 
     return (
-        <div className="mt-4 space-y-4 animate-in fade-in duration-500">
-            <Separator className="opacity-40" />
-            <ScrollArea className="max-h-[300px] pr-4">
-                <div className="space-y-4">
+        <div className="flex flex-col h-[50vh]">
+            <ScrollArea className="flex-1 pr-4 -mr-4">
+                <div className="space-y-6">
                     {comments.map((comment) => (
-                        <div key={comment.id} className="flex gap-3">
-                            <Avatar className="h-8 w-8">
-                                <AvatarImage src={comment.user.avatarUrl} />
-                                <AvatarFallback>{comment.user.username.charAt(0).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 bg-muted/30 p-3 rounded-2xl">
-                                <p className="text-xs font-bold text-foreground">@{comment.user.username}</p>
-                                <p className="text-sm text-foreground/80 mt-1">{comment.content}</p>
-                            </div>
-                        </div>
+                        <AnnotationCommentItem 
+                            key={comment.id} 
+                            comment={comment} 
+                            annotationId={annotationId}
+                            onUpdate={handleUpdateComment}
+                            onDelete={handleDeleteComment}
+                        />
                     ))}
                     {comments.length === 0 && (
-                        <p className="text-center text-xs text-muted-foreground py-4 italic">No thoughts yet. Start the conversation!</p>
+                        <div className="text-center py-20 text-muted-foreground italic">
+                            <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                            <p>No thoughts yet. Start the conversation!</p>
+                        </div>
                     )}
                 </div>
             </ScrollArea>
 
-            {user && (
-                <form onSubmit={handlePostComment} className="flex gap-2 items-center">
-                    <Input 
-                        value={newComment} 
-                        onChange={e => setNewComment(e.target.value)} 
-                        placeholder="Add a thought..." 
-                        className="bg-muted/30 border-none h-10 rounded-xl"
-                        disabled={isPosting}
-                    />
-                    <Button type="submit" size="icon" disabled={isPosting || !newComment.trim()} className="rounded-xl h-10 w-10 flex-shrink-0">
-                        {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    </Button>
-                </form>
-            )}
+            <div className="mt-6 pt-6 border-t border-border/40">
+                {user ? (
+                    <form onSubmit={handlePostComment} className="flex gap-2 items-center">
+                        <Avatar className="h-8 w-8 border shadow-sm">
+                            <AvatarImage src={user.avatarUrl} />
+                            <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <Input 
+                            value={newComment} 
+                            onChange={e => setNewComment(e.target.value)} 
+                            placeholder="Add a thought..." 
+                            className="bg-muted/30 border-none h-11 rounded-2xl shadow-inner text-sm"
+                            disabled={isPosting}
+                        />
+                        <Button type="submit" size="icon" disabled={isPosting || !newComment.trim()} className="rounded-2xl h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20">
+                            {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        </Button>
+                    </form>
+                ) : (
+                    <p className="text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                        Sign in to participate in discussions
+                    </p>
+                )}
+            </div>
         </div>
     );
 }
@@ -211,7 +373,6 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
     const [isReacting, setIsReacting] = useState(false);
     const [userReaction, setUserReaction] = useState<ReactionType | null>(null);
     const [isPosterOpen, setIsPosterOpen] = useState(false);
-    const [showComments, setShowComments] = useState(false);
 
     useEffect(() => {
         if (!user || !annotation.id) return;
@@ -362,7 +523,6 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
                         </p>
                     </div>
                 )}
-                {showComments && <AnnotationComments annotationId={annotation.id} />}
             </CardContent>
             <CardFooter className="flex justify-between items-center bg-muted/10 p-4 border-t border-border/40">
                 <div className="flex items-center gap-2">
@@ -414,15 +574,32 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
                             </div>
                         </PopoverContent>
                     </Popover>
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className={cn("h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase transition-colors", showComments ? "text-primary bg-primary/5" : "text-muted-foreground hover:text-primary")}
-                        onClick={() => setShowComments(!showComments)}
-                    >
-                        <MessageSquare className="h-4 w-4" />
-                        Discuss
-                    </Button>
+
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase text-muted-foreground hover:text-primary transition-all hover:bg-primary/5"
+                            >
+                                <MessageSquare className="h-4 w-4" />
+                                <span className="hidden sm:inline">Discuss</span>
+                                <span>{annotation.commentsCount || 0}</span>
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
+                            <DialogHeader className="p-8 bg-muted/30 border-b">
+                                <DialogTitle className="text-2xl font-headline font-bold">Community Thoughts</DialogTitle>
+                                <DialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Exploring the impact of this prose</DialogDescription>
+                            </DialogHeader>
+                            <div className="p-8">
+                                <AnnotationComments annotationId={annotation.id} />
+                            </div>
+                            <DialogFooter className="p-4 bg-muted/20 border-t flex-row justify-center">
+                                <DialogClose asChild><Button variant="ghost" className="rounded-full font-bold text-[10px] uppercase tracking-widest">Close Discussion</Button></DialogClose>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
                 <div className="flex gap-1">
                     <Link href={`/stories/${annotation.storyId}/read/${annotation.chapterId}`}>
