@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense, ChangeEvent } from 'react';
 import * as React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -41,7 +41,11 @@ import {
   ChevronDown,
   History,
   Languages,
-  BookMarked
+  BookMarked,
+  ImagePlus,
+  Camera,
+  Timer,
+  BarChart3
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -71,7 +75,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
@@ -82,6 +86,7 @@ import CharacterCount from '@tiptap/extension-character-count'
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Slider } from '@/components/ui/slider';
 
 const PRO_FONTS = [
   { name: 'Default', value: 'var(--font-inter)' },
@@ -125,11 +130,15 @@ function EditorContentInner() {
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
   const [chapterTitle, setChapterTitle] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving...' | 'No Changes' | 'Typing'>('No Changes');
   const [wordCount, setWordCount] = useState(0);
   
   const [isZenFocus, setIsZenFocus] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
+
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -144,7 +153,7 @@ function EditorContentInner() {
     content: '',
     editorProps: { 
       attributes: { 
-        class: 'prose dark:prose-invert focus:outline-none min-h-[500px] w-full p-8 md:p-16 text-base leading-relaxed font-body transition-all duration-300'
+        class: 'prose dark:prose-invert focus:outline-none min-h-[600px] w-full p-6 md:p-20 text-base leading-relaxed font-body transition-all duration-300'
       } 
     },
   });
@@ -237,6 +246,51 @@ function EditorContentInner() {
     if(!editor || !editor.storage.characterCount) return;
     setWordCount(editor.storage.characterCount.words());
   }, [editor?.state, editor?.storage.characterCount]);
+
+  const handleUpdateField = useCallback(async (fieldName: string, value: any) => {
+    if (!storyDetails) return;
+    const storyRef = doc(db, 'stories', storyDetails.id);
+    updateDoc(storyRef, { [fieldName]: value, lastUpdated: serverTimestamp() }).catch(async (serverError) => {
+      const permissionError = new FirestorePermissionError({
+        path: storyRef.path,
+        operation: 'update',
+        requestResourceData: { [fieldName]: value },
+      } satisfies SecurityRuleContext);
+      errorEmitter.emit('permission-error', permissionError);
+    });
+  }, [storyDetails]);
+
+  const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0] || !storyDetails) return;
+    const file = e.target.files[0];
+    
+    setIsUploadingCover(true);
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+        toast({ title: "Configuration Error", variant: "destructive"});
+        setIsUploadingCover(false);
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+
+    try {
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.secure_url) {
+            await handleUpdateField('coverImageUrl', data.secure_url);
+            toast({ title: "Artwork Updated!" });
+        }
+    } catch (error) {
+        toast({ title: "Upload Failed", variant: "destructive" });
+    } finally {
+        setIsUploadingCover(false);
+    }
+  };
 
   const handleSaveDraft = useCallback((showToast: boolean = true) => {
     if (!storyDetails || !currentChapter || !currentUser || !editor) return;
@@ -362,6 +416,8 @@ function EditorContentInner() {
     toast({ title: "Part Published!" });
   };
 
+  const readingTimeMinutes = Math.max(1, Math.round(wordCount / 225));
+
   if (isLoading || authLoading || !editor || !storyDetails || !currentChapter) {
     return <div className="fixed inset-0 flex justify-center items-center bg-background z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -426,39 +482,73 @@ function EditorContentInner() {
             </header>
 
             {/* Main Writing Canvas */}
-            <main className="flex-1 flex flex-col items-center py-10 px-4 md:px-8">
-                <div className="max-w-4xl w-full space-y-12">
+            <main className="flex-1 flex flex-col items-center py-6 md:py-10 px-0 sm:px-4 md:px-8">
+                <div className={cn(
+                    "w-full transition-all duration-700",
+                    layoutWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'
+                )}>
+                    {/* Cinematic Cover Area (Landscape) */}
+                    <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-none sm:rounded-[40px] overflow-hidden bg-muted/50 border-b sm:border border-border/40 group mb-8 shadow-sm">
+                        {storyDetails.coverImageUrl ? (
+                            <NextImage src={storyDetails.coverImageUrl} alt="Story Artwork" fill className="object-cover transition-transform duration-1000 group-hover:scale-[1.03]" priority />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30 animate-pulse">
+                                <ImagePlus className="h-12 w-12 mb-2" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Landscape Postcard Artwork</p>
+                            </div>
+                        )}
+                        {isAuthorOrCollaborator && (
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100 backdrop-blur-[2px]">
+                                <Button 
+                                    variant="outline" 
+                                    className="bg-white/10 hover:bg-white/20 backdrop-blur-md border-white/20 text-white rounded-full gap-2 font-bold uppercase text-[10px] tracking-widest h-11 px-6 shadow-2xl" 
+                                    onClick={() => coverInputRef.current?.click()}
+                                >
+                                    <Camera className="h-4 w-4" />
+                                    Change Artwork
+                                </Button>
+                            </div>
+                        )}
+                        {isUploadingCover && (
+                            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                        )}
+                    </div>
+                    <input type="file" ref={coverInputRef} className="hidden" accept="image/*" onChange={handleCoverUpload} />
+
                     {/* Centered Title Section */}
-                    <div className="space-y-4 text-center max-w-2xl mx-auto">
+                    <div className="space-y-4 text-center max-w-3xl mx-auto mb-12 px-4">
                         <Input
                             type="text"
                             value={chapterTitle}
                             onChange={(e) => setChapterTitle(e.target.value)}
                             placeholder="Part Title..."
-                            className="text-4xl md:text-6xl font-headline font-bold h-auto py-6 focus-visible:ring-0 border-0 bg-transparent shadow-none px-0 placeholder:text-muted-foreground/20 text-center tracking-tight leading-tight"
+                            className="text-4xl md:text-7xl font-headline font-bold h-auto py-6 focus-visible:ring-0 border-0 bg-transparent shadow-none px-0 placeholder:text-muted-foreground/10 text-center tracking-tight leading-tight"
                         />
-                        <div className="flex items-center justify-center gap-6 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 border-y border-border/20 py-3">
+                        <div className="flex items-center justify-center gap-4 md:gap-8 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 border-y border-border/10 py-4">
                             <div className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> {wordCount} Words</div>
-                            <div className="flex items-center gap-1.5"><History className="h-3 w-3" /> Auto-Saving enabled</div>
+                            <div className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> {readingTimeMinutes} MIN Read</div>
+                            <div className="flex items-center gap-1.5"><History className="h-3 w-3" /> Cloud Sync</div>
                         </div>
                     </div>
 
                     {/* Paper Area */}
                     <div className={cn(
-                        "relative bg-card rounded-[40px] border border-border/40 shadow-2xl min-h-[600px] flex flex-col transition-all duration-500",
-                        isZenFocus && "zen-mode shadow-none border-transparent"
+                        "relative bg-card rounded-none sm:rounded-[40px] border-y sm:border border-border/40 shadow-2xl min-h-[700px] flex flex-col transition-all duration-500",
+                        isZenFocus && "zen-mode shadow-none border-transparent bg-transparent"
                     )}>
                         <EditorContent editor={editor} className="flex-1 flex flex-col" />
                         
-                        {/* Inline Focus Toggles */}
-                        <div className="absolute top-6 right-6 hidden lg:flex flex-col gap-3">
+                        {/* Inline Utility Toggles */}
+                        <div className="absolute top-8 right-8 hidden lg:flex flex-col gap-3">
                              <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
                                         onClick={() => setIsZenFocus(!isZenFocus)}
-                                        className={cn("rounded-full h-10 w-10 transition-all", isZenFocus ? "bg-primary text-white shadow-lg" : "bg-background/80 backdrop-blur-sm border")}
+                                        className={cn("rounded-full h-11 w-11 transition-all", isZenFocus ? "bg-primary text-white shadow-xl scale-110" : "bg-background/80 backdrop-blur-sm border shadow-sm")}
                                     >
                                         <Target className="h-5 w-5" />
                                     </Button>
@@ -470,43 +560,56 @@ function EditorContentInner() {
                 </div>
             </main>
 
-            {/* Floating Writer's Palette (Bottom Bar) */}
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[95vw] sm:max-w-fit px-2 animate-in slide-in-from-bottom-8 duration-700">
-                <div className="bg-card/90 backdrop-blur-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-3xl p-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar">
+            {/* Floating Studio Palette (Bottom Bar) */}
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[98vw] sm:max-w-fit px-2 animate-in slide-in-from-bottom-8 duration-700">
+                <div className="bg-card/90 backdrop-blur-2xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.4)] rounded-3xl p-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar">
                     
-                    {/* Group: Core Actions */}
+                    {/* Stats Module (Convenience) */}
+                    <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-muted/40 rounded-2xl mr-1 border border-border/40">
+                         <div className="flex flex-col">
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none">Draft Stats</span>
+                            <div className="flex items-center gap-3 mt-1">
+                                <span className="text-xs font-bold font-mono">{wordCount} W</span>
+                                <span className="text-xs font-bold font-mono">{readingTimeMinutes} M</span>
+                            </div>
+                         </div>
+                         <BarChart3 className="h-4 w-4 text-primary/40" />
+                    </div>
+
+                    {/* Group: History Actions */}
                     <div className="flex items-center gap-1 pr-2 border-r border-border/40">
                          <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all"><Undo className="h-4 w-4" /></Button>
                          <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all"><Redo className="h-4 w-4" /></Button>
                     </div>
 
-                    {/* Group: Professional Fonts (Requested Enhancement) */}
+                    {/* Group: Typography Picker */}
                     <Popover>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <PopoverTrigger asChild>
                                     <Button variant="ghost" size="sm" className="h-10 px-3 rounded-2xl gap-2 hover:bg-primary/10 hover:text-primary transition-all font-bold text-xs uppercase tracking-widest">
                                         <Type className="h-4 w-4" />
-                                        <span className="hidden sm:inline">Font</span>
+                                        <span className="hidden md:inline">Typeface</span>
                                     </Button>
                                 </PopoverTrigger>
                             </TooltipTrigger>
-                            <TooltipContent>Manuscript Typography</TooltipContent>
+                            <TooltipContent>Font Selection</TooltipContent>
                         </Tooltip>
-                        <PopoverContent className="w-56 p-2 rounded-2xl bg-card/95 backdrop-blur-xl border-white/10 shadow-3xl" side="top" align="center">
-                            <ScrollArea className="h-64">
+                        <PopoverContent className="w-60 p-2 rounded-2xl bg-card/95 backdrop-blur-xl border-white/10 shadow-3xl" side="top" align="center">
+                            <ScrollArea className="h-72">
                                 <div className="space-y-1">
                                     {PRO_FONTS.map((font) => (
                                         <button
                                             key={font.name}
                                             onClick={() => editor.chain().focus().setFontFamily(font.value).run()}
                                             className={cn(
-                                                "w-full text-left px-4 py-2.5 rounded-xl text-sm transition-all hover:bg-primary/10",
-                                                editor.isActive('textStyle', { fontFamily: font.value }) ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground"
+                                                "w-full text-left px-4 py-3 rounded-xl text-sm transition-all hover:bg-primary/10 flex items-center justify-between",
+                                                editor.isActive('textStyle', { fontFamily: font.value }) ? "bg-primary text-primary-foreground font-bold shadow-lg" : "text-muted-foreground"
                                             )}
                                             style={{ fontFamily: font.value }}
                                         >
                                             {font.name}
+                                            {editor.isActive('textStyle', { fontFamily: font.value }) && <CheckCircle className="h-3 w-3" />}
                                         </button>
                                     ))}
                                 </div>
@@ -516,16 +619,16 @@ function EditorContentInner() {
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* Group: Core Styling */}
+                    {/* Group: Styling suite */}
                     <div className="flex items-center gap-0.5">
-                        <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBold().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bold') ? "bg-primary text-white" : "hover:bg-primary/10")}><Bold className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleItalic().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('italic') ? "bg-primary text-white" : "hover:bg-primary/10")}><Italic className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleUnderline().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('underline') ? "bg-primary text-white" : "hover:bg-primary/10")}><Underline className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBold().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bold') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Bold className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleItalic().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('italic') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Italic className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleUnderline().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('underline') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Underline className="h-4 w-4" /></Button>
                     </div>
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* Group: Alignment (Requested Enhancement) */}
+                    {/* Group: Alignment Engine */}
                     <Popover>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -538,9 +641,9 @@ function EditorContentInner() {
                                     </Button>
                                 </PopoverTrigger>
                             </TooltipTrigger>
-                            <TooltipContent>Alignment</TooltipContent>
+                            <TooltipContent>Paragraph Flow</TooltipContent>
                         </Tooltip>
-                        <PopoverContent className="w-fit p-1 bg-card/95 backdrop-blur-xl border-white/10 rounded-2xl flex gap-1" side="top" align="center">
+                        <PopoverContent className="w-fit p-1.5 bg-card/95 backdrop-blur-xl border-white/10 rounded-2xl flex gap-1 shadow-2xl" side="top" align="center">
                             {[
                                 { action: () => editor.chain().focus().setTextAlign('left').run(), icon: AlignLeft, value: 'left' },
                                 { action: () => editor.chain().focus().setTextAlign('center').run(), icon: AlignCenter, value: 'center' },
@@ -552,7 +655,7 @@ function EditorContentInner() {
                                     variant="ghost" 
                                     size="icon" 
                                     onClick={align.action} 
-                                    className={cn("h-10 w-10 rounded-xl", editor.isActive({ textAlign: align.value }) ? "bg-primary text-white" : "hover:bg-primary/10")}
+                                    className={cn("h-10 w-10 rounded-xl", editor.isActive({ textAlign: align.value }) ? "bg-primary text-white shadow-md" : "hover:bg-primary/10")}
                                 >
                                     <align.icon className="h-4 w-4" />
                                 </Button>
@@ -562,7 +665,7 @@ function EditorContentInner() {
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* Group: Paragraph Types */}
+                    {/* Group: Elements */}
                     <div className="flex items-center gap-0.5">
                         <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBulletList().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bulletList') ? "bg-primary text-white" : "hover:bg-primary/10")}><List className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('blockquote') ? "bg-primary text-white" : "hover:bg-primary/10")}><Quote className="h-4 w-4" /></Button>
@@ -570,25 +673,39 @@ function EditorContentInner() {
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* Group: Utility */}
+                    {/* Group: Utility Tools */}
                     <div className="flex items-center gap-1 pl-1">
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button variant="ghost" size="icon" className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('highlight') && "bg-primary text-white")}><Highlighter className="h-4 w-4" /></Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-fit p-1 flex gap-1 bg-card/95 backdrop-blur-xl border-white/10 rounded-full" side="top">
+                            <PopoverContent className="w-fit p-1.5 flex gap-1 bg-card/95 backdrop-blur-xl border-white/10 rounded-full shadow-2xl" side="top">
                                 <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()} className="h-8 w-8 rounded-full bg-yellow-300 border border-black/10 hover:scale-110 transition-transform" />
                                 <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#6ee7b7' }).run()} className="h-8 w-8 rounded-full bg-emerald-300 border border-black/10 hover:scale-110 transition-transform" />
                                 <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#f87171' }).run()} className="h-8 w-8 rounded-full bg-rose-400 border border-black/10 hover:scale-110 transition-transform" />
                                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="h-4 w-4"/></Button>
                             </PopoverContent>
                         </Popover>
+                        
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => setLayoutWidth(layoutWidth === 'normal' ? 'wide' : 'normal')}
+                                    className={cn("h-10 w-10 rounded-2xl hover:bg-primary/10", layoutWidth === 'wide' && "text-primary bg-primary/5")}
+                                >
+                                    <BookMarked className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Canvas Width</TooltipContent>
+                        </Tooltip>
                     </div>
                 </div>
             </div>
 
-            {/* Eye Preview Modal - High Fidelity */}
-            <AlertDialogContent className="max-w-5xl rounded-[40px] p-0 overflow-hidden border-none shadow-[0_50px_100px_rgba(0,0,0,0.4)]">
+            {/* High Fidelity Preview Modal */}
+            <AlertDialogContent className="max-w-6xl rounded-[40px] p-0 overflow-hidden border-none shadow-[0_50px_120px_rgba(0,0,0,0.5)] bg-background">
                 <AlertDialogHeader className="bg-muted/30 p-8 border-b flex flex-row justify-between items-center space-y-0">
                     <div className="flex items-center gap-4">
                         <div className="p-3 rounded-2xl bg-primary/10 text-primary">
@@ -596,17 +713,23 @@ function EditorContentInner() {
                         </div>
                         <div>
                             <AlertDialogTitle className="text-3xl font-headline font-bold text-foreground leading-none mb-1">{chapterTitle || 'Untitled Part'}</AlertDialogTitle>
-                            <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Reader Simulation &bull; 1:1 Fidelity</AlertDialogDescription>
+                            <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Immersive Reader Experience &bull; High Fidelity</AlertDialogDescription>
                         </div>
                     </div>
                     <AlertDialogCancel className="rounded-full h-12 w-12 p-0 border-none bg-muted/40 hover:bg-destructive hover:text-white transition-all"><X className="h-5 w-5"/></AlertDialogCancel>
                 </AlertDialogHeader>
-                <div className="bg-card p-8 md:p-20 overflow-y-auto max-h-[75vh] scrollbar-hide">
+                <div className="bg-card p-6 md:p-24 overflow-y-auto max-h-[75vh] scrollbar-hide">
+                    {storyDetails.coverImageUrl && (
+                        <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-[32px] overflow-hidden mb-16 shadow-2xl">
+                             <NextImage src={storyDetails.coverImageUrl} alt="Cover" fill className="object-cover" />
+                        </div>
+                    )}
+                    <h2 className="text-4xl md:text-6xl font-headline font-bold mb-12 text-center leading-tight tracking-tight">{chapterTitle}</h2>
                     <article className="prose dark:prose-invert max-w-3xl mx-auto font-body leading-relaxed text-lg animate-in fade-in slide-in-from-bottom-4 duration-1000" dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
                 </div>
                 <AlertDialogFooter className="p-6 bg-muted/20 border-t flex items-center justify-between">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 italic">End of manuscript preview</p>
-                    <AlertDialogCancel className="rounded-full px-10 h-12 font-bold uppercase text-xs tracking-widest shadow-lg">Return to Studio</AlertDialogCancel>
+                    <AlertDialogCancel className="rounded-full px-12 h-12 font-bold uppercase text-xs tracking-widest shadow-lg bg-background border-border/40">Return to Studio</AlertDialogCancel>
                 </AlertDialogFooter>
             </AlertDialogContent>
 
@@ -616,7 +739,7 @@ function EditorContentInner() {
             .zen-mode .ProseMirror p {
                 opacity: 0.2;
                 transition: opacity 0.5s ease, filter 0.5s ease;
-                filter: blur(1px);
+                filter: blur(2px);
             }
             .zen-mode .ProseMirror p:hover,
             .zen-mode .ProseMirror p:focus,
@@ -625,11 +748,18 @@ function EditorContentInner() {
                 filter: blur(0);
             }
             .ProseMirror {
-                padding-bottom: 200px !important;
+                padding-bottom: 300px !important;
                 outline: none !important;
             }
             .scrollbar-hide::-webkit-scrollbar {
                 display: none;
+            }
+            .no-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+            .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
             }
         `}</style>
     </TooltipProvider>
