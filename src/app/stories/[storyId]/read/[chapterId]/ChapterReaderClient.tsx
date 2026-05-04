@@ -27,8 +27,6 @@ import {
   BookmarkCheck,
   Sun,
   Monitor,
-  TextIcon,
-  Palette,
   Type,
   Baseline,
   RectangleHorizontal,
@@ -46,6 +44,7 @@ import {
   Eye,
   AlertCircle,
   ShieldCheck,
+  TextIcon,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -87,7 +86,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const OWNER_HANDLES = ['arnv'];
+const OWNER_HANDLES = ['arnv', '@arnv'];
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
 const fontSizes: FontSize[] = ['sm', 'base', 'lg', 'xl'];
@@ -154,7 +153,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     ],
   });
 
-  const isAppOwner = currentUser && OWNER_HANDLES.includes(currentUser.username || '');
+  const isAppOwner = currentUser && (OWNER_HANDLES.includes(currentUser.username || '') || currentUser.id === 'rpTmIq5pnKc91aSSgMJiF26zIYy2');
   const isAuthorOrCollaborator = currentUser && story && (story.author.id === currentUser.id || story.collaboratorIds?.includes(currentUser.id) || isAppOwner);
 
   useEffect(() => {
@@ -436,7 +435,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const handleLibraryAction = () => {
     if (!story) return;
     if (!currentUser) {
-        toast({ title: "Please Sign In", variant: "destructive"});
+        toast({ title: "Please Sign In", description: "You must be logged in to manage your library.", variant: "destructive"});
         router.push('/auth/signin');
         return;
     }
@@ -561,8 +560,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         <AlertCircle className="h-6 w-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-headline font-bold text-foreground">Message from Author</h2>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Required Reader Disclaimer</p>
+                        <AlertDialogTitle className="text-xl font-headline font-bold text-foreground">Message from Author</AlertDialogTitle>
+                        <AlertDialogDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Required Reader Disclaimer</AlertDialogDescription>
                     </div>
                 </div>
 
