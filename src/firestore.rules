@@ -124,9 +124,11 @@ service cloud.firestore {
       
       allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAppOwner());
       
-      allow update: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner() || (
+      allow update: if isSignedIn() && (
+        isOwner(resource.data.userId) || 
+        isAppOwner() || 
         request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts'])
-      ));
+      );
       
       allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
 
@@ -138,7 +140,7 @@ service cloud.firestore {
       
       match /reactions/{userId} {
         allow read: if true;
-        allow create, update, delete: if isSignedIn() && isOwner(userId);
+        allow create, update, delete: if isSignedIn() && (isOwner(userId) || isAppOwner());
       }
     }
 

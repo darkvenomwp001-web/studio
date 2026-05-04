@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect, useTransition, useRef } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { 
@@ -15,15 +16,12 @@ import {
   serverTimestamp, 
   deleteDoc,
   runTransaction,
-  addDoc,
-  Timestamp
+  addDoc
 } from 'firebase/firestore';
-import type { Annotation, UserSummary, Comment as CommentType, ReactionType } from '@/types';
+import type { Annotation, Comment as CommentType, ReactionType } from '@/types';
 import { 
   Loader2, 
   Quote, 
-  Edit, 
-  Share, 
   BookOpen, 
   Heart, 
   Eye, 
@@ -43,7 +41,7 @@ import {
   Send,
   X
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -57,8 +55,8 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const REACTION_OPTIONS = [
     { type: 'like' as const, icon: ThumbsUp, label: 'Like', color: 'text-blue-500', fillColor: 'fill-blue-500' },
@@ -167,7 +165,7 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
                 } satisfies SecurityRuleContext);
                 errorEmitter.emit('permission-error', permissionError);
             })
-            .finally(() => setIsPostingComment(false));
+            .finally(() => setIsPosting(false));
     };
 
     return (
