@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense, ChangeEvent } from 'react';
@@ -49,6 +48,7 @@ import type { Story, Chapter } from '@/types';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 import {
   Popover,
   PopoverContent,
