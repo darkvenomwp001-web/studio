@@ -32,11 +32,6 @@ service cloud.firestore {
         return isSignedIn() && (getRole(request.auth.uid) == 'writer' || isAppOwner());
     }
 
-    // Relaxed verification check: Now trusts signed-in status primarily.
-    function isVerifiedUser() {
-        return isSignedIn();
-    }
-
     // --- Collection Rules ---
 
     // Users Collection
@@ -124,9 +119,10 @@ service cloud.firestore {
 
     // Annotations
     match /annotations/{annotationId} {
-      allow read: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
-      allow create: if isSignedIn() && (isOwner(request.resource.data.userId) || isAppOwner());
-      allow update, delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
+      allow read: if isSignedIn() && (resource.data.visibility == 'public' || isOwner(resource.data.userId) || isAppOwner());
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAppOwner());
+      allow update: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionsCount']));
+      allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
     }
 
     // Announcements

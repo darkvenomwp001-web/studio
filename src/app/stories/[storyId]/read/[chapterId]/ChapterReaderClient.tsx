@@ -45,10 +45,11 @@ import {
   AlertCircle,
   ShieldCheck,
   Palette,
+  Globe,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
-import type { Story, Chapter } from '@/types'; 
+import type { Story, Chapter, Annotation } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -130,6 +131,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   // Annotation state
   const [annotationNote, setAnnotationNote] = useState("");
   const [selectedHighlightColor, setSelectedHighlightColor] = useState("#fde047"); // Default yellow
+  const [annotationVisibility, setAnnotationVisibility] = useState<'public' | 'private'>('public');
   const [lastSelectionRange, setLastSelectionRange] = useState<{ from: number, to: number } | null>(null);
 
   // Disclaimer state
@@ -477,8 +479,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         
         editor.chain().focus().setTextSelection(range).toggleHighlight({ color: selectedHighlightColor }).run();
         
-        const annotationData = {
+        const annotationData: Omit<Annotation, 'id'> = {
             userId: currentUser.id,
+            authorInfo: { id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName, avatarUrl: currentUser.avatarUrl },
             storyId: story.id,
             storyTitle: story.title,
             chapterId: currentChapter.id,
@@ -487,12 +490,14 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             highlightColor: selectedHighlightColor,
             note: annotationNote || undefined,
             timestamp: serverTimestamp(),
+            visibility: annotationVisibility,
+            reactionsCount: 0
         };
 
         const annoColRef = collection(db, 'annotations');
         addDoc(annoColRef, annotationData)
             .then(() => {
-                toast({ title: "Annotation Saved!" });
+                toast({ title: "Highlight Captured!" });
                 setAnnotationNote("");
                 setLastSelectionRange(null);
             })
@@ -797,16 +802,21 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                  <div className="space-y-3">
                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Line Spacing</Label>
                                     <RadioGroup defaultValue={lineHeight} onValueChange={(v) => setLineHeight(v as LineHeight)} className="grid grid-cols-3 gap-2">
-                                        <Label htmlFor="lh-tight" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="tight" id="lh-tight" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
-                                        <Label htmlFor="lh-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="normal" id="lh-normal" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
-                                        <Label htmlFor="lh-loose" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><RadioGroupItem value="loose" id="lh-loose" className="sr-only" /><Baseline className="h-5 w-5"/></Label>
+                                        <Label htmlFor="lh-tight" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><Baseline className="h-5 w-5"/></Label>
+                                        <RadioGroupItem value="tight" id="lh-tight" className="sr-only" />
+                                        <Label htmlFor="lh-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><Baseline className="h-5 w-5"/></Label>
+                                        <RadioGroupItem value="normal" id="lh-normal" className="sr-only" />
+                                        <Label htmlFor="lh-loose" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><Baseline className="h-5 w-5"/></Label>
+                                        <RadioGroupItem value="loose" id="lh-loose" className="sr-only" />
                                     </RadioGroup>
                                 </div>
                                  <div className="space-y-3">
                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Canvas Width</Label>
                                     <RadioGroup defaultValue={layoutWidth} onValueChange={(v) => setLayoutWidth(v as LayoutWidth)} className="grid grid-cols-2 gap-2">
-                                       <Label htmlFor="lw-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RadioGroupItem value="normal" id="lw-normal" className="sr-only" /><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-90 transition-transform"/></Label>
-                                       <Label htmlFor="lw-wide" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RadioGroupItem value="wide" id="lw-wide" className="sr-only" /><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-110 transition-transform"/></Label>
+                                       <Label htmlFor="lw-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-90 transition-transform"/></Label>
+                                       <RadioGroupItem value="normal" id="lw-normal" className="sr-only" />
+                                       <Label htmlFor="lw-wide" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-110 transition-transform"/></Label>
+                                       <RadioGroupItem value="wide" id="lw-wide" className="sr-only" />
                                     </RadioGroup>
                                 </div>
                              </TabsContent>
@@ -1012,6 +1022,32 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                             </Button>
                                         </div>
                                     </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Visibility</Label>
+                                            <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase", annotationVisibility === 'public' ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>{annotationVisibility}</span>
+                                        </div>
+                                        <div className="flex gap-1.5 p-1 bg-muted/30 rounded-xl border border-border/40">
+                                            <Button 
+                                                variant={annotationVisibility === 'public' ? 'secondary' : 'ghost'} 
+                                                size="sm" 
+                                                className="flex-1 h-9 rounded-lg font-bold text-[10px] uppercase gap-1.5"
+                                                onClick={() => setAnnotationVisibility('public')}
+                                            >
+                                                <Globe className="h-3 w-3" /> Public
+                                            </Button>
+                                            <Button 
+                                                variant={annotationVisibility === 'private' ? 'secondary' : 'ghost'} 
+                                                size="sm" 
+                                                className="flex-1 h-9 rounded-lg font-bold text-[10px] uppercase gap-1.5"
+                                                onClick={() => setAnnotationVisibility('private')}
+                                            >
+                                                <Lock className="h-3 w-3" /> Private
+                                            </Button>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-2">
                                         <Label htmlFor="annotation-note" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Archive Note</Label>
                                         <Textarea 

@@ -140,6 +140,7 @@ export interface Shelf {
 export interface Annotation {
     id: string;
     userId: string;
+    authorInfo?: UserSummary;
     storyId: string;
     chapterId: string;
     storyTitle: string; 
@@ -148,6 +149,8 @@ export interface Annotation {
     highlightColor: string;
     note?: string;
     timestamp: any;
+    visibility?: 'public' | 'private';
+    reactionsCount?: number;
 }
 
 export interface NotificationType {
