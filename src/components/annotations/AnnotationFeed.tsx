@@ -23,7 +23,6 @@ import {
   Loader2, 
   Quote, 
   BookOpen, 
-  Heart, 
   Eye, 
   Lock, 
   Globe, 
@@ -33,10 +32,6 @@ import {
   Image as ImageIcon,
   MoreHorizontal,
   Trash2,
-  ThumbsUp,
-  Smile,
-  Frown,
-  Angry,
   MessageSquare,
   Send,
   X
@@ -59,11 +54,11 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const REACTION_OPTIONS = [
-    { type: 'like' as const, icon: ThumbsUp, label: 'Like', color: 'text-blue-500', fillColor: 'fill-blue-500' },
-    { type: 'haha' as const, icon: Smile, label: 'Haha', color: 'text-yellow-500', fillColor: 'fill-yellow-500' },
-    { type: 'sad' as const, icon: Frown, label: 'Sad', color: 'text-blue-400', fillColor: 'fill-blue-400' },
-    { type: 'happy' as const, icon: Heart, label: 'Happy', color: 'text-red-500', fillColor: 'fill-red-500' },
-    { type: 'angry' as const, icon: Angry, label: 'Angry', color: 'text-orange-600', fillColor: 'fill-orange-600' },
+    { type: 'love' as const, emoji: '❤️', label: 'Love', color: 'text-red-500' },
+    { type: 'like' as const, emoji: '👍', label: 'Like', color: 'text-blue-500' },
+    { type: 'haha' as const, emoji: '😂', label: 'Haha', color: 'text-yellow-500' },
+    { type: 'sad' as const, emoji: '😢', label: 'Sad', color: 'text-blue-400' },
+    { type: 'angry' as const, emoji: '😡', label: 'Angry', color: 'text-orange-600' },
 ];
 
 function HighlightPoster({ annotation }: { annotation: Annotation }) {
@@ -377,39 +372,42 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
                                 size="sm" 
                                 className={cn(
                                     "h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase transition-all",
-                                    activeOption ? activeOption.color : (annotation.reactionsCount ? "text-primary" : "text-muted-foreground")
+                                    activeOption ? "bg-muted/50 shadow-inner" : "hover:bg-primary/5"
                                 )}
-                                onClick={(e) => { e.stopPropagation(); if(!userReaction) handleReaction('happy'); }}
+                                onClick={(e) => { e.stopPropagation(); if(!userReaction) handleReaction('love'); }}
                                 disabled={isReacting}
                             >
                                 {activeOption ? (
-                                    <activeOption.icon className="h-4 w-4 fill-current animate-in zoom-in-50" />
+                                    <span className="text-base animate-in zoom-in-50 duration-300 transform-gpu">{activeOption.emoji}</span>
                                 ) : (
                                     <div className="flex items-center gap-1">
-                                        <div className="flex -space-x-1 mr-0.5">
+                                        <div className="flex -space-x-2 mr-0.5 opacity-80 group-hover:opacity-100 transition-opacity">
                                             {summaryIcons.map(o => (
-                                                <div key={o.type} className={cn("p-0.5 rounded-full bg-background border border-border/10", o.color)}>
-                                                    <o.icon className="h-2.5 w-2.5 fill-current" />
-                                                </div>
+                                                <span key={o.type} className="text-xs drop-shadow-sm">{o.emoji}</span>
                                             ))}
                                         </div>
-                                        <Heart className={cn("h-4 w-4", annotation.reactionsCount && "fill-current")} />
+                                        <span className="text-base grayscale group-hover:grayscale-0 transition-all opacity-60 group-hover:opacity-100">❤️</span>
                                     </div>
                                 )}
-                                {annotation.reactionsCount || 0}
+                                <span className={cn("ml-1", activeOption ? "text-primary font-bold" : "text-muted-foreground")}>
+                                    {annotation.reactionsCount || 0}
+                                </span>
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-fit p-1.5 rounded-full bg-card/95 backdrop-blur-xl border-white/10 shadow-3xl animate-in slide-in-from-bottom-2" side="top">
+                        <PopoverContent className="w-fit p-1.5 rounded-full bg-card/90 backdrop-blur-xl border-white/10 shadow-3xl animate-in slide-in-from-bottom-2 duration-300" side="top">
                             <div className="flex gap-1">
                                 {REACTION_OPTIONS.map((option) => (
                                     <Button 
                                         key={option.type} 
                                         variant="ghost" 
                                         size="icon" 
-                                        className={cn("h-10 w-10 rounded-full hover:bg-muted transition-all hover:scale-125 hover:-translate-y-1", option.color)}
+                                        className={cn(
+                                            "h-10 w-10 rounded-full hover:bg-muted transition-all hover:scale-125 hover:-translate-y-1 active:scale-95 transform-gpu",
+                                            userReaction === option.type && "bg-muted shadow-inner scale-110"
+                                        )}
                                         onClick={() => handleReaction(option.type)}
                                     >
-                                        <option.icon className={cn("h-6 w-6", option.fillColor)} />
+                                        <span className="text-2xl drop-shadow-md">{option.emoji}</span>
                                     </Button>
                                 ))}
                             </div>
@@ -418,7 +416,7 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
                     <Button 
                         variant="ghost" 
                         size="sm" 
-                        className={cn("h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase", showComments && "text-primary")}
+                        className={cn("h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase transition-colors", showComments ? "text-primary bg-primary/5" : "text-muted-foreground hover:text-primary")}
                         onClick={() => setShowComments(!showComments)}
                     >
                         <MessageSquare className="h-4 w-4" />
@@ -427,13 +425,13 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
                 </div>
                 <div className="flex gap-1">
                     <Link href={`/stories/${annotation.storyId}/read/${annotation.chapterId}`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary" title="Read Context">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-all" title="Read Context">
                             <BookOpen className="h-4 w-4" />
                         </Button>
                     </Link>
                     <Dialog open={isPosterOpen} onOpenChange={setIsPosterOpen}>
                         <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-accent/10 hover:text-accent" title="Share Highlight">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-accent/10 hover:text-accent transition-all" title="Share Highlight">
                                 <ImageIcon className="h-4 w-4" />
                             </Button>
                         </DialogTrigger>

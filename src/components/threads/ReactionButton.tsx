@@ -3,15 +3,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import Lottie from 'lottie-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { ReactionType, UserSummary, Reaction } from '@/types';
+import type { ReactionType, Reaction } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Heart, ThumbsUp, Smile, Frown, Angry } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { collection, doc, onSnapshot, runTransaction, serverTimestamp, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { loveAnimation } from './reactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ScrollArea } from '../ui/scroll-area';
@@ -19,13 +17,14 @@ import Link from 'next/link';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const REACTION_OPTIONS = [
-    { type: 'love' as const, icon: Heart, label: 'Love', color: 'text-red-500', fillColor: 'fill-red-500', lottie: true },
-    { type: 'like' as const, icon: ThumbsUp, label: 'Like', color: 'text-blue-500', fillColor: 'fill-blue-500' },
-    { type: 'haha' as const, icon: Smile, label: 'Haha', color: 'text-yellow-500', fillColor: 'fill-yellow-500' },
-    { type: 'sad' as const, icon: Frown, label: 'Sad', color: 'text-blue-400', fillColor: 'fill-blue-400' },
-    { type: 'angry' as const, icon: Angry, label: 'Angry', color: 'text-orange-600', fillColor: 'fill-orange-600' },
+    { type: 'love' as const, emoji: '❤️', label: 'Love', color: 'text-red-500' },
+    { type: 'like' as const, emoji: '👍', label: 'Like', color: 'text-blue-500' },
+    { type: 'haha' as const, emoji: '😂', label: 'Haha', color: 'text-yellow-500' },
+    { type: 'sad' as const, emoji: '😢', label: 'Sad', color: 'text-blue-400' },
+    { type: 'angry' as const, emoji: '😡', label: 'Angry', color: 'text-orange-600' },
 ];
 
 function ReactorsList({ postId }: { postId: string }) {
@@ -75,12 +74,11 @@ function ReactorsList({ postId }: { postId: string }) {
                                 <AvatarImage src={react.user.avatarUrl} alt={react.user.displayName} />
                                 <AvatarFallback>{react.user.username.substring(0,1).toUpperCase()}</AvatarFallback>
                             </Avatar>
-                            <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 shadow-sm border border-border/10">
-                                {REACTION_OPTIONS.find(o => o.type === react.type)?.icon && (
-                                    (() => {
-                                        const Option = REACTION_OPTIONS.find(o => o.type === react.type)!;
-                                        return <Option.icon className={cn("h-3 w-3", Option.color, Option.fillColor)} />;
-                                    })()
+                            <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 shadow-sm border border-border/10 flex items-center justify-center">
+                                {REACTION_OPTIONS.find(o => o.type === react.type) && (
+                                    <span className="text-[10px] drop-shadow-sm">
+                                        {REACTION_OPTIONS.find(o => o.type === react.type)!.emoji}
+                                    </span>
                                 )}
                             </div>
                         </div>
@@ -148,7 +146,6 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
         
         setIsProcessing(true);
         setIsPickerOpen(false);
-        const oldReaction = userReaction;
         
         const postRef = doc(db, 'feedPosts', postId);
         const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
@@ -159,15 +156,12 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
             if (reactionDoc.exists()) {
                 const existingType = reactionDoc.data().type;
                 if (existingType === type) {
-                    // Toggle off if same type
                     transaction.delete(reactionRef);
                     transaction.update(postRef, { reactionsCount: increment(-1) });
                 } else {
-                    // Update type if different
                     transaction.update(reactionRef, { type, timestamp: serverTimestamp() });
                 }
             } else {
-                // New reaction
                 const reactionData = { 
                     userId: user.id, 
                     type,
@@ -193,16 +187,16 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
 
     const handleDefaultToggle = () => {
         if (userReaction) {
-            handleReaction(userReaction); // Toggles off current
+            handleReaction(userReaction);
         } else {
-            handleReaction('love'); // Defaults to love
+            handleReaction('love');
         }
     };
 
     const startPress = () => {
         longPressTimer.current = setTimeout(() => {
             setIsPickerOpen(true);
-        }, 500); // 500ms long press
+        }, 500);
     };
 
     const endPress = () => {
@@ -212,17 +206,16 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
     };
 
     const currentOption = REACTION_OPTIONS.find(o => o.type === userReaction);
+    const summaryIcons = REACTION_OPTIONS.slice(0, 3);
 
     return (
         <div className="flex items-center gap-1">
              <Dialog>
                 <DialogTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase text-primary transition-all hover:bg-primary/5 active:scale-95" disabled={reactionsCount === 0}>
-                        <div className="flex -space-x-1.5 mr-0.5">
-                            {REACTION_OPTIONS.slice(0, 3).map(o => (
-                                <div key={o.type} className={cn("p-0.5 rounded-full bg-background border border-border/10", o.color)}>
-                                    <o.icon className="h-2.5 w-2.5 fill-current" />
-                                </div>
+                        <div className="flex -space-x-2 mr-0.5 opacity-80">
+                            {summaryIcons.map(o => (
+                                <span key={o.type} className="text-xs drop-shadow-sm">{o.emoji}</span>
                             ))}
                         </div>
                         {reactionsCount > 0 ? reactionsCount : ''}
@@ -243,8 +236,8 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
                         variant="ghost"
                         size="icon"
                         className={cn(
-                            "group h-10 w-10 rounded-full transition-all duration-300",
-                            currentOption ? currentOption.color : "text-muted-foreground hover:text-red-500"
+                            "group h-10 w-10 rounded-full transition-all duration-300 transform-gpu",
+                            currentOption ? "bg-muted/50 scale-110" : "text-muted-foreground hover:text-red-500"
                         )}
                         disabled={isProcessing}
                         onClick={handleDefaultToggle}
@@ -256,20 +249,10 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
                     >
                         {isProcessing ? (
                             <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : currentOption?.lottie ? (
-                            <div className="w-10 h-10 relative flex items-center justify-center">
-                                <Lottie 
-                                    animationData={loveAnimation}
-                                    loop={false}
-                                    autoplay={userReaction === 'love'}
-                                    className="absolute inset-0 w-20 h-20 -top-5 -left-5 transition-opacity"
-                                />
-                                <Heart className={cn("w-5 h-5 fill-current scale-110")} />
-                            </div>
                         ) : currentOption ? (
-                            <currentOption.icon className="w-5 h-5 fill-current animate-in zoom-in-50 duration-300" />
+                            <span className="text-2xl drop-shadow-md animate-in zoom-in-50 duration-300">{currentOption.emoji}</span>
                         ) : (
-                            <Heart className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            <span className="text-2xl grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-100 transition-all">❤️</span>
                         )}
                     </Button>
                 </PopoverTrigger>
@@ -277,7 +260,7 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
                     side="top" 
                     align="start" 
                     sideOffset={10}
-                    className="w-fit p-1.5 rounded-full bg-card/90 backdrop-blur-xl border-white/10 shadow-3xl animate-in slide-in-from-bottom-2 duration-300"
+                    className="w-fit p-1.5 rounded-full bg-card/95 backdrop-blur-xl border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom-2 duration-300"
                 >
                     <div className="flex items-center gap-1">
                         {REACTION_OPTIONS.map((option) => (
@@ -287,12 +270,11 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
                                     size="icon"
                                     onClick={() => handleReaction(option.type)}
                                     className={cn(
-                                        "h-10 w-10 rounded-full hover:bg-muted transition-all hover:scale-125 hover:-translate-y-1",
-                                        option.color,
+                                        "h-10 w-10 rounded-full hover:bg-muted transition-all hover:scale-125 hover:-translate-y-1 transform-gpu",
                                         userReaction === option.type && "bg-muted shadow-inner scale-110"
                                     )}
                                 >
-                                    <option.icon className={cn("h-6 w-6", option.fillColor)} />
+                                    <span className="text-2xl drop-shadow-md">{option.emoji}</span>
                                 </Button>
                             </TooltipProvider>
                         ))}
