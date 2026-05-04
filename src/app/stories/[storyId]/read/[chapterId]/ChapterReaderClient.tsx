@@ -44,7 +44,7 @@ import {
   Eye,
   AlertCircle,
   ShieldCheck,
-  TextIcon,
+  Palette,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -771,7 +771,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                         {fontSizes.map(size => (
                                             <Label key={size} htmlFor={`font-${size}`} className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-2 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
                                                 <RadioGroupItem value={size} id={`font-${size}`} className="sr-only" />
-                                                <TextIcon className={cn("h-4 w-4 mb-1", size === 'sm' ? 'scale-75' : size === 'lg' ? 'scale-110' : size === 'xl' ? 'scale-125' : '')} />
+                                                <Type className={cn("h-4 w-4 mb-1", size === 'sm' ? 'scale-75' : size === 'lg' ? 'scale-110' : size === 'xl' ? 'scale-125' : '')} />
                                                 <span className="text-[8px] font-bold uppercase">{size}</span>
                                             </Label>
                                         ))}
@@ -1057,7 +1057,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 <div className="text-center py-10 flex flex-col items-center gap-4">
                   <Sparkles className="w-16 h-16 text-yellow-500" />
                   <h2 className="text-2xl font-headline font-bold">Premium Chapter</h2>
-                  <p className="text-muted-foreground max-w-md">This chapter is a special release available only to users granted premium access by the author.</p>
+                  <p className="text-muted-foreground max-md">This chapter is a special release available only to users granted premium access by the author.</p>
                   <Button onClick={() => router.push(`/stories/${storyId}`)}>Back to Story Overview</Button>
                 </div>
               )}
