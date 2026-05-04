@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useRef } from 'react';
@@ -50,6 +49,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -58,6 +58,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 
 const REACTION_TYPES = [
     { type: 'like', icon: ThumbsUp, label: 'Like', color: 'text-blue-500' },
@@ -204,13 +205,20 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
     );
 }
 
+interface CommentProps {
+  comment: CommentType;
+  onReply?: (commentId: string, username: string) => void;
+  allComments: CommentType[]; 
+  onCommentUpdate: (commentId: string, newContent: string) => Promise<void>;
+  onCommentDelete: (commentId: string) => Promise<void>;
+}
+
 function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, isOwnArchive: boolean }) {
     const { user } = useAuth();
     const { toast } = useToast();
     const [isReacting, setIsReacting] = useState(false);
     const [isPosterOpen, setIsPosterOpen] = useState(false);
     const [showComments, setShowComments] = useState(false);
-    const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
     const handleReaction = async (reactionType: string) => {
         if (!user) {
@@ -325,7 +333,7 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
                                 variant="ghost" 
                                 size="sm" 
                                 className={cn("h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase", annotation.reactionsCount && "text-primary")}
-                                onClick={() => !isReacting && handleReaction('like')}
+                                onClick={(e) => { e.stopPropagation(); }}
                                 disabled={isReacting}
                             >
                                 <Heart className={cn("h-4 w-4", annotation.reactionsCount && "fill-current")} />
@@ -395,7 +403,6 @@ export default function AnnotationFeed() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Community Discovery Listener
         setIsLoading(true);
         const communityQuery = query(
             collection(db, 'annotations'),
@@ -417,7 +424,6 @@ export default function AnnotationFeed() {
     useEffect(() => {
         if (!user) return;
         
-        // My Archive Listener
         const myQuery = query(
             collection(db, 'annotations'), 
             where('userId', '==', user.id), 
@@ -505,4 +511,3 @@ export default function AnnotationFeed() {
         </div>
     );
 }
-
