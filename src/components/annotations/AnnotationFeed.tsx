@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -209,13 +209,15 @@ export default function AnnotationFeed() {
         const communityQuery = query(
             collection(db, 'annotations'),
             where('visibility', '==', 'public'),
-            orderBy('timestamp', 'desc'),
-            orderBy('reactionsCount', 'desc')
+            orderBy('timestamp', 'desc')
         );
 
         const unsubscribeCommunity = onSnapshot(communityQuery, (snapshot) => {
             setCommunityAnnotations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Annotation)));
             if (activeTab === 'community') setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching community annotations:", error);
+            setIsLoading(false);
         });
 
         return () => unsubscribeCommunity();
@@ -236,6 +238,7 @@ export default function AnnotationFeed() {
             if (activeTab === 'mine') setIsLoading(false);
         }, (error) => {
             console.error("Error fetching my annotations:", error);
+            setIsLoading(false);
         });
 
         return () => unsubscribeMy();
