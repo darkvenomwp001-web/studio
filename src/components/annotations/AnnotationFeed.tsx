@@ -51,7 +51,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow } from 'date-fns';
@@ -143,83 +142,85 @@ function AnnotationCommentItem({ comment, annotationId, onUpdate, onDelete }: { 
     };
 
     return (
-        <div className="flex gap-3 group">
-            <Link href={`/profile/${comment.user.id}`} className="flex-shrink-0">
-                <Avatar className="h-8 w-8">
-                    <AvatarImage src={comment.user.avatarUrl} />
-                    <AvatarFallback>{comment.user.username.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-            </Link>
-            <div className="flex-1 min-w-0">
-                <div className="bg-muted/30 p-3 rounded-2xl relative">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                        <Link href={`/profile/${comment.user.id}`} className="font-bold text-xs hover:underline truncate">
-                            @{comment.user.username}
-                        </Link>
-                        <div className="flex items-center gap-2">
-                             <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                {comment.timestamp?.toDate ? formatDistanceToNow(comment.timestamp.toDate(), { addSuffix: true }) : 'Just now'}
-                            </span>
-                            {canManage && !isEditing && (
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <MoreHorizontal className="h-3 w-3" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                                            <Edit3 className="mr-2 h-3 w-3" /> Edit
-                                        </DropdownMenuItem>
-                                        <AlertDialogTrigger asChild>
-                                            <DropdownMenuItem className="text-destructive">
-                                                <Trash2 className="mr-2 h-3 w-3" /> Delete
+        <AlertDialog>
+            <div className="flex gap-3 group">
+                <Link href={`/profile/${comment.user.id}`} className="flex-shrink-0">
+                    <Avatar className="h-8 w-8">
+                        <AvatarImage src={comment.user.avatarUrl} />
+                        <AvatarFallback>{comment.user.username.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                </Link>
+                <div className="flex-1 min-w-0">
+                    <div className="bg-muted/30 p-3 rounded-2xl relative">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                            <Link href={`/profile/${comment.user.id}`} className="font-bold text-xs hover:underline truncate">
+                                @{comment.user.username}
+                            </Link>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                    {comment.timestamp?.toDate ? formatDistanceToNow(comment.timestamp.toDate(), { addSuffix: true }) : 'Just now'}
+                                </span>
+                                {canManage && !isEditing && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <MoreHorizontal className="h-3 w-3" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                                                <Edit3 className="mr-2 h-3 w-3" /> Edit
                                             </DropdownMenuItem>
-                                        </AlertDialogTrigger>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            )}
-                        </div>
-                    </div>
-
-                    {isEditing ? (
-                        <div className="space-y-2 mt-1">
-                            <Textarea
-                                value={editedContent}
-                                onChange={(e) => setEditedContent(e.target.value)}
-                                className="min-h-[60px] text-sm bg-background"
-                                disabled={isSaving}
-                            />
-                            <div className="flex justify-end gap-2">
-                                <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                <Button size="sm" onClick={handleSave} disabled={isSaving || !editedContent.trim()}>
-                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
-                                    Save
-                                </Button>
+                                            <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem className="text-destructive">
+                                                    <Trash2 className="mr-2 h-3 w-3" /> Delete
+                                                </DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
                             </div>
                         </div>
-                    ) : (
-                        <p className="text-sm text-foreground/80 whitespace-pre-line">{comment.content}</p>
-                    )}
-                </div>
-            </div>
 
-            <AlertDialogContent className="rounded-3xl">
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Delete comment?</AlertDialogTitle>
-                    <AlertDialogDescription>This cannot be undone. Your thought will be removed from the conversation.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
-                        className="bg-destructive hover:bg-destructive/90 rounded-full"
-                        onClick={() => onDelete(comment.id)}
-                    >
-                        Delete
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </div>
+                        {isEditing ? (
+                            <div className="space-y-2 mt-1">
+                                <Textarea
+                                    value={editedContent}
+                                    onChange={(e) => setEditedContent(e.target.value)}
+                                    className="min-h-[60px] text-sm bg-background"
+                                    disabled={isSaving}
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
+                                    <Button size="sm" onClick={handleSave} disabled={isSaving || !editedContent.trim()}>
+                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+                                        Save
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-foreground/80 whitespace-pre-line">{comment.content}</p>
+                        )}
+                    </div>
+                </div>
+
+                <AlertDialogContent className="rounded-3xl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete comment?</AlertDialogTitle>
+                        <AlertDialogDescription>This cannot be undone. Your thought will be removed from the conversation.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            className="bg-destructive hover:bg-destructive/90 rounded-full"
+                            onClick={() => onDelete(comment.id)}
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </div>
+        </AlertDialog>
     );
 }
 
@@ -383,6 +384,12 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
             } else {
                 setUserReaction(null);
             }
+        }, async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `annotations/${annotation.id}/reactions/${user.id}`,
+                operation: 'get',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
         });
         return () => unsubscribe();
     }, [user, annotation.id]);

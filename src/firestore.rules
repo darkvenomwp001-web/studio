@@ -119,11 +119,13 @@ service cloud.firestore {
 
     // Annotations
     match /annotations/{annotationId} {
+      // Public highlights are discoverable by everyone.
       allow read: if resource.data.visibility == 'public' 
                     || (isSignedIn() && (isOwner(resource.data.userId) || isAppOwner()));
       
       allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAppOwner());
       
+      // Allow community members to update social metrics (reactions/comments)
       allow update: if isSignedIn() && (
         isOwner(resource.data.userId) || 
         isAppOwner() || 
