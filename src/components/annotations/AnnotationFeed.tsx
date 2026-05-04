@@ -18,7 +18,7 @@ import {
   addDoc,
   Timestamp
 } from 'firebase/firestore';
-import type { Annotation, UserSummary, Comment as CommentType } from '@/types';
+import type { Annotation, UserSummary, Comment as CommentType, ReactionType } from '@/types';
 import { 
   Loader2, 
   Quote, 
@@ -60,12 +60,12 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 
-const REACTION_TYPES = [
-    { type: 'like', icon: ThumbsUp, label: 'Like', color: 'text-blue-500' },
-    { type: 'haha', icon: Smile, label: 'Haha', color: 'text-yellow-500' },
-    { type: 'sad', icon: Frown, label: 'Sad', color: 'text-purple-500' },
-    { type: 'happy', icon: Heart, label: 'Happy', color: 'text-red-500' },
-    { type: 'angry', icon: Angry, label: 'Angry', color: 'text-orange-500' },
+const REACTION_OPTIONS = [
+    { type: 'like' as const, icon: ThumbsUp, label: 'Like', color: 'text-blue-500', fillColor: 'fill-blue-500' },
+    { type: 'haha' as const, icon: Smile, label: 'Haha', color: 'text-yellow-500', fillColor: 'fill-yellow-500' },
+    { type: 'sad' as const, icon: Frown, label: 'Sad', color: 'text-blue-400', fillColor: 'fill-blue-400' },
+    { type: 'happy' as const, icon: Heart, label: 'Happy', color: 'text-red-500', fillColor: 'fill-red-500' },
+    { type: 'angry' as const, icon: Angry, label: 'Angry', color: 'text-orange-600', fillColor: 'fill-orange-600' },
 ];
 
 function HighlightPoster({ annotation }: { annotation: Annotation }) {
@@ -167,7 +167,7 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
                 } satisfies SecurityRuleContext);
                 errorEmitter.emit('permission-error', permissionError);
             })
-            .finally(() => setIsPosting(false));
+            .finally(() => setIsPostingComment(false));
     };
 
     return (
@@ -215,26 +215,70 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
     const { user } = useAuth();
     const { toast } = useToast();
     const [isReacting, setIsReacting] = useState(false);
+    const [userReaction, setUserReaction] = useState<ReactionType | null>(null);
     const [isPosterOpen, setIsPosterOpen] = useState(false);
     const [showComments, setShowComments] = useState(false);
 
-    const handleReaction = async (reactionType: string) => {
-        if (!user) {
+    useEffect(() => {
+        if (!user || !annotation.id) return;
+        const reactionRef = doc(db, 'annotations', annotation.id, 'reactions', user.id);
+        const unsubscribe = onSnapshot(reactionRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setUserReaction(docSnap.data().type as ReactionType);
+            } else {
+                setUserReaction(null);
+            }
+        });
+        return () => unsubscribe();
+    }, [user, annotation.id]);
+
+    const handleReaction = async (type: ReactionType) => {
+        if (!user || user.isAnonymous) {
             toast({ title: "Sign in to react", variant: "destructive" });
             return;
         }
+        
         setIsReacting(true);
         const annoRef = doc(db, 'annotations', annotation.id);
-        
-        updateDoc(annoRef, { 
-            reactionsCount: increment(1),
-            [`reactionCounts.${reactionType}`]: increment(1)
+        const reactionRef = doc(db, 'annotations', annotation.id, 'reactions', user.id);
+
+        runTransaction(db, async (transaction) => {
+            const reactionDoc = await transaction.get(reactionRef);
+            
+            if (reactionDoc.exists()) {
+                const existingType = reactionDoc.data().type;
+                if (existingType === type) {
+                    transaction.delete(reactionRef);
+                    transaction.update(annoRef, { 
+                        reactionsCount: increment(-1),
+                        [`reactionCounts.${existingType}`]: increment(-1)
+                    });
+                } else {
+                    transaction.update(reactionRef, { type, timestamp: serverTimestamp() });
+                    transaction.update(annoRef, {
+                        [`reactionCounts.${existingType}`]: increment(-1),
+                        [`reactionCounts.${type}`]: increment(1)
+                    });
+                }
+            } else {
+                const reactionData = { 
+                    userId: user.id, 
+                    type,
+                    timestamp: serverTimestamp(),
+                    user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+                };
+                transaction.set(reactionRef, reactionData);
+                transaction.update(annoRef, { 
+                    reactionsCount: increment(1),
+                    [`reactionCounts.${type}`]: increment(1)
+                });
+            }
         })
         .catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({
-                path: annoRef.path,
-                operation: 'update',
-                requestResourceData: { reactionsCount: 'increment' },
+                path: reactionRef.path,
+                operation: 'write',
+                requestResourceData: { type },
             } satisfies SecurityRuleContext);
             errorEmitter.emit('permission-error', permissionError);
         })
@@ -270,6 +314,9 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
                 errorEmitter.emit('permission-error', permissionError);
             });
     };
+
+    const activeOption = REACTION_OPTIONS.find(o => o.type === userReaction);
+    const summaryIcons = REACTION_OPTIONS.filter(o => (annotation.reactionCounts?.[o.type] || 0) > 0).slice(0, 3);
 
     return (
         <Card className="flex flex-col rounded-[32px] overflow-hidden border-border/40 shadow-sm hover:shadow-md transition-all group">
@@ -330,25 +377,41 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
                             <Button 
                                 variant="ghost" 
                                 size="sm" 
-                                className={cn("h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase", annotation.reactionsCount && "text-primary")}
-                                onClick={(e) => { e.stopPropagation(); }}
+                                className={cn(
+                                    "h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase transition-all",
+                                    activeOption ? activeOption.color : (annotation.reactionsCount ? "text-primary" : "text-muted-foreground")
+                                )}
+                                onClick={(e) => { e.stopPropagation(); if(!userReaction) handleReaction('happy'); }}
                                 disabled={isReacting}
                             >
-                                <Heart className={cn("h-4 w-4", annotation.reactionsCount && "fill-current")} />
+                                {activeOption ? (
+                                    <activeOption.icon className="h-4 w-4 fill-current animate-in zoom-in-50" />
+                                ) : (
+                                    <div className="flex items-center gap-1">
+                                        <div className="flex -space-x-1 mr-0.5">
+                                            {summaryIcons.map(o => (
+                                                <div key={o.type} className={cn("p-0.5 rounded-full bg-background border border-border/10", o.color)}>
+                                                    <o.icon className="h-2.5 w-2.5 fill-current" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <Heart className={cn("h-4 w-4", annotation.reactionsCount && "fill-current")} />
+                                    </div>
+                                )}
                                 {annotation.reactionsCount || 0}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-fit p-2 rounded-2xl shadow-2xl border-white/10 bg-card/95 backdrop-blur-xl" side="top">
-                            <div className="flex gap-2">
-                                {REACTION_TYPES.map((reaction) => (
+                        <PopoverContent className="w-fit p-1.5 rounded-full bg-card/95 backdrop-blur-xl border-white/10 shadow-3xl animate-in slide-in-from-bottom-2" side="top">
+                            <div className="flex gap-1">
+                                {REACTION_OPTIONS.map((option) => (
                                     <Button 
-                                        key={reaction.type} 
+                                        key={option.type} 
                                         variant="ghost" 
                                         size="icon" 
-                                        className={cn("h-10 w-10 rounded-full hover:bg-muted", reaction.color)}
-                                        onClick={() => handleReaction(reaction.type)}
+                                        className={cn("h-10 w-10 rounded-full hover:bg-muted transition-all hover:scale-125 hover:-translate-y-1", option.color)}
+                                        onClick={() => handleReaction(option.type)}
                                     >
-                                        <reaction.icon className="h-5 w-5" />
+                                        <option.icon className={cn("h-6 w-6", option.fillColor)} />
                                     </Button>
                                 ))}
                             </div>

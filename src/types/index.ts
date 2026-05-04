@@ -151,6 +151,7 @@ export interface Annotation {
     timestamp: any;
     visibility?: 'public' | 'private';
     reactionsCount?: number;
+    reactionCounts?: Record<string, number>;
 }
 
 export interface NotificationType {
