@@ -97,6 +97,7 @@ export interface Chapter {
   publishedDate?: string;
   accessType: 'public' | 'premium';
   allowedUsers?: AllowedUser[];
+  artworkUrl?: string;
 }
 
 export interface AllowedUser {
@@ -210,11 +211,9 @@ export interface Message {
     senderId: string;
     content: string;
     timestamp: any;
-    type?: 'text' | 'poll' | 'question' | 'image' | 'video' | 'file' | 'audio';
+    type?: 'text' | 'poll' | 'image' | 'video' | 'file' | 'audio';
     mediaUrl?: string;
     fileName?: string;
-    poll?: Poll;
-    question?: Question;
 }
 
 export interface GlobalChatMessage {

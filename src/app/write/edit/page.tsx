@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense, ChangeEvent } from 'react';
@@ -130,7 +131,7 @@ function EditorContentInner() {
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
   const [chapterTitle, setChapterTitle] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [isUploadingArtwork, setIsUploadingArtwork] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'Saved' | 'Saving...' | 'No Changes' | 'Typing'>('No Changes');
   const [wordCount, setWordCount] = useState(0);
   
@@ -138,7 +139,7 @@ function EditorContentInner() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
 
-  const coverInputRef = useRef<HTMLInputElement>(null);
+  const artworkInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -247,30 +248,17 @@ function EditorContentInner() {
     setWordCount(editor.storage.characterCount.words());
   }, [editor?.state, editor?.storage.characterCount]);
 
-  const handleUpdateField = useCallback(async (fieldName: string, value: any) => {
-    if (!storyDetails) return;
-    const storyRef = doc(db, 'stories', storyDetails.id);
-    updateDoc(storyRef, { [fieldName]: value, lastUpdated: serverTimestamp() }).catch(async (serverError) => {
-      const permissionError = new FirestorePermissionError({
-        path: storyRef.path,
-        operation: 'update',
-        requestResourceData: { [fieldName]: value },
-      } satisfies SecurityRuleContext);
-      errorEmitter.emit('permission-error', permissionError);
-    });
-  }, [storyDetails]);
-
-  const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.[0] || !storyDetails) return;
+  const handleChapterArtworkUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0] || !storyDetails || !currentChapter) return;
     const file = e.target.files[0];
     
-    setIsUploadingCover(true);
+    setIsUploadingArtwork(true);
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
     if (!cloudName || !uploadPreset) {
         toast({ title: "Configuration Error", variant: "destructive"});
-        setIsUploadingCover(false);
+        setIsUploadingArtwork(false);
         return;
     }
 
@@ -282,13 +270,26 @@ function EditorContentInner() {
         const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
         const data = await res.json();
         if (data.secure_url) {
-            await handleUpdateField('coverImageUrl', data.secure_url);
-            toast({ title: "Artwork Updated!" });
+            const updatedChapters = storyDetails.chapters.map(ch => {
+              if (ch.id === currentChapter.id) {
+                return { ...ch, artworkUrl: data.secure_url };
+              }
+              return ch;
+            });
+            
+            const storyRef = doc(db, 'stories', storyDetails.id);
+            await updateDoc(storyRef, { 
+              chapters: updatedChapters, 
+              lastUpdated: serverTimestamp() 
+            });
+            
+            setCurrentChapter(prev => prev ? { ...prev, artworkUrl: data.secure_url } : null);
+            toast({ title: "Chapter Artwork Updated!" });
         }
     } catch (error) {
         toast({ title: "Upload Failed", variant: "destructive" });
     } finally {
-        setIsUploadingCover(false);
+        setIsUploadingArtwork(false);
     }
   };
 
@@ -489,12 +490,12 @@ function EditorContentInner() {
                 )}>
                     {/* Cinematic Cover Area (Landscape) */}
                     <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-none sm:rounded-[40px] overflow-hidden bg-muted/50 border-b sm:border border-border/40 group mb-8 shadow-sm">
-                        {storyDetails.coverImageUrl ? (
-                            <NextImage src={storyDetails.coverImageUrl} alt="Story Artwork" fill className="object-cover transition-transform duration-1000 group-hover:scale-[1.03]" priority />
+                        {currentChapter.artworkUrl ? (
+                            <NextImage src={currentChapter.artworkUrl} alt="Chapter Artwork" fill className="object-cover transition-transform duration-1000 group-hover:scale-[1.03]" priority />
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30 animate-pulse">
                                 <ImagePlus className="h-12 w-12 mb-2" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest">Landscape Postcard Artwork</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Landscape Chapter Art</p>
                             </div>
                         )}
                         {isAuthorOrCollaborator && (
@@ -502,20 +503,20 @@ function EditorContentInner() {
                                 <Button 
                                     variant="outline" 
                                     className="bg-white/10 hover:bg-white/20 backdrop-blur-md border-white/20 text-white rounded-full gap-2 font-bold uppercase text-[10px] tracking-widest h-11 px-6 shadow-2xl" 
-                                    onClick={() => coverInputRef.current?.click()}
+                                    onClick={() => artworkInputRef.current?.click()}
                                 >
                                     <Camera className="h-4 w-4" />
-                                    Change Artwork
+                                    Set Chapter Art
                                 </Button>
                             </div>
                         )}
-                        {isUploadingCover && (
+                        {isUploadingArtwork && (
                             <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             </div>
                         )}
                     </div>
-                    <input type="file" ref={coverInputRef} className="hidden" accept="image/*" onChange={handleCoverUpload} />
+                    <input type="file" ref={artworkInputRef} className="hidden" accept="image/*" onChange={handleChapterArtworkUpload} />
 
                     {/* Centered Title Section */}
                     <div className="space-y-4 text-center max-w-3xl mx-auto mb-12 px-4">
@@ -719,9 +720,9 @@ function EditorContentInner() {
                     <AlertDialogCancel className="rounded-full h-12 w-12 p-0 border-none bg-muted/40 hover:bg-destructive hover:text-white transition-all"><X className="h-5 w-5"/></AlertDialogCancel>
                 </AlertDialogHeader>
                 <div className="bg-card p-6 md:p-24 overflow-y-auto max-h-[75vh] scrollbar-hide">
-                    {storyDetails.coverImageUrl && (
+                    {currentChapter.artworkUrl && (
                         <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-[32px] overflow-hidden mb-16 shadow-2xl">
-                             <NextImage src={storyDetails.coverImageUrl} alt="Cover" fill className="object-cover" />
+                             <NextImage src={currentChapter.artworkUrl} alt="Cover" fill className="object-cover" />
                         </div>
                     )}
                     <h2 className="text-4xl md:text-6xl font-headline font-bold mb-12 text-center leading-tight tracking-tight">{chapterTitle}</h2>

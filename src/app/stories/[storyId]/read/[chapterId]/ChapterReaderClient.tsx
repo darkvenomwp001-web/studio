@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -984,6 +985,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                  </BubbleMenu>
              )}
              <article className={articleClasses}>
+              {currentChapter.artworkUrl && (
+                <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-[32px] overflow-hidden mb-12 shadow-2xl ring-1 ring-border/40">
+                  <Image src={currentChapter.artworkUrl} alt="" fill className="object-cover" priority />
+                </div>
+              )}
               <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4 text-center">{currentChapter.title}</h2>
               {isAccessGranted ? (
                 <EditorContent editor={editor} />
