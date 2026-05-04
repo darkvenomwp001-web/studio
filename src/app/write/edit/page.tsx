@@ -18,30 +18,22 @@ import {
   Highlighter, 
   Type,
   List,
-  ListOrdered,
   Quote,
   X,
   Target,
-  Zap,
-  Play,
-  Pause,
   RotateCcw,
   Palette,
   ArrowLeft,
-  AlertCircle,
   CheckCircle,
   FileText,
   BookOpen,
   Send,
-  Settings,
   Eye,
   AlignLeft,
   AlignCenter,
   AlignRight,
   AlignJustify,
-  ChevronDown,
   History,
-  Languages,
   BookMarked,
   ImagePlus,
   Camera,
@@ -49,16 +41,13 @@ import {
   BarChart3,
   Book
 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { useSearchParams, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import type { Story, Chapter } from '@/types';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -88,7 +77,6 @@ import CharacterCount from '@tiptap/extension-character-count'
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Slider } from '@/components/ui/slider';
 
 const PRO_FONTS = [
   { name: 'Default', value: 'var(--font-inter)' },
@@ -141,6 +129,8 @@ function EditorContentInner() {
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
 
   const artworkInputRef = useRef<HTMLInputElement>(null);
+  const lastContentRef = useRef<string>('');
+  const lastTitleRef = useRef<string>('');
 
   const editor = useEditor({
     extensions: [
@@ -155,9 +145,15 @@ function EditorContentInner() {
     content: '',
     editorProps: { 
       attributes: { 
-        class: 'prose dark:prose-invert focus:outline-none min-h-[600px] w-full p-6 md:p-20 text-base leading-relaxed font-body transition-all duration-300'
+        class: 'prose dark:prose-invert focus:outline-none min-h-[600px] w-full p-6 md:p-20 text-base leading-relaxed font-body transition-all duration-300 transform-gpu'
       } 
     },
+    onUpdate: ({ editor }) => {
+        // Debounced word count to avoid lag
+        const count = editor.storage.characterCount.words();
+        setWordCount(count);
+        setAutoSaveStatus('Typing');
+    }
   });
 
   const isAuthorOrCollaborator = useMemo(() => {
@@ -171,13 +167,9 @@ function EditorContentInner() {
   }, [isAuthorOrCollaborator, editor]);
 
   useEffect(() => {
-    if (authLoading) {
-        setIsLoading(true);
-        return;
-    }
+    if (authLoading) return;
     if (!currentUser) {
       router.push('/auth/signin');
-      setIsLoading(false);
       return;
     }
 
@@ -206,23 +198,10 @@ function EditorContentInner() {
           if (chapterToEdit) {
             setCurrentChapter(chapterToEdit);
             setChapterTitle(chapterToEdit.title);
+            lastTitleRef.current = chapterToEdit.title;
             if(editor && !editor.isDestroyed && editor.getHTML() !== chapterToEdit.content) {
                 editor.commands.setContent(chapterToEdit.content, false);
-            }
-          } else { 
-            const newChapterOrder = storyData.chapters.length > 0 ? Math.max(...storyData.chapters.map(c => c.order)) + 1 : 1;
-            const newChapterInstance: Chapter = {
-              id: `chapter-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-              title: `Part ${newChapterOrder}`,
-              content: '<p>Start writing...</p>',
-              order: newChapterOrder,
-              status: 'Draft',
-              accessType: 'public'
-            };
-            setCurrentChapter(newChapterInstance);
-            setChapterTitle(newChapterInstance.title);
-             if(editor && !editor.isDestroyed) {
-                editor.commands.setContent(newChapterInstance.content, false);
+                lastContentRef.current = chapterToEdit.content;
             }
           }
           setIsLoading(false);
@@ -234,9 +213,6 @@ function EditorContentInner() {
       }, (error) => {
         setIsLoading(false);
       });
-    } else {
-      router.push('/write/edit-details');
-      setIsLoading(false);
     }
     
     return () => {
@@ -244,10 +220,70 @@ function EditorContentInner() {
     };
   }, [queryStoryId, queryChapterId, currentUser, router, toast, authLoading, editor]);
 
+  const handleSaveDraft = useCallback(async (showToast: boolean = true) => {
+    if (!storyDetails || !currentChapter || !currentUser || !editor) return;
+    
+    const content = editor.getHTML();
+    const titleToSave = chapterTitle.trim();
+
+    // Avoid unnecessary saves
+    if (content === lastContentRef.current && titleToSave === lastTitleRef.current) {
+        setAutoSaveStatus('Saved');
+        return;
+    }
+
+    setAutoSaveStatus('Saving...');
+    VersionHistoryManager.addVersion(storyDetails.id, currentChapter.id, content, titleToSave);
+
+    const updatedChapter: Chapter = {
+      ...currentChapter,
+      title: titleToSave,
+      content: content,
+      status: currentChapter.status === 'Published' ? 'Published' : 'Draft', 
+      wordCount: editor.storage.characterCount.words(),
+    };
+
+    const chapterIndex = storyDetails.chapters.findIndex(ch => ch.id === updatedChapter.id);
+    const updatedChapters = [...storyDetails.chapters];
+    if (chapterIndex > -1) {
+      updatedChapters[chapterIndex] = updatedChapter;
+    } else {
+      updatedChapters.push(updatedChapter);
+    }
+
+    const storyUpdateData = {
+      lastUpdated: serverTimestamp(),
+      chapters: updatedChapters.sort((a, b) => a.order - b.order),
+    };
+
+    const storyDocRef = doc(db, 'stories', storyDetails.id);
+    try {
+        await updateDoc(storyDocRef, storyUpdateData);
+        lastContentRef.current = content;
+        lastTitleRef.current = titleToSave;
+        setAutoSaveStatus('Saved');
+        if (showToast) toast({ title: "Draft Saved!" });
+    } catch (serverError: any) {
+        const permissionError = new FirestorePermissionError({
+          path: storyDocRef.path,
+          operation: 'update',
+          requestResourceData: storyUpdateData,
+        } as SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+        setAutoSaveStatus('Error');
+    }
+  }, [storyDetails, currentChapter, currentUser, chapterTitle, editor, toast]);
+
+  // Efficient Auto-save Timer
   useEffect(() => {
-    if(!editor || !editor.storage.characterCount) return;
-    setWordCount(editor.storage.characterCount.words());
-  }, [editor?.state, editor?.storage.characterCount]);
+    if (autoSaveStatus !== 'Typing' || !editor) return;
+
+    const timer = setTimeout(() => {
+        handleSaveDraft(false);
+    }, 3000); // Wait 3 seconds of idle typing to save
+
+    return () => clearTimeout(timer);
+  }, [editor?.state, chapterTitle, autoSaveStatus, handleSaveDraft]);
 
   const handleChapterArtworkUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0] || !storyDetails || !currentChapter) return;
@@ -293,69 +329,6 @@ function EditorContentInner() {
         setIsUploadingArtwork(false);
     }
   };
-
-  const handleSaveDraft = useCallback((showToast: boolean = true) => {
-    if (!storyDetails || !currentChapter || !currentUser || !editor) return;
-    const content = editor.getHTML();
-    setAutoSaveStatus('Saving...');
-    VersionHistoryManager.addVersion(storyDetails.id, currentChapter.id, content, chapterTitle);
-
-    const updatedChapter: Chapter = {
-      ...currentChapter,
-      title: chapterTitle,
-      content: content,
-      status: currentChapter.status === 'Published' ? 'Published' : 'Draft', 
-      wordCount: editor.storage.characterCount.words(),
-    };
-
-    const chapterIndex = storyDetails.chapters.findIndex(ch => ch.id === updatedChapter.id);
-    const updatedChapters = [...storyDetails.chapters];
-    if (chapterIndex > -1) {
-      updatedChapters[chapterIndex] = updatedChapter;
-    } else {
-      updatedChapters.push(updatedChapter);
-    }
-
-    const storyUpdateData = {
-      lastUpdated: serverTimestamp(),
-      chapters: updatedChapters.sort((a, b) => a.order - b.order),
-    };
-
-    const storyDocRef = doc(db, 'stories', storyDetails.id);
-    updateDoc(storyDocRef, storyUpdateData)
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: storyDocRef.path,
-          operation: 'update',
-          requestResourceData: storyUpdateData,
-        } as SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-        setAutoSaveStatus('Error');
-      });
-    
-    setCurrentChapter(updatedChapter);
-    setAutoSaveStatus('Saved');
-    if (showToast) toast({ title: "Draft Saved!" });
-
-  }, [storyDetails, currentChapter, currentUser, chapterTitle, editor, toast]);
-
-  useEffect(() => {
-    if (!storyDetails || !currentChapter || isLoading || authLoading || !editor) return;
-
-    const originalChapterInStory = storyDetails.chapters.find(c => c.id === currentChapter.id);
-    const contentChanged = editor.getHTML() !== (originalChapterInStory?.content ?? currentChapter.content);
-    const titleChanged = chapterTitle !== (originalChapterInStory?.title ?? currentChapter.title);
-
-    if (editor.getHTML().length > 0 && (contentChanged || titleChanged)) {
-      if(autoSaveStatus !== 'Typing' && autoSaveStatus !== 'Saving...') setAutoSaveStatus('Typing');
-      const timer = setTimeout(() => {
-        handleSaveDraft(false);
-      }, 2500);
-      return () => clearTimeout(timer);
-    } else {
-      if (autoSaveStatus !== 'No Changes' && autoSaveStatus !== 'Saved') setAutoSaveStatus('Saved');
-    }
-  }, [editor?.state, chapterTitle, storyDetails, currentChapter, isLoading, handleSaveDraft, authLoading, autoSaveStatus, editor]);
 
   const handlePublishChapter = async () => {
     if (!storyDetails || !currentChapter || !currentUser || !editor) return;
@@ -429,7 +402,7 @@ function EditorContentInner() {
         <AlertDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <div className="flex flex-col min-h-screen bg-background text-foreground animate-in fade-in duration-700">
             {/* Top Navigation Bar */}
-            <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 p-4">
+            <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 p-4 transform-gpu">
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
@@ -490,7 +463,7 @@ function EditorContentInner() {
                     layoutWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'
                 )}>
                     {/* Cinematic Cover Area (Landscape) */}
-                    <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-none sm:rounded-[40px] overflow-hidden bg-muted/50 border-b sm:border border-border/40 group mb-8 shadow-sm">
+                    <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-none sm:rounded-[40px] overflow-hidden bg-muted/50 border-b sm:border border-border/40 group mb-8 shadow-sm transform-gpu">
                         {currentChapter.artworkUrl ? (
                             <NextImage src={currentChapter.artworkUrl} alt="Chapter Artwork" fill className="object-cover transition-transform duration-1000 group-hover:scale-[1.03]" priority />
                         ) : (
@@ -537,7 +510,7 @@ function EditorContentInner() {
 
                     {/* Paper Area */}
                     <div className={cn(
-                        "relative bg-card rounded-none sm:rounded-[40px] border-y sm:border border-border/40 shadow-2xl min-h-[700px] flex flex-col transition-all duration-500",
+                        "relative bg-card rounded-none sm:rounded-[40px] border-y sm:border border-border/40 shadow-2xl min-h-[700px] flex flex-col transition-all duration-500 transform-gpu",
                         isZenFocus && "zen-mode shadow-none border-transparent bg-transparent"
                     )}>
                         <EditorContent editor={editor} className="flex-1 flex flex-col" />
@@ -563,10 +536,10 @@ function EditorContentInner() {
             </main>
 
             {/* Floating Studio Palette (Bottom Bar) */}
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[98vw] sm:max-w-fit px-2 animate-in slide-in-from-bottom-8 duration-700">
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[98vw] sm:max-w-fit px-2 animate-in slide-in-from-bottom-8 duration-700 transform-gpu">
                 <div className="bg-card/90 backdrop-blur-2xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.4)] rounded-3xl p-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar">
                     
-                    {/* Stats Module (Convenience) */}
+                    {/* Stats Module */}
                     <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-muted/40 rounded-2xl mr-1 border border-border/40">
                          <div className="flex flex-col">
                             <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none">Draft Stats</span>
@@ -578,13 +551,11 @@ function EditorContentInner() {
                          <BarChart3 className="h-4 w-4 text-primary/40" />
                     </div>
 
-                    {/* Group: History Actions */}
                     <div className="flex items-center gap-1 pr-2 border-r border-border/40">
                          <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all"><Undo className="h-4 w-4" /></Button>
                          <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all"><Redo className="h-4 w-4" /></Button>
                     </div>
 
-                    {/* Group: Typography Picker */}
                     <Popover>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -621,7 +592,6 @@ function EditorContentInner() {
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* Group: Styling suite */}
                     <div className="flex items-center gap-0.5">
                         <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBold().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bold') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Bold className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleItalic().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('italic') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Italic className="h-4 w-4" /></Button>
@@ -630,7 +600,6 @@ function EditorContentInner() {
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* Group: Alignment Engine */}
                     <Popover>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -667,7 +636,6 @@ function EditorContentInner() {
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* Group: Elements */}
                     <div className="flex items-center gap-0.5">
                         <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBulletList().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bulletList') ? "bg-primary text-white" : "hover:bg-primary/10")}><List className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('blockquote') ? "bg-primary text-white" : "hover:bg-primary/10")}><Quote className="h-4 w-4" /></Button>
@@ -675,7 +643,6 @@ function EditorContentInner() {
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* Group: Utility Tools (New Feature Group) */}
                     <div className="flex items-center gap-1 pl-1">
                         <Popover>
                             <PopoverTrigger asChild>
@@ -703,7 +670,6 @@ function EditorContentInner() {
                             <TooltipContent>Canvas Width</TooltipContent>
                         </Tooltip>
 
-                        {/* NEW FEATURE: Compendium Quick Access */}
                         <Popover>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -729,7 +695,6 @@ function EditorContentInner() {
                             </PopoverContent>
                         </Popover>
 
-                        {/* NEW FEATURE: Enhanced Eye Preview icon */}
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <AlertDialogTrigger asChild>
@@ -744,8 +709,8 @@ function EditorContentInner() {
                 </div>
             </div>
 
-            {/* NEW FEATURE: High Fidelity Preview Modal */}
-            <AlertDialogContent className="max-w-6xl rounded-[40px] p-0 overflow-hidden border-none shadow-[0_50px_120px_rgba(0,0,0,0.5)] bg-background">
+            {/* High Fidelity Preview Modal */}
+            <AlertDialogContent className="max-w-6xl rounded-[40px] p-0 overflow-hidden border-none shadow-[0_50px_120px_rgba(0,0,0,0.5)] bg-background transform-gpu">
                 <AlertDialogHeader className="bg-muted/30 p-8 border-b flex flex-row justify-between items-center space-y-0">
                     <div className="flex items-center gap-4">
                         <div className="p-3 rounded-2xl bg-primary/10 text-primary">
