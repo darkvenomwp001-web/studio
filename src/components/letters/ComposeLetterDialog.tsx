@@ -9,13 +9,14 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Send, PenSquare, Sparkles, BookOpen } from 'lucide-react';
+import { Loader2, Send, PenSquare, Sparkles, BookOpen, X } from 'lucide-react';
 import type { Story, Chapter, ReadingListItem } from '@/types';
 import { addDoc, collection, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { getMagicLetterDraft } from '@/app/actions/aiActions';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function ComposeLetterDialog() {
   const { user, addNotification } = useAuth();
@@ -35,7 +36,6 @@ export default function ComposeLetterDialog() {
   const readingList: ReadingListItem[] = user?.readingList || [];
 
   useEffect(() => {
-    // Reset when dialog is closed
     if (!isOpen) {
       setSelectedStoryId(null);
       setSelectedChapterId(null);
@@ -166,110 +166,118 @@ export default function ComposeLetterDialog() {
             Compose Letter
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[625px] rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-        <DialogHeader className="p-8 bg-muted/30 border-b">
-          <DialogTitle className="text-2xl font-headline font-bold">Compose a Letter</DialogTitle>
-          <DialogDescription className="text-sm">
-            Connect directly with an author to share your thoughts on their latest work.
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] rounded-[32px] p-0 overflow-hidden border-none shadow-3xl flex flex-col">
+        <DialogHeader className="p-6 bg-muted/30 border-b flex-shrink-0">
+          <DialogTitle className="text-xl font-headline font-bold">New Correspondence</DialogTitle>
+          <DialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
+            Connecting Readers & Authors
           </DialogDescription>
         </DialogHeader>
-        <div className="p-8 space-y-6">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="story-select" className="text-right text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Story
-            </Label>
-            <Select onValueChange={setSelectedStoryId} value={selectedStoryId || ''} disabled={isSending}>
-                <SelectTrigger id="story-select" className="col-span-3 rounded-xl bg-muted/20 border-none shadow-inner h-11">
-                    <SelectValue placeholder="Select from library..." />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                    {readingList.length > 0 ? readingList.map(story => (
-                        <SelectItem key={story.id} value={story.id}>{story.title}</SelectItem>
-                    )) : (
-                        <SelectItem value="none" disabled>Your library is empty.</SelectItem>
-                    )}
-                </SelectContent>
-            </Select>
-          </div>
 
-          {selectedStoryId && (
-             <div className="grid grid-cols-4 items-center gap-4 animate-in slide-in-from-top-2 duration-300">
-                <Label htmlFor="chapter-select" className="text-right text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                Chapter
+        <ScrollArea className="flex-1">
+          <div className="p-6 space-y-6">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="story-select" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">
+                  Manuscript
                 </Label>
-                <Select onValueChange={setSelectedChapterId} value={selectedChapterId || ''} disabled={isSending || !storyDetails}>
-                    <SelectTrigger id="chapter-select" className="col-span-3 rounded-xl bg-muted/20 border-none shadow-inner h-11">
-                        <SelectValue placeholder={!storyDetails ? "Loading chapters..." : "Select a part..."} />
+                <Select onValueChange={setSelectedStoryId} value={selectedStoryId || ''} disabled={isSending}>
+                    <SelectTrigger id="story-select" className="rounded-2xl bg-muted/20 border-none shadow-inner h-12">
+                        <SelectValue placeholder="Pick a story..." />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                       {publishedChapters.length > 0 ? publishedChapters.sort((a,b) => a.order - b.order).map(chapter => (
-                           <SelectItem key={chapter.id} value={chapter.id}>Part {chapter.order}: {chapter.title}</SelectItem>
-                       )) : (
-                           <SelectItem value="none" disabled>No published chapters found.</SelectItem>
-                       )}
+                    <SelectContent className="rounded-2xl border-none shadow-2xl">
+                        {readingList.length > 0 ? readingList.map(story => (
+                            <SelectItem key={story.id} value={story.id} className="rounded-xl">{story.title}</SelectItem>
+                        )) : (
+                            <SelectItem value="none" disabled>Your library is empty.</SelectItem>
+                        )}
                     </SelectContent>
                 </Select>
-            </div>
-          )}
-          
-          {selectedChapterId && (
-            <div className="space-y-4 animate-in fade-in duration-500">
-                <div className="flex justify-between items-end mb-1">
-                    <Label htmlFor="letter-content" className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">
-                        Your Message
-                    </Label>
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-primary hover:text-primary hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest gap-2"
-                        onClick={handleMagicDraft}
-                        disabled={isDrafting}
-                    >
-                        {isDrafting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                        AI Magic Draft
-                    </Button>
-                </div>
-                <Textarea 
-                    id="letter-content"
-                    value={content}
-                    onChange={e => setContent(e.target.value)}
-                    placeholder={`Write your letter regarding "${storyDetails?.title}"...`}
-                    className="rounded-2xl bg-muted/10 border-none shadow-inner text-base font-serif"
-                    rows={8}
-                    disabled={isSending || isDrafting}
-                />
-                
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-muted/20 p-4 rounded-2xl">
-                    <div className="flex items-center gap-3">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Visibility:</Label>
-                        <RadioGroup value={visibility} onValueChange={(v) => setVisibility(v as 'public' | 'private')} className="flex gap-4" disabled={isSending}>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="public" id="visPublic" />
-                                <Label htmlFor="visPublic" className="text-xs cursor-pointer">Public</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="private" id="visPrivate" />
-                                <Label htmlFor="visPrivate" className="text-xs cursor-pointer">Private</Label>
-                            </div>
-                        </RadioGroup>
-                    </div>
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
-                        <BookOpen className="h-3 w-3" />
-                        <span>Max 2000 chars</span>
-                    </div>
-                </div>
-            </div>
-          )}
+              </div>
 
-        </div>
-        <DialogFooter className="p-6 bg-muted/30 border-t gap-3 flex-col sm:flex-row">
+              {selectedStoryId && (
+                <div className="space-y-1.5 animate-in slide-in-from-left-2 duration-300">
+                    <Label htmlFor="chapter-select" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">
+                      Chapter/Part
+                    </Label>
+                    <Select onValueChange={setSelectedChapterId} value={selectedChapterId || ''} disabled={isSending || !storyDetails}>
+                        <SelectTrigger id="chapter-select" className="rounded-2xl bg-muted/20 border-none shadow-inner h-12">
+                            <SelectValue placeholder={!storyDetails ? "Loading..." : "Select Part"} />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-2xl border-none shadow-2xl">
+                           {publishedChapters.length > 0 ? publishedChapters.sort((a,b) => a.order - b.order).map(chapter => (
+                               <SelectItem key={chapter.id} value={chapter.id} className="rounded-xl">Part {chapter.order}: {chapter.title}</SelectItem>
+                           )) : (
+                               <SelectItem value="none" disabled>No parts found.</SelectItem>
+                           )}
+                        </SelectContent>
+                    </Select>
+                </div>
+              )}
+            </div>
+            
+            {selectedChapterId && (
+              <div className="space-y-3 animate-in fade-in duration-500">
+                  <div className="flex justify-between items-end mb-1 px-1">
+                      <Label htmlFor="letter-content" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          The Letter
+                      </Label>
+                      <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-primary hover:text-primary hover:bg-primary/5 font-bold text-[10px] uppercase tracking-widest gap-2 h-7 px-2 rounded-lg"
+                          onClick={handleMagicDraft}
+                          disabled={isDrafting}
+                      >
+                          {isDrafting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                          Magic Draft
+                      </Button>
+                  </div>
+                  <Textarea 
+                      id="letter-content"
+                      value={content}
+                      onChange={e => setContent(e.target.value)}
+                      placeholder={`Write your heartfelt thoughts about "${storyDetails?.title}"...`}
+                      className="rounded-2xl bg-muted/10 border-none shadow-inner text-sm md:text-base font-serif min-h-[220px] focus-visible:ring-primary/20 leading-relaxed p-5"
+                      disabled={isSending || isDrafting}
+                  />
+                  
+                  <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-primary/5 p-4 rounded-2xl border border-primary/10">
+                      <div className="flex items-center gap-4">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/60">Privacy:</span>
+                          <RadioGroup value={visibility} onValueChange={(v) => setVisibility(v as 'public' | 'private')} className="flex gap-4" disabled={isSending}>
+                              <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="public" id="visPublic" className="h-4 w-4" />
+                                  <Label htmlFor="visPublic" className="text-[10px] font-bold uppercase cursor-pointer opacity-70">Public</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="private" id="visPrivate" className="h-4 w-4" />
+                                  <Label htmlFor="visPrivate" className="text-[10px] font-bold uppercase cursor-pointer opacity-70">Private</Label>
+                              </div>
+                          </RadioGroup>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-bold uppercase tracking-tight">
+                          <BookOpen className="h-3 w-3 opacity-50" />
+                          <span>{content.length}/2000</span>
+                      </div>
+                  </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        <DialogFooter className="p-4 bg-muted/30 border-t flex-shrink-0 gap-2 flex-row justify-end">
           <DialogClose asChild>
-            <Button type="button" variant="ghost" disabled={isSending || isDrafting} className="rounded-full px-8 font-bold">
-                Discard
+            <Button type="button" variant="ghost" disabled={isSending || isDrafting} className="rounded-full px-6 font-bold text-xs uppercase tracking-widest h-11">
+                Cancel
             </Button>
           </DialogClose>
-          <Button onClick={handleSendLetter} disabled={isSending || isDrafting || !selectedStoryId || !selectedChapterId || content.trim().length < 20} className="rounded-full px-10 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 text-lg font-bold">
-            {isSending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
+          <Button 
+            onClick={handleSendLetter} 
+            disabled={isSending || isDrafting || !selectedStoryId || !selectedChapterId || content.trim().length < 20} 
+            className="rounded-full px-8 h-11 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 text-sm font-bold uppercase tracking-widest"
+          >
+            {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
             Send Letter
           </Button>
         </DialogFooter>
