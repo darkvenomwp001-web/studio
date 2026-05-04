@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, Suspense, useCallback, useRef, ChangeEvent } from 'react';
@@ -26,7 +27,8 @@ import {
   Sparkles,
   ChevronRight,
   ShieldCheck,
-  UserPlus
+  UserPlus,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -70,6 +72,7 @@ function StoryDetailsInner() {
   const [visibility, setVisibility] = useState<'Public' | 'Private' | 'Unlisted'>('Private');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [disclaimer, setDisclaimer] = useState('');
   
   const [collaboratorUsername, setCollaboratorUsername] = useState('');
   const [isProcessingCollaboration, setIsProcessingCollaboration] = useState(false);
@@ -122,6 +125,7 @@ function StoryDetailsInner() {
           setIsMature(data.isMature || false);
           setVisibility(data.visibility || 'Private');
           setTags(data.tags || []);
+          setDisclaimer(data.disclaimer || '');
         }
         setIsLoading(false);
       }, (error) => {
@@ -483,7 +487,7 @@ function StoryDetailsInner() {
               </Card>
           </TabsContent>
 
-          <TabsContent value="advanced" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <TabsContent value="advanced" className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                   <Card className="rounded-3xl border-none shadow-xl">
                       <CardHeader>
@@ -551,8 +555,37 @@ function StoryDetailsInner() {
                   </Card>
               </div>
 
+              {/* Disclaimer Management */}
+              <Card className="rounded-3xl border-none shadow-xl overflow-hidden">
+                <CardHeader className="bg-primary/5 border-b border-primary/10">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <AlertCircle className="h-5 w-5 text-primary" /> Mandatory Reader Disclaimer
+                    </CardTitle>
+                    <CardDescription>
+                        This note will appear as a required popup for all users before they start reading the first chapter.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="disclaimer" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Full Disclaimer Text</Label>
+                        <Textarea 
+                            id="disclaimer"
+                            value={disclaimer}
+                            onChange={(e) => setDisclaimer(e.target.value)}
+                            onBlur={() => handleUpdateField('disclaimer', disclaimer)}
+                            placeholder="Add content warnings, copyright information, or special instructions for your readers..."
+                            rows={6}
+                            className="rounded-2xl bg-muted/20 border-none shadow-inner resize-none text-base p-4 focus-visible:ring-primary/30"
+                        />
+                        <p className="text-[10px] text-muted-foreground italic px-1">
+                            * Note: If left empty, no popup will be shown to readers.
+                        </p>
+                    </div>
+                </CardContent>
+              </Card>
+
               {isOwner && (
-                <Card className="rounded-3xl border-2 border-destructive/20 shadow-xl overflow-hidden mt-6 bg-destructive/5">
+                <Card className="rounded-3xl border-2 border-destructive/20 shadow-xl overflow-hidden bg-destructive/5">
                     <CardHeader className="bg-destructive/10 border-b border-destructive/10">
                         <CardTitle className="text-lg text-destructive flex items-center gap-2">
                             <Trash2 className="h-5 w-5" /> Danger Zone
@@ -620,9 +653,9 @@ function StoryDetailsInner() {
                                             <AvatarImage src={story.author.avatarUrl} />
                                             <AvatarFallback>{story.author.username.charAt(0).toUpperCase()}</AvatarFallback>
                                         </Avatar>
-                                        <div className="font-bold text-sm">
-                                            @{story.author.username} 
-                                            <Badge className="ml-1 bg-primary text-[8px] uppercase h-4">Owner</Badge>
+                                        <div className="font-bold text-sm flex items-center gap-1.5">
+                                            <span>@{story.author.username}</span>
+                                            <Badge className="bg-primary text-[8px] uppercase h-4">Owner</Badge>
                                         </div>
                                     </div>
                                 </div>
@@ -637,8 +670,8 @@ function StoryDetailsInner() {
                                                     <AvatarImage src={c.avatarUrl} />
                                                     <AvatarFallback>{c.username.charAt(0).toUpperCase()}</AvatarFallback>
                                                 </Avatar>
-                                                <div>
-                                                    <p className="font-bold text-sm">@{c.username}</p>
+                                                <div className="font-bold text-sm">
+                                                    @{c.username}
                                                 </div>
                                             </div>
                                             {canRemove && (

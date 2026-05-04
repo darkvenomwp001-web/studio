@@ -83,6 +83,7 @@ export interface Story {
   dataAiHint?: string;
   rating?: number;
   notes?: string;
+  disclaimer?: string;
 }
 
 export interface Chapter {

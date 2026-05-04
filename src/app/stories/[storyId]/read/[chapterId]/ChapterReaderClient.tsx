@@ -44,6 +44,8 @@ import {
   Play,
   Pause,
   Eye,
+  AlertCircle,
+  ShieldCheck,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -130,6 +132,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [annotationNote, setAnnotationNote] = useState("");
   const [selectedHighlightColor, setSelectedHighlightColor] = useState("#fde047"); // Default yellow
   const [lastSelectionRange, setLastSelectionRange] = useState<{ from: number, to: number } | null>(null);
+
+  // Disclaimer state
+  const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const viewIncrementedRef = useRef(false);
@@ -250,10 +255,21 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
               editor.commands.setContent(chapterData.content, false);
             }
             
-            const visibleChaptersList = storyData.chapters.filter(c => c.status === 'Published' || c.accessType === 'premium');
+            const visibleChaptersList = storyData.chapters
+                .filter(c => c.status === 'Published' || c.accessType === 'premium')
+                .sort((a,b) => a.order - b.order);
+            
             const chIndex = visibleChaptersList.findIndex(c => c.id === chapterId);
             const progress = visibleChaptersList.length > 0 ? ((chIndex + 1) / visibleChaptersList.length) * 100 : 0;
             setReadingProgress(Math.min(100, Math.max(0, progress)));
+
+            // Disclaimer Logic
+            if (storyData.disclaimer && chIndex === 0) {
+                const sessionKey = `disclaimer-seen-${storyData.id}`;
+                if (sessionStorage.getItem(sessionKey) !== 'true') {
+                    setIsDisclaimerOpen(true);
+                }
+            }
 
             let hasAccess = false;
             if (chapterData.accessType === 'premium') {
@@ -496,6 +512,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   };
 
+  const handleAcknowledgeDisclaimer = () => {
+      if (story) {
+          sessionStorage.setItem(`disclaimer-seen-${story.id}`, 'true');
+          setIsDisclaimerOpen(false);
+      }
+  };
+
   if (isLoading || !story || !currentChapter || !editor) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
@@ -529,6 +552,44 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   return (
     <TooltipProvider delayDuration={300}>
     <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
+      {/* Disclaimer Modal */}
+      <AlertDialog open={isDisclaimerOpen} onOpenChange={setIsDisclaimerOpen}>
+        <AlertDialogContent className="rounded-3xl border-none shadow-3xl p-0 overflow-hidden max-w-lg">
+            <div className="p-8 space-y-6">
+                <div className="flex items-center gap-3 text-primary">
+                    <div className="p-2.5 rounded-2xl bg-primary/10">
+                        <AlertCircle className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-headline font-bold text-foreground">Message from Author</h2>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Required Reader Disclaimer</p>
+                    </div>
+                </div>
+
+                <ScrollArea className="max-h-[300px] pr-4">
+                    <div className="prose dark:prose-invert prose-sm">
+                        <p className="whitespace-pre-line leading-relaxed text-muted-foreground text-sm font-medium">
+                            {story.disclaimer}
+                        </p>
+                    </div>
+                </ScrollArea>
+
+                <div className="pt-4 border-t border-border/40">
+                    <p className="text-[10px] text-muted-foreground/40 leading-relaxed italic text-center mb-6">
+                        By proceeding, you acknowledge that you have read and understood the author's terms and content warnings for this manuscript.
+                    </p>
+                    <AlertDialogAction 
+                        onClick={handleAcknowledgeDisclaimer}
+                        className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
+                    >
+                        <ShieldCheck className="mr-2 h-4 w-4" />
+                        I Understand & Proceed
+                    </AlertDialogAction>
+                </div>
+            </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <header
         className={cn(
           'fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b shadow-sm transition-all duration-300 ease-in-out p-2 sm:p-3 flex items-center justify-between w-full',
