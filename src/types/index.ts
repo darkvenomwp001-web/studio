@@ -235,7 +235,7 @@ export interface Poll {
     createdAt: any;
 }
 
-export type ReactionType = 'like' | 'love';
+export type ReactionType = 'like' | 'love' | 'haha' | 'sad' | 'angry';
 
 export interface Reaction {
     id: string; 
@@ -257,6 +257,7 @@ export interface ThreadPost {
     songLyricSnippet?: string;
     timestamp: any;
     reactionsCount?: number;
+    reactionCounts?: Record<ReactionType, number>;
     commentsCount: number;
     repostCount?: number;
     isPinned?: boolean;
