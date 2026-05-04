@@ -159,7 +159,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
       
       allow update: if isAppOwner() || isOwner(resource.data.author.id) || (
-        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'commentsCount', 'repostCount'])
+        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount'])
       );
                       
       allow delete: if isAppOwner() || isOwner(resource.data.author.id);
@@ -172,7 +172,7 @@ service cloud.firestore {
       
       match /reactions/{userId} {
         allow read: if true;
-        allow create, delete, update: if isSignedIn() && isOwner(userId);
+        allow create, delete, update: if isSignedIn() && (isOwner(userId) || isAppOwner());
       }
     }
     

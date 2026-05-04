@@ -20,11 +20,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 const REACTION_OPTIONS = [
-    { type: 'love' as const, emoji: '❤️', label: 'Love', color: 'text-red-500' },
-    { type: 'like' as const, emoji: '👍', label: 'Like', color: 'text-blue-500' },
-    { type: 'haha' as const, emoji: '😂', label: 'Haha', color: 'text-yellow-500' },
-    { type: 'sad' as const, emoji: '😢', label: 'Sad', color: 'text-blue-400' },
-    { type: 'angry' as const, emoji: '😡', label: 'Angry', color: 'text-orange-600' },
+    { type: 'love' as const, emoji: '❤️', label: 'Love' },
+    { type: 'like' as const, emoji: '👍', label: 'Like' },
+    { type: 'haha' as const, emoji: '😂', label: 'Haha' },
+    { type: 'happy' as const, emoji: '😊', label: 'Happy' },
+    { type: 'sad' as const, emoji: '😢', label: 'Sad' },
+    { type: 'angry' as const, emoji: '😡', label: 'Angry' },
 ];
 
 function ReactorsList({ postId }: { postId: string }) {
@@ -237,7 +238,7 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
                         size="icon"
                         className={cn(
                             "group h-10 w-10 rounded-full transition-all duration-300 transform-gpu",
-                            currentOption ? "bg-muted/50 scale-110" : "text-muted-foreground hover:text-red-500"
+                            currentOption ? "bg-muted/50 scale-110 shadow-inner" : "text-muted-foreground hover:text-red-500"
                         )}
                         disabled={isProcessing}
                         onClick={handleDefaultToggle}
