@@ -123,7 +123,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
   const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Search state
+  // Search state (with performance-oriented debouncing)
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<{ from: number; to: number; snippet: string }[]>([]);
 
@@ -327,35 +327,40 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     contentRef.current?.scrollTo(0, 0);
   }, [currentChapter]);
   
+  // Performance Optimization: Debounce search execution
   useEffect(() => {
     if (!editor || !searchTerm.trim()) {
         setSearchResults([]);
         return;
     }
 
-    const results: { from: number; to: number; snippet: string }[] = [];
-    const { doc: prosemirrorDoc } = editor.state;
-    const queryStr = searchTerm.toLowerCase();
+    const timer = setTimeout(() => {
+        const results: { from: number; to: number; snippet: string }[] = [];
+        const { doc: prosemirrorDoc } = editor.state;
+        const queryStr = searchTerm.toLowerCase();
 
-    prosemirrorDoc.descendants((node, pos) => {
-        if (!node.isText) return;
+        prosemirrorDoc.descendants((node, pos) => {
+            if (!node.isText) return;
 
-        const text = node.text?.toLowerCase() || '';
-        let index = text.indexOf(queryStr);
-        while (index !== -1) {
-            const from = pos + index;
-            const to = from + queryStr.length;
-            
-            const contextStart = Math.max(pos, from - 20);
-            const contextEnd = Math.min(pos + node.nodeSize, to + 20);
-            const snippet = prosemirrorDoc.textBetween(contextStart, contextEnd, ' ');
-            
-            results.push({ from, to, snippet });
-            index = text.indexOf(queryStr, index + 1);
-        }
-    });
+            const text = node.text?.toLowerCase() || '';
+            let index = text.indexOf(queryStr);
+            while (index !== -1) {
+                const from = pos + index;
+                const to = from + queryStr.length;
+                
+                const contextStart = Math.max(pos, from - 20);
+                const contextEnd = Math.min(pos + node.nodeSize, to + 20);
+                const snippet = prosemirrorDoc.textBetween(contextStart, contextEnd, ' ');
+                
+                results.push({ from, to, snippet });
+                index = text.indexOf(queryStr, index + 1);
+            }
+        });
 
-    setSearchResults(results);
+        setSearchResults(results);
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, [searchTerm, editor]);
   
   const handleGoToSearchResult = (from: number, to: number) => {

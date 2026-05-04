@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense, ChangeEvent } from 'react';
@@ -149,12 +150,19 @@ function EditorContentInner() {
       } 
     },
     onUpdate: ({ editor }) => {
-        // Debounced word count to avoid lag
-        const count = editor.storage.characterCount.words();
-        setWordCount(count);
         setAutoSaveStatus('Typing');
     }
   });
+
+  // Performance Optimization: Throttle word count and reading time updates
+  useEffect(() => {
+    if (!editor || autoSaveStatus !== 'Typing') return;
+    const timer = setTimeout(() => {
+        const count = editor.storage.characterCount.words();
+        setWordCount(count);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [editor?.state.doc.content, autoSaveStatus]);
 
   const isAuthorOrCollaborator = useMemo(() => {
     return !!(currentUser && storyDetails && (storyDetails.author?.id === currentUser.id || storyDetails.collaboratorIds?.includes(currentUser.id)));
@@ -226,7 +234,7 @@ function EditorContentInner() {
     const content = editor.getHTML();
     const titleToSave = chapterTitle.trim();
 
-    // Avoid unnecessary saves
+    // Performance: Avoid unnecessary saves
     if (content === lastContentRef.current && titleToSave === lastTitleRef.current) {
         setAutoSaveStatus('Saved');
         return;
@@ -280,7 +288,7 @@ function EditorContentInner() {
 
     const timer = setTimeout(() => {
         handleSaveDraft(false);
-    }, 3000); // Wait 3 seconds of idle typing to save
+    }, 3000); 
 
     return () => clearTimeout(timer);
   }, [editor?.state, chapterTitle, autoSaveStatus, handleSaveDraft]);
