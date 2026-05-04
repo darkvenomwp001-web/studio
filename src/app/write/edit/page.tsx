@@ -46,7 +46,8 @@ import {
   ImagePlus,
   Camera,
   Timer,
-  BarChart3
+  BarChart3,
+  Book
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -674,7 +675,7 @@ function EditorContentInner() {
 
                     <Separator orientation="vertical" className="h-6" />
 
-                    {/* Group: Utility Tools */}
+                    {/* Group: Utility Tools (New Feature Group) */}
                     <div className="flex items-center gap-1 pl-1">
                         <Popover>
                             <PopoverTrigger asChild>
@@ -701,11 +702,49 @@ function EditorContentInner() {
                             </TooltipTrigger>
                             <TooltipContent>Canvas Width</TooltipContent>
                         </Tooltip>
+
+                        {/* NEW FEATURE: Compendium Quick Access */}
+                        <Popover>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl hover:bg-primary/10 hover:text-primary transition-all">
+                                            <Book className="h-4 w-4" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>Story Bible</TooltipContent>
+                            </Tooltip>
+                            <PopoverContent className="w-80 p-0 border-none shadow-3xl rounded-2xl overflow-hidden bg-card/95 backdrop-blur-xl" side="top" align="end">
+                                <div className="p-4 border-b bg-primary/5 flex items-center gap-2">
+                                    <Book className="h-4 w-4 text-primary" />
+                                    <h4 className="text-sm font-headline font-bold">Manuscript Notes</h4>
+                                </div>
+                                <div className="p-4 space-y-3">
+                                    <p className="text-xs text-muted-foreground leading-relaxed italic">
+                                        {storyDetails.notes || "No workspace notes found. Add some in Story Details to keep them persistent here."}
+                                    </p>
+                                    <Button variant="outline" size="sm" className="w-full h-8 text-[10px] uppercase font-bold tracking-widest rounded-lg" onClick={() => router.push(`/write/edit-details?storyId=${storyDetails.id}&tab=canvas`)}>Edit Compendium</Button>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+
+                        {/* NEW FEATURE: Enhanced Eye Preview icon */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl hover:bg-primary/10 hover:text-primary transition-all">
+                                        <Eye className="h-4 w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>Manuscript Preview</TooltipContent>
+                        </Tooltip>
                     </div>
                 </div>
             </div>
 
-            {/* High Fidelity Preview Modal */}
+            {/* NEW FEATURE: High Fidelity Preview Modal */}
             <AlertDialogContent className="max-w-6xl rounded-[40px] p-0 overflow-hidden border-none shadow-[0_50px_120px_rgba(0,0,0,0.5)] bg-background">
                 <AlertDialogHeader className="bg-muted/30 p-8 border-b flex flex-row justify-between items-center space-y-0">
                     <div className="flex items-center gap-4">
