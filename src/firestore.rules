@@ -1,5 +1,3 @@
-
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -120,9 +118,15 @@ service cloud.firestore {
 
     // Annotations
     match /annotations/{annotationId} {
-      allow read: if isSignedIn() && (resource.data.visibility == 'public' || isOwner(resource.data.userId) || isAppOwner());
+      allow read: if resource.data.visibility == 'public' 
+                    || (isSignedIn() && (isOwner(resource.data.userId) || isAppOwner()));
+      
       allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAppOwner());
-      allow update: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner() || request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts']));
+      
+      allow update: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner() || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionsCount', 'reactionCounts'])
+      ));
+      
       allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
 
       match /comments/{commentId} {
@@ -181,4 +185,3 @@ service cloud.firestore {
     }
   }
 }
-

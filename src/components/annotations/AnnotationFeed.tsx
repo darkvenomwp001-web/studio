@@ -133,6 +133,12 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
         );
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setComments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CommentType)));
+        }, async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `annotations/${annotationId}/comments`,
+                operation: 'list',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
         });
         return () => unsubscribe();
     }, [annotationId]);
@@ -203,14 +209,6 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
             )}
         </div>
     );
-}
-
-interface CommentProps {
-  comment: CommentType;
-  onReply?: (commentId: string, username: string) => void;
-  allComments: CommentType[]; 
-  onCommentUpdate: (commentId: string, newContent: string) => Promise<void>;
-  onCommentDelete: (commentId: string) => Promise<void>;
 }
 
 function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, isOwnArchive: boolean }) {
@@ -413,8 +411,12 @@ export default function AnnotationFeed() {
         const unsubscribeCommunity = onSnapshot(communityQuery, (snapshot) => {
             setCommunityAnnotations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Annotation)));
             if (activeTab === 'community') setIsLoading(false);
-        }, (error) => {
-            console.error("Error fetching community annotations:", error);
+        }, async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: 'annotations',
+                operation: 'list',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
             setIsLoading(false);
         });
 
@@ -433,8 +435,12 @@ export default function AnnotationFeed() {
         const unsubscribeMy = onSnapshot(myQuery, (snapshot) => {
             setMyAnnotations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Annotation)));
             if (activeTab === 'mine') setIsLoading(false);
-        }, (error) => {
-            console.error("Error fetching my annotations:", error);
+        }, async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: 'annotations',
+                operation: 'list',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
             setIsLoading(false);
         });
 
