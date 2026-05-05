@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
@@ -43,7 +44,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const USER_CACHE_KEY = 'litverse_user_cache';
-const OWNER_HANDLES = ['arnv'];
 
 interface AppUser extends AppUserType {
   email?: string;
@@ -187,7 +187,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const firestoreUserData = userSnap.data() as AppUser;
 
             // Administrative privileges are now handled strictly via UIDs in rules.
-            // Client-side 'verified' status is just for UI display.
             
             const storiesQuery = query(collection(db, "stories"), where("author.id", "==", firebaseUser.uid));
             const storiesSnapshot = await getDocs(storiesQuery);

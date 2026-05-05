@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -14,7 +15,7 @@ service cloud.firestore {
     }
     
     // Unified Owner Check - Relying on UIDs for absolute security integrity.
-    // This prevents username spoofing where a user could claim owner status by setting their handle to 'arnv'.
+    // This prevents username spoofing where a user could potentially claim owner status by setting their handle to 'arnv'.
     function isAppOwner() {
         return isSignedIn() && request.auth.uid in [
           'rpTmIq5pnKc91aSSgMJiF26zIYy2', // arnv

@@ -238,7 +238,7 @@ export interface Poll {
     createdAt: any;
 }
 
-export type ReactionType = 'like' | 'love' | 'haha' | 'sad' | 'angry';
+export type ReactionType = 'like' | 'love' | 'haha' | 'sad' | 'angry' | 'happy';
 
 export interface Reaction {
     id: string; 

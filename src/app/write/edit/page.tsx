@@ -162,7 +162,6 @@ function EditorContentInner() {
     }
   });
 
-  // Performance Optimization: Throttle word count and reading time updates
   useEffect(() => {
     if (!editor || autoSaveStatus !== 'Typing') return;
     const timer = setTimeout(() => {
@@ -243,9 +242,6 @@ function EditorContentInner() {
     const content = editor.getHTML();
     const titleToSave = chapterTitle.trim();
 
-    // Performance: Avoid unnecessary saves if only title/content didn't change
-    // Note: tags change also triggers Typing state, so we handle it
-    
     setAutoSaveStatus('Saving...');
     VersionHistoryManager.addVersion(storyDetails.id, currentChapter.id, content, titleToSave);
 
@@ -289,7 +285,6 @@ function EditorContentInner() {
     }
   }, [storyDetails, currentChapter, currentUser, chapterTitle, editor, toast, chapterTags]);
 
-  // Efficient Auto-save Timer
   useEffect(() => {
     if (autoSaveStatus !== 'Typing' || !editor) return;
 

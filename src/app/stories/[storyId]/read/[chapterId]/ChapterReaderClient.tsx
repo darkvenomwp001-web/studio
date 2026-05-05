@@ -125,7 +125,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
   const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Search state (with performance-oriented debouncing)
+  // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<{ from: number; to: number; snippet: string }[]>([]);
 
@@ -330,7 +330,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     contentRef.current?.scrollTo(0, 0);
   }, [currentChapter]);
   
-  // Performance Optimization: Debounce search execution
   useEffect(() => {
     if (!editor || !searchTerm.trim()) {
         setSearchResults([]);
@@ -562,7 +561,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   return (
     <TooltipProvider delayDuration={300}>
     <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
-      {/* Disclaimer Modal */}
+      {/* Fixed Disclaimer Modal with Scrollable Body */}
       <AlertDialog open={isDisclaimerOpen} onOpenChange={setIsDisclaimerOpen}>
         <AlertDialogContent className="rounded-3xl border-none shadow-3xl p-0 overflow-hidden max-w-lg h-auto max-h-[90vh] flex flex-col">
             <div className="p-8 space-y-6 overflow-hidden flex flex-col flex-1">
