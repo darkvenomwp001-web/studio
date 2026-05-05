@@ -526,7 +526,35 @@ function EditorContentInner() {
                             placeholder="Part Title..."
                             className="text-4xl md:text-7xl font-headline font-bold h-auto py-6 focus-visible:ring-0 border-0 bg-transparent shadow-none px-0 placeholder:text-muted-foreground/10 text-center tracking-tight leading-tight"
                         />
-                        <div className="flex items-center justify-center gap-4 md:gap-8 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 border-y border-border/10 py-4">
+                        
+                        {/* Tags / Warnings System directly under Title */}
+                        <div className="flex flex-col items-center gap-4 py-2">
+                             <div className="flex flex-wrap justify-center gap-2 px-4">
+                                {chapterTags.map(tag => (
+                                    <Badge key={tag} className="bg-orange-500/10 text-orange-600 border-orange-500/20 gap-1 rounded-full px-3 h-8 font-bold text-[10px] uppercase shadow-sm">
+                                        <TriangleAlert className="h-3 w-3" />
+                                        {tag}
+                                        <button onClick={() => handleRemoveTag(tag)} className="ml-1 hover:text-destructive transition-colors"><X className="h-3.5 w-3.5" /></button>
+                                    </Badge>
+                                ))}
+                             </div>
+                             
+                             <div className="flex items-center gap-2 max-w-xs w-full bg-muted/30 p-1 rounded-full border border-border/40 focus-within:border-primary/40 transition-all">
+                                <div className="pl-3"><Tag className="h-3.5 w-3.5 text-muted-foreground" /></div>
+                                <Input 
+                                    placeholder="Add chapter warning..." 
+                                    value={tagInput} 
+                                    onChange={e => setTagInput(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleAddTag()}
+                                    className="h-9 border-none bg-transparent shadow-none focus-visible:ring-0 text-[11px] font-medium"
+                                />
+                                <Button size="icon" onClick={handleAddTag} className="rounded-full h-8 w-8 shrink-0 mr-1 shadow-sm">
+                                    <PlusCircle className="h-4 w-4" />
+                                </Button>
+                             </div>
+                        </div>
+
+                        <div className="flex items-center justify-center gap-4 md:gap-8 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 border-y border-border/10 py-4 mt-4">
                             <div className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> {wordCount} Words</div>
                             <div className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> {readingTimeMinutes} MIN Read</div>
                             <div className="flex items-center gap-1.5"><History className="h-3 w-3" /> Cloud Sync</div>
@@ -556,49 +584,16 @@ function EditorContentInner() {
                                 <TooltipContent side="left">Zen Mode</TooltipContent>
                             </Tooltip>
                             
-                            <Popover>
+                            {isAuthorOrCollaborator && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="rounded-full h-11 w-11 bg-background/80 backdrop-blur-sm border shadow-sm transition-all hover:border-primary/40">
-                                                <TriangleAlert className="h-5 w-5 text-orange-500" />
-                                            </Button>
-                                        </PopoverTrigger>
+                                        <div className="p-2 rounded-full h-11 w-11 bg-background/80 backdrop-blur-sm border shadow-sm flex items-center justify-center">
+                                            <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} className="scale-75" />
+                                        </div>
                                     </TooltipTrigger>
-                                    <TooltipContent side="left">Chapter Warnings</TooltipContent>
+                                    <TooltipContent side="left">Freeze Mode</TooltipContent>
                                 </Tooltip>
-                                <PopoverContent className="w-80 rounded-3xl p-0 overflow-hidden border-none shadow-3xl bg-card/95 backdrop-blur-xl" side="left" align="start">
-                                    <div className="bg-orange-500/10 p-4 border-b border-orange-500/10 flex items-center gap-2">
-                                        <TriangleAlert className="h-4 w-4 text-orange-500" />
-                                        <h4 className="font-headline font-bold text-sm">Chapter Warnings</h4>
-                                    </div>
-                                    <div className="p-4 space-y-4">
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest leading-tight">
-                                            Mark this part with specific content warnings (e.g. Violence, Strong Language)
-                                        </p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {chapterTags.map(tag => (
-                                                <Badge key={tag} className="bg-orange-500/10 text-orange-600 border-orange-500/20 gap-1 rounded-lg px-2 h-7 font-bold text-[10px] uppercase">
-                                                    {tag}
-                                                    <button onClick={() => handleRemoveTag(tag)} className="hover:text-destructive"><X className="h-3 w-3" /></button>
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Input 
-                                                placeholder="Add warning..." 
-                                                value={tagInput} 
-                                                onChange={e => setTagInput(e.target.value)}
-                                                onKeyDown={e => e.key === 'Enter' && handleAddTag()}
-                                                className="h-10 rounded-xl bg-muted/40 border-none shadow-inner text-xs"
-                                            />
-                                            <Button size="icon" onClick={handleAddTag} className="rounded-xl h-10 w-10 shrink-0">
-                                                <PlusCircle className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
+                            )}
                         </div>
                     </div>
                 </div>

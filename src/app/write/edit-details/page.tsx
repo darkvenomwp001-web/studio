@@ -28,13 +28,15 @@ import {
   ChevronRight,
   ShieldCheck,
   UserPlus,
-  AlertCircle
+  AlertCircle,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; 
 import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
-import type { Story, UserSummary } from '@/types';
+import type { Story, UserSummary, Chapter } from '@/types';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -269,6 +271,33 @@ function StoryDetailsInner() {
       toast({ title: "Chapter deleted" });
   };
 
+  const handleMoveChapter = async (index: number, direction: 'up' | 'down') => {
+    if (!story) return;
+    const sortedChapters = [...story.chapters].sort((a, b) => a.order - b.order);
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    if (targetIndex < 0 || targetIndex >= sortedChapters.length) return;
+
+    // Normalizing order values to ensure consistency
+    const chaptersToUpdate = sortedChapters.map((ch, idx) => ({ ...ch, order: idx + 1 }));
+    
+    // Swap
+    const temp = chaptersToUpdate[index].order;
+    chaptersToUpdate[index].order = chaptersToUpdate[targetIndex].order;
+    chaptersToUpdate[targetIndex].order = temp;
+
+    const finalChapters = chaptersToUpdate.sort((a, b) => a.order - b.order);
+
+    setSaveStatus('Saving...');
+    updateDoc(doc(db, 'stories', story.id), { 
+        chapters: finalChapters,
+        lastUpdated: serverTimestamp()
+    }).then(() => {
+        setSaveStatus('Saved');
+        toast({ title: "Order Updated" });
+    });
+  };
+
   if (isLoading || authLoading || !story) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
@@ -421,7 +450,7 @@ function StoryDetailsInner() {
                   <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20">
                       <div>
                           <CardTitle className="font-headline text-xl">Table of Contents</CardTitle>
-                          <CardDescription>{story.chapters.length} Parts total</CardDescription>
+                          <CardDescription>{story.chapters.length} Parts total &bull; Arrange your story flow</CardDescription>
                       </div>
                       <Button onClick={handleAddChapter} className="rounded-full shadow-lg shadow-primary/20 gap-2">
                           <Plus className="h-4 w-4" />
@@ -431,11 +460,31 @@ function StoryDetailsInner() {
                   <CardContent className="p-0">
                       {story.chapters.length > 0 ? (
                         <div className="divide-y divide-border/40">
-                            {story.chapters.sort((a,b) => a.order - b.order).map(ch => (
+                            {story.chapters.sort((a,b) => a.order - b.order).map((ch, index, array) => (
                                 <div key={ch.id} className="p-5 flex items-center justify-between hover:bg-primary/5 transition-colors group">
                                     <div className="flex items-center gap-4 min-w-0">
-                                        <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors">
-                                            {ch.order}
+                                        <div className="flex flex-col gap-1 items-center">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-6 w-6 rounded-full opacity-30 group-hover:opacity-100 hover:bg-primary/10 disabled:opacity-0" 
+                                                disabled={index === 0}
+                                                onClick={() => handleMoveChapter(index, 'up')}
+                                            >
+                                                <ChevronUp className="h-4 w-4" />
+                                            </Button>
+                                            <div className="h-8 w-8 rounded-xl bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors">
+                                                {index + 1}
+                                            </div>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-6 w-6 rounded-full opacity-30 group-hover:opacity-100 hover:bg-primary/10 disabled:opacity-0" 
+                                                disabled={index === array.length - 1}
+                                                onClick={() => handleMoveChapter(index, 'down')}
+                                            >
+                                                <ChevronDown className="h-4 w-4" />
+                                            </Button>
                                         </div>
                                         <div className="truncate">
                                             <h4 className="font-bold text-sm truncate flex items-center gap-2">
@@ -674,7 +723,7 @@ function StoryDetailsInner() {
                                                     @{c.username}
                                                 </div>
                                             </div>
-                                            {canRemove && (
+                                            {canManage && (
                                                 <AlertDialog>
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-full">
