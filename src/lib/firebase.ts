@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getMessaging, isSupported } from 'firebase/messaging';
 import { getDatabase } from 'firebase/database';
@@ -29,6 +29,17 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const rtdb = getDatabase(app);
+
+// Enable Firestore Offline Persistence
+if (typeof window !== 'undefined') {
+    enableIndexedDbPersistence(db).catch((err) => {
+        if (err.code === 'failed-precondition') {
+            console.warn('Persistence failed: Multiple tabs open');
+        } else if (err.code === 'unimplemented') {
+            console.warn('Persistence failed: Browser does not support it');
+        }
+    });
+}
 
 // Only initialize messaging on the client
 export const getMessagingInstance = async () => {

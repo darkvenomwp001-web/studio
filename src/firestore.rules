@@ -65,7 +65,9 @@ service cloud.firestore {
     match /comments/{commentId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.user.id || isAppOwner());
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.user.id || isAppOwner()) 
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isSpoiler']);
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.user.id || isAppOwner());
     }
     
     // Notifications Collection

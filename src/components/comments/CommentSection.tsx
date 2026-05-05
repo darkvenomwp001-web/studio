@@ -5,7 +5,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, Save, MoreHorizontal, Smile } from 'lucide-react';
+import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, Save, MoreHorizontal, Smile, EyeOff, Eye } from 'lucide-react';
 import type { Comment as CommentType } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -46,6 +46,8 @@ import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface CommentProps {
   comment: CommentType;
@@ -61,6 +63,7 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(comment.content);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(!comment.isSpoiler);
   const { toast } = useToast();
 
   const replies = allComments
@@ -122,13 +125,16 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
       </Link>
       <div className="flex-1">
         <div className="flex items-center justify-between">
-            <div>
+            <div className="flex items-center gap-2">
                 <Link href={`/profile/${comment.user.id}`} className="font-semibold text-sm text-foreground hover:underline">{comment.user.displayName || comment.user.username}</Link>
-                <span className="text-xs text-muted-foreground ml-2">
+                <span className="text-[10px] text-muted-foreground">
                     {comment.timestamp instanceof Timestamp 
                         ? formatDistanceToNow(comment.timestamp.toDate(), { addSuffix: true })
                         : comment.timestamp ? formatDistanceToNow(new Date(comment.timestamp), { addSuffix: true }) : 'Just now'}
                 </span>
+                {comment.isSpoiler && (
+                    <Badge variant="outline" className="h-4 text-[8px] uppercase tracking-widest border-red-500/20 text-red-500 bg-red-500/5 px-1.5 font-bold">Spoiler</Badge>
+                )}
             </div>
              {isOwner && !isEditing && (
                 <DropdownMenu>
@@ -171,11 +177,31 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
             </div>
           </div>
         ) : (
-            <div className="mt-1">
+            <div className="mt-1 relative group">
                 {comment.quote && (
                     <blockquote className="border-l-2 pl-2 text-xs italic text-muted-foreground mb-1">"{comment.quote}"</blockquote>
                 )}
-                <p className="text-sm text-foreground/90 whitespace-pre-line">{comment.content}</p>
+                
+                <div className="relative">
+                    <p className={cn(
+                        "text-sm text-foreground/90 whitespace-pre-line transition-all duration-500",
+                        comment.isSpoiler && !isRevealed && "blur-sm select-none grayscale"
+                    )}>
+                        {comment.content}
+                    </p>
+                    
+                    {comment.isSpoiler && !isRevealed && (
+                        <div 
+                            className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                            onClick={() => setIsRevealed(true)}
+                        >
+                            <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2 shadow-lg animate-in zoom-in-95 duration-300">
+                                <EyeOff className="h-3 w-3 text-red-500" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-white">Tap to reveal spoiler</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         )}
 
@@ -255,6 +281,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
   const [isLoadingComments, setIsLoadingComments] = useState(true);
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{id: string; username: string} | null>(null);
+  const [isSpoiler, setIsSpoiler] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -302,7 +329,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
     if (!currentUser || newComment.trim() === '' || !storyId || !chapterId) return;
 
     setIsPostingComment(true);
-    const commentData: Omit<CommentType, 'id'> & { quote?: string } = {
+    const commentData: Omit<CommentType, 'id'> & { quote?: string, isSpoiler: boolean } = {
       user: { 
         id: currentUser.id, 
         username: currentUser.username, 
@@ -315,6 +342,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
       content: newComment.trim(),
       timestamp: serverTimestamp(),
       likes: 0,
+      isSpoiler: isSpoiler
     };
     
     if (quote && !replyingTo) {
@@ -326,6 +354,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
         .then(() => {
             setNewComment('');
             setReplyingTo(null);
+            setIsSpoiler(false);
             toast({ title: "Comment posted!" });
         })
         .catch(async (serverError) => {
@@ -382,44 +411,60 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
         </h3>
         
         {!authLoading && currentUser && (
-            <form onSubmit={handleSubmitComment} className="flex items-start gap-3 mb-8">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} data-ai-hint="profile person" />
-                <AvatarFallback>{currentUser.username?.substring(0, 1).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="relative">
-                    <Textarea
-                        id="comment-textarea"
-                        placeholder={replyingTo ? `Replying to ${replyingTo.username}...` : (quote ? "Commenting on quote..." : "Add a comment...")}
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        className="min-h-[40px] bg-background border-border focus-visible:ring-primary rounded-xl pr-10"
-                        rows={1}
-                        disabled={isPostingComment}
-                    />
-                    <Popover>
-                      <PopoverTrigger asChild>
-                         <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full">
-                            <Smile className="h-5 w-5 text-muted-foreground" />
-                         </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 border-0">
-                          <EmojiPicker onEmojiClick={onEmojiClick} />
-                      </PopoverContent>
-                    </Popover>
+            <form onSubmit={handleSubmitComment} className="flex flex-col gap-3 mb-8 bg-muted/20 p-4 rounded-2xl border border-border/40">
+              <div className="flex items-start gap-3">
+                <Avatar className="h-10 w-10">
+                    <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} data-ai-hint="profile person" />
+                    <AvatarFallback>{currentUser.username?.substring(0, 1).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                    <div className="relative">
+                        <Textarea
+                            id="comment-textarea"
+                            placeholder={replyingTo ? `Replying to ${replyingTo.username}...` : (quote ? "Commenting on quote..." : "Add a comment...")}
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            className="min-h-[80px] bg-background border-none focus-visible:ring-primary rounded-xl pr-10 shadow-inner"
+                            rows={3}
+                            disabled={isPostingComment}
+                        />
+                        <Popover>
+                        <PopoverTrigger asChild>
+                            <Button type="button" variant="ghost" size="icon" className="absolute right-1 bottom-1 h-8 w-8 rounded-full">
+                                <Smile className="h-5 w-5 text-muted-foreground" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 border-0">
+                            <EmojiPicker onEmojiClick={onEmojiClick} />
+                        </PopoverContent>
+                        </Popover>
+                    </div>
                 </div>
-                 {replyingTo && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                        Replying to {replyingTo.username}. <button type="button" className="text-primary hover:underline" onClick={() => setReplyingTo(null)}>Cancel</button>
-                    </p>
-                )}
-                 {newComment.length > 0 && (
-                    <Button type="submit" size="sm" className="mt-2" disabled={isPostingComment || !newComment.trim()}>
-                        {isPostingComment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              </div>
+
+              <div className="flex items-center justify-between pl-12">
+                  <div className="flex items-center gap-3">
+                    <Label htmlFor="spoiler-toggle" className="flex items-center gap-2 cursor-pointer group">
+                        <div className={cn(
+                            "p-1.5 rounded-lg transition-colors",
+                            isSpoiler ? "bg-red-500/10 text-red-500" : "bg-muted text-muted-foreground group-hover:bg-muted/50"
+                        )}>
+                            <EyeOff className="h-3.5 w-3.5" />
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Spoiler Warning</span>
+                    </Label>
+                    <Switch id="spoiler-toggle" checked={isSpoiler} onCheckedChange={setIsSpoiler} className="scale-75" />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {replyingTo && (
+                        <Button variant="ghost" size="sm" onClick={() => setReplyingTo(null)} className="h-8 text-[10px] font-bold uppercase tracking-widest">Cancel</Button>
+                    )}
+                    <Button type="submit" size="sm" disabled={isPostingComment || !newComment.trim()} className="rounded-full px-6 font-bold shadow-lg shadow-primary/20">
+                        {isPostingComment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                         Post
                     </Button>
-                )}
+                  </div>
               </div>
             </form>
         )}

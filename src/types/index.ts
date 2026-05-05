@@ -118,6 +118,7 @@ export interface Comment {
   parentId?: string | null;
   likes?: number;
   quote?: string;
+  isSpoiler?: boolean;
 }
 
 export interface ReadingListItem {

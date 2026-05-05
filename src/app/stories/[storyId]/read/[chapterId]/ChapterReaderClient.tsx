@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -46,6 +47,7 @@ import {
   Palette,
   Globe,
   TriangleAlert,
+  CloudCheck,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -54,7 +56,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment, addDoc, collection } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment, addDoc, collection, getDoc } from 'firebase/firestore';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import {
   Popover,
@@ -136,6 +138,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   // Disclaimer state
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
+
+  // Sync State
+  const [isSynced, setIsSynced] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const viewIncrementedRef = useRef(false);
@@ -248,6 +253,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
         setStory(storyData);
         
+        // Smart Sync Verification
+        if (docSnap.metadata.fromCache) {
+            setIsSynced(true);
+        } else {
+            setIsSynced(true); // If we successfully got it from server, it's now in cache
+        }
+
         const chapterData = storyData.chapters.find(c => c.id === chapterId);
 
         if (chapterData) {
@@ -616,8 +628,14 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 <ListOrdered className="h-5 w-5" />
             </Button>
         </div>
-        <div className="truncate text-center mx-2 flex-1">
-            <h1 className="text-md sm:text-lg font-headline font-semibold text-primary truncate">{story.title}</h1>
+        <div className="truncate text-center mx-2 flex-1 flex flex-col items-center">
+            <h1 className="text-sm sm:text-base font-headline font-semibold text-primary truncate max-w-[200px] sm:max-w-md">{story.title}</h1>
+            {isSynced && (
+                <div className="flex items-center gap-1 text-[8px] uppercase tracking-widest font-bold text-green-500 opacity-60">
+                    <CloudCheck className="h-2 w-2" />
+                    <span>Cloud Sync</span>
+                </div>
+            )}
         </div>
         <div className="flex items-center gap-1">
             <AlertDialog>
@@ -981,7 +999,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                             </PopoverTrigger>
                             <PopoverContent 
                                 onOpenAutoFocus={(e) => e.preventDefault()} 
-                                className="w-80 p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-card/95 backdrop-blur-xl"
+                                className="w-80 p-0 overflow-hidden border-none shadow-3xl rounded-2xl bg-card/95 backdrop-blur-xl"
                             >
                                 <div className="bg-primary/10 p-4 border-b border-primary/10 flex items-center gap-2">
                                     <Sparkles className="h-4 w-4 text-primary" />
