@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -252,10 +251,12 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         const chapterData = storyData.chapters.find(c => c.id === chapterId);
 
         if (chapterData) {
-            setCurrentChapter(chapterData);
-            if (editor && !editor.isDestroyed && editor.getHTML() !== chapterData.content) {
-              editor.commands.setContent(chapterData.content, false);
-            }
+            setCurrentChapter(chapterToEdit => {
+                if (editor && !editor.isDestroyed && editor.getHTML() !== chapterData.content) {
+                  editor.commands.setContent(chapterData.content, false);
+                }
+                return chapterData;
+            });
             
             const visibleChaptersList = storyData.chapters
                 .filter(c => c.status === 'Published' || c.accessType === 'premium')
@@ -561,7 +562,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   return (
     <TooltipProvider delayDuration={300}>
     <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
-      {/* Fixed Disclaimer Modal with Scrollable Body */}
       <AlertDialog open={isDisclaimerOpen} onOpenChange={setIsDisclaimerOpen}>
         <AlertDialogContent className="rounded-3xl border-none shadow-3xl p-0 overflow-hidden max-w-lg h-auto max-h-[90vh] flex flex-col">
             <div className="p-8 space-y-6 overflow-hidden flex flex-col flex-1">

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, Suspense, useCallback, useRef, ChangeEvent } from 'react';
@@ -278,10 +277,8 @@ function StoryDetailsInner() {
     
     if (targetIndex < 0 || targetIndex >= sortedChapters.length) return;
 
-    // Normalizing order values to ensure consistency
     const chaptersToUpdate = sortedChapters.map((ch, idx) => ({ ...ch, order: idx + 1 }));
     
-    // Swap
     const temp = chaptersToUpdate[index].order;
     chaptersToUpdate[index].order = chaptersToUpdate[targetIndex].order;
     chaptersToUpdate[targetIndex].order = temp;
@@ -604,7 +601,6 @@ function StoryDetailsInner() {
                   </Card>
               </div>
 
-              {/* Disclaimer Management */}
               <Card className="rounded-3xl border-none shadow-xl overflow-hidden">
                 <CardHeader className="bg-primary/5 border-b border-primary/10">
                     <CardTitle className="text-lg flex items-center gap-2">
@@ -723,7 +719,7 @@ function StoryDetailsInner() {
                                                     @{c.username}
                                                 </div>
                                             </div>
-                                            {canManage && (
+                                            {canRemove && (
                                                 <AlertDialog>
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-full">

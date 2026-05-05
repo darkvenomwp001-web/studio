@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense, ChangeEvent } from 'react';
@@ -82,6 +81,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 const PRO_FONTS = [
   { name: 'Default', value: 'var(--font-inter)' },
@@ -132,6 +132,7 @@ function EditorContentInner() {
   const [isZenFocus, setIsZenFocus] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
+  const [isFrozen, setIsFrozen] = useState(false);
 
   // Chapter specific metadata
   const [chapterTags, setChapterTags] = useState<string[]>([]);
@@ -177,9 +178,10 @@ function EditorContentInner() {
 
   useEffect(() => {
     if (editor) {
-      editor.setEditable(!!isAuthorOrCollaborator);
+      const isNowEditable = isAuthorOrCollaborator && !isFrozen;
+      editor.setEditable(!!isNowEditable);
     }
-  }, [isAuthorOrCollaborator, editor]);
+  }, [isAuthorOrCollaborator, isFrozen, editor]);
 
   useEffect(() => {
     if (authLoading) return;
