@@ -46,13 +46,14 @@ import {
   ShieldCheck,
   Palette,
   Globe,
+  TriangleAlert,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
 import type { Story, Chapter, Annotation } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment, addDoc, collection } from 'firebase/firestore';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
@@ -252,7 +253,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
         if (chapterData) {
             setCurrentChapter(chapterData);
-            if (editor && chapterData.content) {
+            if (editor && !editor.isDestroyed && editor.getHTML() !== chapterData.content) {
               editor.commands.setContent(chapterData.content, false);
             }
             
@@ -563,9 +564,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
       {/* Disclaimer Modal */}
       <AlertDialog open={isDisclaimerOpen} onOpenChange={setIsDisclaimerOpen}>
-        <AlertDialogContent className="rounded-3xl border-none shadow-3xl p-0 overflow-hidden max-w-lg">
-            <div className="p-8 space-y-6">
-                <div className="flex items-center gap-3 text-primary">
+        <AlertDialogContent className="rounded-3xl border-none shadow-3xl p-0 overflow-hidden max-w-lg h-auto max-h-[90vh] flex flex-col">
+            <div className="p-8 space-y-6 overflow-hidden flex flex-col flex-1">
+                <div className="flex items-center gap-3 text-primary flex-shrink-0">
                     <div className="p-2.5 rounded-2xl bg-primary/10">
                         <AlertCircle className="h-6 w-6" />
                     </div>
@@ -575,15 +576,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     </div>
                 </div>
 
-                <ScrollArea className="max-h-[300px] pr-4">
-                    <div className="prose dark:prose-invert prose-sm">
+                <ScrollArea className="flex-1 pr-4 -mr-4">
+                    <div className="prose dark:prose-invert prose-sm pb-4">
                         <p className="whitespace-pre-line leading-relaxed text-muted-foreground text-sm font-medium">
                             {story.disclaimer}
                         </p>
                     </div>
                 </ScrollArea>
 
-                <div className="pt-4 border-t border-border/40">
+                <div className="pt-4 border-t border-border/40 flex-shrink-0">
                     <p className="text-[10px] text-muted-foreground/40 leading-relaxed italic text-center mb-6">
                         By proceeding, you acknowledge that you have read and understood the author's terms and content warnings for this manuscript.
                     </p>
@@ -631,19 +632,21 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     </TooltipTrigger>
                     <TooltipContent className="text-[10px] font-bold uppercase tracking-widest">Preview Mode</TooltipContent>
                 </Tooltip>
-                <AlertDialogContent className="max-w-4xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-                    <AlertDialogHeader className="bg-muted/30 p-6 border-b flex flex-row justify-between items-center space-y-0">
+                <AlertDialogContent className="max-w-4xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl h-auto max-h-[90vh] flex flex-col">
+                    <AlertDialogHeader className="bg-muted/30 p-6 border-b flex flex-row justify-between items-center space-y-0 flex-shrink-0">
                         <div>
                             <AlertDialogTitle className="text-2xl font-headline font-bold text-foreground">{currentChapter.title || 'Untitled Part'}</AlertDialogTitle>
                             <AlertDialogDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Reader Simulation</AlertDialogDescription>
                         </div>
                         <AlertDialogCancel className="rounded-full h-8 w-8 p-0 border-none bg-transparent hover:bg-muted"><X className="h-4 w-4"/></AlertDialogCancel>
                     </AlertDialogHeader>
-                    <div className={cn(
-                        "prose dark:prose-invert max-h-[70vh] overflow-y-auto p-8 sm:p-12 leading-relaxed text-base",
-                        fontFamily === 'serif' ? 'font-serif' : 'font-body'
-                    )} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
-                    <AlertDialogFooter className="p-4 bg-muted/30 border-t">
+                    <ScrollArea className="flex-1">
+                      <div className={cn(
+                          "prose dark:prose-invert p-8 sm:p-12 leading-relaxed text-base",
+                          fontFamily === 'serif' ? 'font-serif' : 'font-body'
+                      )} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
+                    </ScrollArea>
+                    <AlertDialogFooter className="p-4 bg-muted/30 border-t flex-shrink-0">
                         <AlertDialogCancel className="rounded-full px-6">Close Preview</AlertDialogCancel>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -1091,7 +1094,19 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                   <Image src={currentChapter.artworkUrl} alt="" fill className="object-cover" priority />
                 </div>
               )}
-              <h2 className="font-headline text-2xl sm:text-3xl mb-6 pt-4 text-center">{currentChapter.title}</h2>
+              <div className="text-center space-y-4 mb-12">
+                  <h2 className="font-headline text-3xl sm:text-5xl font-bold tracking-tight">{currentChapter.title}</h2>
+                  {currentChapter.tags && currentChapter.tags.length > 0 && (
+                      <div className="flex flex-wrap justify-center gap-2 pt-2 animate-in fade-in slide-in-from-top-2 duration-500">
+                          <TriangleAlert className="h-4 w-4 text-orange-500 self-center" />
+                          {currentChapter.tags.map(tag => (
+                              <Badge key={tag} variant="outline" className="bg-orange-500/5 text-orange-600 border-orange-500/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                                  {tag}
+                              </Badge>
+                          ))}
+                      </div>
+                  )}
+              </div>
               {isAccessGranted ? (
                 <EditorContent editor={editor} />
               ) : (

@@ -99,6 +99,7 @@ export interface Chapter {
   accessType: 'public' | 'premium';
   allowedUsers?: AllowedUser[];
   artworkUrl?: string;
+  tags?: string[];
 }
 
 export interface AllowedUser {

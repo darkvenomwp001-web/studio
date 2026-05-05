@@ -39,7 +39,10 @@ import {
   Camera,
   Timer,
   BarChart3,
-  Book
+  Book,
+  TriangleAlert,
+  PlusCircle,
+  Tag,
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
@@ -78,6 +81,7 @@ import CharacterCount from '@tiptap/extension-character-count'
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Label } from '@/components/ui/label';
 
 const PRO_FONTS = [
   { name: 'Default', value: 'var(--font-inter)' },
@@ -128,6 +132,10 @@ function EditorContentInner() {
   const [isZenFocus, setIsZenFocus] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
+
+  // Chapter specific metadata
+  const [chapterTags, setChapterTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
 
   const artworkInputRef = useRef<HTMLInputElement>(null);
   const lastContentRef = useRef<string>('');
@@ -206,6 +214,7 @@ function EditorContentInner() {
           if (chapterToEdit) {
             setCurrentChapter(chapterToEdit);
             setChapterTitle(chapterToEdit.title);
+            setChapterTags(chapterToEdit.tags || []);
             lastTitleRef.current = chapterToEdit.title;
             if(editor && !editor.isDestroyed && editor.getHTML() !== chapterToEdit.content) {
                 editor.commands.setContent(chapterToEdit.content, false);
@@ -234,12 +243,9 @@ function EditorContentInner() {
     const content = editor.getHTML();
     const titleToSave = chapterTitle.trim();
 
-    // Performance: Avoid unnecessary saves
-    if (content === lastContentRef.current && titleToSave === lastTitleRef.current) {
-        setAutoSaveStatus('Saved');
-        return;
-    }
-
+    // Performance: Avoid unnecessary saves if only title/content didn't change
+    // Note: tags change also triggers Typing state, so we handle it
+    
     setAutoSaveStatus('Saving...');
     VersionHistoryManager.addVersion(storyDetails.id, currentChapter.id, content, titleToSave);
 
@@ -247,6 +253,7 @@ function EditorContentInner() {
       ...currentChapter,
       title: titleToSave,
       content: content,
+      tags: chapterTags,
       status: currentChapter.status === 'Published' ? 'Published' : 'Draft', 
       wordCount: editor.storage.characterCount.words(),
     };
@@ -280,7 +287,7 @@ function EditorContentInner() {
         errorEmitter.emit('permission-error', permissionError);
         setAutoSaveStatus('Error');
     }
-  }, [storyDetails, currentChapter, currentUser, chapterTitle, editor, toast]);
+  }, [storyDetails, currentChapter, currentUser, chapterTitle, editor, toast, chapterTags]);
 
   // Efficient Auto-save Timer
   useEffect(() => {
@@ -291,7 +298,21 @@ function EditorContentInner() {
     }, 3000); 
 
     return () => clearTimeout(timer);
-  }, [editor?.state, chapterTitle, autoSaveStatus, handleSaveDraft]);
+  }, [editor?.state, chapterTitle, autoSaveStatus, handleSaveDraft, chapterTags]);
+
+  const handleAddTag = () => {
+      const trimmed = tagInput.trim();
+      if (trimmed && !chapterTags.includes(trimmed)) {
+          setChapterTags(prev => [...prev, trimmed]);
+          setTagInput('');
+          setAutoSaveStatus('Typing');
+      }
+  };
+
+  const handleRemoveTag = (tag: string) => {
+      setChapterTags(prev => prev.filter(t => t !== tag));
+      setAutoSaveStatus('Typing');
+  };
 
   const handleChapterArtworkUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0] || !storyDetails || !currentChapter) return;
@@ -347,6 +368,7 @@ function EditorContentInner() {
         ...currentChapter,
         title: chapterTitle,
         content: content,
+        tags: chapterTags,
         publishedDate: new Date().toISOString(),
         status: 'Published',
         wordCount: editor.storage.characterCount.words(),
@@ -538,6 +560,50 @@ function EditorContentInner() {
                                 </TooltipTrigger>
                                 <TooltipContent side="left">Zen Mode</TooltipContent>
                             </Tooltip>
+                            
+                            <Popover>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="rounded-full h-11 w-11 bg-background/80 backdrop-blur-sm border shadow-sm transition-all hover:border-primary/40">
+                                                <TriangleAlert className="h-5 w-5 text-orange-500" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left">Chapter Warnings</TooltipContent>
+                                </Tooltip>
+                                <PopoverContent className="w-80 rounded-3xl p-0 overflow-hidden border-none shadow-3xl bg-card/95 backdrop-blur-xl" side="left" align="start">
+                                    <div className="bg-orange-500/10 p-4 border-b border-orange-500/10 flex items-center gap-2">
+                                        <TriangleAlert className="h-4 w-4 text-orange-500" />
+                                        <h4 className="font-headline font-bold text-sm">Chapter Warnings</h4>
+                                    </div>
+                                    <div className="p-4 space-y-4">
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest leading-tight">
+                                            Mark this part with specific content warnings (e.g. Violence, Strong Language)
+                                        </p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {chapterTags.map(tag => (
+                                                <Badge key={tag} className="bg-orange-500/10 text-orange-600 border-orange-500/20 gap-1 rounded-lg px-2 h-7 font-bold text-[10px] uppercase">
+                                                    {tag}
+                                                    <button onClick={() => handleRemoveTag(tag)} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Input 
+                                                placeholder="Add warning..." 
+                                                value={tagInput} 
+                                                onChange={e => setTagInput(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && handleAddTag()}
+                                                className="h-10 rounded-xl bg-muted/40 border-none shadow-inner text-xs"
+                                            />
+                                            <Button size="icon" onClick={handleAddTag} className="rounded-xl h-10 w-10 shrink-0">
+                                                <PlusCircle className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     </div>
                 </div>
@@ -737,7 +803,18 @@ function EditorContentInner() {
                              <NextImage src={currentChapter.artworkUrl} alt="Cover" fill className="object-cover" />
                         </div>
                     )}
-                    <h2 className="text-4xl md:text-6xl font-headline font-bold mb-12 text-center leading-tight tracking-tight">{chapterTitle}</h2>
+                    <div className="text-center space-y-6 mb-12">
+                        <h2 className="text-4xl md:text-6xl font-headline font-bold leading-tight tracking-tight">{chapterTitle}</h2>
+                        {chapterTags.length > 0 && (
+                            <div className="flex flex-wrap justify-center gap-2">
+                                {chapterTags.map(tag => (
+                                    <Badge key={tag} variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20 px-4 h-8 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                                        {tag}
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                     <article className="prose dark:prose-invert max-w-3xl mx-auto font-body leading-relaxed text-lg animate-in fade-in slide-in-from-bottom-4 duration-1000" dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
                 </div>
                 <AlertDialogFooter className="p-6 bg-muted/20 border-t flex items-center justify-between">
