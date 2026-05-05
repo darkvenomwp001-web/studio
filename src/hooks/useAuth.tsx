@@ -186,8 +186,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
 
-            // Administrative privileges are now handled strictly via UIDs in rules.
-            
             const storiesQuery = query(collection(db, "stories"), where("author.id", "==", firebaseUser.uid));
             const storiesSnapshot = await getDocs(storiesQuery);
             const writtenStories = storiesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
@@ -237,7 +235,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0].toLowerCase() || `user_${firebaseUser.uid.substring(0, 5)}`;
             const displayName = isAnonymous ? 'A Mysterious Guest' : (firebaseUser.displayName || username);
 
-            // New profile initialization - no administrative flags allowed here.
             const newUserProfile: any = {
               id: firebaseUser.uid,
               username: username,

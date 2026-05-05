@@ -283,7 +283,7 @@ function StoryDetailsInner() {
     <div className="max-w-5xl mx-auto p-4 space-y-10 pb-20">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
-              <Button variant="ghost" size="sm" onClick={() => router.push('/write')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
               </Button>
               <h1 className="text-3xl md:text-5xl font-headline font-bold">{title || 'Untitled Manuscript'}</h1>
