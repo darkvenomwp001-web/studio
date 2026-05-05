@@ -78,7 +78,6 @@ interface AuthContextType {
   updateUserProfile: (updates: Partial<AppUser>) => Promise<void>;
   updateUserEmailFirebase: (newEmail: string, currentPasswordForReAuth: string) => Promise<boolean>;
   updateUserPasswordFirebase: (currentPasswordForReReAuth: string, newPasswordVal: string) => Promise<boolean>;
-  updateUserPasswordFirebase: (currentPasswordForReReAuth: string, newPasswordVal: string) => Promise<boolean>;
   sendPasswordResetFirebase: (email: string) => Promise<boolean>;
   followUser: (targetUserId: string) => Promise<void>;
   unfollowUser: (targetUserId: string) => Promise<void>;
@@ -187,20 +186,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
 
-            const isOwner = OWNER_HANDLES.includes(firestoreUserData.username || '');
-            if (isOwner && (!firestoreUserData.isVerified || firestoreUserData.role !== 'writer')) {
-                updateDoc(userRef, { 
-                    isVerified: true, 
-                    role: 'writer' 
-                }).catch(async (serverError) => {
-                    const permissionError = new FirestorePermissionError({
-                        path: userRef.path,
-                        operation: 'update',
-                        requestResourceData: { isVerified: true, role: 'writer' },
-                    } satisfies SecurityRuleContext);
-                    errorEmitter.emit('permission-error', permissionError);
-                });
-            }
+            // Administrative privileges are now handled strictly via UIDs in rules.
+            // Client-side 'verified' status is just for UI display.
             
             const storiesQuery = query(collection(db, "stories"), where("author.id", "==", firebaseUser.uid));
             const storiesSnapshot = await getDocs(storiesQuery);
@@ -228,8 +215,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               writtenStories: writtenStories,
               readingList: firestoreUserData.readingList || [],
               isAnonymous: firebaseUser.isAnonymous,
-              isVerified: isOwner || firestoreUserData.isVerified,
-              isBanned: firestoreUserData.isBanned,
+              isVerified: firestoreUserData.isVerified || false,
+              isBanned: firestoreUserData.isBanned || false,
               profileSongUrl: firestoreUserData.profileSongUrl,
               profileSongNote: firestoreUserData.profileSongNote,
               appearanceSettings: firestoreUserData.appearanceSettings,
@@ -250,9 +237,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 ? `Guest${firebaseUser.uid.substring(0, 6)}`
                 : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0].toLowerCase() || `user_${firebaseUser.uid.substring(0, 5)}`;
             const displayName = isAnonymous ? 'A Mysterious Guest' : (firebaseUser.displayName || username);
-            const isOwner = OWNER_HANDLES.includes(username);
 
-            const newUserProfile: AppUser = {
+            // New profile initialization - no administrative flags allowed here.
+            const newUserProfile: any = {
               id: firebaseUser.uid,
               username: username,
               displayName: displayName,
@@ -260,8 +247,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               emailVerified: firebaseUser.emailVerified,
               avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`,
               bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse!',
-              role: 'reader',
-              isVerified: isOwner,
               messagingPreference: 'everyone',
               level: 1,
               xp: 0,
@@ -405,11 +390,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = async () => {
     setAuthLoading(true);
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
       await signInWithPopup(auth, provider);
-      toast({ title: "Welcome back!" });
-    } catch (error) {
-      toast({ title: "Login Error", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Authenticated with Google" });
+    } catch (error: any) {
+      if (error.code === 'auth/popup-blocked') {
+        toast({ title: "Popup Blocked", description: "Please enable popups to sign in with Google.", variant: "destructive" });
+      } else {
+        toast({ title: "Google Sign-In Error", description: error.message, variant: "destructive" });
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -435,8 +425,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await createUserWithEmailAndPassword(auth, email, passwordOne);
       toast({ title: "Account Created!" });
-    } catch (error) {
-      toast({ title: "Sign Up Error", description: (error as Error).message, variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Sign Up Error", description: error.message, variant: "destructive" });
     } finally {
       setAuthLoading(false);
     }
@@ -457,8 +447,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
-    } catch (error) {
-      toast({ title: "Sign In Error", description: (error as Error).message, variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Sign In Error", description: error.message, variant: "destructive" });
     } finally {
       setAuthLoading(false);
     }
@@ -554,8 +544,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await updateUserProfile({ email: newEmail });
       toast({ title: "Email Updated" });
       return true;
-    } catch (error) {
-      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     }
   };
@@ -568,8 +558,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await updateFirebasePassword(auth.currentUser, newPasswordVal);
       toast({ title: "Password Updated" });
       return true;
-    } catch (error) {
-      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     }
   };
@@ -579,8 +569,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await sendPasswordResetEmail(auth, email);
       toast({ title: "Reset Link Sent" });
       return true;
-    } catch (error) {
-      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     }
   };
@@ -632,8 +622,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setRequiresPasswordSetup(false);
             toast({ title: "Password Set Successfully" });
             return true;
-        } catch (error) {
-            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+        } catch (error: any) {
+            toast({ title: "Error", description: error.message, variant: "destructive" });
             return false;
         }
     }
