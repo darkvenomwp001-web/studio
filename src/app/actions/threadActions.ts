@@ -100,7 +100,6 @@ export async function updateThreadPost(postId: string, newContent: string, userI
       
       await updateDoc(postRef, updateData);
       revalidatePath('/');
-      revalidatePath(`/threads/edit/${postId}`);
       return { success: true };
   } catch (error: any) {
       console.error("Error updating thread post:", error);

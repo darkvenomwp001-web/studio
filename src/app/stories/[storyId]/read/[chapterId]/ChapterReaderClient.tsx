@@ -241,7 +241,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [storyId]);
 
-  // Sync editor content and handle disclaimer - Fixed for React stability
   useEffect(() => {
     if (!editor || !currentChapter || editor.isDestroyed) return;
     
@@ -249,7 +248,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       editor.commands.setContent(currentChapter.content, false);
     }
 
-    // Disclaimer logic
     if (story?.disclaimer) {
         const visibleChaptersList = story.chapters
             .filter(c => c.status === 'Published' || c.accessType === 'premium')
@@ -556,7 +554,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   
   const visibleChapters = story.chapters.filter(ch => ch.status === 'Published' || (currentUser && (story.author.id === currentUser.id || story.collaboratorIds?.includes(currentUser.id))) || ch.accessType === 'premium');
 
-  const currentVisibleChapterIndex = visibleChapters.findIndex(c => c.id === currentChapter.id);
+  const currentVisibleChapterIndex = visibleChapters.findIndex(c => c.id === chapterId);
 
   const prevChapterId = currentVisibleChapterIndex > 0 ? visibleChapters[currentVisibleChapterIndex - 1].id : null;
   const nextChapterId = currentVisibleChapterIndex < visibleChapters.length - 1 ? visibleChapters[currentVisibleChapterIndex + 1].id : null;
