@@ -241,7 +241,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [storyId]);
 
-  // Sync editor content with current chapter
+  // Sync editor content with current chapter - Handled safely via useEffect
   useEffect(() => {
     if (editor && currentChapter && !editor.isDestroyed) {
       if (editor.getHTML() !== currentChapter.content) {

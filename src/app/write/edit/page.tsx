@@ -183,6 +183,16 @@ function EditorContentInner() {
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
+  // Sync editor content with current chapter - Handled safely via useEffect to prevent rendering cycle errors
+  useEffect(() => {
+    if (editor && currentChapter && !editor.isDestroyed) {
+      if (editor.getHTML() !== currentChapter.content) {
+        editor.commands.setContent(currentChapter.content, false);
+        lastContentRef.current = currentChapter.content;
+      }
+    }
+  }, [editor, currentChapter?.id, currentChapter?.content]);
+
   useEffect(() => {
     if (authLoading) return;
     if (!currentUser) {
@@ -217,10 +227,6 @@ function EditorContentInner() {
             setChapterTitle(chapterToEdit.title);
             setChapterTags(chapterToEdit.tags || []);
             lastTitleRef.current = chapterToEdit.title;
-            if(editor && !editor.isDestroyed && editor.getHTML() !== chapterToEdit.content) {
-                editor.commands.setContent(chapterToEdit.content, false);
-                lastContentRef.current = chapterToEdit.content;
-            }
           }
           setIsLoading(false);
         } else {
@@ -236,7 +242,7 @@ function EditorContentInner() {
     return () => {
       if (unsubscribeStory) unsubscribeStory();
     };
-  }, [queryStoryId, queryChapterId, currentUser, router, toast, authLoading, editor]);
+  }, [queryStoryId, queryChapterId, currentUser, router, toast, authLoading]);
 
   const handleSaveDraft = useCallback(async (showToast: boolean = true) => {
     if (!storyDetails || !currentChapter || !currentUser || !editor) return;
@@ -472,7 +478,7 @@ function EditorContentInner() {
                                             This will make your new chapter <strong>"{chapterTitle}"</strong> available to your readers immediately.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
-                                    <AlertDialogFooter className="p-4 bg-muted/20 border-t rounded-b-3xl">
+                                    <AlertDialogFooter>
                                         <AlertDialogCancel className="rounded-full px-8 font-bold">Cancel</AlertDialogCancel>
                                         <AlertDialogAction onClick={handlePublishChapter} className="bg-primary hover:bg-primary/90 rounded-full px-10 font-bold shadow-lg shadow-primary/30">Confirm & Release</AlertDialogAction>
                                     </AlertDialogFooter>
