@@ -10,7 +10,7 @@ import { MessageCircle, MoreHorizontal, EyeOff, Loader2, Edit, Pin, Share2, Link
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import Image from 'next/image';
+import NextImage from 'next/image';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -111,7 +111,6 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
 
           const originalData = originalPostDoc.data() as ThreadPost;
           
-          // Build repost data dynamically to avoid 'undefined' field errors
           const repostOriginalData: any = {
               id: originalPostDoc.id,
               author: originalData.author,
@@ -296,7 +295,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                         <Link href={`/stories/${isRepost ? post.originalPost!.storyId : post.storyId}`}>
                             <div className="border rounded-xl p-3 flex gap-3 hover:bg-muted/50 transition-all shadow-sm bg-muted/20 group/story">
                                 <div className="relative w-[50px] h-[75px] rounded-sm overflow-hidden flex-shrink-0">
-                                    <Image src={(isRepost ? post.originalPost!.storyCoverUrl : post.storyCoverUrl) || `https://picsum.photos/seed/${post.id}/512/800`} alt={(isRepost ? post.originalPost!.storyTitle : post.storyTitle) || ''} layout="fill" className="object-cover group-hover/story:scale-105 transition-transform" />
+                                    <NextImage src={(isRepost ? post.originalPost!.storyCoverUrl : post.storyCoverUrl) || `https://picsum.photos/seed/${post.id}/512/800`} alt={(isRepost ? post.originalPost!.storyTitle : post.storyTitle) || ''} fill className="object-cover group-hover/story:scale-105 transition-transform" />
                                 </div>
                                 <div className="flex-1 overflow-hidden flex flex-col justify-center">
                                     <p className="font-bold text-sm truncate group-hover/story:text-primary transition-colors">{(isRepost ? post.originalPost!.storyTitle : post.storyTitle)}</p>
@@ -310,7 +309,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                             className="relative aspect-video rounded-xl overflow-hidden cursor-pointer shadow-sm border border-border/40 group/image"
                             onClick={() => setIsPreviewOpen(true)}
                         >
-                            <Image src={imageUrlForPreview} alt="Post image" layout="fill" className="object-cover group-hover/image:scale-[1.02] transition-transform duration-500" />
+                            <NextImage src={imageUrlForPreview} alt="Post image" fill className="object-cover group-hover/image:scale-[1.02] transition-transform duration-500" />
                         </div>
                     )}
                     {(isRepost ? post.originalPost?.songUrl : post.songUrl) && (
@@ -388,7 +387,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
             </DialogHeader>
             {imageUrlForPreview && (
                 <div className="relative w-full h-auto flex items-center justify-center p-4">
-                    <Image src={imageUrlForPreview} alt="Post preview" width={1600} height={1600} className="rounded-2xl object-contain w-full h-auto shadow-2xl ring-1 ring-white/10" />
+                    <NextImage src={imageUrlForPreview} alt="Post preview" width={1600} height={1600} className="rounded-2xl object-contain w-full h-auto shadow-2xl ring-1 ring-white/10" />
                     <Button variant="ghost" size="icon" onClick={() => setIsPreviewOpen(false)} className="absolute top-6 right-6 bg-black/40 hover:bg-black/60 text-white rounded-full">
                         <X className="h-6 w-6" />
                     </Button>

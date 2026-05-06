@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import NextImage from 'next/image';
 import type { Story } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +24,7 @@ export default function StoryCard({ story }: StoryCardProps) {
     >
       {/* Optimized Cover Box */}
       <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl shadow-md transition-all duration-500 group-hover:shadow-2xl group-hover:shadow-primary/20 group-hover:-translate-y-1 bg-muted">
-        <Image
+        <NextImage
           src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
           alt={story.title}
           fill

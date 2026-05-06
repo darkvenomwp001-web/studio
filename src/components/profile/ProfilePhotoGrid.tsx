@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -6,7 +5,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import type { ThreadPost } from '@/types';
 import { Loader2, CameraOff, Trash2, X, AlertTriangle } from 'lucide-react';
-import Image from 'next/image';
+import NextImage from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
@@ -115,12 +114,11 @@ export default function ProfilePhotoGrid({ userId, isOwnProfile }: ProfilePhotoG
                         onTouchStart={() => handlePressStart(post)}
                         onTouchEnd={handlePressEnd}
                     >
-                        <Image
+                        <NextImage
                             src={post.imageUrl!}
                             alt="User post"
-                            layout="fill"
-                            objectFit="cover"
-                            className="group-hover:opacity-80 transition-opacity"
+                            fill
+                            className="object-cover group-hover:opacity-80 transition-opacity"
                         />
                     </div>
                 ))}
@@ -167,7 +165,7 @@ export default function ProfilePhotoGrid({ userId, isOwnProfile }: ProfilePhotoG
 
                     {selectedPost?.imageUrl && (
                         <div className="relative w-full h-full flex items-center justify-center">
-                            <Image
+                            <NextImage
                                 src={selectedPost.imageUrl}
                                 alt="Post preview"
                                 width={1200}

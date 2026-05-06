@@ -30,7 +30,7 @@ export async function sendGlobalChatMessage(
   content: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!author || !author.id) {
-    return { success: false, error: 'User is not authenticated.' };
+    return { success: boolean; error: 'User is not authenticated.' };
   }
   if (content.trim().length === 0) {
     return { success: false, error: 'Message content cannot be empty.' };
@@ -248,7 +248,7 @@ export async function repostThreadPost(originalPostId: string, user: UserSummary
                 throw new Error("You cannot repost a repost.");
             }
 
-            const newPostData: Omit<ThreadPost, 'id'> = {
+            const newPostData: any = {
                 author: user,
                 content: '', 
                 timestamp: serverTimestamp(),
@@ -259,13 +259,13 @@ export async function repostThreadPost(originalPostId: string, user: UserSummary
                 originalPost: {
                     id: originalPostDoc.id,
                     author: originalPostData.author,
-                    content: originalPostData.content,
+                    content: originalPostData.content || '',
                     timestamp: originalPostData.timestamp,
-                    storyId: originalPostData.storyId,
-                    storyTitle: originalPostData.storyTitle,
-                    storyCoverUrl: originalPostData.storyCoverUrl,
-                    imageUrl: originalData.imageUrl,
-                    songUrl: originalData.songUrl,
+                    storyId: originalPostData.storyId || null,
+                    storyTitle: originalPostData.storyTitle || null,
+                    storyCoverUrl: originalPostData.storyCoverUrl || null,
+                    imageUrl: originalPostData.imageUrl || null,
+                    songUrl: originalPostData.songUrl || null,
                 },
             };
 

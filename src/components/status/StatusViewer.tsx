@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { X, Pause, Play, VolumeX, Volume2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import Image from 'next/image';
+import NextImage from 'next/image';
 import { Timestamp, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
@@ -216,7 +216,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                                 className="w-full h-full object-contain" 
                             />
                         ) : (
-                            <Image src={currentStatus.mediaUrl!} alt="Status Update" layout="fill" objectFit="contain" />
+                            <NextImage src={currentStatus.mediaUrl!} alt="Status Update" fill className="object-contain" />
                         )
                     ) : isNoteStatus ? (
                          <div className={cn("absolute inset-0 flex items-center justify-center p-8", currentStatus.backgroundStyle || "bg-card")}>
