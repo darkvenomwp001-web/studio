@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
+import NextImage from 'next/image';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -47,7 +47,7 @@ import {
   Palette,
   Globe,
   TriangleAlert,
-  CloudCheck,
+  Cloud,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -632,7 +632,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             <h1 className="text-sm sm:text-base font-headline font-semibold text-primary truncate max-w-[200px] sm:max-w-md">{story.title}</h1>
             {isSynced && (
                 <div className="flex items-center gap-1 text-[8px] uppercase tracking-widest font-bold text-green-500 opacity-60">
-                    <CloudCheck className="h-2 w-2" />
+                    <Cloud className="h-2 w-2" />
                     <span>Cloud Sync</span>
                 </div>
             )}
@@ -1108,7 +1108,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
              <article className={articleClasses}>
               {currentChapter.artworkUrl && (
                 <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-[32px] overflow-hidden mb-12 shadow-2xl ring-1 ring-border/40">
-                  <Image src={currentChapter.artworkUrl} alt="" fill className="object-cover" priority />
+                  <NextImage src={currentChapter.artworkUrl} alt="" fill className="object-cover" priority />
                 </div>
               )}
               <div className="text-center space-y-4 mb-12">

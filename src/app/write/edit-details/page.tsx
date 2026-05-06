@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useState, useEffect, Suspense, useCallback, useRef, ChangeEvent } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
+import NextImage from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -341,7 +342,7 @@ function StoryDetailsInner() {
                       >
                           {story.coverImageUrl ? (
                               <>
-                                <Image src={story.coverImageUrl} alt="Cover" fill className="object-cover transition-transform group-hover:scale-105" />
+                                <NextImage src={story.coverImageUrl} alt="Cover" fill className="object-cover transition-transform group-hover:scale-105" />
                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                     <UploadCloud className="text-white h-10 w-10" />
                                 </div>
