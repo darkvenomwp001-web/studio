@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, Suspense, useCallback, useRef, ChangeEvent } from 'react';
@@ -311,7 +310,7 @@ function StoryDetailsInner() {
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
               <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Homepage
               </Button>
               <h1 className="text-3xl md:text-5xl font-headline font-bold">{title || 'Untitled Manuscript'}</h1>
           </div>
@@ -422,7 +421,7 @@ function StoryDetailsInner() {
                               {tags.map(t => (
                                   <Badge key={t} variant="secondary" className="px-3 py-1 rounded-full gap-1 text-[11px] font-bold uppercase">
                                       {t}
-                                      <button onClick={() => handleRemoveTag(t)} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+                                      <button onClick={() => handleRemoveTag(t)} className="hover:text-destructive transition-colors"><X className="h-3 w-3" /></button>
                                   </Badge>
                               ))}
                           </div>

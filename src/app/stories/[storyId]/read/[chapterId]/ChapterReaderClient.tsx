@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -242,6 +241,33 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [storyId]);
 
+  // Sync editor content with current chapter
+  useEffect(() => {
+    if (editor && currentChapter && !editor.isDestroyed) {
+      if (editor.getHTML() !== currentChapter.content) {
+        editor.commands.setContent(currentChapter.content, false);
+      }
+    }
+  }, [editor, currentChapter?.id, currentChapter?.content]);
+
+  // Handle Disclaimer Trigger
+  useEffect(() => {
+    if (story && currentChapter) {
+        const visibleChaptersList = story.chapters
+            .filter(c => c.status === 'Published' || c.accessType === 'premium')
+            .sort((a,b) => a.order - b.order);
+        
+        const chIndex = visibleChaptersList.findIndex(c => c.id === currentChapter.id);
+        
+        if (story.disclaimer && chIndex === 0) {
+            const sessionKey = `disclaimer-seen-${story.id}`;
+            if (sessionStorage.getItem(sessionKey) !== 'true') {
+                setIsDisclaimerOpen(true);
+            }
+        }
+    }
+  }, [story?.id, story?.disclaimer, currentChapter?.id]);
+
   useEffect(() => {
     if (!storyId) return;
 
@@ -263,12 +289,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         const chapterData = storyData.chapters.find(c => c.id === chapterId);
 
         if (chapterData) {
-            setCurrentChapter(chapterToEdit => {
-                if (editor && !editor.isDestroyed && editor.getHTML() !== chapterData.content) {
-                  editor.commands.setContent(chapterData.content, false);
-                }
-                return chapterData;
-            });
+            setCurrentChapter(chapterData);
             
             const visibleChaptersList = storyData.chapters
                 .filter(c => c.status === 'Published' || c.accessType === 'premium')
@@ -277,14 +298,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             const chIndex = visibleChaptersList.findIndex(c => c.id === chapterId);
             const progress = visibleChaptersList.length > 0 ? ((chIndex + 1) / visibleChaptersList.length) * 100 : 0;
             setReadingProgress(Math.min(100, Math.max(0, progress)));
-
-            // Disclaimer Logic
-            if (storyData.disclaimer && chIndex === 0) {
-                const sessionKey = `disclaimer-seen-${storyData.id}`;
-                if (sessionStorage.getItem(sessionKey) !== 'true') {
-                    setIsDisclaimerOpen(true);
-                }
-            }
 
             let hasAccess = false;
             if (chapterData.accessType === 'premium') {
@@ -337,7 +350,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       unsubscribe();
       document.body.classList.remove('night-portal');
     };
-  }, [storyId, chapterId, router, currentUser, toast, incrementViewCount, editor]);
+  }, [storyId, chapterId, router, currentUser, toast, incrementViewCount]);
 
   useEffect(() => {
     contentRef.current?.scrollTo(0, 0);
@@ -575,7 +588,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     <TooltipProvider delayDuration={300}>
     <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
       <AlertDialog open={isDisclaimerOpen} onOpenChange={setIsDisclaimerOpen}>
-        <AlertDialogContent className="rounded-3xl border-none shadow-3xl p-0 overflow-hidden max-w-lg h-auto max-h-[90vh] flex flex-col">
+        <AlertDialogContent className="rounded-3xl border-none shadow-3xl p-0 overflow-hidden max-w-lg w-[95vw] h-auto max-h-[85vh] flex flex-col transform-gpu">
             <div className="p-8 space-y-6 overflow-hidden flex flex-col flex-1">
                 <div className="flex items-center gap-3 text-primary flex-shrink-0">
                     <div className="p-2.5 rounded-2xl bg-primary/10">
@@ -587,7 +600,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     </div>
                 </div>
 
-                <ScrollArea className="flex-1 pr-4 -mr-4">
+                <ScrollArea className="flex-1 pr-4 -mr-4 border-y border-border/10 py-4">
                     <div className="prose dark:prose-invert prose-sm pb-4">
                         <p className="whitespace-pre-line leading-relaxed text-muted-foreground text-sm font-medium">
                             {story.disclaimer}
@@ -595,13 +608,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     </div>
                 </ScrollArea>
 
-                <div className="pt-4 border-t border-border/40 flex-shrink-0">
-                    <p className="text-[10px] text-muted-foreground/40 leading-relaxed italic text-center mb-6">
+                <div className="pt-4 flex-shrink-0">
+                    <p className="text-[10px] text-muted-foreground/40 leading-relaxed italic text-center mb-6 px-4">
                         By proceeding, you acknowledge that you have read and understood the author's terms and content warnings for this manuscript.
                     </p>
                     <AlertDialogAction 
                         onClick={handleAcknowledgeDisclaimer}
-                        className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
+                        className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
                     >
                         <ShieldCheck className="mr-2 h-4 w-4" />
                         I Understand & Proceed

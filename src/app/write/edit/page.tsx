@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense, ChangeEvent } from 'react';
@@ -422,7 +421,7 @@ function EditorContentInner() {
   const readingTimeMinutes = Math.max(1, Math.round(wordCount / 225));
 
   if (isLoading || authLoading || !editor || !storyDetails || !currentChapter) {
-    return <div className="fixed inset-0 flex justify-center items-center bg-background z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    return <div className="fixed inset-0 flex justify-center items-center bg-background z-50"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
 
   return (
