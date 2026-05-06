@@ -11,11 +11,9 @@ import {
   deleteDoc,
   runTransaction,
   increment,
-  writeBatch,
 } from 'firebase/firestore';
 import type { UserSummary, ThreadPost, ReactionType } from '@/types';
 import { revalidatePath } from 'next/cache';
-import { addNotification } from './notificationActions';
 
 const OWNER_HANDLES = ['arnv'];
 
@@ -30,7 +28,7 @@ export async function sendGlobalChatMessage(
   content: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!author || !author.id) {
-    return { success: boolean; error: 'User is not authenticated.' };
+    return { success: false, error: 'User is not authenticated.' };
   }
   if (content.trim().length === 0) {
     return { success: false, error: 'Message content cannot be empty.' };

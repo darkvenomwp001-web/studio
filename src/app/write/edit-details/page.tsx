@@ -279,9 +279,9 @@ function StoryDetailsInner() {
 
     const chaptersToUpdate = sortedChapters.map((ch, idx) => ({ ...ch, order: idx + 1 }));
     
-    const temp = chaptersToUpdate[index].order;
+    const tempOrder = chaptersToUpdate[index].order;
     chaptersToUpdate[index].order = chaptersToUpdate[targetIndex].order;
-    chaptersToUpdate[targetIndex].order = temp;
+    chaptersToUpdate[targetIndex].order = tempOrder;
 
     const finalChapters = chaptersToUpdate.sort((a, b) => a.order - b.order);
 

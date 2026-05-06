@@ -241,32 +241,30 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [storyId]);
 
-  // Sync editor content with current chapter - Handled safely via useEffect
+  // Sync editor content and handle disclaimer - Fixed for React stability
   useEffect(() => {
-    if (editor && currentChapter && !editor.isDestroyed) {
-      if (editor.getHTML() !== currentChapter.content) {
-        editor.commands.setContent(currentChapter.content, false);
-      }
+    if (!editor || !currentChapter || editor.isDestroyed) return;
+    
+    if (editor.getHTML() !== currentChapter.content) {
+      editor.commands.setContent(currentChapter.content, false);
     }
-  }, [editor, currentChapter?.id, currentChapter?.content]);
 
-  // Handle Disclaimer Trigger
-  useEffect(() => {
-    if (story && currentChapter) {
+    // Disclaimer logic
+    if (story?.disclaimer) {
         const visibleChaptersList = story.chapters
             .filter(c => c.status === 'Published' || c.accessType === 'premium')
             .sort((a,b) => a.order - b.order);
         
         const chIndex = visibleChaptersList.findIndex(c => c.id === currentChapter.id);
         
-        if (story.disclaimer && chIndex === 0) {
+        if (chIndex === 0) {
             const sessionKey = `disclaimer-seen-${story.id}`;
             if (sessionStorage.getItem(sessionKey) !== 'true') {
                 setIsDisclaimerOpen(true);
             }
         }
     }
-  }, [story?.id, story?.disclaimer, currentChapter?.id]);
+  }, [editor, currentChapter, story]);
 
   useEffect(() => {
     if (!storyId) return;
@@ -278,13 +276,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       if (docSnap.exists()) {
         const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
         setStory(storyData);
-        
-        // Smart Sync Verification
-        if (docSnap.metadata.fromCache) {
-            setIsSynced(true);
-        } else {
-            setIsSynced(true); // If we successfully got it from server, it's now in cache
-        }
+        setIsSynced(true);
 
         const chapterData = storyData.chapters.find(c => c.id === chapterId);
 
@@ -354,7 +346,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   useEffect(() => {
     contentRef.current?.scrollTo(0, 0);
-  }, [currentChapter]);
+  }, [currentChapter?.id]);
   
   useEffect(() => {
     if (!editor || !searchTerm.trim()) {
@@ -562,7 +554,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     );
   }
   
-  const author = story.author;
   const visibleChapters = story.chapters.filter(ch => ch.status === 'Published' || (currentUser && (story.author.id === currentUser.id || story.collaboratorIds?.includes(currentUser.id))) || ch.accessType === 'premium');
 
   const currentVisibleChapterIndex = visibleChapters.findIndex(c => c.id === currentChapter.id);
@@ -589,7 +580,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
       <AlertDialog open={isDisclaimerOpen} onOpenChange={setIsDisclaimerOpen}>
         <AlertDialogContent className="rounded-3xl border-none shadow-3xl p-0 overflow-hidden max-w-lg w-[95vw] h-auto max-h-[85vh] flex flex-col transform-gpu">
-            <div className="p-8 space-y-6 overflow-hidden flex flex-col flex-1">
+            <div className="p-8 space-y-6 overflow-hidden flex flex-col flex-1 min-h-0">
                 <div className="flex items-center gap-3 text-primary flex-shrink-0">
                     <div className="p-2.5 rounded-2xl bg-primary/10">
                         <AlertCircle className="h-6 w-6" />
@@ -600,7 +591,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     </div>
                 </div>
 
-                <ScrollArea className="flex-1 pr-4 -mr-4 border-y border-border/10 py-4">
+                <ScrollArea className="flex-1 pr-4 -mr-4 border-y border-border/10 py-4 min-h-0">
                     <div className="prose dark:prose-invert prose-sm pb-4">
                         <p className="whitespace-pre-line leading-relaxed text-muted-foreground text-sm font-medium">
                             {story.disclaimer}
@@ -671,10 +662,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         <AlertDialogCancel className="rounded-full h-8 w-8 p-0 border-none bg-transparent hover:bg-muted"><X className="h-4 w-4"/></AlertDialogCancel>
                     </AlertDialogHeader>
                     <ScrollArea className="flex-1">
-                      <div className={cn(
-                          "prose dark:prose-invert p-8 sm:p-12 leading-relaxed text-base",
-                          fontFamily === 'serif' ? 'font-serif' : 'font-body'
-                      )} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
+                      <div className={articleClasses} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
                     </ScrollArea>
                     <AlertDialogFooter className="p-4 bg-muted/30 border-t flex-shrink-0">
                         <AlertDialogCancel className="rounded-full px-6">Close Preview</AlertDialogCancel>
@@ -946,15 +934,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 </ScrollArea>
             </TabsContent>
         </Tabs>
-        {author && (
+        {story.author && (
             <div className="mt-auto p-2 border-t">
-                <Link href={`/profile/${author.id}`}>
+                <Link href={`/profile/${story.author.id}`}>
                     <div className="flex items-center gap-2 hover:bg-muted p-2 rounded-md">
                     <Avatar className="h-8 w-8">
-                        <AvatarImage src={author.avatarUrl} alt={author.username} data-ai-hint="profile person" />
-                        <AvatarFallback>{author.username.substring(0, 1).toUpperCase()}</AvatarFallback>
+                        <AvatarImage src={story.author.avatarUrl} alt={story.author.username} data-ai-hint="profile person" />
+                        <AvatarFallback>{story.author.username.substring(0, 1).toUpperCase()}</AvatarFallback>
                     </Avatar>
-                    <span className="text-sm font-medium truncate">{author.displayName || author.username}</span>
+                    <span className="text-sm font-medium truncate">{story.author.displayName || story.author.username}</span>
                     </div>
                 </Link>
             </div>

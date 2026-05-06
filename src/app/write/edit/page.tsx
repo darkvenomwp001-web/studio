@@ -139,8 +139,6 @@ function EditorContentInner() {
   const [tagInput, setTagInput] = useState('');
 
   const artworkInputRef = useRef<HTMLInputElement>(null);
-  const lastContentRef = useRef<string>('');
-  const lastTitleRef = useRef<string>('');
 
   const editor = useEditor({
     extensions: [
@@ -183,15 +181,14 @@ function EditorContentInner() {
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
-  // Sync editor content with current chapter - Handled safely via useEffect to prevent rendering cycle errors
+  // Sync editor content - Stable useEffect
   useEffect(() => {
     if (editor && currentChapter && !editor.isDestroyed) {
       if (editor.getHTML() !== currentChapter.content) {
         editor.commands.setContent(currentChapter.content, false);
-        lastContentRef.current = currentChapter.content;
       }
     }
-  }, [editor, currentChapter?.id, currentChapter?.content]);
+  }, [editor, currentChapter]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -226,7 +223,6 @@ function EditorContentInner() {
             setCurrentChapter(chapterToEdit);
             setChapterTitle(chapterToEdit.title);
             setChapterTags(chapterToEdit.tags || []);
-            lastTitleRef.current = chapterToEdit.title;
           }
           setIsLoading(false);
         } else {
@@ -262,13 +258,7 @@ function EditorContentInner() {
       wordCount: editor.storage.characterCount.words(),
     };
 
-    const chapterIndex = storyDetails.chapters.findIndex(ch => ch.id === updatedChapter.id);
-    const updatedChapters = [...storyDetails.chapters];
-    if (chapterIndex > -1) {
-      updatedChapters[chapterIndex] = updatedChapter;
-    } else {
-      updatedChapters.push(updatedChapter);
-    }
+    const updatedChapters = storyDetails.chapters.map(ch => ch.id === updatedChapter.id ? updatedChapter : ch);
 
     const storyUpdateData = {
       lastUpdated: serverTimestamp(),
@@ -278,8 +268,6 @@ function EditorContentInner() {
     const storyDocRef = doc(db, 'stories', storyDetails.id);
     try {
         await updateDoc(storyDocRef, storyUpdateData);
-        lastContentRef.current = content;
-        lastTitleRef.current = titleToSave;
         setAutoSaveStatus('Saved');
         if (showToast) toast({ title: "Draft Saved!" });
     } catch (serverError: any) {
@@ -301,7 +289,7 @@ function EditorContentInner() {
     }, 3000); 
 
     return () => clearTimeout(timer);
-  }, [editor?.state, chapterTitle, autoSaveStatus, handleSaveDraft, chapterTags]);
+  }, [autoSaveStatus, handleSaveDraft, editor]);
 
   const handleAddTag = () => {
       const trimmed = tagInput.trim();
@@ -377,17 +365,7 @@ function EditorContentInner() {
         wordCount: editor.storage.characterCount.words(),
     };
 
-    let chapterExists = false;
-    const updatedChapters = storyDetails.chapters.map(ch => {
-        if (ch.id === updatedChapterData.id) {
-            chapterExists = true;
-            return updatedChapterData;
-        }
-        return ch;
-    });
-     if (!chapterExists) {
-        updatedChapters.push(updatedChapterData);
-    }
+    const updatedChapters = storyDetails.chapters.map(ch => ch.id === updatedChapterData.id ? updatedChapterData : ch);
 
     const storyUpdateData = {
         status: storyDetails.status === 'Completed' ? 'Completed' : 'Ongoing', 
@@ -429,6 +407,12 @@ function EditorContentInner() {
   if (isLoading || authLoading || !editor || !storyDetails || !currentChapter) {
     return <div className="fixed inset-0 flex justify-center items-center bg-background z-50"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
+
+  const articlePreviewClasses = cn(
+      "prose dark:prose-invert max-w-none p-8 sm:p-20 leading-relaxed text-lg animate-in fade-in slide-in-from-bottom-4 duration-1000",
+      fontFamily === 'serif' ? 'font-serif' : 'font-body',
+      layoutWidth === 'wide' ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'
+  );
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -795,7 +779,7 @@ function EditorContentInner() {
                     </div>
                     <AlertDialogCancel className="rounded-full h-12 w-12 p-0 border-none bg-muted/40 hover:bg-destructive hover:text-white transition-all"><X className="h-5 w-5"/></AlertDialogCancel>
                 </AlertDialogHeader>
-                <div className="bg-card p-6 md:p-24 overflow-y-auto max-h-[75vh] scrollbar-hide">
+                <div className="bg-card p-6 md:p-12 overflow-y-auto max-h-[75vh] scrollbar-hide">
                     {currentChapter.artworkUrl && (
                         <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-[32px] overflow-hidden mb-16 shadow-2xl">
                              <NextImage src={currentChapter.artworkUrl} alt="Cover" fill className="object-cover" />
@@ -813,7 +797,7 @@ function EditorContentInner() {
                             </div>
                         )}
                     </div>
-                    <article className="prose dark:prose-invert max-w-3xl mx-auto font-body leading-relaxed text-lg animate-in fade-in slide-in-from-bottom-4 duration-1000" dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
+                    <article className={articlePreviewClasses} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
                 </div>
                 <AlertDialogFooter className="p-6 bg-muted/20 border-t flex items-center justify-between">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 italic">End of manuscript preview</p>
