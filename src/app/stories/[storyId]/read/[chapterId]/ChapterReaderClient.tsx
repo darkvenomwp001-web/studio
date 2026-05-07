@@ -179,7 +179,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         editor.commands.setContent(currentChapter.content, false);
       }
     }
-  }, [editor, currentChapter]);
+  }, [editor, currentChapter?.content]);
 
   useEffect(() => {
     const savedFontSize = localStorage.getItem('reader-font-size') as FontSize;
@@ -567,6 +567,12 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       }
   );
 
+  const articlePreviewClasses = cn(
+      "prose dark:prose-invert max-w-none p-8 sm:p-20 leading-relaxed text-lg animate-in fade-in slide-in-from-bottom-4 duration-1000",
+      fontFamily === 'serif' ? 'font-serif' : 'font-body',
+      layoutWidth === 'wide' ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'
+  );
+
   return (
     <TooltipProvider delayDuration={300}>
     <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
@@ -654,7 +660,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         <AlertDialogCancel className="rounded-full h-8 w-8 p-0 border-none bg-transparent hover:bg-muted"><X className="h-4 w-4"/></AlertDialogCancel>
                     </AlertDialogHeader>
                     <ScrollArea className="flex-1">
-                      <div className={articleClasses} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
+                      <div className={articlePreviewClasses} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
                     </ScrollArea>
                     <AlertDialogFooter className="p-4 bg-muted/30 border-t flex-shrink-0">
                         <AlertDialogCancel className="rounded-full px-6">Close Preview</AlertDialogCancel>

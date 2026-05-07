@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense, ChangeEvent } from 'react';
@@ -74,7 +75,7 @@ import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
 import TextAlign from '@tiptap/extension-text-align'
-import FontFamily from '@tiptap/extension-font-family'
+import FontFamilyExt from '@tiptap/extension-font-family'
 import TextStyle from '@tiptap/extension-text-style'
 import CharacterCount from '@tiptap/extension-character-count'
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -96,6 +97,10 @@ const PRO_FONTS = [
   { name: 'Montserrat', value: 'Montserrat, sans-serif' },
   { name: 'Lora', value: 'Lora, serif' },
 ];
+
+type FontSize = 'sm' | 'base' | 'lg' | 'xl';
+type FontFamily = 'sans' | 'serif';
+type LineHeight = 'tight' | 'normal' | 'loose';
 
 const VersionHistoryManager = {
   getKey: (storyId: string, chapterId: string) => `versionHistory-${storyId}-${chapterId}`,
@@ -134,6 +139,11 @@ function EditorContentInner() {
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
   const [isFrozen, setIsFrozen] = useState(false);
 
+  // Appearance parity states for Preview
+  const [fontSize, setFontSize] = useState<FontSize>('base');
+  const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
+  const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
+
   // Chapter specific metadata
   const [chapterTags, setChapterTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
@@ -147,7 +157,7 @@ function EditorContentInner() {
       TiptapHighlight.configure({ multicolor: true }), 
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       TextStyle,
-      FontFamily,
+      FontFamilyExt,
       CharacterCount
     ],
     content: '',
@@ -188,7 +198,7 @@ function EditorContentInner() {
         editor.commands.setContent(currentChapter.content, false);
       }
     }
-  }, [editor, currentChapter]);
+  }, [editor, currentChapter?.content]);
 
   useEffect(() => {
     if (authLoading) return;
