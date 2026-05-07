@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -171,6 +172,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
+  // Stable Content Sync
+  useEffect(() => {
+    if (editor && currentChapter && !editor.isDestroyed) {
+      if (editor.getHTML() !== currentChapter.content) {
+        editor.commands.setContent(currentChapter.content, false);
+      }
+    }
+  }, [editor, currentChapter]);
+
   useEffect(() => {
     const savedFontSize = localStorage.getItem('reader-font-size') as FontSize;
     const savedFontFamily = localStorage.getItem('reader-font-family') as FontFamily;
@@ -242,29 +252,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   }, [storyId]);
 
   useEffect(() => {
-    if (!editor || !currentChapter || editor.isDestroyed) return;
-    
-    if (editor.getHTML() !== currentChapter.content) {
-      editor.commands.setContent(currentChapter.content, false);
-    }
-
-    if (story?.disclaimer) {
-        const visibleChaptersList = story.chapters
-            .filter(c => c.status === 'Published' || c.accessType === 'premium')
-            .sort((a,b) => a.order - b.order);
-        
-        const chIndex = visibleChaptersList.findIndex(c => c.id === currentChapter.id);
-        
-        if (chIndex === 0) {
-            const sessionKey = `disclaimer-seen-${story.id}`;
-            if (sessionStorage.getItem(sessionKey) !== 'true') {
-                setIsDisclaimerOpen(true);
-            }
-        }
-    }
-  }, [editor, currentChapter, story]);
-
-  useEffect(() => {
     if (!storyId) return;
 
     setIsLoading(true);
@@ -315,6 +302,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
             if (hasAccess) {
               incrementViewCount();
+            }
+
+            if (storyData.disclaimer && chIndex === 0) {
+                const sessionKey = `disclaimer-seen-${storyData.id}`;
+                if (sessionStorage.getItem(sessionKey) !== 'true') {
+                    setIsDisclaimerOpen(true);
+                }
             }
 
         } else {

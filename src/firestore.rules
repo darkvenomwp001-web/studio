@@ -15,7 +15,6 @@ service cloud.firestore {
     }
     
     // Unified Owner Check - Relying on UIDs for absolute security integrity.
-    // This prevents username spoofing where a user could potentially claim owner status by setting their handle to 'arnv'.
     function isAppOwner() {
         return isSignedIn() && request.auth.uid in [
           'rpTmIq5pnKc91aSSgMJiF26zIYy2', // arnv
@@ -37,13 +36,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if true;
       
-      // Prevent users from setting their own 'isVerified', 'role', or 'isBanned' status on creation.
       allow create: if isSignedIn() && isOwner(userId) 
                     && !request.resource.data.keys().hasAny(['isVerified', 'isBanned', 'role'])
                     || isAppOwner();
 
-      // App owners can update anything.
-      // Regular users can update their own profile except administrative flags.
       allow update: if isAppOwner()
                     || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified', 'role']));
 
@@ -57,7 +53,14 @@ service cloud.firestore {
                     || (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()));
 
       allow create: if isWriter();
-      allow update: if isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner());
+      
+      // Allow owners full update. Allow readers to increment views.
+      allow update: if (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()))
+                    || (
+                      (resource.data.visibility == 'Public' || (resource.data.visibility == 'Unlisted' && isSignedIn()))
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])
+                    );
+
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.author.id || isAppOwner());
     }
 
@@ -124,13 +127,11 @@ service cloud.firestore {
 
     // Annotations
     match /annotations/{annotationId} {
-      // Public highlights are discoverable by everyone.
       allow read: if resource.data.visibility == 'public' 
                     || (isSignedIn() && (isOwner(resource.data.userId) || isAppOwner()));
       
       allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAppOwner());
       
-      // Allow community members to update social metrics (reactions/comments)
       allow update: if isSignedIn() && (
         isOwner(resource.data.userId) || 
         isAppOwner() || 
