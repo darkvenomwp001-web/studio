@@ -417,10 +417,15 @@ function EditorContentInner() {
     return <div className="fixed inset-0 flex justify-center items-center bg-background z-50"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
 
-  const articlePreviewClasses = cn(
-      "prose dark:prose-invert max-w-none p-8 sm:p-20 leading-relaxed text-lg animate-in fade-in slide-in-from-bottom-4 duration-1000",
-      fontFamily === 'serif' ? 'font-serif' : 'font-body',
-      layoutWidth === 'wide' ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'
+  const articleClasses = cn(
+      "prose dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20",
+      isZenFocus && "zen-focus-enabled",
+      {
+        'prose-sm': fontSize === 'sm', 'prose-base': fontSize === 'base', 'prose-lg': fontSize === 'lg', 'prose-xl': fontSize === 'xl',
+        'font-body': fontFamily === 'sans', 'font-serif': fontFamily === 'serif',
+        'leading-tight': lineHeight === 'tight', 'leading-normal': lineHeight === 'normal', 'leading-loose': lineHeight === 'loose',
+        'max-w-3xl mx-auto': layoutWidth === 'normal', 'max-w-5xl mx-auto': layoutWidth === 'wide',
+      }
   );
 
   return (
@@ -806,7 +811,8 @@ function EditorContentInner() {
                             </div>
                         )}
                     </div>
-                    <article className={articlePreviewClasses} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
+                    {/* Visual Parity Enforcement */}
+                    <article className={articleClasses} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
                 </div>
                 <AlertDialogFooter className="p-6 bg-muted/20 border-t flex items-center justify-between">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 italic">End of manuscript preview</p>
