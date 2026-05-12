@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, Save, MoreHorizontal, Smile, EyeOff, Eye } from 'lucide-react';
+import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, Save, MoreHorizontal, Smile, EyeOff, Send } from 'lucide-react';
 import type { Comment as CommentType } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -108,7 +108,6 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
   
   const isOwner = currentUser?.id === comment.user.id;
 
-  // Real-time update for edited content
   useEffect(() => {
     if (!isEditing) {
       setEditedContent(comment.content);

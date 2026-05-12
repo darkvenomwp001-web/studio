@@ -20,7 +20,7 @@ const OWNER_HANDLES = ['arnv'];
 async function checkIsAppOwner(userId: string) {
     const userDoc = await getDoc(doc(db, 'users', userId));
     const username = userDoc.data()?.username;
-    return OWNER_HANDLES.includes(username);
+    return OWNER_HANDLES.includes(username) || userId === 'rpTmIq5pnKc91aSSgMJiF26zIYy2';
 }
 
 export async function sendGlobalChatMessage(
@@ -226,7 +226,7 @@ export async function pinThreadPost(postId: string, userId: string): Promise<{ s
 
 export async function repostThreadPost(originalPostId: string, user: UserSummary): Promise<{ success: boolean, error?: string }> {
     if (!user || !user.id) {
-        return { success: false, error: 'You must be signed in to repost.' };
+        return { success: boolean, error: 'You must be signed in to repost.' };
     }
     
     const originalPostRef = doc(db, 'feedPosts', originalPostId);

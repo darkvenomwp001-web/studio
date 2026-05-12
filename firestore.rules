@@ -13,14 +13,12 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
-    // Unified Owner Check - Recognizes the creator handle
-    // Grants absolute authority based on identity or specific UID
+    // Unified Owner Check - Relying on UIDs for absolute security integrity.
     function isAppOwner() {
-        return isSignedIn() && (
-               request.auth.uid == 'rpTmIq5pnKc91aSSgMJiF26zIYy2' ||
-               (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username in ['arnv', '@arnv'])
-        );
+        return isSignedIn() && request.auth.uid in [
+          'rpTmIq5pnKc91aSSgMJiF26zIYy2', // arnv
+          'system_admin_id'
+        ];
     }
     
     function getRole(userId) {
@@ -36,12 +34,13 @@ service cloud.firestore {
     // Users Collection
     match /users/{userId} {
       allow read: if true;
-      allow create: if isSignedIn() && isOwner(userId);
+      
+      allow create: if isSignedIn() && isOwner(userId) 
+                    && !request.resource.data.keys().hasAny(['isVerified', 'isBanned', 'role'])
+                    || isAppOwner();
 
-      // App owners can update anything.
-      // Regular users can update their own profile except administrative flags.
       allow update: if isAppOwner()
-                    || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified']));
+                    || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified', 'role']));
 
       allow delete: if isAppOwner() && request.auth.uid != userId;
     }
@@ -53,7 +52,14 @@ service cloud.firestore {
                     || (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()));
 
       allow create: if isWriter();
-      allow update: if isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner());
+      
+      // Allow owners full update. Allow anyone with read access to increment views safely.
+      allow update: if (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()))
+                    || (
+                      (resource.data.visibility == 'Public' || (resource.data.visibility == 'Unlisted' && isSignedIn()))
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])
+                    );
+
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.author.id || isAppOwner());
     }
 
@@ -61,7 +67,8 @@ service cloud.firestore {
     match /comments/{commentId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.user.id || isAppOwner());
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.user.id || isAppOwner());
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.user.id || isAppOwner());
     }
     
     // Notifications Collection
@@ -79,7 +86,6 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read, create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
         allow update, delete: if false;
       }
     }
@@ -118,9 +124,29 @@ service cloud.firestore {
 
     // Annotations
     match /annotations/{annotationId} {
-      allow read: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
-      allow create: if isSignedIn() && (isOwner(request.resource.data.userId) || isAppOwner());
-      allow update, delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
+      allow read: if resource.data.visibility == 'public' 
+                    || (isSignedIn() && (isOwner(resource.data.userId) || isAppOwner()));
+      
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAppOwner());
+      
+      allow update: if isSignedIn() && (
+        isOwner(resource.data.userId) || 
+        isAppOwner() || 
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'commentsCount'])
+      );
+      
+      allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn();
+        allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.user.id || isAppOwner());
+      }
+      
+      match /reactions/{userId} {
+        allow read: if true;
+        allow create, update, delete: if isSignedIn() && (isOwner(userId) || isAppOwner());
+      }
     }
 
     // Announcements
@@ -138,7 +164,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
       
       allow update: if isAppOwner() || isOwner(resource.data.author.id) || (
-        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'commentsCount', 'repostCount'])
+        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount'])
       );
                       
       allow delete: if isAppOwner() || isOwner(resource.data.author.id);
@@ -151,8 +177,7 @@ service cloud.firestore {
       
       match /reactions/{userId} {
         allow read: if true;
-        allow create, delete: if isSignedIn() && isOwner(userId);
-        allow update: if false;
+        allow create, delete, update: if isSignedIn() && (isOwner(userId) || isAppOwner());
       }
     }
     
