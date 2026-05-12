@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -43,6 +42,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
+import NextImage from 'next/image';
 
 const GENRES = [
     'Fantasy', 'Romance', 'Mystery', 'Thriller', 'Horror', 'Sci-Fi', 
@@ -376,7 +376,7 @@ function SearchResults() {
                         {trendingStories.slice(0, 6).map(s => (
                              <Link href={`/stories/${s.id}`} key={s.id} className="group">
                                 <div className="aspect-[2/3] relative rounded-2xl overflow-hidden bg-muted mb-2 shadow-sm transition-all group-hover:shadow-md group-hover:-translate-y-1">
-                                    <Image src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/512/800`} alt="" fill objectFit="cover" className="transition-transform duration-700 group-hover:scale-110" />
+                                    <NextImage src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/512/800`} alt="" fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
                                 </div>
                                 <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{s.title}</p>
                              </Link>
