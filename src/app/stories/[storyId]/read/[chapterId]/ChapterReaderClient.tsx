@@ -628,7 +628,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       >
         <div className="flex items-center">
             <Link href="/" passHref>
-                 <Button variant="ghost" size="icon" aria-label="Back to Story Overview">
+                 <Button variant="ghost" size="icon" aria-label="Back to Home">
                     <Home className="h-5 w-5" />
                 </Button>
             </Link>

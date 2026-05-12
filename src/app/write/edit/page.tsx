@@ -67,7 +67,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/AlertDialog"
+} from "@/components/ui/alert-dialog"
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -138,7 +138,7 @@ function EditorContentInner() {
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
   const [isFrozen, setIsFrozen] = useState(false);
 
-  // Appearance parity states for Preview
+  // Appearance parity states
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
@@ -190,7 +190,6 @@ function EditorContentInner() {
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
-  // Sync editor content - Stable useEffect
   useEffect(() => {
     if (editor && currentChapter && !editor.isDestroyed) {
       if (editor.getHTML() !== currentChapter.content) {
@@ -788,7 +787,7 @@ function EditorContentInner() {
                         </div>
                         <div>
                             <AlertDialogTitle className="text-3xl font-headline font-bold text-foreground leading-none mb-1">{chapterTitle || 'Untitled Part'}</AlertDialogTitle>
-                            <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Immersive Reader Experience &bull; High Fidelity</AlertDialogDescription>
+                            <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Immersive Reader Experience & bull; High Fidelity</AlertDialogDescription>
                         </div>
                     </div>
                     <AlertDialogCancel className="rounded-full h-12 w-12 p-0 border-none bg-muted/40 hover:bg-destructive hover:text-white transition-all"><X className="h-5 w-5"/></AlertDialogCancel>
