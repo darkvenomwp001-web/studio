@@ -281,7 +281,7 @@ function SearchResults() {
 
                       <div className="space-y-3">
                           <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Sort By</Label>
-                          <RadioGroup value={sortBy} onValueChange={(v: any) => setSortBy(v)} className="space-y-1">
+                          <RadioGroup value={sortBy} onValueChange={(v) => setSortBy(v)} className="space-y-1">
                               {[
                                   { id: 'relevance', label: 'Relevance', icon: Sparkles },
                                   { id: 'views', label: 'Most Read', icon: TrendingUp },

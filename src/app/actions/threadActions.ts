@@ -226,7 +226,7 @@ export async function pinThreadPost(postId: string, userId: string): Promise<{ s
 
 export async function repostThreadPost(originalPostId: string, user: UserSummary): Promise<{ success: boolean, error?: string }> {
     if (!user || !user.id) {
-        return { success: boolean, error: 'You must be signed in to repost.' };
+        return { success: false, error: 'You must be signed in to repost.' };
     }
     
     const originalPostRef = doc(db, 'feedPosts', originalPostId);
@@ -261,8 +261,8 @@ export async function repostThreadPost(originalPostId: string, user: UserSummary
                     storyId: originalPostData.storyId || null,
                     storyTitle: originalPostData.storyTitle || null,
                     storyCoverUrl: originalPostData.storyCoverUrl || null,
-                    imageUrl: originalData.imageUrl || null,
-                    songUrl: originalData.songUrl || null,
+                    imageUrl: originalPostData.imageUrl || null,
+                    songUrl: originalPostData.songUrl || null,
                 },
             };
 

@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import {
   ArrowLeft,
@@ -88,6 +87,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const OWNER_HANDLES = ['arnv', '@arnv'];
 
@@ -627,7 +627,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         )}
       >
         <div className="flex items-center">
-            <Link href={`/stories/${story.id}`} passHref>
+            <Link href="/" passHref>
                  <Button variant="ghost" size="icon" aria-label="Back to Story Overview">
                     <Home className="h-5 w-5" />
                 </Button>
