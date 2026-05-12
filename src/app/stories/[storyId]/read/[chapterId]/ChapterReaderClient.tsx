@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'navigation';
 import NextImage from 'next/image';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -47,6 +47,7 @@ import {
   Globe,
   TriangleAlert,
   Cloud,
+  CheckCircle,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -576,36 +577,48 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     <TooltipProvider delayDuration={300}>
     <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
       <AlertDialog open={isDisclaimerOpen} onOpenChange={setIsDisclaimerOpen}>
-        <AlertDialogContent className="rounded-3xl border-none shadow-3xl p-0 overflow-hidden max-w-lg w-[95vw] h-auto max-h-[85vh] flex flex-col transform-gpu">
-            <div className="p-8 space-y-6 overflow-hidden flex flex-col flex-1 min-h-0">
-                <div className="flex items-center gap-3 text-primary flex-shrink-0">
-                    <div className="p-2.5 rounded-2xl bg-primary/10">
-                        <AlertCircle className="h-6 w-6" />
-                    </div>
-                    <div>
-                        <AlertDialogTitle className="text-xl font-headline font-bold text-foreground">Message from Author</AlertDialogTitle>
-                        <AlertDialogDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Required Reader Disclaimer</AlertDialogDescription>
+        <AlertDialogContent className="rounded-[32px] border-none shadow-[0_50px_120px_rgba(0,0,0,0.5)] p-0 overflow-hidden max-w-xl w-[95vw] h-auto max-h-[85vh] flex flex-col transform-gpu bg-background">
+            <div className="relative h-40 w-full overflow-hidden flex-shrink-0">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/80 via-primary/40 to-transparent" />
+                <div className="absolute inset-0 bg-[url('https://picsum.photos/seed/disclaimer/800/400')] bg-cover bg-center opacity-30 mix-blend-overlay" />
+                <div className="absolute inset-0 flex flex-col justify-end p-8">
+                    <div className="flex items-center gap-3 text-white">
+                        <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md">
+                            <ShieldCheck className="h-7 w-7" />
+                        </div>
+                        <div className="space-y-0.5">
+                            <AlertDialogTitle className="text-2xl font-headline font-bold leading-none tracking-tight">Manuscript Entry</AlertDialogTitle>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">Community Guidelines & Safety</p>
+                        </div>
                     </div>
                 </div>
+                <AlertDialogCancel className="absolute top-4 right-4 rounded-full h-8 w-8 p-0 border-none bg-black/20 hover:bg-black/40 text-white transition-colors"><X className="h-4 w-4"/></AlertDialogCancel>
+            </div>
 
-                <ScrollArea className="flex-1 pr-4 -mr-4 border-y border-border/10 py-4 min-h-0">
-                    <div className="prose dark:prose-invert prose-sm pb-4">
-                        <p className="whitespace-pre-line leading-relaxed text-muted-foreground text-sm font-medium">
+            <div className="p-8 flex flex-col flex-1 min-h-0">
+                <div className="mb-6 flex items-center gap-2">
+                    <div className="h-1 w-8 bg-primary rounded-full" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Author's Disclaimer</span>
+                </div>
+
+                <ScrollArea className="flex-1 pr-4 -mr-4 border-y border-border/10 py-6 min-h-0 bg-muted/5 rounded-xl">
+                    <div className="prose dark:prose-invert prose-sm max-w-none px-4">
+                        <p className="whitespace-pre-line leading-relaxed text-foreground/80 text-sm font-medium font-serif italic">
                             {story.disclaimer}
                         </p>
                     </div>
                 </ScrollArea>
 
-                <div className="pt-4 flex-shrink-0">
-                    <p className="text-[10px] text-muted-foreground/40 leading-relaxed italic text-center mb-6 px-4">
-                        By proceeding, you acknowledge that you have read and understood the author's terms and content warnings for this manuscript.
+                <div className="pt-8 flex flex-col gap-4">
+                    <p className="text-[9px] text-muted-foreground/50 leading-relaxed text-center px-4 uppercase tracking-tighter">
+                        By continuing to read, you confirm that you are aware of the content warnings provided by the author.
                     </p>
                     <AlertDialogAction 
                         onClick={handleAcknowledgeDisclaimer}
-                        className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
+                        className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-2xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98] text-base"
                     >
-                        <ShieldCheck className="mr-2 h-4 w-4" />
-                        I Understand & Proceed
+                        <CheckCircle className="mr-2 h-5 w-5" />
+                        Acknowledge & Start Reading
                     </AlertDialogAction>
                 </div>
             </div>
