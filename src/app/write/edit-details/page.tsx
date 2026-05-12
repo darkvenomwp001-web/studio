@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, Suspense, useCallback, useRef, ChangeEvent } from 'react';
@@ -311,7 +310,7 @@ function StoryDetailsInner() {
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
               <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Homepage
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
               </Button>
               <h1 className="text-3xl md:text-5xl font-headline font-bold">{title || 'Untitled Manuscript'}</h1>
           </div>

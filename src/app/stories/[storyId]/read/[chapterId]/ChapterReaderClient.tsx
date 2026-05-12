@@ -40,7 +40,6 @@ import {
   Timer,
   Play,
   Pause,
-  Eye,
   AlertCircle,
   ShieldCheck,
   Palette,
@@ -56,7 +55,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment, addDoc, collection, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment, addDoc, collection } from 'firebase/firestore';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import {
   Popover,
@@ -172,7 +171,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
-  // Stable Content Sync Hook (Prevents Render Errors)
+  // Stable Content Sync Hook (Prevents "update during render" errors)
   useEffect(() => {
     if (editor && currentChapter && !editor.isDestroyed) {
       if (editor.getHTML() !== currentChapter.content) {
@@ -646,33 +645,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             )}
         </div>
         <div className="flex items-center gap-1">
-            <AlertDialog>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" aria-label="Quick Preview">
-                                <Eye className="h-5 w-5" />
-                            </Button>
-                        </AlertDialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-[10px] font-bold uppercase tracking-widest">Preview Mode</TooltipContent>
-                </Tooltip>
-                <AlertDialogContent className="max-w-4xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl h-auto max-h-[90vh] flex flex-col">
-                    <AlertDialogHeader className="bg-muted/30 p-6 border-b flex flex-row justify-between items-center space-y-0 flex-shrink-0">
-                        <div>
-                            <AlertDialogTitle className="text-2xl font-headline font-bold text-foreground">{currentChapter.title || 'Untitled Part'}</AlertDialogTitle>
-                            <AlertDialogDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Reader Simulation</AlertDialogDescription>
-                        </div>
-                        <AlertDialogCancel className="rounded-full h-8 w-8 p-0 border-none bg-transparent hover:bg-muted"><X className="h-4 w-4"/></AlertDialogCancel>
-                    </AlertDialogHeader>
-                    <ScrollArea className="flex-1">
-                      <div className={articleClasses} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
-                    </ScrollArea>
-                    <AlertDialogFooter className="p-4 bg-muted/30 border-t flex-shrink-0">
-                        <AlertDialogCancel className="rounded-full px-6">Close Preview</AlertDialogCancel>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
             <Popover>
                 <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" aria-label="Appearance Settings">

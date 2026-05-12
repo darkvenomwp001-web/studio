@@ -257,7 +257,7 @@ export default function LetterCard({ letter, isAuthorView, isOnline }: { letter:
                             disabled={isResponding || isDrafting}
                         />
                         <Button onClick={handleSendResponse} disabled={isResponding || isDrafting || !authorResponse.trim()} className="w-full h-14 bg-primary hover:bg-primary/90 rounded-2xl shadow-xl shadow-primary/20 text-lg font-bold">
-                            {isResponding ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
+                            {isResponding ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                             Send Response
                         </Button>
                     </div>
