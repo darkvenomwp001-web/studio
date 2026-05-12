@@ -261,8 +261,8 @@ export async function repostThreadPost(originalPostId: string, user: UserSummary
                     storyId: originalPostData.storyId || null,
                     storyTitle: originalPostData.storyTitle || null,
                     storyCoverUrl: originalPostData.storyCoverUrl || null,
-                    imageUrl: originalPostData.imageUrl || null,
-                    songUrl: originalPostData.songUrl || null,
+                    imageUrl: originalData.imageUrl || null,
+                    songUrl: originalData.songUrl || null,
                 },
             };
 

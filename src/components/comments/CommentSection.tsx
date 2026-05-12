@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
@@ -48,6 +47,8 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface CommentProps {
   comment: CommentType;
