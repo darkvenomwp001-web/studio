@@ -10,6 +10,8 @@ import { ref, onValue, onDisconnect, set, serverTimestamp as rtdbTimestamp } fro
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   onAuthStateChanged,
   signOut,
   createUserWithEmailAndPassword,
@@ -286,6 +288,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType)));
         });
+
+        // Handle Redirect Result
+        getRedirectResult(auth).then((result) => {
+            if (result) {
+                toast({ title: "Authenticated with Google" });
+            }
+        }).catch((error) => {
+            console.error("Redirect Sign-in error:", error);
+        });
         
       } else {
         setUser(null);
@@ -302,7 +313,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (unsubscribeUserDoc) unsubscribeUserDoc();
       if (unsubscribeNotifs) unsubscribeNotifs();
     };
-  }, [handleAchievementUnlock]);
+  }, [handleAchievementUnlock, toast]);
 
   useEffect(() => {
     if (loading) return;
@@ -390,12 +401,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signInWithPopup(auth, provider);
       toast({ title: "Authenticated with Google" });
     } catch (error: any) {
-      if (error.code === 'auth/popup-blocked') {
-        toast({ title: "Popup Blocked", description: "Please enable popups or use a direct browser window to sign in with Google.", variant: "destructive" });
-      } else if (error.code === 'auth/cancelled-popup-request') {
-          // ignore user cancel
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
+        // Fallback to Redirect if popup is blocked or environment restricts it
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (redirectError: any) {
+          toast({ title: "Sign-In Error", description: redirectError.message || "Redirect sign-in failed.", variant: "destructive" });
+        }
       } else {
-        toast({ title: "Sign-In Error", description: "Failed to connect with Google. Ensure popups are allowed and try again.", variant: "destructive" });
+        toast({ title: "Sign-In Error", description: error.message || "Failed to connect with Google. Ensure authorized domains are set.", variant: "destructive" });
       }
     } finally {
       setAuthLoading(false);
