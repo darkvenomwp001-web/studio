@@ -40,6 +40,7 @@ import {
   Timer,
   Play,
   Pause,
+  Eye,
   AlertCircle,
   ShieldCheck,
   Palette,
@@ -171,7 +172,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
-  // Stable Content Sync Hook (Prevents "update during render" errors)
+  // Stable Content Sync Hook
   useEffect(() => {
     if (editor && currentChapter && !editor.isDestroyed) {
       if (editor.getHTML() !== currentChapter.content) {

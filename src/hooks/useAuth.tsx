@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
@@ -392,9 +391,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "Authenticated with Google" });
     } catch (error: any) {
       if (error.code === 'auth/popup-blocked') {
-        toast({ title: "Popup Blocked", description: "Please enable popups to sign in with Google.", variant: "destructive" });
+        toast({ title: "Popup Blocked", description: "Please enable popups or use a direct browser window to sign in with Google.", variant: "destructive" });
+      } else if (error.code === 'auth/cancelled-popup-request') {
+          // ignore user cancel
       } else {
-        toast({ title: "Google Sign-In Error", description: error.message, variant: "destructive" });
+        toast({ title: "Sign-In Error", description: "Failed to connect with Google. Ensure popups are allowed and try again.", variant: "destructive" });
       }
     } finally {
       setAuthLoading(false);

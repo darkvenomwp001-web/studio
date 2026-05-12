@@ -53,7 +53,7 @@ service cloud.firestore {
 
       allow create: if isWriter();
       
-      // Allow owners full update. Allow readers to increment views safely.
+      // Allow owners full update. Allow anyone with read access to increment views safely.
       allow update: if (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()))
                     || (
                       (resource.data.visibility == 'Public' || (resource.data.visibility == 'Unlisted' && isSignedIn()))
