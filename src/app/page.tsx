@@ -98,64 +98,60 @@ function ForYouTabContent() {
 
   return (
     <div className="pb-12 animate-in fade-in duration-700 space-y-12">
-      {/* Hero Carousel */}
-      <section className="w-full">
-        <Carousel
-          plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
-          opts={{ align: "start", loop: true }}
-          className="w-full"
-        >
-          <CarouselContent className="-ml-0">
-            {featuredStories.length > 0 ? featuredStories.map((story, index) => (
-              <CarouselItem key={story.id} className="pl-0 basis-full">
-                <Link href={`/stories/${story.id}`} className="block group">
-                  <div className="relative aspect-[16/9] md:aspect-[2.5/1] lg:aspect-[3/1] w-full overflow-hidden bg-muted transition-all duration-500">
-                    <Image
-                      src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/1600/900`}
-                      alt={story.title}
-                      fill
-                      className="object-cover transition-transform duration-1000 ease-out group-hover:scale-105"
-                      data-ai-hint="story high resolution cover"
-                      priority={index === 0}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent flex flex-col justify-end p-4 md:p-8 lg:p-12">
-                      <div className="container mx-auto max-w-7xl px-4 md:px-0">
-                        <div className="space-y-1 sm:space-y-2 max-w-2xl translate-y-2 sm:translate-y-4 group-hover:translate-y-0 transition-all duration-500">
-                          <Badge className="bg-primary text-primary-foreground mb-1 sm:mb-2 text-[10px] sm:text-xs">Featured</Badge>
-                          <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-headline font-bold text-foreground drop-shadow-lg line-clamp-2 leading-tight">
-                            {story.title}
-                          </h2>
-                          <p className="text-[10px] sm:text-base text-muted-foreground font-medium flex items-center gap-2">
-                            by <span className="text-foreground font-semibold">@{story.author.username}</span>
-                          </p>
-                          <div className="pt-2 sm:pt-4 flex items-center gap-3">
-                              <Button size="sm" className="rounded-full px-4 sm:px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
-                                  Start Reading
-                              </Button>
-                              <Button variant="outline" size="sm" className="rounded-full border-foreground/20 bg-background/50 backdrop-blur-md hover:bg-background/80 transition-all hidden sm:flex">
-                                  View Details
-                              </Button>
+      {/* Hero Carousel - Only visible if there are featured stories */}
+      {featuredStories.length > 0 && (
+        <section className="w-full">
+          <Carousel
+            plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
+            opts={{ align: "start", loop: true }}
+            className="w-full"
+          >
+            <CarouselContent className="-ml-0">
+              {featuredStories.map((story, index) => (
+                <CarouselItem key={story.id} className="pl-0 basis-full">
+                  <Link href={`/stories/${story.id}`} className="block group">
+                    <div className="relative aspect-[16/9] md:aspect-[2.5/1] lg:aspect-[3/1] w-full overflow-hidden bg-muted transition-all duration-500 rounded-none md:rounded-b-[40px]">
+                      <Image
+                        src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/1600/900`}
+                        alt={story.title}
+                        fill
+                        className="object-cover transition-transform duration-1000 ease-out group-hover:scale-105"
+                        data-ai-hint="story high resolution cover"
+                        priority={index === 0}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent flex flex-col justify-end p-4 md:p-8 lg:p-12">
+                        <div className="container mx-auto max-w-7xl px-4 md:px-0">
+                          <div className="space-y-1 sm:space-y-2 max-w-2xl translate-y-2 sm:translate-y-4 group-hover:translate-y-0 transition-all duration-500">
+                            <Badge className="bg-primary text-primary-foreground mb-1 sm:mb-2 text-[10px] sm:text-xs">Featured</Badge>
+                            <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-headline font-bold text-foreground drop-shadow-lg line-clamp-2 leading-tight">
+                              {story.title}
+                            </h2>
+                            <p className="text-[10px] sm:text-base text-muted-foreground font-medium flex items-center gap-2">
+                              by <span className="text-foreground font-semibold">@{story.author.username}</span>
+                            </p>
+                            <div className="pt-2 sm:pt-4 flex items-center gap-3">
+                                <Button size="sm" className="rounded-full px-4 sm:px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
+                                    Start Reading
+                                </Button>
+                                <Button variant="outline" size="sm" className="rounded-full border-foreground/20 bg-background/50 backdrop-blur-md hover:bg-background/80 transition-all hidden sm:flex">
+                                    View Details
+                                </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              </CarouselItem>
-            )) : (
-                <CarouselItem className="pl-0 basis-full">
-                    <div className="aspect-[16/9] w-full bg-muted border-2 border-dashed flex items-center justify-center">
-                        <p className="text-muted-foreground px-4 text-center">Welcome to D4RKV3NOM. Start creating stories to see them featured here.</p>
-                    </div>
+                  </Link>
                 </CarouselItem>
-            )}
-          </CarouselContent>
-          <div className="hidden md:block">
-            <CarouselPrevious className="left-8 bg-background/50 backdrop-blur-md border-none hover:bg-background/80 transition-colors" />
-            <CarouselNext className="right-8 bg-background/50 backdrop-blur-md border-none hover:bg-background/80 transition-colors" />
-          </div>
-        </Carousel>
-      </section>
+              ))}
+            </CarouselContent>
+            <div className="hidden md:block">
+              <CarouselPrevious className="left-8 bg-background/50 backdrop-blur-md border-none hover:bg-background/80 transition-colors" />
+              <CarouselNext className="right-8 bg-background/50 backdrop-blur-md border-none hover:bg-background/80 transition-colors" />
+            </div>
+          </Carousel>
+        </section>
+      )}
 
       {/* Discovery Rows */}
       <div className="container mx-auto max-w-7xl px-4 space-y-12">
@@ -215,6 +211,20 @@ function ForYouTabContent() {
               ))}
             </div>
           </section>
+        )}
+
+        {/* Global Empty State - Only if no stories or prompts exist */}
+        {allStories.length === 0 && prompts.length === 0 && (!user?.readingList || user.readingList.length === 0) && (
+          <div className="text-center py-32 bg-card/50 rounded-[40px] border-2 border-dashed border-border/40">
+              <div className="bg-muted/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Sparkles className="h-10 w-10 text-muted-foreground/30" />
+              </div>
+              <h3 className="text-2xl font-headline font-bold mb-2">The parchment is empty</h3>
+              <p className="text-muted-foreground max-w-xs mx-auto mb-8">The community is just getting started. Be the first to publish a public manuscript!</p>
+              <Link href="/write">
+                <Button className="rounded-full px-10 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 text-lg font-bold">Start Writing</Button>
+              </Link>
+          </div>
         )}
       </div>
     </div>
