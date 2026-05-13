@@ -24,11 +24,6 @@ service cloud.firestore {
     function getRole(userId) {
         return get(/databases/$(database)/documents/users/$(userId)).data.role;
     }
-    
-    function isWriter() {
-        // Now any authenticated user can write
-        return isSignedIn();
-    }
 
     // --- Collection Rules ---
 
@@ -49,12 +44,12 @@ service cloud.firestore {
     // Stories Collection
     match /stories/{storyId} {
       allow read: if resource.data.visibility == 'Public' 
-                    || (resource.data.visibility == 'Unlisted' && (isSignedIn() || true)) // Allow guests to read unlisted too if public URL shared
+                    || resource.data.visibility == 'Unlisted'
                     || (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()));
 
       allow create: if isSignedIn();
       
-      // Allow anyone with read access to increment views safely.
+      // Allow readers to increment views safely on Public/Unlisted stories.
       allow update: if (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()))
                     || (
                       (resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted')

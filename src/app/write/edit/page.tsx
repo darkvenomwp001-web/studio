@@ -97,10 +97,6 @@ const PRO_FONTS = [
   { name: 'Lora', value: 'Lora, serif' },
 ];
 
-type FontSize = 'sm' | 'base' | 'lg' | 'xl';
-type FontFamily = 'sans' | 'serif';
-type LineHeight = 'tight' | 'normal' | 'loose';
-
 const VersionHistoryManager = {
   getKey: (storyId: string, chapterId: string) => `versionHistory-${storyId}-${chapterId}`,
   getVersions: (storyId: string, chapterId: string): Array<{ timestamp: number; content: string; chapterTitle: string }> => {
@@ -410,7 +406,7 @@ function EditorContentInner() {
 
   const readingTimeMinutes = Math.max(1, Math.round(wordCount / 225));
 
-  const articleClasses = cn(
+  const articleClasses = useMemo(() => cn(
       "prose dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20",
       isZenFocus && "zen-focus-enabled",
       {
@@ -419,7 +415,15 @@ function EditorContentInner() {
         'leading-tight': lineHeight === 'tight', 'leading-normal': lineHeight === 'normal', 'leading-loose': lineHeight === 'loose',
         'max-w-3xl mx-auto': layoutWidth === 'normal', 'max-w-5xl mx-auto': layoutWidth === 'wide',
       }
-  );
+  ), [fontSize, fontFamily, lineHeight, layoutWidth, isZenFocus]);
+
+  if (isLoading || !storyDetails || !currentChapter || !editor) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={300}>
