@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -20,10 +21,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 const REACTION_OPTIONS = [
     { type: 'like' as const, emoji: '👍', label: 'Like', color: 'text-blue-500' },
-    { type: 'love' as const, emoji: '❤️', label: 'Love', color: 'text-red-500' },
-    { type: 'haha' as const, emoji: '😂', label: 'Haha', color: 'text-yellow-500' },
-    { type: 'happy' as const, emoji: '😊', label: 'Happy', color: 'text-yellow-500' },
-    { type: 'sad' as const, emoji: '😢', label: 'Sad', color: 'text-yellow-500' },
+    { type: 'love' as const, emoji: '❤️', label: 'Love', color: 'text-rose-500' },
+    { type: 'haha' as const, emoji: '😂', label: 'Haha', color: 'text-amber-500' },
+    { type: 'happy' as const, emoji: '😊', label: 'Happy', color: 'text-amber-400' },
+    { type: 'sad' as const, emoji: '😢', label: 'Sad', color: 'text-blue-400' },
     { type: 'angry' as const, emoji: '😡', label: 'Angry', color: 'text-orange-600' },
 ];
 
@@ -239,7 +240,7 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
                     <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase text-primary transition-all hover:bg-primary/5 active:scale-95" disabled={liveReactionsCount === 0}>
                         <div className="flex -space-x-1.5 mr-0.5 opacity-90 group-hover:opacity-100 transition-opacity">
                             {summaryIcons.map(o => (
-                                <span key={o.type} className="text-xs drop-shadow-md">{o.emoji}</span>
+                                <span key={o.type} className="text-xs drop-shadow-sm">{o.emoji}</span>
                             ))}
                         </div>
                         {liveReactionsCount > 0 ? liveReactionsCount : ''}
@@ -260,8 +261,8 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
                         variant="ghost"
                         size="sm"
                         className={cn(
-                            "h-9 px-4 gap-2 rounded-full transition-all duration-300 font-bold uppercase text-[11px] tracking-widest group",
-                            currentOption ? "bg-muted/50" : "text-muted-foreground hover:text-primary hover:bg-primary/5"
+                            "h-10 px-5 gap-2 rounded-full transition-all duration-300 font-bold uppercase text-[11px] tracking-widest group",
+                            currentOption ? "bg-muted/50 shadow-inner" : "text-muted-foreground hover:text-primary hover:bg-primary/5"
                         )}
                         disabled={isProcessing}
                         onClick={handleDefaultToggle}
@@ -270,17 +271,23 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
                         onMouseLeave={endPress}
                         onTouchStart={startPress}
                         onTouchEnd={endPress}
+                        onMouseEnter={() => {
+                          if (typeof window !== 'undefined' && window.innerWidth > 768) {
+                             // On desktop, we could trigger picker on hover, but popover standard is click.
+                             // We'll stick to long-press or direct click for now to avoid flickering.
+                          }
+                        }}
                     >
                         {isProcessing ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                         ) : currentOption ? (
                             <>
-                                <span className="text-lg animate-in zoom-in-50 duration-300 drop-shadow-sm">{currentOption.emoji}</span>
-                                <span className={cn(currentOption.color, "animate-in slide-in-from-left-2 duration-300")}>{currentOption.label}</span>
+                                <span className="text-2xl animate-in zoom-in-50 duration-500 transform-gpu drop-shadow-md">{currentOption.emoji}</span>
+                                <span className={cn(currentOption.color, "animate-in slide-in-from-left-2 duration-500 font-black")}>{currentOption.label}</span>
                             </>
                         ) : (
                             <>
-                                <ThumbsUp className="h-4 w-4 transition-transform group-hover:scale-110" />
+                                <ThumbsUp className="h-4 w-4 transition-transform group-hover:scale-110 group-hover:-rotate-12" />
                                 <span>Like</span>
                             </>
                         )}
@@ -289,25 +296,25 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
                 <PopoverContent 
                     side="top" 
                     align="start" 
-                    sideOffset={8}
-                    className="w-fit p-1.5 rounded-full bg-card/95 backdrop-blur-2xl border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom-2 duration-300"
+                    sideOffset={12}
+                    className="w-fit p-2 rounded-full bg-background/95 backdrop-blur-3xl border border-white/20 shadow-[0_30px_70px_rgba(0,0,0,0.4)] animate-in slide-in-from-bottom-4 zoom-in-90 duration-500 transform-gpu"
                 >
-                    <div className="flex items-center gap-1.5 px-1">
-                        <TooltipProvider>
+                    <div className="flex items-center gap-2 px-1">
+                        <TooltipProvider delayDuration={0}>
                             {REACTION_OPTIONS.map((option) => (
                                 <Tooltip key={option.type}>
                                     <TooltipTrigger asChild>
                                         <button
                                             onClick={() => handleReaction(option.type)}
                                             className={cn(
-                                                "h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 transform-gpu hover:scale-[1.35] hover:-translate-y-2 active:scale-95",
-                                                userReaction === option.type && "bg-primary/10 shadow-inner"
+                                                "h-14 w-14 rounded-full flex items-center justify-center transition-all duration-300 transform-gpu hover:scale-[1.5] hover:-translate-y-4 active:scale-90",
+                                                userReaction === option.type && "bg-primary/20 shadow-inner scale-110"
                                             )}
                                         >
-                                            <span className="text-3xl drop-shadow-md">{option.emoji}</span>
+                                            <span className="text-4xl drop-shadow-xl select-none">{option.emoji}</span>
                                         </button>
                                     </TooltipTrigger>
-                                    <TooltipContent side="top" className="rounded-full bg-black/80 text-white border-none font-bold text-[10px] uppercase tracking-widest px-3 py-1">
+                                    <TooltipContent side="top" sideOffset={20} className="rounded-full bg-black/90 text-white border-none font-bold text-[10px] uppercase tracking-widest px-4 py-1.5 shadow-2xl">
                                         {option.label}
                                     </TooltipContent>
                                 </Tooltip>
