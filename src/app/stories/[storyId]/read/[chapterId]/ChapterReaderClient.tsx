@@ -233,13 +233,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     if (viewIncrementedRef.current || !storyId) return;
     try {
       const storyRef = doc(db, 'stories', storyId);
-      updateDoc(storyRef, { views: increment(1) }).catch(async (serverError) => {
-          const permissionError = new FirestorePermissionError({
-              path: storyRef.path,
-              operation: 'update',
-              requestResourceData: { views: 'increment' },
-          } satisfies SecurityRuleContext);
-          errorEmitter.emit('permission-error', permissionError);
+      // Fail silently on view count failure to prevent crash for readers
+      updateDoc(storyRef, { views: increment(1) }).catch(() => {
+          console.warn("View counter skipped due to restricted permissions or offline state.");
       });
       viewIncrementedRef.current = true;
     } catch (error) {

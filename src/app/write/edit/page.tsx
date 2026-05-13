@@ -602,7 +602,7 @@ function EditorContentInner() {
                         </div>
                     </div>
                 </div>
-            </main>
+            </header>
 
             {/* Floating Studio Palette (Bottom Bar) */}
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[98vw] sm:max-w-fit px-2 animate-in slide-in-from-bottom-8 duration-700 transform-gpu">
