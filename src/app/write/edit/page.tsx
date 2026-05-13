@@ -138,7 +138,7 @@ function EditorContentInner() {
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
   const [isFrozen, setIsFrozen] = useState(false);
 
-  // Appearance parity states
+  // Appearance parity states for high-fidelity preview
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');

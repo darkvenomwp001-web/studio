@@ -394,6 +394,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
         const permissionError = new FirestorePermissionError({
             path: commentRef.path,
             operation: 'delete',
+            requestResourceData: { content: '' },
         } satisfies SecurityRuleContext);
         errorEmitter.emit('permission-error', permissionError);
     });

@@ -79,7 +79,6 @@ interface AuthContextType {
   updateUserProfile: (updates: Partial<AppUser>) => Promise<void>;
   updateUserEmailFirebase: (newEmail: string, currentPasswordForReAuth: string) => Promise<boolean>;
   updateUserPasswordFirebase: (currentPasswordForReReAuth: string, newPasswordVal: string) => Promise<boolean>;
-  updateUserPasswordFirebase: (currentPasswordForReReAuth: string, newPasswordVal: string) => Promise<boolean>;
   sendPasswordResetFirebase: (email: string) => Promise<boolean>;
   followUser: (targetUserId: string) => Promise<void>;
   unfollowUser: (targetUserId: string) => Promise<void>;

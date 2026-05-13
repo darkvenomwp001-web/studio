@@ -132,14 +132,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   // Annotation state
   const [annotationNote, setAnnotationNote] = useState("");
-  const [selectedHighlightColor, setSelectedHighlightColor] = useState("#fde047"); // Default yellow
+  const [selectedHighlightColor, setSelectedHighlightColor] = useState("#fde047"); 
   const [annotationVisibility, setAnnotationVisibility] = useState<'public' | 'private'>('public');
   const [lastSelectionRange, setLastSelectionRange] = useState<{ from: number, to: number } | null>(null);
 
-  // Disclaimer state
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
-
-  // Sync State
   const [isSynced, setIsSynced] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
@@ -172,7 +169,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
-  // Stable Content Sync Hook
   useEffect(() => {
     if (editor && currentChapter && !editor.isDestroyed) {
       if (editor.getHTML() !== currentChapter.content) {
@@ -724,7 +720,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                                 <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">Writer Perspective</span>
                                             </div>
                                         </Label>
-                                        <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} />
+                                        <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} className="scale-75" />
                                     </div>
                                     <p className="text-[10px] text-muted-foreground/60 leading-tight">
                                         Stop accidental typing while reviewing. Readers are always frozen.
