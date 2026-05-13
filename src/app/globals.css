@@ -1,10 +1,11 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
   @apply font-body;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* Added for Night Reading Portal */
@@ -46,7 +47,7 @@ body.night-portal {
 
     --ring: 210 60% 50%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
     --chart-1: 210 60% 50%;
     --chart-2: 180 50% 40%;
@@ -65,8 +66,8 @@ body.night-portal {
   }
 
   .dark {
-    --background: 210 10% 8%; /* Very dark blue-grey */
-    --foreground: 210 15% 92%; /* Light grey/blue for high contrast */
+    --background: 210 10% 8%; 
+    --foreground: 210 15% 92%; 
 
     --muted: 210 10% 18%; 
     --muted-foreground: 210 15% 65%; 
@@ -103,60 +104,31 @@ body.night-portal {
     --border: 0 0% 15%;
   }
 
-  /* Redesigned Accent Color Variants */
-  [data-accent="ube"] {
-    --primary: 262 48% 68%;
-    --accent: 262 48% 58%;
-    --ring: 262 48% 68%;
-  }
-  [data-accent="matcha"] {
-    --primary: 84 28% 54%;
-    --accent: 84 28% 44%;
-    --ring: 84 28% 54%;
-  }
-  [data-accent="chocolate"] {
-    --primary: 21 44% 28%;
-    --accent: 21 44% 20%;
-    --ring: 21 44% 28%;
-  }
-  [data-accent="hazel"] {
-    --primary: 30 33% 65%;
-    --accent: 30 33% 55%;
-    --ring: 30 33% 65%;
-  }
-  [data-accent="tangerine"] {
-    --primary: 20 100% 64%;
-    --accent: 20 100% 54%;
-    --ring: 20 100% 64%;
-  }
-  [data-accent="blueberry"] {
-    --primary: 210 70% 60%;
-    --accent: 210 70% 50%;
-    --ring: 210 70% 60%;
-  }
-  [data-accent="mint"] {
-    --primary: 160 50% 75%;
-    --accent: 160 50% 65%;
-    --ring: 160 50% 75%;
-  }
+  /* Accent Color Variants */
+  [data-accent="ube"] { --primary: 262 48% 68%; --accent: 262 48% 58%; --ring: 262 48% 68%; }
+  [data-accent="matcha"] { --primary: 84 28% 54%; --accent: 84 28% 44%; --ring: 84 28% 54%; }
+  [data-accent="chocolate"] { --primary: 21 44% 28%; --accent: 21 44% 20%; --ring: 21 44% 28%; }
+  [data-accent="hazel"] { --primary: 30 33% 65%; --accent: 30 33% 55%; --ring: 30 33% 65%; }
+  [data-accent="tangerine"] { --primary: 20 100% 64%; --accent: 20 100% 54%; --ring: 20 100% 64%; }
+  [data-accent="blueberry"] { --primary: 210 70% 60%; --accent: 210 70% 50%; --ring: 210 70% 60%; }
+  [data-accent="mint"] { --primary: 160 50% 75%; --accent: 160 50% 65%; --ring: 160 50% 75%; }
 
-  /* Glassmorphism Classes */
   .glass-enabled header,
-  .glass-enabled .glass-card {
-    @apply backdrop-blur-md bg-opacity-70;
-  }
+  .glass-enabled .glass-card { @apply backdrop-blur-md bg-opacity-70; }
 
-  /* Font Families */
   .font-sans-pref { font-family: var(--font-inter), sans-serif; }
   .font-serif-pref { font-family: var(--font-space-grotesk), serif; }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
   body {
-    @apply bg-background text-foreground scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent;
+    @apply bg-background text-foreground scrollbar-none md:scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent overflow-x-hidden w-full max-w-full;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-overflow-scrolling: touch;
   }
+}
+
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }

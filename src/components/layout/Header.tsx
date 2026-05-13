@@ -42,13 +42,14 @@ export default function Header() {
 
   const displayName = user?.displayName || user?.username;
   const isOwner = user && OWNER_HANDLES.includes(user.username);
-  // Any authenticated user can access the Write page
   const isWriter = !!user;
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Logo />
+    <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 border-b border-border/40">
+      <div className="container mx-auto flex h-14 md:h-16 items-center justify-between px-4">
+        <div className="flex-shrink-0 scale-90 md:scale-100 origin-left">
+          <Logo />
+        </div>
 
         <nav className="flex items-center gap-1 md:gap-2">
           <div className="hidden md:flex items-center gap-1">
@@ -65,26 +66,20 @@ export default function Header() {
             </div>
           ) : user ? (
             <Link href="/profile" passHref>
-              <Button variant="ghost" size="icon" aria-label="View Profile">
-                {user.avatarUrl ? (
-                  <Avatar className="h-7 w-7">
-                    <AvatarImage src={user.avatarUrl} alt={displayName || 'User'} data-ai-hint="profile person"/>
-                    <AvatarFallback>{displayName ? displayName.substring(0,1).toUpperCase() : 'U'}</AvatarFallback>
-                  </Avatar>
-                ) : ( 
-                  <Avatar className="h-7 w-7">
-                     <AvatarFallback>{displayName ? displayName.substring(0,1).toUpperCase() : 'U'}</AvatarFallback>
-                  </Avatar>
-                )}
+              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 rounded-full" aria-label="View Profile">
+                <Avatar className="h-7 w-7 md:h-8 md:w-8 border border-border/40">
+                  <AvatarImage src={user.avatarUrl} alt={displayName || 'User'} data-ai-hint="profile person"/>
+                  <AvatarFallback className="bg-primary/10 text-primary font-bold">{displayName ? displayName.substring(0,1).toUpperCase() : 'U'}</AvatarFallback>
+                </Avatar>
               </Button>
             </Link>
           ) : (
-            <div className="flex gap-2">
+            <div className="flex gap-2 scale-90 md:scale-100">
                 <Link href="/auth/signin" passHref>
-                    <Button variant="ghost">Sign In</Button>
+                    <Button variant="ghost" size="sm">Sign In</Button>
                 </Link>
                 <Link href="/auth/signup" passHref>
-                    <Button>Get Started</Button>
+                    <Button size="sm">Join</Button>
                 </Link>
             </div>
           )}

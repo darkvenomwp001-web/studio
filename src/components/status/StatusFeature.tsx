@@ -33,15 +33,15 @@ const gradientBackgrounds = [
 function CreateStatusBubble({ onClick }: { onClick: () => void }) {
   return (
     <div
-      className="relative text-center flex-shrink-0 w-20 cursor-pointer group"
+      className="relative text-center flex-shrink-0 w-16 md:w-20 cursor-pointer group"
       onClick={onClick}
     >
-      <div className="relative w-16 h-16 mx-auto group-hover:scale-105 transition-all">
-        <div className="w-16 h-16 rounded-full bg-muted border-2 border-dashed border-primary/40 flex items-center justify-center shadow-sm">
-            <Plus className="h-6 w-6 text-primary" />
+      <div className="relative w-14 h-14 md:w-16 md:h-16 mx-auto group-hover:scale-105 transition-all">
+        <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-muted border-2 border-dashed border-primary/40 flex items-center justify-center shadow-sm">
+            <Plus className="h-5 w-5 md:h-6 md:w-6 text-primary" />
         </div>
       </div>
-      <p className="text-[10px] font-bold uppercase mt-1.5 truncate tracking-tighter opacity-60">Add Status</p>
+      <p className="text-[9px] md:text-[10px] font-bold uppercase mt-1.5 truncate tracking-tighter opacity-60">Add Status</p>
     </div>
   );
 }
@@ -49,21 +49,21 @@ function CreateStatusBubble({ onClick }: { onClick: () => void }) {
 function StatusBubble({ user, onSelect, hasStatus, label }: { user: User, onSelect: (user: User) => void, hasStatus: boolean, label?: string }) {
   return (
     <div
-      className="relative text-center flex-shrink-0 w-20 cursor-pointer group"
+      className="relative text-center flex-shrink-0 w-16 md:w-20 cursor-pointer group"
       onClick={() => onSelect(user)}
     >
-      <div className="relative w-16 h-16 mx-auto group-hover:scale-110 transition-transform duration-200">
+      <div className="relative w-14 h-14 md:w-16 md:h-16 mx-auto group-hover:scale-110 transition-transform duration-200">
          <div className={cn(
-            "w-16 h-16 p-0.5 rounded-full",
+            "w-14 h-14 md:w-16 md:h-16 p-0.5 rounded-full",
             hasStatus ? "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500" : "bg-muted"
         )}>
             <Avatar className="w-full h-full border-2 border-background">
                 <AvatarImage src={user.avatarUrl} data-ai-hint="profile person" />
-                <AvatarFallback>{user.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
+                <AvatarFallback className="text-[10px] md:text-xs font-bold">{user.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
         </div>
       </div>
-      <p className="text-[10px] font-bold uppercase mt-1.5 truncate tracking-tighter">{label || user.displayName || user.username}</p>
+      <p className="text-[9px] md:text-[10px] font-bold uppercase mt-1.5 truncate tracking-tighter">{label || user.displayName || user.username}</p>
     </div>
   );
 }
@@ -307,19 +307,17 @@ export default function StatusFeature() {
   };
 
   return (
-    <div className='py-4 -mx-4 px-4 overflow-hidden border-b border-border/40 bg-card/20'>
-      <ScrollArea className="w-full whitespace-nowrap">
-        <div className="flex items-start space-x-4 pb-2">
+    <div className='py-4 -mx-4 px-4 overflow-hidden border-b border-border/40 bg-card/20 w-full max-w-full'>
+      <ScrollArea className="w-full whitespace-nowrap scrollbar-none">
+        <div className="flex items-start space-x-3 md:space-x-4 pb-2 px-1">
             {isLoading ? (
-                [...Array(6)].map((_, i) => <div key={i} className="w-16 h-16 rounded-full bg-muted animate-pulse flex-shrink-0" />)
+                [...Array(6)].map((_, i) => <div key={i} className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-muted animate-pulse flex-shrink-0" />)
             ) : (
                 <>
-                    {/* 1. Permanent Create Bubble */}
                     {user && !user.isAnonymous && (
                         <CreateStatusBubble onClick={() => setIsCreatorOpen(true)} />
                     )}
 
-                    {/* 2. All Users with Active Statuses */}
                     {statusOrder.map((userId) => {
                         const group = groupedStatuses.get(userId);
                         if (!group || group.statuses.length === 0) return null;
@@ -336,35 +334,35 @@ export default function StatusFeature() {
                 </>
             )}
         </div>
-        <ScrollBar orientation="horizontal" />
+        <ScrollBar orientation="horizontal" className="hidden" />
       </ScrollArea>
 
       <Dialog open={isCreatorOpen} onOpenChange={setIsCreatorOpen}>
-          <DialogContent className="sm:max-w-md rounded-3xl p-6 border-none shadow-2xl">
+          <DialogContent className="sm:max-w-md rounded-[2rem] p-6 border-none shadow-2xl mx-auto w-[90vw]">
               <DialogHeader>
                   <DialogTitle className="font-headline text-2xl">Create Status</DialogTitle>
                   <DialogDescription>What's your creative vibe today?</DialogDescription>
               </DialogHeader>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 py-6">
-                  <Button variant="outline" className="h-24 flex-col gap-2 rounded-2xl border-primary/20 hover:border-primary hover:bg-primary/5 transition-all" onClick={() => { setActiveUploaderTab('text'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
-                      <Type className="h-6 w-6 text-primary"/>
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Text</span>
+              <div className="grid grid-cols-3 gap-2 md:gap-3 py-6">
+                  <Button variant="outline" className="h-20 md:h-24 flex-col gap-2 rounded-2xl border-primary/20 hover:border-primary hover:bg-primary/5 transition-all p-2" onClick={() => { setActiveUploaderTab('text'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
+                      <Type className="h-5 w-5 md:h-6 md:w-6 text-primary"/>
+                      <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Text</span>
                   </Button>
-                  <Button variant="outline" className="h-24 flex-col gap-2 rounded-2xl border-accent/20 hover:border-accent hover:bg-accent/5 transition-all" onClick={() => mediaInputRef.current?.click()}>
-                      <LucideImageIcon className="h-6 w-6 text-accent"/>
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Art</span>
+                  <Button variant="outline" className="h-20 md:h-24 flex-col gap-2 rounded-2xl border-accent/20 hover:border-accent hover:bg-accent/5 transition-all p-2" onClick={() => mediaInputRef.current?.click()}>
+                      <LucideImageIcon className="h-5 w-5 md:h-6 md:w-6 text-accent"/>
+                      <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Art</span>
                   </Button>
-                  <Button variant="outline" className="h-24 flex-col gap-2 rounded-2xl border-green-500/20 hover:border-green-500 hover:bg-green-500/5 transition-all" onClick={() => { setActiveUploaderTab('music'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
-                      <Music className="h-6 w-6 text-green-500"/>
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Music</span>
+                  <Button variant="outline" className="h-20 md:h-24 flex-col gap-2 rounded-2xl border-green-500/20 hover:border-green-500 hover:bg-green-500/5 transition-all p-2" onClick={() => { setActiveUploaderTab('music'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
+                      <Music className="h-5 w-5 md:h-6 md:w-6 text-green-500"/>
+                      <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Music</span>
                   </Button>
-                  <Button variant="outline" className="h-24 flex-col gap-2 rounded-2xl border-orange-500/20 hover:border-orange-500 hover:bg-orange-500/5 transition-all" onClick={() => { setActiveUploaderTab('poll'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
-                      <BarChart2 className="h-6 w-6 text-orange-500"/>
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Poll</span>
+                  <Button variant="outline" className="h-20 md:h-24 flex-col gap-2 rounded-2xl border-orange-500/20 hover:border-orange-500 hover:bg-orange-500/5 transition-all p-2" onClick={() => { setActiveUploaderTab('poll'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
+                      <BarChart2 className="h-5 w-5 md:h-6 md:w-6 text-orange-500"/>
+                      <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Poll</span>
                   </Button>
-                  <Button variant="outline" className="h-24 flex-col gap-2 rounded-2xl border-purple-500/20 hover:border-purple-500 hover:bg-purple-500/5 transition-all" onClick={() => { setActiveUploaderTab('story'); setIsUploaderOpen(true); setIsCreatorOpen(false); searchMyStories(); }}>
-                      <BookOpen className="h-6 w-6 text-purple-500"/>
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Story</span>
+                  <Button variant="outline" className="h-20 md:h-24 flex-col gap-2 rounded-2xl border-purple-500/20 hover:border-purple-500 hover:bg-purple-500/5 transition-all p-2" onClick={() => { setActiveUploaderTab('story'); setIsUploaderOpen(true); setIsCreatorOpen(false); searchMyStories(); }}>
+                      <BookOpen className="h-5 w-5 md:h-6 md:w-6 text-purple-500"/>
+                      <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Story</span>
                   </Button>
                   <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaSelect} />
               </div>
@@ -372,13 +370,13 @@ export default function StatusFeature() {
       </Dialog>
 
       <Dialog open={isUploaderOpen} onOpenChange={(o) => { setIsUploaderOpen(o); if(!o) resetUploader(); }}>
-          <DialogContent className="p-0 border-none sm:max-w-md flex flex-col rounded-3xl overflow-hidden shadow-3xl">
-              <DialogHeader className="p-6 bg-muted/30 border-b">
-                  <DialogTitle className="font-headline text-xl">Status Content Creator</DialogTitle>
-                  <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Compose and style your temporary update</DialogDescription>
+          <DialogContent className="p-0 border-none sm:max-w-md flex flex-col rounded-[2.5rem] overflow-hidden shadow-3xl mx-auto w-[95vw] max-h-[90vh]">
+              <DialogHeader className="p-5 bg-muted/30 border-b">
+                  <DialogTitle className="font-headline text-xl">Status Studio</DialogTitle>
+                  <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Style your temporary update</DialogDescription>
               </DialogHeader>
               <div className={cn(
-                  "relative h-[450px] flex flex-col justify-center items-center text-white transition-all duration-500",
+                  "relative h-[380px] md:h-[450px] flex flex-col justify-center items-center text-white transition-all duration-500",
                   activeUploaderTab === 'text' ? backgroundStyle : 'bg-black'
               )}>
                   {activeUploaderTab === 'art' && mediaPreview && (
@@ -389,19 +387,22 @@ export default function StatusFeature() {
                                 value={noteContent}
                                 onChange={e => setNoteContent(e.target.value)}
                                 placeholder="Add a caption..."
-                                className="bg-black/40 backdrop-blur-md border-none text-white placeholder:text-white/50 rounded-xl resize-none shadow-lg h-24"
+                                className="bg-black/40 backdrop-blur-md border-none text-white placeholder:text-white/50 rounded-2xl resize-none shadow-lg h-24 text-sm"
                             />
                             {mediaType === 'image' && (
                                 <div className="mt-4 space-y-2">
                                     <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 font-bold text-[10px] uppercase tracking-widest gap-2" onClick={handleGenerateAiCaptions} disabled={isGeneratingAi}>
                                         {isGeneratingAi ? <Loader2 className="h-3 w-3 animate-spin"/> : <Sparkles className="h-3 w-3" />}
-                                        AI Suggestions
+                                        AI Hints
                                     </Button>
-                                    <div className="flex flex-wrap gap-1">
-                                        {aiSuggestions.map((s, i) => (
-                                            <button key={i} onClick={() => setNoteContent(s)} className="text-[9px] bg-white/10 hover:bg-white/30 px-2 py-1 rounded-full text-white truncate max-w-[120px] transition-all">"{s}"</button>
-                                        ))}
-                                    </div>
+                                    <ScrollArea className="w-full whitespace-nowrap">
+                                        <div className="flex gap-1 pb-1">
+                                            {aiSuggestions.map((s, i) => (
+                                                <button key={i} onClick={() => setNoteContent(s)} className="text-[9px] bg-white/20 hover:bg-white/40 px-3 py-1.5 rounded-full text-white truncate max-w-[120px] transition-all border border-white/10 font-bold uppercase tracking-tight">"{s}"</button>
+                                            ))}
+                                        </div>
+                                        <ScrollBar orientation="horizontal" className="hidden" />
+                                    </ScrollArea>
                                 </div>
                             )}
                         </div>
@@ -410,29 +411,29 @@ export default function StatusFeature() {
 
                   {activeUploaderTab === 'text' && (
                       <Textarea
-                        placeholder="What's your creative state?"
+                        placeholder="Share your creative state..."
                         value={noteContent}
                         onChange={e => setNoteContent(e.target.value)}
-                        className="bg-transparent border-0 focus-visible:ring-0 text-3xl font-bold text-center resize-none shadow-none placeholder:text-white/40 h-full flex items-center justify-center pt-24"
+                        className="bg-transparent border-0 focus-visible:ring-0 text-2xl md:text-3xl font-bold text-center resize-none shadow-none placeholder:text-white/40 h-full flex items-center justify-center pt-20 px-6"
                       />
                   )}
 
                   {activeUploaderTab === 'music' && (
-                      <div className="w-full h-full p-8 flex flex-col justify-center bg-gradient-to-br from-green-900 via-gray-900 to-black">
+                      <div className="w-full h-full p-6 flex flex-col justify-center bg-gradient-to-br from-green-900 via-gray-900 to-black">
                         {selectedSong ? (
                             <div className="space-y-6 text-center animate-in zoom-in-95">
-                                <div className="relative w-48 h-48 mx-auto rounded-xl overflow-hidden shadow-2xl">
+                                <div className="relative w-40 h-40 md:w-48 md:h-48 mx-auto rounded-2xl overflow-hidden shadow-2xl">
                                     <Image src={selectedSong.cover} alt="" layout="fill" objectFit="cover" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-bold">{selectedSong.title}</h3>
-                                    <p className="text-white/60">{selectedSong.artist}</p>
+                                    <h3 className="text-xl md:text-2xl font-bold truncate px-4">{selectedSong.title}</h3>
+                                    <p className="text-white/60 text-sm">{selectedSong.artist}</p>
                                 </div>
-                                <Button variant="ghost" className="text-white/50 hover:text-white" onClick={() => setSelectedSong(null)}>Change Song</Button>
+                                <Button variant="ghost" className="text-white/40 hover:text-white text-xs uppercase tracking-widest font-bold" onClick={() => setSelectedSong(null)}>Change Song</Button>
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <h3 className="text-center font-headline text-xl mb-6">Soundtrack your status</h3>
+                                <h3 className="text-center font-headline text-xl mb-4">Pick a soundtrack</h3>
                                 <SongSearch onSongSelect={setSelectedSong} />
                             </div>
                         )}
@@ -440,13 +441,13 @@ export default function StatusFeature() {
                   )}
 
                   {activeUploaderTab === 'poll' && (
-                      <div className="w-full h-full p-8 flex flex-col justify-center bg-gradient-to-br from-orange-400 to-rose-500">
-                          <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 space-y-4 shadow-xl border border-white/10">
+                      <div className="w-full h-full p-5 flex flex-col justify-center bg-gradient-to-br from-orange-400 to-rose-500">
+                          <div className="bg-white/10 backdrop-blur-md rounded-[2rem] p-6 space-y-4 shadow-xl border border-white/10 w-full">
                               <Input 
-                                placeholder="Ask a question..." 
+                                placeholder="Ask your community..." 
                                 value={pollQuestion} 
                                 onChange={e => setPollQuestion(e.target.value)}
-                                className="bg-transparent border-none text-white placeholder:text-white/50 text-xl font-bold p-0 h-auto"
+                                className="bg-transparent border-none text-white placeholder:text-white/50 text-lg md:text-xl font-bold p-0 h-auto focus-visible:ring-0"
                               />
                               <div className="space-y-2">
                                 {pollOptions.map((opt, i) => (
@@ -459,11 +460,11 @@ export default function StatusFeature() {
                                             newOpts[i] = e.target.value;
                                             setPollOptions(newOpts);
                                         }}
-                                        className="bg-white/20 border-none text-white h-11 rounded-xl"
+                                        className="bg-white/20 border-none text-white h-10 rounded-xl text-sm placeholder:text-white/30"
                                     />
                                 ))}
                                 {pollOptions.length < 4 && (
-                                    <Button variant="ghost" size="sm" className="text-white/60 hover:text-white" onClick={() => setPollOptions([...pollOptions, ''])}>+ Add Option</Button>
+                                    <Button variant="ghost" size="sm" className="text-white/60 hover:text-white text-[10px] font-bold uppercase tracking-widest" onClick={() => setPollOptions([...pollOptions, ''])}>+ Add Option</Button>
                                 )}
                               </div>
                           </div>
@@ -471,30 +472,30 @@ export default function StatusFeature() {
                   )}
 
                   {activeUploaderTab === 'story' && (
-                      <div className="w-full h-full p-8 flex flex-col justify-center bg-gradient-to-br from-purple-600 via-indigo-700 to-blue-800">
+                      <div className="w-full h-full p-6 flex flex-col justify-center bg-gradient-to-br from-purple-600 via-indigo-700 to-blue-800">
                           {selectedStory ? (
-                              <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-4 flex gap-4 items-center border border-white/20 shadow-2xl animate-in fade-in">
-                                  <div className="relative w-20 h-32 rounded-lg overflow-hidden flex-shrink-0 shadow-lg">
+                              <div className="bg-white/10 backdrop-blur-xl rounded-[2rem] p-4 flex gap-4 items-center border border-white/20 shadow-2xl animate-in fade-in w-full">
+                                  <div className="relative w-16 h-24 rounded-xl overflow-hidden flex-shrink-0 shadow-lg">
                                       <Image src={selectedStory.coverImageUrl || `https://picsum.photos/seed/${selectedStory.id}/512/800`} alt="" fill objectFit="cover" />
                                   </div>
                                   <div className="flex-1 overflow-hidden">
-                                      <h4 className="font-bold text-lg truncate">{selectedStory.title}</h4>
-                                      <p className="text-xs text-white/60 mb-2 truncate">@{selectedStory.author.username}</p>
-                                      <Badge className="bg-white/20 hover:bg-white/20 text-white border-none">{selectedStory.genre}</Badge>
+                                      <h4 className="font-bold text-base md:text-lg truncate">{selectedStory.title}</h4>
+                                      <p className="text-[10px] text-white/60 mb-2 truncate uppercase font-bold tracking-widest">@{selectedStory.author.username}</p>
+                                      <Badge className="bg-white/20 hover:bg-white/20 text-white border-none text-[8px] uppercase">{selectedStory.genre}</Badge>
                                   </div>
-                                  <Button variant="ghost" size="icon" onClick={() => setSelectedStory(null)}><X className="h-4 w-4"/></Button>
+                                  <Button variant="ghost" size="icon" className="text-white/50" onClick={() => setSelectedStory(null)}><X className="h-4 w-4"/></Button>
                               </div>
                           ) : (
                               <div className="space-y-4 h-full flex flex-col">
-                                  <h3 className="text-center font-headline text-xl mb-4">Share your latest work</h3>
+                                  <h3 className="text-center font-headline text-xl mb-2">Share your latest work</h3>
                                   <ScrollArea className="flex-1">
-                                      <div className="space-y-2">
+                                      <div className="space-y-1.5">
                                           {storySearchResults.map(s => (
                                               <div key={s.id} onClick={() => setSelectedStory(s)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl flex gap-3 items-center cursor-pointer transition-all border border-transparent hover:border-white/20">
-                                                  <div className="relative w-10 h-14 rounded overflow-hidden">
+                                                  <div className="relative w-8 h-12 rounded overflow-hidden">
                                                       <Image src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/80/120`} alt="" fill objectFit="cover" />
                                                   </div>
-                                                  <span className="font-bold text-sm truncate">{s.title}</span>
+                                                  <span className="font-bold text-xs truncate max-w-[150px]">{s.title}</span>
                                                   <ChevronRight className="h-4 w-4 ml-auto opacity-50" />
                                               </div>
                                           ))}
@@ -506,27 +507,29 @@ export default function StatusFeature() {
                   )}
               </div>
 
-              <div className="p-4 bg-background border-t space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex gap-2">
-                        {activeUploaderTab === 'text' && gradientBackgrounds.map(bg => (
-                            <button key={bg} onClick={() => setBackgroundStyle(bg)} className={cn("w-6 h-6 rounded-full border-2 transition-all", backgroundStyle === bg ? "border-primary scale-110 shadow-md" : "border-transparent", bg)} />
-                        ))}
-                    </div>
-                    <div className="flex items-center gap-3">
-                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Close Friends</span>
-                            <Switch checked={statusVisibility === 'close-friends'} onCheckedChange={(c) => setStatusVisibility(c ? 'close-friends' : 'public')} />
+              <div className="p-5 bg-background border-t space-y-5">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex justify-between items-center">
+                        <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-1">
+                            {activeUploaderTab === 'text' && gradientBackgrounds.map(bg => (
+                                <button key={bg} onClick={() => setBackgroundStyle(bg)} className={cn("w-6 h-6 rounded-full border-2 transition-all flex-shrink-0", backgroundStyle === bg ? "border-primary scale-110 shadow-md" : "border-transparent", bg)} />
+                            ))}
                         </div>
-                        <Button 
-                            onClick={handlePublishStatus} 
-                            disabled={isSubmitting || (activeUploaderTab === 'text' && !noteContent.trim()) || (activeUploaderTab === 'poll' && !pollQuestion.trim())} 
-                            className="rounded-full px-6 h-10 shadow-lg shadow-primary/20 font-bold"
-                        >
-                            {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                            Publish
-                        </Button>
+                        <div className="flex items-center gap-3">
+                             <div className="flex items-center gap-2">
+                                <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap">Close Friends</span>
+                                <Switch checked={statusVisibility === 'close-friends'} onCheckedChange={(c) => setStatusVisibility(c ? 'close-friends' : 'public')} className="scale-75 md:scale-100" />
+                            </div>
+                        </div>
                     </div>
+                    <Button 
+                        onClick={handlePublishStatus} 
+                        disabled={isSubmitting || (activeUploaderTab === 'text' && !noteContent.trim()) || (activeUploaderTab === 'poll' && !pollQuestion.trim())} 
+                        className="rounded-full w-full h-12 shadow-xl shadow-primary/20 font-bold uppercase tracking-widest text-xs"
+                    >
+                        {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                        Publish Status
+                    </Button>
                   </div>
               </div>
           </DialogContent>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -26,8 +25,8 @@ export default function BottomNavigationBar() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 h-16 border-t border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden">
-      <div className="container mx-auto flex h-full items-center justify-around px-1">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 h-16 border-t border-border/40 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 md:hidden safe-area-inset-bottom">
+      <div className="flex h-full items-center justify-between px-1">
         {navItems.map((item) => {
           if (item.requiresAuth && !user) {
             return null;
@@ -41,17 +40,20 @@ export default function BottomNavigationBar() {
           }
 
           return (
-            <Link key={item.href} href={item.href} passHref>
+            <Link key={item.href} href={item.href} className="flex-1 h-full">
               <div className={cn(
-                "relative flex flex-col items-center justify-center p-1 rounded-md transition-colors w-full h-full text-center",
-                isActive ? "text-primary" : "text-muted-foreground hover:text-foreground/80 hover:bg-muted/50"
+                "relative flex flex-col items-center justify-center gap-0.5 rounded-md transition-all duration-300 w-full h-full text-center",
+                isActive ? "text-primary scale-110" : "text-muted-foreground active:scale-95"
               )}>
-                <Icon className={cn("h-5 w-5 mb-0.5")} />
-                <span className="text-[0.65rem] font-medium leading-tight">{item.label}</span>
+                <Icon className={cn("h-5 w-5")} />
+                <span className="text-[10px] font-bold uppercase tracking-tighter leading-none">{item.label}</span>
                 {count > 0 && (
-                  <div className="absolute top-1 right-3 P-0.5 min-w-[1rem] h-4 bg-destructive text-destructive-foreground text-[0.6rem] rounded-full flex items-center justify-center">
+                  <div className="absolute top-2 right-1/2 translate-x-4 min-w-[14px] h-3.5 bg-destructive text-destructive-foreground text-[8px] font-black rounded-full flex items-center justify-center shadow-sm ring-1 ring-background">
                     {count > 9 ? '9+' : count}
                   </div>
+                )}
+                {isActive && (
+                  <div className="absolute bottom-1 w-1 h-1 bg-primary rounded-full animate-in fade-in zoom-in duration-300" />
                 )}
               </div>
             </Link>
