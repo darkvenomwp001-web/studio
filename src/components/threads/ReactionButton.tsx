@@ -1,13 +1,12 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { ReactionType, Reaction, ThreadPost, Broadcast } from '@/types';
+import type { ReactionType, Reaction } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ThumbsUp } from 'lucide-react';
 import { collection, doc, onSnapshot, runTransaction, serverTimestamp, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
@@ -17,15 +16,15 @@ import Link from 'next/link';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const REACTION_OPTIONS = [
-    { type: 'love' as const, emoji: '❤️', label: 'Love' },
-    { type: 'like' as const, emoji: '👍', label: 'Like' },
-    { type: 'haha' as const, emoji: '😂', label: 'Haha' },
-    { type: 'happy' as const, emoji: '😊', label: 'Happy' },
-    { type: 'sad' as const, emoji: '😢', label: 'Sad' },
-    { type: 'angry' as const, emoji: '😡', label: 'Angry' },
+    { type: 'like' as const, emoji: '👍', label: 'Like', color: 'text-blue-500' },
+    { type: 'love' as const, emoji: '❤️', label: 'Love', color: 'text-red-500' },
+    { type: 'haha' as const, emoji: '😂', label: 'Haha', color: 'text-yellow-500' },
+    { type: 'happy' as const, emoji: '😊', label: 'Happy', color: 'text-yellow-500' },
+    { type: 'sad' as const, emoji: '😢', label: 'Sad', color: 'text-yellow-500' },
+    { type: 'angry' as const, emoji: '😡', label: 'Angry', color: 'text-orange-600' },
 ];
 
 function ReactorsList({ postId, parentCollection }: { postId: string, parentCollection: string }) {
@@ -209,7 +208,7 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
         if (userReaction) {
             handleReaction(userReaction);
         } else {
-            handleReaction('love');
+            handleReaction('like');
         }
     };
 
@@ -229,6 +228,7 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
     const summaryIcons = useMemo(() => {
         return REACTION_OPTIONS
             .filter(o => (liveReactionCounts[o.type] || 0) > 0)
+            .sort((a,b) => (liveReactionCounts[b.type] || 0) - (liveReactionCounts[a.type] || 0))
             .slice(0, 3);
     }, [liveReactionCounts]);
 
@@ -237,16 +237,16 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
              <Dialog>
                 <DialogTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase text-primary transition-all hover:bg-primary/5 active:scale-95" disabled={liveReactionsCount === 0}>
-                        <div className="flex -space-x-2 mr-0.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <div className="flex -space-x-1.5 mr-0.5 opacity-90 group-hover:opacity-100 transition-opacity">
                             {summaryIcons.map(o => (
-                                <span key={o.type} className="text-xs drop-shadow-sm">{o.emoji}</span>
+                                <span key={o.type} className="text-xs drop-shadow-md">{o.emoji}</span>
                             ))}
                         </div>
                         {liveReactionsCount > 0 ? liveReactionsCount : ''}
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-xs sm:max-w-sm rounded-3xl border-none shadow-3xl">
-                     <DialogHeader>
+                <DialogContent className="max-w-xs sm:max-w-sm rounded-[32px] border-none shadow-3xl">
+                     <DialogHeader className="px-2 pt-2">
                         <DialogTitle className="font-headline text-xl">Reactions</DialogTitle>
                         <DialogDescription className="sr-only">List of people who reacted to this post</DialogDescription>
                     </DialogHeader>
@@ -258,10 +258,10 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
                 <PopoverTrigger asChild>
                     <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         className={cn(
-                            "h-10 w-10 rounded-full transition-all duration-300 transform-gpu",
-                            currentOption ? "bg-muted/50 scale-110 shadow-inner" : "text-muted-foreground hover:text-primary"
+                            "h-9 px-4 gap-2 rounded-full transition-all duration-300 font-bold uppercase text-[11px] tracking-widest group",
+                            currentOption ? "bg-muted/50" : "text-muted-foreground hover:text-primary hover:bg-primary/5"
                         )}
                         disabled={isProcessing}
                         onClick={handleDefaultToggle}
@@ -272,38 +272,47 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
                         onTouchEnd={endPress}
                     >
                         {isProcessing ? (
-                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                         ) : currentOption ? (
-                            <span className="text-2xl drop-shadow-md animate-in zoom-in-50 duration-300">{currentOption.emoji}</span>
+                            <>
+                                <span className="text-lg animate-in zoom-in-50 duration-300 drop-shadow-sm">{currentOption.emoji}</span>
+                                <span className={cn(currentOption.color, "animate-in slide-in-from-left-2 duration-300")}>{currentOption.label}</span>
+                            </>
                         ) : (
-                            <div className="relative flex items-center justify-center">
-                                <span className="text-2xl grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-100 transition-all">❤️</span>
-                            </div>
+                            <>
+                                <ThumbsUp className="h-4 w-4 transition-transform group-hover:scale-110" />
+                                <span>Like</span>
+                            </>
                         )}
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent 
                     side="top" 
                     align="start" 
-                    sideOffset={10}
-                    className="w-fit p-1.5 rounded-full bg-card/95 backdrop-blur-xl border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom-2 duration-300"
+                    sideOffset={8}
+                    className="w-fit p-1.5 rounded-full bg-card/95 backdrop-blur-2xl border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom-2 duration-300"
                 >
-                    <div className="flex items-center gap-1">
-                        {REACTION_OPTIONS.map((option) => (
-                            <TooltipProvider key={option.type}>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleReaction(option.type)}
-                                    className={cn(
-                                        "h-10 w-10 rounded-full hover:bg-muted transition-all hover:scale-125 hover:-translate-y-1 transform-gpu",
-                                        userReaction === option.type && "bg-muted shadow-inner scale-110"
-                                    )}
-                                >
-                                    <span className="text-2xl drop-shadow-md">{option.emoji}</span>
-                                </Button>
-                            </TooltipProvider>
-                        ))}
+                    <div className="flex items-center gap-1.5 px-1">
+                        <TooltipProvider>
+                            {REACTION_OPTIONS.map((option) => (
+                                <Tooltip key={option.type}>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            onClick={() => handleReaction(option.type)}
+                                            className={cn(
+                                                "h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 transform-gpu hover:scale-[1.35] hover:-translate-y-2 active:scale-95",
+                                                userReaction === option.type && "bg-primary/10 shadow-inner"
+                                            )}
+                                        >
+                                            <span className="text-3xl drop-shadow-md">{option.emoji}</span>
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="rounded-full bg-black/80 text-white border-none font-bold text-[10px] uppercase tracking-widest px-3 py-1">
+                                        {option.label}
+                                    </TooltipContent>
+                                </Tooltip>
+                            ))}
+                        </TooltipProvider>
                     </div>
                 </PopoverContent>
             </Popover>
