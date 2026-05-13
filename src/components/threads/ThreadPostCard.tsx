@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
@@ -320,7 +321,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                 </div>
             </CardContent>
             <CardFooter className="p-2 border-t border-border/40 flex items-center justify-between">
-              <ReactionButton postId={post.id} initialReactionsCount={post.reactionsCount || 0} />
+              <ReactionButton postId={post.id} parentCollection="feedPosts" initialReactionsCount={post.reactionsCount || 0} reactionCounts={post.reactionCounts} />
               <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary transition-colors gap-2">
                   <MessageCircle className="h-4 w-4" /> 

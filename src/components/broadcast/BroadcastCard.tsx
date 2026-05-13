@@ -215,7 +215,7 @@ export default function BroadcastCard({ broadcast, isOwner }: { broadcast: Broad
                 </CardContent>
 
                 <CardFooter className="p-4 bg-muted/10 border-t border-border/40 flex items-center justify-between">
-                    <ReactionButton postId={broadcast.id} initialReactionsCount={broadcast.reactionsCount || 0} />
+                    <ReactionButton postId={broadcast.id} parentCollection="broadcasts" initialReactionsCount={broadcast.reactionsCount || 0} reactionCounts={broadcast.reactionCounts} />
                     <DialogTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-9 px-4 gap-2 rounded-full font-bold text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all">
                             <MessageSquare className="h-4 w-4" />

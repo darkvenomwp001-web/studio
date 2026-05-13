@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { ReactionType, Reaction } from '@/types';
+import type { ReactionType, Reaction, ThreadPost, Broadcast } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { collection, doc, onSnapshot, runTransaction, serverTimestamp, increment } from 'firebase/firestore';
@@ -28,12 +28,12 @@ const REACTION_OPTIONS = [
     { type: 'angry' as const, emoji: '😡', label: 'Angry' },
 ];
 
-function ReactorsList({ postId }: { postId: string }) {
+function ReactorsList({ postId, parentCollection }: { postId: string, parentCollection: string }) {
     const [reactions, setReactions] = useState<Reaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const reactionsColRef = collection(db, 'feedPosts', postId, 'reactions');
+        const reactionsColRef = collection(db, parentCollection, postId, 'reactions');
         const unsubscribe = onSnapshot(
             reactionsColRef, 
             (snapshot) => {
@@ -46,7 +46,7 @@ function ReactorsList({ postId }: { postId: string }) {
             },
             async (serverError) => {
                 const permissionError = new FirestorePermissionError({
-                    path: `feedPosts/${postId}/reactions`,
+                    path: `${parentCollection}/${postId}/reactions`,
                     operation: 'list',
                 } satisfies SecurityRuleContext);
                 errorEmitter.emit('permission-error', permissionError);
@@ -55,7 +55,7 @@ function ReactorsList({ postId }: { postId: string }) {
         );
 
         return () => unsubscribe();
-    }, [postId]);
+    }, [postId, parentCollection]);
 
     if (isLoading) {
         return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -94,12 +94,19 @@ function ReactorsList({ postId }: { postId: string }) {
     );
 }
 
+interface ReactionButtonProps {
+    postId: string;
+    parentCollection?: 'feedPosts' | 'broadcasts';
+    initialReactionsCount: number;
+    reactionCounts?: Record<string, number>;
+}
 
-export default function ReactionButton({ postId, initialReactionsCount }: { postId: string, initialReactionsCount: number }) {
+export default function ReactionButton({ postId, parentCollection = 'feedPosts', initialReactionsCount, reactionCounts = {} }: ReactionButtonProps) {
     const { user } = useAuth();
     const { toast } = useToast();
     const [userReaction, setUserReaction] = useState<ReactionType | null>(null);
-    const [reactionsCount, setReactionsCount] = useState(initialReactionsCount);
+    const [liveReactionsCount, setLiveReactionsCount] = useState(initialReactionsCount);
+    const [liveReactionCounts, setLiveReactionCounts] = useState(reactionCounts);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isPickerOpen, setIsPickerOpen] = useState(false);
     
@@ -107,7 +114,7 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
 
     useEffect(() => {
         if (!user || !postId) return;
-        const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
+        const reactionRef = doc(db, parentCollection, postId, 'reactions', user.id);
         const unsubscribe = onSnapshot(
             reactionRef, 
             (docSnap) => {
@@ -126,18 +133,20 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
             }
         );
         return () => unsubscribe();
-    }, [postId, user]);
+    }, [postId, user, parentCollection]);
 
     useEffect(() => {
         if (!postId) return;
-        const postRef = doc(db, 'feedPosts', postId);
+        const postRef = doc(db, parentCollection, postId);
         const unsubscribe = onSnapshot(postRef, (snap) => {
             if (snap.exists()) {
-                setReactionsCount(snap.data().reactionsCount || 0);
+                const data = snap.data();
+                setLiveReactionsCount(data.reactionsCount || 0);
+                setLiveReactionCounts(data.reactionCounts || {});
             }
         });
         return () => unsubscribe();
-    }, [postId]);
+    }, [postId, parentCollection]);
 
     const handleReaction = (type: ReactionType) => {
         if (!user || user.isAnonymous) {
@@ -148,8 +157,8 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
         setIsProcessing(true);
         setIsPickerOpen(false);
         
-        const postRef = doc(db, 'feedPosts', postId);
-        const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
+        const postRef = doc(db, parentCollection, postId);
+        const reactionRef = doc(db, parentCollection, postId, 'reactions', user.id);
 
         runTransaction(db, async (transaction) => {
             const reactionDoc = await transaction.get(reactionRef);
@@ -158,9 +167,16 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
                 const existingType = reactionDoc.data().type;
                 if (existingType === type) {
                     transaction.delete(reactionRef);
-                    transaction.update(postRef, { reactionsCount: increment(-1) });
+                    transaction.update(postRef, { 
+                        reactionsCount: increment(-1),
+                        [`reactionCounts.${existingType}`]: increment(-1)
+                    });
                 } else {
                     transaction.update(reactionRef, { type, timestamp: serverTimestamp() });
+                    transaction.update(postRef, {
+                        [`reactionCounts.${existingType}`]: increment(-1),
+                        [`reactionCounts.${type}`]: increment(1)
+                    });
                 }
             } else {
                 const reactionData = { 
@@ -170,7 +186,10 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
                     user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
                 };
                 transaction.set(reactionRef, reactionData);
-                transaction.update(postRef, { reactionsCount: increment(1) });
+                transaction.update(postRef, { 
+                    reactionsCount: increment(1),
+                    [`reactionCounts.${type}`]: increment(1)
+                });
             }
         })
         .catch(async (serverError) => {
@@ -207,19 +226,23 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
     };
 
     const currentOption = REACTION_OPTIONS.find(o => o.type === userReaction);
-    const summaryIcons = REACTION_OPTIONS.slice(0, 3);
+    const summaryIcons = useMemo(() => {
+        return REACTION_OPTIONS
+            .filter(o => (liveReactionCounts[o.type] || 0) > 0)
+            .slice(0, 3);
+    }, [liveReactionCounts]);
 
     return (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 group">
              <Dialog>
                 <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase text-primary transition-all hover:bg-primary/5 active:scale-95" disabled={reactionsCount === 0}>
-                        <div className="flex -space-x-2 mr-0.5 opacity-80">
+                    <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase text-primary transition-all hover:bg-primary/5 active:scale-95" disabled={liveReactionsCount === 0}>
+                        <div className="flex -space-x-2 mr-0.5 opacity-80 group-hover:opacity-100 transition-opacity">
                             {summaryIcons.map(o => (
                                 <span key={o.type} className="text-xs drop-shadow-sm">{o.emoji}</span>
                             ))}
                         </div>
-                        {reactionsCount > 0 ? reactionsCount : ''}
+                        {liveReactionsCount > 0 ? liveReactionsCount : ''}
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-xs sm:max-w-sm rounded-3xl border-none shadow-3xl">
@@ -227,7 +250,7 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
                         <DialogTitle className="font-headline text-xl">Reactions</DialogTitle>
                         <DialogDescription className="sr-only">List of people who reacted to this post</DialogDescription>
                     </DialogHeader>
-                    <ReactorsList postId={postId} />
+                    <ReactorsList postId={postId} parentCollection={parentCollection} />
                 </DialogContent>
             </Dialog>
 
@@ -237,8 +260,8 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
                         variant="ghost"
                         size="icon"
                         className={cn(
-                            "group h-10 w-10 rounded-full transition-all duration-300 transform-gpu",
-                            currentOption ? "bg-muted/50 scale-110 shadow-inner" : "text-muted-foreground hover:text-red-500"
+                            "h-10 w-10 rounded-full transition-all duration-300 transform-gpu",
+                            currentOption ? "bg-muted/50 scale-110 shadow-inner" : "text-muted-foreground hover:text-primary"
                         )}
                         disabled={isProcessing}
                         onClick={handleDefaultToggle}
@@ -253,7 +276,9 @@ export default function ReactionButton({ postId, initialReactionsCount }: { post
                         ) : currentOption ? (
                             <span className="text-2xl drop-shadow-md animate-in zoom-in-50 duration-300">{currentOption.emoji}</span>
                         ) : (
-                            <span className="text-2xl grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-100 transition-all">❤️</span>
+                            <div className="relative flex items-center justify-center">
+                                <span className="text-2xl grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-100 transition-all">❤️</span>
+                            </div>
                         )}
                     </Button>
                 </PopoverTrigger>

@@ -63,7 +63,12 @@ service cloud.firestore {
     // Broadcasts Collection
     match /broadcasts/{broadcastId} {
       allow read: if true;
-      allow create, update, delete: if isAppOwner();
+      allow create, delete: if isAppOwner();
+      
+      // Allow community members to update reaction/comment tallies
+      allow update: if isAppOwner() || (
+        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'commentsCount'])
+      );
 
       match /comments/{commentId} {
         allow read: if true;
