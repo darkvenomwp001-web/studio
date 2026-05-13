@@ -41,7 +41,8 @@ import {
   Play,
   Square,
   Music,
-  AlertCircle
+  AlertCircle,
+  Pin
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';

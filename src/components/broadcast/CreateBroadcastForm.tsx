@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, ChangeEvent } from 'react';
@@ -18,7 +17,8 @@ import {
   Zap, 
   AlertTriangle, 
   Info,
-  BadgeAlert
+  BadgeAlert,
+  Pin
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -187,7 +187,7 @@ export default function CreateBroadcastForm() {
 
                 {imagePreview && (
                     <div className="relative aspect-video rounded-2xl overflow-hidden border border-border/40 shadow-lg group">
-                        <Image src={imagePreview} alt="Preview" fill className="object-cover" />
+                        <Image src={imagePreview} alt="Preview" layout="fill" objectFit="cover" />
                         <Button variant="destructive" size="icon" className="absolute top-2 right-2 rounded-full h-8 w-8 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setImageFile(null); setImagePreview(null); }}>
                             <X className="h-4 w-4" />
                         </Button>
