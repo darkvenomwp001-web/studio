@@ -112,6 +112,10 @@ const VersionHistoryManager = {
   },
 };
 
+type FontSize = 'sm' | 'base' | 'lg' | 'xl';
+type FontFamily = 'sans' | 'serif';
+type LineHeight = 'tight' | 'normal' | 'loose';
+
 function EditorContentInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -199,43 +203,53 @@ function EditorContentInner() {
       return;
     }
 
-    let unsubscribeStory: (() => void) | undefined;
+    if (!queryStoryId) {
+        router.push('/write');
+        return;
+    }
 
-    if (queryStoryId) {
-      setIsLoading(true);
-      const storyDocRef = doc(db, 'stories', queryStoryId);
-      unsubscribeStory = onSnapshot(storyDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
-          
-          if (storyData.author.id !== currentUser.id && !storyData.collaboratorIds?.includes(currentUser.id)) {
-            toast({ title: "Access Denied", description: "No editing permission.", variant: "destructive" });
-            router.push(`/stories/${queryStoryId}`);
-            return;
-          }
-          
-          setStoryDetails(storyData);
+    // Safety: If chapterId is missing, redirect back to details to pick one
+    if (!queryChapterId) {
+        router.push(`/write/edit-details?storyId=${queryStoryId}`);
+        return;
+    }
 
-          let chapterToEdit: Chapter | undefined;
-          if (queryChapterId) {
-            chapterToEdit = storyData.chapters.find(c => c.id === queryChapterId);
-          }
+    setIsLoading(true);
+    const storyDocRef = doc(db, 'stories', queryStoryId);
+    
+    const unsubscribeStory = onSnapshot(storyDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
+        
+        if (storyData.author.id !== currentUser.id && !storyData.collaboratorIds?.includes(currentUser.id)) {
+          toast({ title: "Access Denied", description: "No editing permission.", variant: "destructive" });
+          router.push(`/stories/${queryStoryId}`);
+          return;
+        }
+        
+        setStoryDetails(storyData);
 
-          if (chapterToEdit) {
-            setCurrentChapter(chapterToEdit);
-            setChapterTitle(chapterToEdit.title);
-            setChapterTags(chapterToEdit.tags || []);
-          }
+        const chapterToEdit = storyData.chapters.find(c => c.id === queryChapterId);
+
+        if (chapterToEdit) {
+          setCurrentChapter(chapterToEdit);
+          setChapterTitle(chapterToEdit.title);
+          setChapterTags(chapterToEdit.tags || []);
           setIsLoading(false);
         } else {
-          toast({ title: "Error", description: "Manuscript not found.", variant: "destructive" });
-          router.push('/write'); 
+          toast({ title: "Chapter Not Found", variant: "destructive" });
+          router.push(`/write/edit-details?storyId=${queryStoryId}`);
           setIsLoading(false);
         }
-      }, (error) => {
+      } else {
+        toast({ title: "Manuscript Not Found", variant: "destructive" });
+        router.push('/write'); 
         setIsLoading(false);
-      });
-    }
+      }
+    }, (error) => {
+      console.error("Studio data fetch error:", error);
+      setIsLoading(false);
+    });
     
     return () => {
       if (unsubscribeStory) unsubscribeStory();
@@ -608,12 +622,9 @@ function EditorContentInner() {
                     
                     {/* Stats Module */}
                     <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-muted/40 rounded-2xl mr-1 border border-border/40">
-                         <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none">Draft Stats</span>
-                            <div className="flex items-center gap-3 mt-1">
+                         <div className="flex items-center gap-3 mt-1">
                                 <span className="text-xs font-bold font-mono">{wordCount} W</span>
                                 <span className="text-xs font-bold font-mono">{readingTimeMinutes} M</span>
-                            </div>
                          </div>
                          <BarChart3 className="h-4 w-4 text-primary/40" />
                     </div>
@@ -785,7 +796,7 @@ function EditorContentInner() {
                         </div>
                         <div>
                             <AlertDialogTitle className="text-3xl font-headline font-bold text-foreground leading-none mb-1">{chapterTitle || 'Untitled Part'}</AlertDialogTitle>
-                            <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Immersive Reader Experience & bull; High Fidelity</AlertDialogDescription>
+                            <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Immersive Reader Experience &bull; High Fidelity</AlertDialogDescription>
                         </div>
                     </div>
                     <AlertDialogCancel className="rounded-full h-12 w-12 p-0 border-none bg-muted/40 hover:bg-destructive hover:text-white transition-all"><X className="h-5 w-5"/></AlertDialogCancel>
