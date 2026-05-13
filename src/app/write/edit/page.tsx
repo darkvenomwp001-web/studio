@@ -138,7 +138,7 @@ function EditorContentInner() {
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
   const [isFrozen, setIsFrozen] = useState(false);
 
-  // States for preview visual parity
+  // High Fidelity Visual Parity States
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
@@ -209,7 +209,6 @@ function EditorContentInner() {
         return;
     }
 
-    // Safety: If chapterId is missing, redirect back to details to pick or create one.
     if (!queryChapterId) {
         router.push(`/write/edit-details?storyId=${queryStoryId}`);
         return;
@@ -444,15 +443,12 @@ function EditorContentInner() {
     <TooltipProvider delayDuration={300}>
         <AlertDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
             <div className="flex flex-col min-h-screen bg-background text-foreground animate-in fade-in duration-700">
-                {/* Top Navigation Bar */}
                 <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 p-4 transform-gpu">
                     <div className="max-w-7xl mx-auto flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            {storyDetails && (
-                                <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
-                                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted"><ArrowLeft className="h-5 w-5" /></Button>
-                                </Link>
-                            )}
+                            <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
+                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted"><ArrowLeft className="h-5 w-5" /></Button>
+                            </Link>
                             <div className="hidden sm:block">
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none mb-1">Editing Manuscript</p>
                                 <h2 className="text-sm font-bold text-foreground truncate max-w-[200px]">{storyDetails.title}</h2>
@@ -501,13 +497,11 @@ function EditorContentInner() {
                     </div>
                 </header>
 
-                {/* Main Writing Canvas */}
                 <main className="flex-1 flex flex-col items-center py-6 md:py-10 px-0 sm:px-4 md:px-8">
                     <div className={cn(
                         "w-full transition-all duration-700",
                         layoutWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'
                     )}>
-                        {/* Cinematic Cover Area (Landscape) */}
                         <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-none sm:rounded-[40px] overflow-hidden bg-muted/50 border-b sm:border border-border/40 group mb-8 shadow-sm transform-gpu">
                             {currentChapter.artworkUrl ? (
                                 <NextImage src={currentChapter.artworkUrl} alt="Chapter Artwork" fill className="object-cover transition-transform duration-1000 group-hover:scale-[1.03]" priority />
@@ -537,7 +531,6 @@ function EditorContentInner() {
                         </div>
                         <input type="file" ref={artworkInputRef} className="hidden" accept="image/*" onChange={handleChapterArtworkUpload} />
 
-                        {/* Centered Title Section */}
                         <div className="space-y-4 text-center max-w-3xl mx-auto mb-12 px-4">
                             <Input
                                 type="text"
@@ -547,7 +540,6 @@ function EditorContentInner() {
                                 className="text-4xl md:text-7xl font-headline font-bold h-auto py-6 focus-visible:ring-0 border-0 bg-transparent shadow-none px-0 placeholder:text-muted-foreground/10 text-center tracking-tight leading-tight"
                             />
                             
-                            {/* Tags / Warnings System directly under Title */}
                             <div className="flex flex-col items-center gap-4 py-2">
                                 <div className="flex flex-wrap justify-center gap-2 px-4">
                                     {chapterTags.map(tag => (
@@ -581,14 +573,12 @@ function EditorContentInner() {
                             </div>
                         </div>
 
-                        {/* Paper Area */}
                         <div className={cn(
                             "relative bg-card rounded-none sm:rounded-[40px] border-y sm:border border-border/40 shadow-2xl min-h-[700px] flex flex-col transition-all duration-500 transform-gpu",
                             isZenFocus && "zen-mode shadow-none border-transparent bg-transparent"
                         )}>
                             <EditorContent editor={editor} className="flex-1 flex flex-col" />
                             
-                            {/* Inline Utility Toggles */}
                             <div className="absolute top-8 right-8 hidden lg:flex flex-col gap-3">
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -619,11 +609,9 @@ function EditorContentInner() {
                     </div>
                 </main>
 
-                {/* Floating Studio Palette (Bottom Bar) */}
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[98vw] sm:max-w-fit px-2 animate-in slide-in-from-bottom-8 duration-700 transform-gpu">
                     <div className="bg-card/90 backdrop-blur-2xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.4)] rounded-3xl p-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar">
                         
-                        {/* Stats Module */}
                         <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-muted/40 rounded-2xl mr-1 border border-border/40">
                             <div className="flex items-center gap-3 mt-1">
                                     <span className="text-xs font-bold font-mono">{wordCount} W</span>
@@ -790,7 +778,6 @@ function EditorContentInner() {
                     </div>
                 </div>
 
-                {/* High Fidelity Preview Modal */}
                 <AlertDialogContent className="max-w-6xl rounded-[40px] p-0 overflow-hidden border-none shadow-[0_50px_120px_rgba(0,0,0,0.5)] bg-background transform-gpu">
                     <AlertDialogHeader className="bg-muted/30 p-8 border-b flex flex-row justify-between items-center space-y-0">
                         <div className="flex items-center gap-4">
@@ -822,7 +809,6 @@ function EditorContentInner() {
                                 </div>
                             )}
                         </div>
-                        {/* Visual Parity Enforcement */}
                         <article className={articleClasses} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
                     </div>
                     <AlertDialogFooter className="p-6 bg-muted/20 border-t flex items-center justify-between">
@@ -832,34 +818,34 @@ function EditorContentInner() {
                 </AlertDialogContent>
 
             </div>
+            <style dangerouslySetInnerHTML={{ __html: `
+                .zen-mode .ProseMirror p {
+                    opacity: 0.2;
+                    transition: opacity 0.5s ease, filter 0.5s ease;
+                    filter: blur(2px);
+                }
+                .zen-mode .ProseMirror p:hover,
+                .zen-mode .ProseMirror p:focus,
+                .zen-mode .ProseMirror p:active {
+                    opacity: 1;
+                    filter: blur(0);
+                }
+                .ProseMirror {
+                    padding-bottom: 300px !important;
+                    outline: none !important;
+                }
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .no-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+                .no-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}} />
         </AlertDialog>
-        <style dangerouslySetInnerHTML={{ __html: `
-            .zen-mode .ProseMirror p {
-                opacity: 0.2;
-                transition: opacity 0.5s ease, filter 0.5s ease;
-                filter: blur(2px);
-            }
-            .zen-mode .ProseMirror p:hover,
-            .zen-mode .ProseMirror p:focus,
-            .zen-mode .ProseMirror p:active {
-                opacity: 1;
-                filter: blur(0);
-            }
-            .ProseMirror {
-                padding-bottom: 300px !important;
-                outline: none !important;
-            }
-            .scrollbar-hide::-webkit-scrollbar {
-                display: none;
-            }
-            .no-scrollbar::-webkit-scrollbar {
-                display: none;
-            }
-            .no-scrollbar {
-                -ms-overflow-style: none;
-                scrollbar-width: none;
-            }
-        `}} />
     </TooltipProvider>
   );
 }

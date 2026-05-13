@@ -27,6 +27,7 @@ import {
   doc,
   setDoc,
   updateDoc,
+  addDoc,
   serverTimestamp,
   collection,
   query,
@@ -282,7 +283,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType)));
         });
 
-        // Ensure redirect result is processed correctly
         getRedirectResult(auth).then((result) => {
             if (result) {
                 toast({ title: "Authenticated with Google" });
@@ -389,7 +389,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "Authenticated with Google" });
     } catch (error: any) {
       if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
-        // Automatically fallback to redirect if popups are blocked or requested specifically.
         try {
           await signInWithRedirect(auth, provider);
         } catch (redirectError: any) {
