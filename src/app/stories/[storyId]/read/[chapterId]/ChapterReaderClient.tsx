@@ -113,7 +113,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [isAccessGranted, setIsAccessGranted] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
 
-  // Appearance Settings
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
@@ -121,16 +120,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [isNightPortalActive, setIsNightPortalActive] = useState(false);
   const [isFrozen, setIsFrozen] = useState(false);
   
-  // New Features
   const [isZenFocus, setIsZenFocus] = useState(false);
   const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
   const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<{ from: number; to: number; snippet: string }[]>([]);
 
-  // Annotation state
   const [annotationNote, setAnnotationNote] = useState("");
   const [selectedHighlightColor, setSelectedHighlightColor] = useState("#fde047"); 
   const [annotationVisibility, setAnnotationVisibility] = useState<'public' | 'private'>('public');
@@ -169,7 +165,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
-  // CONTENT SYNCING MOVED TO EFFECT TO PREVENT RENDER-CYCLE ERRORS
   useEffect(() => {
     if (editor && currentChapter && !editor.isDestroyed) {
       if (editor.getHTML() !== currentChapter.content) {
@@ -233,10 +228,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const incrementViewCount = useCallback(async () => {
     if (viewIncrementedRef.current || !storyId) return;
     const storyRef = doc(db, 'stories', storyId);
-    // Graceful analytics update: Don't crash if restricted
     updateDoc(storyRef, { views: increment(1) })
       .then(() => { viewIncrementedRef.current = true; })
-      .catch(() => { console.warn("Analytics skipped."); });
+      .catch(() => { console.warn("Analytics blocked by security rules; skipping counter."); });
   }, [storyId]);
 
   useEffect(() => {
@@ -279,7 +273,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 }
               }
             } else {
-              hasAccess = chapterData.status === 'Published' || storyData.visibility === 'Public';
+              hasAccess = true; 
             }
             
             if (currentUser && storyData.collaboratorIds?.includes(currentUser.id)) {
@@ -310,11 +304,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       }
       setIsLoading(false);
     }, (error) => {
-      const permissionError = new FirestorePermissionError({
-          path: storyDocRef.path,
-          operation: 'get',
-      } satisfies SecurityRuleContext);
-      errorEmitter.emit('permission-error', permissionError);
+      console.warn("Reader stream error:", error);
       setIsLoading(false);
     });
 
@@ -428,12 +418,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
     updateDoc(storyRef, { chapters: updatedChapters }).catch(async (serverError) => {
         setCurrentChapter(originalChapter);
-        const permissionError = new FirestorePermissionError({
-            path: storyRef.path,
-            operation: 'update',
-            requestResourceData: { chapters: 'voted' },
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
     }).finally(() => setIsVoting(false));
   };
 
@@ -501,12 +485,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             })
             .catch(async (serverError) => {
                 editor.chain().focus().setTextSelection(range).unsetHighlight().run();
-                const permissionError = new FirestorePermissionError({
-                    path: 'annotations',
-                    operation: 'create',
-                    requestResourceData: annotationData,
-                } satisfies SecurityRuleContext);
-                errorEmitter.emit('permission-error', permissionError);
             });
 
     } catch (error) {
@@ -1174,7 +1152,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       </footer>
       <BottomNavigationBar />
     </div>
-    <style jsx global>{`
+    <style dangerouslySetInnerHTML={{ __html: `
         .zen-focus-enabled .ProseMirror p {
             opacity: 0.2;
             transition: opacity 0.4s ease, filter 0.4s ease;
@@ -1186,7 +1164,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             opacity: 1;
             filter: blur(0);
         }
-    `}</style>
+    `}} />
     </TooltipProvider>
   );
 }

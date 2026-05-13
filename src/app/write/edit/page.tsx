@@ -138,12 +138,10 @@ function EditorContentInner() {
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
   const [isFrozen, setIsFrozen] = useState(false);
 
-  // Appearance parity states for high-fidelity preview
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
 
-  // Chapter specific metadata
   const [chapterTags, setChapterTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
 
@@ -412,10 +410,6 @@ function EditorContentInner() {
 
   const readingTimeMinutes = Math.max(1, Math.round(wordCount / 225));
 
-  if (isLoading || authLoading || !editor || !storyDetails || !currentChapter) {
-    return <div className="fixed inset-0 flex justify-center items-center bg-background z-50"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
-  }
-
   const articleClasses = cn(
       "prose dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20",
       isZenFocus && "zen-focus-enabled",
@@ -602,7 +596,7 @@ function EditorContentInner() {
                         </div>
                     </div>
                 </div>
-            </header>
+            </main>
 
             {/* Floating Studio Palette (Bottom Bar) */}
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[98vw] sm:max-w-fit px-2 animate-in slide-in-from-bottom-8 duration-700 transform-gpu">
@@ -821,7 +815,7 @@ function EditorContentInner() {
 
         </div>
         </AlertDialog>
-        <style jsx global>{`
+        <style dangerouslySetInnerHTML={{ __html: `
             .zen-mode .ProseMirror p {
                 opacity: 0.2;
                 transition: opacity 0.5s ease, filter 0.5s ease;
@@ -847,7 +841,7 @@ function EditorContentInner() {
                 -ms-overflow-style: none;
                 scrollbar-width: none;
             }
-        `}</style>
+        `}} />
     </TooltipProvider>
   );
 }

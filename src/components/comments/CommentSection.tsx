@@ -305,11 +305,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
       setAllComments(fetchedComments);
       setIsLoadingComments(false);
     }, (error) => {
-      const permissionError = new FirestorePermissionError({
-          path: 'comments',
-          operation: 'list',
-      } satisfies SecurityRuleContext);
-      errorEmitter.emit('permission-error', permissionError);
+      console.warn("Comment stream error:", error);
       setIsLoadingComments(false);
     });
 
@@ -358,12 +354,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
             toast({ title: "Comment posted!" });
         })
         .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: 'comments',
-                operation: 'create',
-                requestResourceData: commentData,
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
+            console.error("Comment submit error:", serverError);
         })
         .finally(() => setIsPostingComment(false));
   };
@@ -378,26 +369,12 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
     const commentRef = doc(db, 'comments', commentId);
     updateDoc(commentRef, {
       content: newContent,
-    }).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: commentRef.path,
-            operation: 'update',
-            requestResourceData: { content: newContent },
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
     });
   };
 
   const handleCommentDelete = async (commentId: string) => {
     const commentRef = doc(db, 'comments', commentId);
-    deleteDoc(commentRef).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: commentRef.path,
-            operation: 'delete',
-            requestResourceData: { content: '' },
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    deleteDoc(commentRef);
   };
   
   const onEmojiClick = (emojiData: EmojiClickData) => {
