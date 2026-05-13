@@ -1,3 +1,4 @@
+
 'use client'; 
 
 import Link from 'next/link';
@@ -11,7 +12,8 @@ import {
   ChevronRight,
   Flame,
   LayoutGrid,
-  Quote
+  Quote,
+  Radio
 } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,6 +31,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import Autoplay from "embla-carousel-autoplay";
 import AnnotationFeed from '@/components/annotations/AnnotationFeed';
 import ThreadsFeed from '@/components/threads/ThreadsFeed';
+import BroadcastFeed from '@/components/broadcast/BroadcastFeed';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
@@ -226,6 +229,7 @@ export default function HomePage() {
     { value: 'for-you', label: 'For You', icon: <Sparkles className="h-4 w-4" /> },
     { value: 'annotations', label: 'Highlights', icon: <Quote className="h-4 w-4" /> },
     { value: 'feed', label: 'Community Feed', icon: <LayoutGrid className="h-4 w-4" /> },
+    { value: 'broadcast', label: 'Broadcast', icon: <Radio className="h-4 w-4" /> },
   ];
   
   if (authLoading) {
@@ -271,6 +275,16 @@ export default function HomePage() {
                         <p className="text-muted-foreground">Share updates, photos, and stories with the whole community.</p>
                     </div>
                     <ThreadsFeed />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="broadcast" className="animate-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none container mx-auto max-w-7xl px-4">
+                <div className="max-w-2xl mx-auto">
+                    <div className="mb-8 text-center">
+                        <h2 className="text-3xl font-headline font-bold text-foreground tracking-tight">Broadcast Hub</h2>
+                        <p className="text-muted-foreground">Official logs for new features, bug fixes, and maintenance.</p>
+                    </div>
+                    <BroadcastFeed />
                 </div>
               </TabsContent>
            </Tabs>

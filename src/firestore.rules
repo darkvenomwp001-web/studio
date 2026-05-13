@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -49,7 +50,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn();
       
-      // Allow ALL readers (even guests) to increment views safely on Public/Unlisted stories.
+      // Allow readers to increment views safely on Public/Unlisted stories.
       allow update: if (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()))
                     || (
                       (resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted')
@@ -57,6 +58,23 @@ service cloud.firestore {
                     );
 
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.author.id || isAppOwner());
+    }
+
+    // Broadcasts Collection
+    match /broadcasts/{broadcastId} {
+      allow read: if true;
+      allow create, update, delete: if isAppOwner();
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn();
+        allow update, delete: if isSignedIn() && (isOwner(resource.data.user.id) || isAppOwner());
+      }
+
+      match /reactions/{userId} {
+        allow read: if true;
+        allow create, update, delete: if isSignedIn() && isOwner(userId);
+      }
     }
 
     // Comments Collection on Chapters
@@ -159,11 +177,11 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
       
-      allow update: if isAppOwner() || isOwner(request.resource.data.author.id) || (
-        isSignedIn() && request.resource.data.diff(request.resource.data, resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount'])
+      allow update: if isAppOwner() || isOwner(resource.data.author.id) || (
+        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount'])
       );
                       
-      allow delete: if isAppOwner() || isOwner(request.resource.data.author.id);
+      allow delete: if isAppOwner() || isOwner(resource.data.author.id);
 
       match /comments/{commentId} {
         allow read: if true;

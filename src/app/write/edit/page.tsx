@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense, ChangeEvent } from 'react';
@@ -431,6 +432,34 @@ function EditorContentInner() {
       }
   );
 
+  const zenFocusStyles = `
+    .zen-mode .ProseMirror p {
+        opacity: 0.2;
+        transition: opacity 0.5s ease, filter 0.5s ease;
+        filter: blur(2px);
+    }
+    .zen-mode .ProseMirror p:hover,
+    .zen-mode .ProseMirror p:focus,
+    .zen-mode .ProseMirror p:active {
+        opacity: 1;
+        filter: blur(0);
+    }
+    .ProseMirror {
+        padding-bottom: 300px !important;
+        outline: none !important;
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+  `;
+
   if (isLoading || !storyDetails || !currentChapter || !editor) {
     return (
       <div className="flex justify-center items-center h-screen bg-background">
@@ -446,12 +475,14 @@ function EditorContentInner() {
                 <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 p-4 transform-gpu">
                     <div className="max-w-7xl mx-auto flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
-                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted"><ArrowLeft className="h-5 w-5" /></Button>
-                            </Link>
+                            {storyDetails && (
+                                <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
+                                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted"><ArrowLeft className="h-5 w-5" /></Button>
+                                </Link>
+                            )}
                             <div className="hidden sm:block">
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none mb-1">Editing Manuscript</p>
-                                <h2 className="text-sm font-bold text-foreground truncate max-w-[200px]">{storyDetails.title}</h2>
+                                <h2 className="text-sm font-bold text-foreground truncate max-w-[200px]">{storyDetails?.title}</h2>
                             </div>
                         </div>
 
@@ -580,6 +611,7 @@ function EditorContentInner() {
                             <EditorContent editor={editor} className="flex-1 flex flex-col" />
                             
                             <div className="absolute top-8 right-8 hidden lg:flex flex-col gap-3">
+                                <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button 
@@ -593,8 +625,10 @@ function EditorContentInner() {
                                     </TooltipTrigger>
                                     <TooltipContent side="left">Zen Mode</TooltipContent>
                                 </Tooltip>
+                                </TooltipProvider>
                                 
                                 {isAuthorOrCollaborator && (
+                                    <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <div className="p-2 rounded-full h-11 w-11 bg-background/80 backdrop-blur-sm border shadow-sm flex items-center justify-center">
@@ -603,6 +637,7 @@ function EditorContentInner() {
                                         </TooltipTrigger>
                                         <TooltipContent side="left">Freeze Mode</TooltipContent>
                                     </Tooltip>
+                                    </TooltipProvider>
                                 )}
                             </div>
                         </div>
@@ -626,6 +661,7 @@ function EditorContentInner() {
                         </div>
 
                         <Popover>
+                            <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <PopoverTrigger asChild>
@@ -637,6 +673,7 @@ function EditorContentInner() {
                                 </TooltipTrigger>
                                 <TooltipContent>Font Selection</TooltipContent>
                             </Tooltip>
+                            </TooltipProvider>
                             <PopoverContent className="w-60 p-2 rounded-2xl bg-card/95 backdrop-blur-xl border-white/10 shadow-3xl" side="top" align="center">
                                 <ScrollArea className="h-72">
                                     <div className="space-y-1">
@@ -670,6 +707,7 @@ function EditorContentInner() {
                         <Separator orientation="vertical" className="h-6" />
 
                         <Popover>
+                            <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <PopoverTrigger asChild>
@@ -683,6 +721,7 @@ function EditorContentInner() {
                                 </TooltipTrigger>
                                 <TooltipContent>Paragraph Flow</TooltipContent>
                             </Tooltip>
+                            </TooltipProvider>
                             <PopoverContent className="w-fit p-1.5 bg-card/95 backdrop-blur-xl border-white/10 rounded-2xl flex gap-1 shadow-2xl" side="top" align="center">
                                 {[
                                     { action: () => editor.chain().focus().setTextAlign('left').run(), icon: AlignLeft, value: 'left' },
@@ -725,6 +764,7 @@ function EditorContentInner() {
                                 </PopoverContent>
                             </Popover>
                             
+                            <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button 
@@ -738,8 +778,10 @@ function EditorContentInner() {
                                 </TooltipTrigger>
                                 <TooltipContent>Canvas Width</TooltipContent>
                             </Tooltip>
+                            </TooltipProvider>
 
                             <Popover>
+                                <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <PopoverTrigger asChild>
@@ -750,6 +792,7 @@ function EditorContentInner() {
                                     </TooltipTrigger>
                                     <TooltipContent>Story Bible</TooltipContent>
                                 </Tooltip>
+                                </TooltipProvider>
                                 <PopoverContent className="w-80 p-0 border-none shadow-3xl rounded-2xl overflow-hidden bg-card/95 backdrop-blur-xl" side="top" align="end">
                                     <div className="p-4 border-b bg-primary/5 flex items-center gap-2">
                                         <Book className="h-4 w-4 text-primary" />
@@ -764,6 +807,7 @@ function EditorContentInner() {
                                 </PopoverContent>
                             </Popover>
 
+                            <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <AlertDialogTrigger asChild>
@@ -774,6 +818,7 @@ function EditorContentInner() {
                                 </TooltipTrigger>
                                 <TooltipContent>Manuscript Preview</TooltipContent>
                             </Tooltip>
+                            </TooltipProvider>
                         </div>
                     </div>
                 </div>
@@ -786,7 +831,7 @@ function EditorContentInner() {
                             </div>
                             <div>
                                 <AlertDialogTitle className="text-3xl font-headline font-bold text-foreground leading-none mb-1">{chapterTitle || 'Untitled Part'}</AlertDialogTitle>
-                                <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Immersive Reader Experience &bull; High Fidelity</AlertDialogDescription>
+                                <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Immersive Reader Experience & bull; High Fidelity</AlertDialogDescription>
                             </div>
                         </div>
                         <AlertDialogCancel className="rounded-full h-12 w-12 p-0 border-none bg-muted/40 hover:bg-destructive hover:text-white transition-all"><X className="h-5 w-5"/></AlertDialogCancel>
@@ -818,33 +863,7 @@ function EditorContentInner() {
                 </AlertDialogContent>
 
             </div>
-            <style dangerouslySetInnerHTML={{ __html: `
-                .zen-mode .ProseMirror p {
-                    opacity: 0.2;
-                    transition: opacity 0.5s ease, filter 0.5s ease;
-                    filter: blur(2px);
-                }
-                .zen-mode .ProseMirror p:hover,
-                .zen-mode .ProseMirror p:focus,
-                .zen-mode .ProseMirror p:active {
-                    opacity: 1;
-                    filter: blur(0);
-                }
-                .ProseMirror {
-                    padding-bottom: 300px !important;
-                    outline: none !important;
-                }
-                .scrollbar-hide::-webkit-scrollbar {
-                    display: none;
-                }
-                .no-scrollbar::-webkit-scrollbar {
-                    display: none;
-                }
-                .no-scrollbar {
-                    -ms-overflow-style: none;
-                    scrollbar-width: none;
-                }
-            `}} />
+            <style dangerouslySetInnerHTML={{ __html: zenFocusStyles }} />
         </AlertDialog>
     </TooltipProvider>
   );

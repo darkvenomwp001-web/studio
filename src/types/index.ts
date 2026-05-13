@@ -280,6 +280,21 @@ export interface ThreadPost {
     }
 }
 
+export interface Broadcast {
+  id: string;
+  author: UserSummary;
+  content: string;
+  category: 'feature' | 'bugfix' | 'maintenance' | 'announcement';
+  status: 'new' | 'progress' | 'live' | 'fixed';
+  priority: 'low' | 'normal' | 'high';
+  isPinned: boolean;
+  imageUrl?: string;
+  timestamp: any;
+  reactionsCount: number;
+  reactionCounts?: Record<ReactionType, number>;
+  commentsCount: number;
+}
+
 export interface Prompt {
     id: string;
     title: string;
