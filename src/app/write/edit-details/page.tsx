@@ -258,9 +258,35 @@ function StoryDetailsInner() {
     }
   };
 
-  const handleAddChapter = () => {
+  const handleAddChapter = async () => {
       if (!story) return;
-      router.push(`/write/edit?storyId=${story.id}`);
+      
+      // We initialize a new chapter record before navigating to the editor to ensure it doesn't hang or redirect back.
+      const newChapterId = `chapter-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const newChapter: Chapter = {
+        id: newChapterId,
+        title: 'Untitled Part',
+        content: '<p>Start writing your masterpiece here...</p>',
+        order: story.chapters.length + 1,
+        status: 'Draft',
+        accessType: 'public',
+        wordCount: 0,
+        votes: 0,
+        voterIds: [],
+        tags: []
+      };
+
+      const storyRef = doc(db, 'stories', story.id);
+      
+      try {
+        await updateDoc(storyRef, {
+            chapters: arrayUnion(newChapter),
+            lastUpdated: serverTimestamp()
+        });
+        router.push(`/write/edit?storyId=${story.id}&chapterId=${newChapterId}`);
+      } catch (error) {
+        toast({ title: "Error creating part", variant: "destructive" });
+      }
   };
 
   const handleDeleteChapter = async (chapterId: string) => {

@@ -54,7 +54,6 @@ interface AppUser extends AppUserType {
   followingIds?: string[];
   createdAt?: any; 
   updatedAt?: any; 
-  isAnonymous?: boolean;
   writtenStories?: Story[];
 }
 
@@ -187,10 +186,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
 
-            const storiesQuery = query(collection(db, "stories"), where("author.id", "==", firebaseUser.uid));
-            const storiesSnapshot = await getDocs(storiesQuery);
-            const writtenStories = storiesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
-
             const fullUser: AppUser = {
               id: firebaseUser.uid,
               email: firebaseUser.email || firestoreUserData.email,
@@ -210,7 +205,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followingIds: firestoreUserData.followingIds || [],
               closeFriendIds: firestoreUserData.closeFriendIds || [],
               fcmTokens: firestoreUserData.fcmTokens || [],
-              writtenStories: writtenStories,
               readingList: firestoreUserData.readingList || [],
               isAnonymous: firebaseUser.isAnonymous,
               isVerified: firestoreUserData.isVerified || false,
@@ -254,7 +248,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followingIds: [],
               closeFriendIds: [],
               fcmTokens: [],
-              writtenStories: [],
               readingList: [],
               isAnonymous: isAnonymous,
               createdAt: serverTimestamp(),
@@ -289,13 +282,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType)));
         });
 
-        // Handle Redirect Result
+        // Ensure redirect result is processed correctly
         getRedirectResult(auth).then((result) => {
             if (result) {
                 toast({ title: "Authenticated with Google" });
             }
         }).catch((error) => {
-            console.error("Redirect Sign-in error:", error);
+            console.error("Redirect check failed:", error);
         });
         
       } else {
@@ -317,17 +310,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading) return;
-
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
-
     if (user && !user.isAnonymous) {
-        if (isAuthRoute) {
-            router.push(DEFAULT_REDIRECT_AUTHENTICATED);
-        }
+        if (isAuthRoute) router.push(DEFAULT_REDIRECT_AUTHENTICATED);
     } else {
-        if (!isAuthRoute) {
-            router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
-        }
+        if (!isAuthRoute) router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
     }
   }, [user, loading, pathname, router]);
 
@@ -384,7 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const sendVerificationEmail = async () => {
-    toast({ title: "Note", description: "Email verification is disabled." });
+    toast({ title: "Note", description: "Email verification is currently managed internally." });
   };
 
   const reloadUser = async () => {
@@ -402,37 +389,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "Authenticated with Google" });
     } catch (error: any) {
       if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
+        // Automatically fallback to redirect if popups are blocked or requested specifically.
         try {
           await signInWithRedirect(auth, provider);
         } catch (redirectError: any) {
-          toast({ title: "Sign-In Error", description: redirectError.message || "Redirect sign-in failed.", variant: "destructive" });
+          toast({ title: "Sign-In Error", description: redirectError.message || "Please allow redirects or check your internet.", variant: "destructive" });
         }
       } else {
-        toast({ title: "Sign-In Error", description: error.message || "Failed to connect with Google. Ensure authorized domains are set.", variant: "destructive" });
+        toast({ title: "Sign-In Error", description: error.message || "Failed to connect with Google.", variant: "destructive" });
       }
     } finally {
       setAuthLoading(false);
     }
   };
 
-  const isUsernameTaken = async (username: string, currentUserId?: string): Promise<boolean> => {
-    const q = query(collection(db, 'users'), where('username', '==', username.toLowerCase()), limit(1));
-    const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) return false;
-    if (currentUserId && querySnapshot.docs[0].id === currentUserId) return false;
-    return true;
-  };
-
   const signUpWithEmailPassword = async ({ username, email, passwordOne }: { username: string; email: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
-      const taken = await isUsernameTaken(username);
-      if (taken) {
-        toast({ title: "Username Taken", variant: "destructive" });
-        setAuthLoading(false);
-        return;
-      }
-
       await createUserWithEmailAndPassword(auth, email, passwordOne);
       toast({ title: "Account Created!" });
     } catch (error: any) {
@@ -488,21 +461,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUserProfile = async (updates: Partial<AppUser>) => {
     if (!user) return;
-
-    if (updates.username && updates.username !== user.username) {
-        const taken = await isUsernameTaken(updates.username, user.id);
-        if (taken) {
-            toast({ title: "Username Taken", variant: "destructive" });
-            return;
-        }
-    }
-
     const userRef = doc(db, 'users', user.id);
     const updateData = { ...updates, updatedAt: serverTimestamp() };
-    
     try {
         await updateDoc(userRef, updateData);
-        
         if (updates.username || updates.displayName || updates.avatarUrl) {
             const batch = writeBatch(db);
             const newSummary = {
@@ -523,10 +485,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const commentsQuery = query(collection(db, 'comments'), where('user.id', '==', user.id));
             const commentsSnapshot = await getDocs(commentsQuery);
             commentsSnapshot.forEach(d => batch.update(d.ref, { user: newSummary }));
-
-            const notificationsQuery = query(collection(db, 'notifications'), where('actor.id', '==', user.id));
-            const notificationsSnapshot = await getDocs(notificationsQuery);
-            notificationsSnapshot.forEach(d => batch.update(d.ref, { actor: newSummary }));
 
             await batch.commit();
         }

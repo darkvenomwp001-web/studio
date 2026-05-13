@@ -49,7 +49,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn();
       
-      // Allow readers to increment views safely on Public/Unlisted stories.
+      // Allow readers (even guest/unauthenticated) to increment views safely on Public/Unlisted stories.
       allow update: if (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()))
                     || (
                       (resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted')
@@ -159,11 +159,11 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
       
-      allow update: if isAppOwner() || isOwner(resource.data.author.id) || (
-        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount'])
+      allow update: if isAppOwner() || isOwner(request.resource.data.author.id) || (
+        isSignedIn() && request.resource.data.diff(request.resource.data, resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount'])
       );
                       
-      allow delete: if isAppOwner() || isOwner(resource.data.author.id);
+      allow delete: if isAppOwner() || isOwner(request.resource.data.author.id);
 
       match /comments/{commentId} {
         allow read: if true;

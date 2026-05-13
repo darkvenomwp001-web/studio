@@ -165,13 +165,14 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
+  // Synchronize editor content in a stable useEffect to avoid React render-cycle warnings.
   useEffect(() => {
     if (editor && currentChapter && !editor.isDestroyed) {
       if (editor.getHTML() !== currentChapter.content) {
         editor.commands.setContent(currentChapter.content, false);
       }
     }
-  }, [editor, currentChapter?.id]);
+  }, [editor, currentChapter?.id, currentChapter?.content]);
 
   useEffect(() => {
     const savedFontSize = localStorage.getItem('reader-font-size') as FontSize;
@@ -230,7 +231,10 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     const storyRef = doc(db, 'stories', storyId);
     updateDoc(storyRef, { views: increment(1) })
       .then(() => { viewIncrementedRef.current = true; })
-      .catch(() => { console.warn("Analytics blocked by security rules; skipping counter."); });
+      .catch((error) => {
+          // Unauthenticated or restricted analytics updates shouldn't crash the reader.
+          console.warn("Analytics update failed gracefully.");
+      });
   }, [storyId]);
 
   useEffect(() => {

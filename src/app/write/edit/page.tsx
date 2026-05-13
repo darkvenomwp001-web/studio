@@ -138,6 +138,7 @@ function EditorContentInner() {
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
   const [isFrozen, setIsFrozen] = useState(false);
 
+  // States for preview visual parity
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
@@ -208,7 +209,7 @@ function EditorContentInner() {
         return;
     }
 
-    // Safety: If chapterId is missing, redirect back to details to pick one
+    // Safety: If chapterId is missing, redirect back to details to pick or create one.
     if (!queryChapterId) {
         router.push(`/write/edit-details?storyId=${queryStoryId}`);
         return;
@@ -420,7 +421,7 @@ function EditorContentInner() {
 
   const readingTimeMinutes = Math.max(1, Math.round(wordCount / 225));
 
-  const articleClasses = useMemo(() => cn(
+  const articleClasses = cn(
       "prose dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20",
       isZenFocus && "zen-focus-enabled",
       {
@@ -429,7 +430,7 @@ function EditorContentInner() {
         'leading-tight': lineHeight === 'tight', 'leading-normal': lineHeight === 'normal', 'leading-loose': lineHeight === 'loose',
         'max-w-3xl mx-auto': layoutWidth === 'normal', 'max-w-5xl mx-auto': layoutWidth === 'wide',
       }
-  ), [fontSize, fontFamily, lineHeight, layoutWidth, isZenFocus]);
+  );
 
   if (isLoading || !storyDetails || !currentChapter || !editor) {
     return (
@@ -442,393 +443,395 @@ function EditorContentInner() {
   return (
     <TooltipProvider delayDuration={300}>
         <AlertDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <div className="flex flex-col min-h-screen bg-background text-foreground animate-in fade-in duration-700">
-            {/* Top Navigation Bar */}
-            <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 p-4 transform-gpu">
-                <div className="max-w-7xl mx-auto flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
-                            <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted"><ArrowLeft className="h-5 w-5" /></Button>
-                        </Link>
-                        <div className="hidden sm:block">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none mb-1">Editing Manuscript</p>
-                            <h2 className="text-sm font-bold text-foreground truncate max-w-[200px]">{storyDetails.title}</h2>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        <div className={cn(
-                            "flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm transition-all",
-                            autoSaveStatus === 'Saved' ? 'bg-green-500/10 text-green-600 border-green-500/20' : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
-                        )}>
-                            {autoSaveStatus === 'Saving...' || autoSaveStatus === 'Typing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
-                            {autoSaveStatus}
+            <div className="flex flex-col min-h-screen bg-background text-foreground animate-in fade-in duration-700">
+                {/* Top Navigation Bar */}
+                <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 p-4 transform-gpu">
+                    <div className="max-w-7xl mx-auto flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            {storyDetails && (
+                                <Link href={`/write/edit-details?storyId=${storyDetails.id}`} passHref>
+                                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted"><ArrowLeft className="h-5 w-5" /></Button>
+                                </Link>
+                            )}
+                            <div className="hidden sm:block">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none mb-1">Editing Manuscript</p>
+                                <h2 className="text-sm font-bold text-foreground truncate max-w-[200px]">{storyDetails.title}</h2>
+                            </div>
                         </div>
 
-                        <div className="flex items-center gap-2 ml-4">
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="rounded-full font-bold text-xs uppercase tracking-widest gap-2 hidden md:flex">
-                                    <Eye className="h-4 w-4" /> Preview
-                                </Button>
-                            </AlertDialogTrigger>
-                            <Button onClick={() => handleSaveDraft(true)} variant="ghost" size="sm" className="rounded-full font-bold text-xs uppercase tracking-widest hidden md:flex">
-                                <Save className="h-4 w-4" /> Save
-                            </Button>
-                            <AlertDialog>
+                        <div className="flex items-center gap-3">
+                            <div className={cn(
+                                "flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm transition-all",
+                                autoSaveStatus === 'Saved' ? 'bg-green-500/10 text-green-600 border-green-500/20' : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+                            )}>
+                                {autoSaveStatus === 'Saving...' || autoSaveStatus === 'Typing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                                {autoSaveStatus}
+                            </div>
+
+                            <div className="flex items-center gap-2 ml-4">
                                 <AlertDialogTrigger asChild>
-                                    <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-widest px-6 rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
-                                        Publish
+                                    <Button variant="ghost" size="sm" className="rounded-full font-bold text-xs uppercase tracking-widest gap-2 hidden md:flex">
+                                        <Eye className="h-4 w-4" /> Preview
                                     </Button>
                                 </AlertDialogTrigger>
-                                <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle className="font-headline text-3xl font-bold">Ready to Publish?</AlertDialogTitle>
-                                        <AlertDialogDescription className="text-base text-muted-foreground leading-relaxed">
-                                            This will make your new chapter <strong>"{chapterTitle}"</strong> available to your readers immediately.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel className="rounded-full px-8 font-bold">Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handlePublishChapter} className="bg-primary hover:bg-primary/90 rounded-full px-10 font-bold shadow-lg shadow-primary/30">Confirm & Release</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            {/* Main Writing Canvas */}
-            <main className="flex-1 flex flex-col items-center py-6 md:py-10 px-0 sm:px-4 md:px-8">
-                <div className={cn(
-                    "w-full transition-all duration-700",
-                    layoutWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'
-                )}>
-                    {/* Cinematic Cover Area (Landscape) */}
-                    <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-none sm:rounded-[40px] overflow-hidden bg-muted/50 border-b sm:border border-border/40 group mb-8 shadow-sm transform-gpu">
-                        {currentChapter.artworkUrl ? (
-                            <NextImage src={currentChapter.artworkUrl} alt="Chapter Artwork" fill className="object-cover transition-transform duration-1000 group-hover:scale-[1.03]" priority />
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30 animate-pulse">
-                                <ImagePlus className="h-12 w-12 mb-2" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest">Landscape Chapter Art</p>
-                            </div>
-                        )}
-                        {isAuthorOrCollaborator && (
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100 backdrop-blur-[2px]">
-                                <Button 
-                                    variant="outline" 
-                                    className="bg-white/10 hover:bg-white/20 backdrop-blur-md border-white/20 text-white rounded-full gap-2 font-bold uppercase text-[10px] tracking-widest h-11 px-6 shadow-2xl" 
-                                    onClick={() => artworkInputRef.current?.click()}
-                                >
-                                    <Camera className="h-4 w-4" />
-                                    Set Chapter Art
+                                <Button onClick={() => handleSaveDraft(true)} variant="ghost" size="sm" className="rounded-full font-bold text-xs uppercase tracking-widest hidden md:flex">
+                                    <Save className="h-4 w-4" /> Save
                                 </Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-widest px-6 rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
+                                            Publish
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle className="font-headline text-3xl font-bold">Ready to Publish?</AlertDialogTitle>
+                                            <AlertDialogDescription className="text-base text-muted-foreground leading-relaxed">
+                                                This will make your new chapter <strong>"{chapterTitle}"</strong> available to your readers immediately.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel className="rounded-full px-8 font-bold">Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handlePublishChapter} className="bg-primary hover:bg-primary/90 rounded-full px-10 font-bold shadow-lg shadow-primary/30">Confirm & Release</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             </div>
-                        )}
-                        {isUploadingArtwork && (
-                            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            </div>
-                        )}
-                    </div>
-                    <input type="file" ref={artworkInputRef} className="hidden" accept="image/*" onChange={handleChapterArtworkUpload} />
-
-                    {/* Centered Title Section */}
-                    <div className="space-y-4 text-center max-w-3xl mx-auto mb-12 px-4">
-                        <Input
-                            type="text"
-                            value={chapterTitle}
-                            onChange={(e) => setChapterTitle(e.target.value)}
-                            placeholder="Part Title..."
-                            className="text-4xl md:text-7xl font-headline font-bold h-auto py-6 focus-visible:ring-0 border-0 bg-transparent shadow-none px-0 placeholder:text-muted-foreground/10 text-center tracking-tight leading-tight"
-                        />
-                        
-                        {/* Tags / Warnings System directly under Title */}
-                        <div className="flex flex-col items-center gap-4 py-2">
-                             <div className="flex flex-wrap justify-center gap-2 px-4">
-                                {chapterTags.map(tag => (
-                                    <Badge key={tag} className="bg-orange-500/10 text-orange-600 border-orange-500/20 gap-1 rounded-full px-3 h-8 font-bold text-[10px] uppercase shadow-sm">
-                                        <TriangleAlert className="h-3 w-3" />
-                                        {tag}
-                                        <button onClick={() => handleRemoveTag(tag)} className="ml-1 hover:text-destructive transition-colors"><X className="h-3.5 w-3.5" /></button>
-                                    </Badge>
-                                ))}
-                             </div>
-                             
-                             <div className="flex items-center gap-2 max-w-xs w-full bg-muted/30 p-1 rounded-full border border-border/40 focus-within:border-primary/40 transition-all">
-                                <div className="pl-3"><Tag className="h-3.5 w-3.5 text-muted-foreground" /></div>
-                                <Input 
-                                    placeholder="Add chapter warning..." 
-                                    value={tagInput} 
-                                    onChange={e => setTagInput(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleAddTag()}
-                                    className="h-9 border-none bg-transparent shadow-none focus-visible:ring-0 text-[11px] font-medium"
-                                />
-                                <Button size="icon" onClick={handleAddTag} className="rounded-full h-8 w-8 shrink-0 mr-1 shadow-sm">
-                                    <PlusCircle className="h-4 w-4" />
-                                </Button>
-                             </div>
-                        </div>
-
-                        <div className="flex items-center justify-center gap-4 md:gap-8 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 border-y border-border/10 py-4 mt-4">
-                            <div className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> {wordCount} Words</div>
-                            <div className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> {readingTimeMinutes} MIN Read</div>
-                            <div className="flex items-center gap-1.5"><History className="h-3 w-3" /> Cloud Sync</div>
                         </div>
                     </div>
+                </header>
 
-                    {/* Paper Area */}
+                {/* Main Writing Canvas */}
+                <main className="flex-1 flex flex-col items-center py-6 md:py-10 px-0 sm:px-4 md:px-8">
                     <div className={cn(
-                        "relative bg-card rounded-none sm:rounded-[40px] border-y sm:border border-border/40 shadow-2xl min-h-[700px] flex flex-col transition-all duration-500 transform-gpu",
-                        isZenFocus && "zen-mode shadow-none border-transparent bg-transparent"
+                        "w-full transition-all duration-700",
+                        layoutWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'
                     )}>
-                        <EditorContent editor={editor} className="flex-1 flex flex-col" />
-                        
-                        {/* Inline Utility Toggles */}
-                        <div className="absolute top-8 right-8 hidden lg:flex flex-col gap-3">
-                             <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        onClick={() => setIsZenFocus(!isZenFocus)}
-                                        className={cn("rounded-full h-11 w-11 transition-all", isZenFocus ? "bg-primary text-white shadow-xl scale-110" : "bg-background/80 backdrop-blur-sm border shadow-sm")}
-                                    >
-                                        <Target className="h-5 w-5" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="left">Zen Mode</TooltipContent>
-                            </Tooltip>
-                            
+                        {/* Cinematic Cover Area (Landscape) */}
+                        <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-none sm:rounded-[40px] overflow-hidden bg-muted/50 border-b sm:border border-border/40 group mb-8 shadow-sm transform-gpu">
+                            {currentChapter.artworkUrl ? (
+                                <NextImage src={currentChapter.artworkUrl} alt="Chapter Artwork" fill className="object-cover transition-transform duration-1000 group-hover:scale-[1.03]" priority />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30 animate-pulse">
+                                    <ImagePlus className="h-12 w-12 mb-2" />
+                                    <p className="text-[10px] font-bold uppercase tracking-widest">Landscape Chapter Art</p>
+                                </div>
+                            )}
                             {isAuthorOrCollaborator && (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <div className="p-2 rounded-full h-11 w-11 bg-background/80 backdrop-blur-sm border shadow-sm flex items-center justify-center">
-                                            <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} className="scale-75" />
-                                        </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="left">Freeze Mode</TooltipContent>
-                                </Tooltip>
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100 backdrop-blur-[2px]">
+                                    <Button 
+                                        variant="outline" 
+                                        className="bg-white/10 hover:bg-white/20 backdrop-blur-md border-white/20 text-white rounded-full gap-2 font-bold uppercase text-[10px] tracking-widest h-11 px-6 shadow-2xl" 
+                                        onClick={() => artworkInputRef.current?.click()}
+                                    >
+                                        <Camera className="h-4 w-4" />
+                                        Set Chapter Art
+                                    </Button>
+                                </div>
+                            )}
+                            {isUploadingArtwork && (
+                                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
                             )}
                         </div>
-                    </div>
-                </div>
-            </main>
+                        <input type="file" ref={artworkInputRef} className="hidden" accept="image/*" onChange={handleChapterArtworkUpload} />
 
-            {/* Floating Studio Palette (Bottom Bar) */}
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[98vw] sm:max-w-fit px-2 animate-in slide-in-from-bottom-8 duration-700 transform-gpu">
-                <div className="bg-card/90 backdrop-blur-2xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.4)] rounded-3xl p-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar">
-                    
-                    {/* Stats Module */}
-                    <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-muted/40 rounded-2xl mr-1 border border-border/40">
-                         <div className="flex items-center gap-3 mt-1">
-                                <span className="text-xs font-bold font-mono">{wordCount} W</span>
-                                <span className="text-xs font-bold font-mono">{readingTimeMinutes} M</span>
-                         </div>
-                         <BarChart3 className="h-4 w-4 text-primary/40" />
-                    </div>
-
-                    <div className="flex items-center gap-1 pr-2 border-r border-border/40">
-                         <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all"><Undo className="h-4 w-4" /></Button>
-                         <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all"><Redo className="h-4 w-4" /></Button>
-                    </div>
-
-                    <Popover>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <PopoverTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="h-10 px-3 rounded-2xl gap-2 hover:bg-primary/10 hover:text-primary transition-all font-bold text-xs uppercase tracking-widest">
-                                        <Type className="h-4 w-4" />
-                                        <span className="hidden md:inline">Typeface</span>
-                                    </Button>
-                                </PopoverTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>Font Selection</TooltipContent>
-                        </Tooltip>
-                        <PopoverContent className="w-60 p-2 rounded-2xl bg-card/95 backdrop-blur-xl border-white/10 shadow-3xl" side="top" align="center">
-                            <ScrollArea className="h-72">
-                                <div className="space-y-1">
-                                    {PRO_FONTS.map((font) => (
-                                        <button
-                                            key={font.name}
-                                            onClick={() => editor.chain().focus().setFontFamily(font.value).run()}
-                                            className={cn(
-                                                "w-full text-left px-4 py-3 rounded-xl text-sm transition-all hover:bg-primary/10 flex items-center justify-between",
-                                                editor.isActive('textStyle', { fontFamily: font.value }) ? "bg-primary text-primary-foreground font-bold shadow-lg" : "text-muted-foreground"
-                                            )}
-                                            style={{ fontFamily: font.value }}
-                                        >
-                                            {font.name}
-                                            {editor.isActive('textStyle', { fontFamily: font.value }) && <CheckCircle className="h-3 w-3" />}
-                                        </button>
+                        {/* Centered Title Section */}
+                        <div className="space-y-4 text-center max-w-3xl mx-auto mb-12 px-4">
+                            <Input
+                                type="text"
+                                value={chapterTitle}
+                                onChange={(e) => setChapterTitle(e.target.value)}
+                                placeholder="Part Title..."
+                                className="text-4xl md:text-7xl font-headline font-bold h-auto py-6 focus-visible:ring-0 border-0 bg-transparent shadow-none px-0 placeholder:text-muted-foreground/10 text-center tracking-tight leading-tight"
+                            />
+                            
+                            {/* Tags / Warnings System directly under Title */}
+                            <div className="flex flex-col items-center gap-4 py-2">
+                                <div className="flex flex-wrap justify-center gap-2 px-4">
+                                    {chapterTags.map(tag => (
+                                        <Badge key={tag} className="bg-orange-500/10 text-orange-600 border-orange-500/20 gap-1 rounded-full px-3 h-8 font-bold text-[10px] uppercase shadow-sm">
+                                            <TriangleAlert className="h-3 w-3" />
+                                            {tag}
+                                            <button onClick={() => handleRemoveTag(tag)} className="ml-1 hover:text-destructive transition-colors"><X className="h-3.5 w-3.5" /></button>
+                                        </Badge>
                                     ))}
                                 </div>
-                            </ScrollArea>
-                        </PopoverContent>
-                    </Popover>
-
-                    <Separator orientation="vertical" className="h-6" />
-
-                    <div className="flex items-center gap-0.5">
-                        <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBold().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bold') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Bold className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleItalic().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('italic') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Italic className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleUnderline().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('underline') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Underline className="h-4 w-4" /></Button>
-                    </div>
-
-                    <Separator orientation="vertical" className="h-6" />
-
-                    <Popover>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <PopoverTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all">
-                                        {editor.isActive({ textAlign: 'center' }) ? <AlignCenter className="h-4 w-4" /> : 
-                                         editor.isActive({ textAlign: 'right' }) ? <AlignRight className="h-4 w-4" /> :
-                                         editor.isActive({ textAlign: 'justify' }) ? <AlignJustify className="h-4 w-4" /> :
-                                         <AlignLeft className="h-4 w-4" />}
+                                
+                                <div className="flex items-center gap-2 max-w-xs w-full bg-muted/30 p-1 rounded-full border border-border/40 focus-within:border-primary/40 transition-all">
+                                    <div className="pl-3"><Tag className="h-3.5 w-3.5 text-muted-foreground" /></div>
+                                    <Input 
+                                        placeholder="Add chapter warning..." 
+                                        value={tagInput} 
+                                        onChange={e => setTagInput(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddTag()}
+                                        className="h-9 border-none bg-transparent shadow-none focus-visible:ring-0 text-[11px] font-medium"
+                                    />
+                                    <Button size="icon" onClick={handleAddTag} className="rounded-full h-8 w-8 shrink-0 mr-1 shadow-sm">
+                                        <PlusCircle className="h-4 w-4" />
                                     </Button>
-                                </PopoverTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>Paragraph Flow</TooltipContent>
-                        </Tooltip>
-                        <PopoverContent className="w-fit p-1.5 bg-card/95 backdrop-blur-xl border-white/10 rounded-2xl flex gap-1 shadow-2xl" side="top" align="center">
-                            {[
-                                { action: () => editor.chain().focus().setTextAlign('left').run(), icon: AlignLeft, value: 'left' },
-                                { action: () => editor.chain().focus().setTextAlign('center').run(), icon: AlignCenter, value: 'center' },
-                                { action: () => editor.chain().focus().setTextAlign('right').run(), icon: AlignRight, value: 'right' },
-                                { action: () => editor.chain().focus().setTextAlign('justify').run(), icon: AlignJustify, value: 'justify' },
-                            ].map((align, i) => (
-                                <Button 
-                                    key={i} 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={align.action} 
-                                    className={cn("h-10 w-10 rounded-xl", editor.isActive({ textAlign: align.value }) ? "bg-primary text-white shadow-md" : "hover:bg-primary/10")}
-                                >
-                                    <align.icon className="h-4 w-4" />
-                                </Button>
-                            ))}
-                        </PopoverContent>
-                    </Popover>
+                                </div>
+                            </div>
 
-                    <Separator orientation="vertical" className="h-6" />
+                            <div className="flex items-center justify-center gap-4 md:gap-8 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 border-y border-border/10 py-4 mt-4">
+                                <div className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> {wordCount} Words</div>
+                                <div className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> {readingTimeMinutes} MIN Read</div>
+                                <div className="flex items-center gap-1.5"><History className="h-3 w-3" /> Cloud Sync</div>
+                            </div>
+                        </div>
 
-                    <div className="flex items-center gap-0.5">
-                        <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBulletList().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bulletList') ? "bg-primary text-white" : "hover:bg-primary/10")}><List className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('blockquote') ? "bg-primary text-white" : "hover:bg-primary/10")}><Quote className="h-4 w-4" /></Button>
+                        {/* Paper Area */}
+                        <div className={cn(
+                            "relative bg-card rounded-none sm:rounded-[40px] border-y sm:border border-border/40 shadow-2xl min-h-[700px] flex flex-col transition-all duration-500 transform-gpu",
+                            isZenFocus && "zen-mode shadow-none border-transparent bg-transparent"
+                        )}>
+                            <EditorContent editor={editor} className="flex-1 flex flex-col" />
+                            
+                            {/* Inline Utility Toggles */}
+                            <div className="absolute top-8 right-8 hidden lg:flex flex-col gap-3">
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            onClick={() => setIsZenFocus(!isZenFocus)}
+                                            className={cn("rounded-full h-11 w-11 transition-all", isZenFocus ? "bg-primary text-white shadow-xl scale-110" : "bg-background/80 backdrop-blur-sm border shadow-sm")}
+                                        >
+                                            <Target className="h-5 w-5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left">Zen Mode</TooltipContent>
+                                </Tooltip>
+                                
+                                {isAuthorOrCollaborator && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div className="p-2 rounded-full h-11 w-11 bg-background/80 backdrop-blur-sm border shadow-sm flex items-center justify-center">
+                                                <Switch id="freeze-mode" checked={isFrozen} onCheckedChange={setIsFrozen} className="scale-75" />
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left">Freeze Mode</TooltipContent>
+                                    </Tooltip>
+                                )}
+                            </div>
+                        </div>
                     </div>
+                </main>
 
-                    <Separator orientation="vertical" className="h-6" />
-
-                    <div className="flex items-center gap-1 pl-1">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="ghost" size="icon" className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('highlight') && "bg-primary text-white")}><Highlighter className="h-4 w-4" /></Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-fit p-1.5 flex gap-1 bg-card/95 backdrop-blur-xl border-white/10 rounded-full shadow-2xl" side="top">
-                                <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()} className="h-8 w-8 rounded-full bg-yellow-300 border border-black/10 hover:scale-110 transition-transform" />
-                                <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#6ee7b7' }).run()} className="h-8 w-8 rounded-full bg-emerald-300 border border-black/10 hover:scale-110 transition-transform" />
-                                <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#f87171' }).run()} className="h-8 w-8 rounded-full bg-rose-400 border border-black/10 hover:scale-110 transition-transform" />
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="h-4 w-4"/></Button>
-                            </PopoverContent>
-                        </Popover>
+                {/* Floating Studio Palette (Bottom Bar) */}
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[98vw] sm:max-w-fit px-2 animate-in slide-in-from-bottom-8 duration-700 transform-gpu">
+                    <div className="bg-card/90 backdrop-blur-2xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.4)] rounded-3xl p-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar">
                         
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => setLayoutWidth(layoutWidth === 'normal' ? 'wide' : 'normal')}
-                                    className={cn("h-10 w-10 rounded-2xl hover:bg-primary/10", layoutWidth === 'wide' && "text-primary bg-primary/5")}
-                                >
-                                    <BookMarked className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Canvas Width</TooltipContent>
-                        </Tooltip>
+                        {/* Stats Module */}
+                        <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-muted/40 rounded-2xl mr-1 border border-border/40">
+                            <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-xs font-bold font-mono">{wordCount} W</span>
+                                    <span className="text-xs font-bold font-mono">{readingTimeMinutes} M</span>
+                            </div>
+                            <BarChart3 className="h-4 w-4 text-primary/40" />
+                        </div>
+
+                        <div className="flex items-center gap-1 pr-2 border-r border-border/40">
+                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all"><Undo className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all"><Redo className="h-4 w-4" /></Button>
+                        </div>
 
                         <Popover>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <PopoverTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl hover:bg-primary/10 hover:text-primary transition-all">
-                                            <Book className="h-4 w-4" />
+                                        <Button variant="ghost" size="sm" className="h-10 px-3 rounded-2xl gap-2 hover:bg-primary/10 hover:text-primary transition-all font-bold text-xs uppercase tracking-widest">
+                                            <Type className="h-4 w-4" />
+                                            <span className="hidden md:inline">Typeface</span>
                                         </Button>
                                     </PopoverTrigger>
                                 </TooltipTrigger>
-                                <TooltipContent>Story Bible</TooltipContent>
+                                <TooltipContent>Font Selection</TooltipContent>
                             </Tooltip>
-                            <PopoverContent className="w-80 p-0 border-none shadow-3xl rounded-2xl overflow-hidden bg-card/95 backdrop-blur-xl" side="top" align="end">
-                                <div className="p-4 border-b bg-primary/5 flex items-center gap-2">
-                                    <Book className="h-4 w-4 text-primary" />
-                                    <h4 className="text-sm font-headline font-bold">Manuscript Notes</h4>
-                                </div>
-                                <div className="p-4 space-y-3">
-                                    <p className="text-xs text-muted-foreground leading-relaxed italic">
-                                        {storyDetails.notes || "No workspace notes found. Add some in Story Details to keep them persistent here."}
-                                    </p>
-                                    <Button variant="outline" size="sm" className="w-full h-8 text-[10px] uppercase font-bold tracking-widest rounded-lg" onClick={() => router.push(`/write/edit-details?storyId=${storyDetails.id}&tab=canvas`)}>Edit Compendium</Button>
-                                </div>
+                            <PopoverContent className="w-60 p-2 rounded-2xl bg-card/95 backdrop-blur-xl border-white/10 shadow-3xl" side="top" align="center">
+                                <ScrollArea className="h-72">
+                                    <div className="space-y-1">
+                                        {PRO_FONTS.map((font) => (
+                                            <button
+                                                key={font.name}
+                                                onClick={() => editor.chain().focus().setFontFamily(font.value).run()}
+                                                className={cn(
+                                                    "w-full text-left px-4 py-3 rounded-xl text-sm transition-all hover:bg-primary/10 flex items-center justify-between",
+                                                    editor.isActive('textStyle', { fontFamily: font.value }) ? "bg-primary text-primary-foreground font-bold shadow-lg" : "text-muted-foreground"
+                                                )}
+                                                style={{ fontFamily: font.value }}
+                                            >
+                                                {font.name}
+                                                {editor.isActive('textStyle', { fontFamily: font.value }) && <CheckCircle className="h-3 w-3" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </ScrollArea>
                             </PopoverContent>
                         </Popover>
 
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl hover:bg-primary/10 hover:text-primary transition-all">
-                                        <Eye className="h-4 w-4" />
+                        <Separator orientation="vertical" className="h-6" />
+
+                        <div className="flex items-center gap-0.5">
+                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBold().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bold') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Bold className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleItalic().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('italic') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Italic className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleUnderline().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('underline') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Underline className="h-4 w-4" /></Button>
+                        </div>
+
+                        <Separator orientation="vertical" className="h-6" />
+
+                        <Popover>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all">
+                                            {editor.isActive({ textAlign: 'center' }) ? <AlignCenter className="h-4 w-4" /> : 
+                                            editor.isActive({ textAlign: 'right' }) ? <AlignRight className="h-4 w-4" /> :
+                                            editor.isActive({ textAlign: 'justify' }) ? <AlignJustify className="h-4 w-4" /> :
+                                            <AlignLeft className="h-4 w-4" />}
+                                        </Button>
+                                    </PopoverTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>Paragraph Flow</TooltipContent>
+                            </Tooltip>
+                            <PopoverContent className="w-fit p-1.5 bg-card/95 backdrop-blur-xl border-white/10 rounded-2xl flex gap-1 shadow-2xl" side="top" align="center">
+                                {[
+                                    { action: () => editor.chain().focus().setTextAlign('left').run(), icon: AlignLeft, value: 'left' },
+                                    { action: () => editor.chain().focus().setTextAlign('center').run(), icon: AlignCenter, value: 'center' },
+                                    { action: () => editor.chain().focus().setTextAlign('right').run(), icon: AlignRight, value: 'right' },
+                                    { action: () => editor.chain().focus().setTextAlign('justify').run(), icon: AlignJustify, value: 'justify' },
+                                ].map((align, i) => (
+                                    <Button 
+                                        key={i} 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={align.action} 
+                                        className={cn("h-10 w-10 rounded-xl", editor.isActive({ textAlign: align.value }) ? "bg-primary text-white shadow-md" : "hover:bg-primary/10")}
+                                    >
+                                        <align.icon className="h-4 w-4" />
                                     </Button>
-                                </AlertDialogTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>Manuscript Preview</TooltipContent>
-                        </Tooltip>
+                                ))}
+                            </PopoverContent>
+                        </Popover>
+
+                        <Separator orientation="vertical" className="h-6" />
+
+                        <div className="flex items-center gap-0.5">
+                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBulletList().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bulletList') ? "bg-primary text-white" : "hover:bg-primary/10")}><List className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('blockquote') ? "bg-primary text-white" : "hover:bg-primary/10")}><Quote className="h-4 w-4" /></Button>
+                        </div>
+
+                        <Separator orientation="vertical" className="h-6" />
+
+                        <div className="flex items-center gap-1 pl-1">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="ghost" size="icon" className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('highlight') && "bg-primary text-white")}><Highlighter className="h-4 w-4" /></Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-fit p-1.5 flex gap-1 bg-card/95 backdrop-blur-xl border-white/10 rounded-full shadow-2xl" side="top">
+                                    <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()} className="h-8 w-8 rounded-full bg-yellow-300 border border-black/10 hover:scale-110 transition-transform" />
+                                    <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#6ee7b7' }).run()} className="h-8 w-8 rounded-full bg-emerald-300 border border-black/10 hover:scale-110 transition-transform" />
+                                    <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#f87171' }).run()} className="h-8 w-8 rounded-full bg-rose-400 border border-black/10 hover:scale-110 transition-transform" />
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => editor.chain().focus().unsetHighlight().run()}><X className="h-4 w-4"/></Button>
+                                </PopoverContent>
+                            </Popover>
+                            
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => setLayoutWidth(layoutWidth === 'normal' ? 'wide' : 'normal')}
+                                        className={cn("h-10 w-10 rounded-2xl hover:bg-primary/10", layoutWidth === 'wide' && "text-primary bg-primary/5")}
+                                    >
+                                        <BookMarked className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Canvas Width</TooltipContent>
+                            </Tooltip>
+
+                            <Popover>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl hover:bg-primary/10 hover:text-primary transition-all">
+                                                <Book className="h-4 w-4" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Story Bible</TooltipContent>
+                                </Tooltip>
+                                <PopoverContent className="w-80 p-0 border-none shadow-3xl rounded-2xl overflow-hidden bg-card/95 backdrop-blur-xl" side="top" align="end">
+                                    <div className="p-4 border-b bg-primary/5 flex items-center gap-2">
+                                        <Book className="h-4 w-4 text-primary" />
+                                        <h4 className="text-sm font-headline font-bold">Manuscript Notes</h4>
+                                    </div>
+                                    <div className="p-4 space-y-3">
+                                        <p className="text-xs text-muted-foreground leading-relaxed italic">
+                                            {storyDetails?.notes || "No workspace notes found. Add some in Story Details to keep them persistent here."}
+                                        </p>
+                                        <Button variant="outline" size="sm" className="w-full h-8 text-[10px] uppercase font-bold tracking-widest rounded-lg" onClick={() => storyDetails && router.push(`/write/edit-details?storyId=${storyDetails.id}&tab=canvas`)}>Edit Compendium</Button>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl hover:bg-primary/10 hover:text-primary transition-all">
+                                            <Eye className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>Manuscript Preview</TooltipContent>
+                            </Tooltip>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* High Fidelity Preview Modal */}
-            <AlertDialogContent className="max-w-6xl rounded-[40px] p-0 overflow-hidden border-none shadow-[0_50px_120px_rgba(0,0,0,0.5)] bg-background transform-gpu">
-                <AlertDialogHeader className="bg-muted/30 p-8 border-b flex flex-row justify-between items-center space-y-0">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-2xl bg-primary/10 text-primary">
-                            <BookOpen className="h-6 w-6" />
+                {/* High Fidelity Preview Modal */}
+                <AlertDialogContent className="max-w-6xl rounded-[40px] p-0 overflow-hidden border-none shadow-[0_50px_120px_rgba(0,0,0,0.5)] bg-background transform-gpu">
+                    <AlertDialogHeader className="bg-muted/30 p-8 border-b flex flex-row justify-between items-center space-y-0">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+                                <BookOpen className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <AlertDialogTitle className="text-3xl font-headline font-bold text-foreground leading-none mb-1">{chapterTitle || 'Untitled Part'}</AlertDialogTitle>
+                                <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Immersive Reader Experience &bull; High Fidelity</AlertDialogDescription>
+                            </div>
                         </div>
-                        <div>
-                            <AlertDialogTitle className="text-3xl font-headline font-bold text-foreground leading-none mb-1">{chapterTitle || 'Untitled Part'}</AlertDialogTitle>
-                            <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Immersive Reader Experience &bull; High Fidelity</AlertDialogDescription>
-                        </div>
-                    </div>
-                    <AlertDialogCancel className="rounded-full h-12 w-12 p-0 border-none bg-muted/40 hover:bg-destructive hover:text-white transition-all"><X className="h-5 w-5"/></AlertDialogCancel>
-                </AlertDialogHeader>
-                <div className="bg-card p-6 md:p-12 overflow-y-auto max-h-[75vh] scrollbar-hide">
-                    {currentChapter.artworkUrl && (
-                        <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-[32px] overflow-hidden mb-16 shadow-2xl">
-                             <NextImage src={currentChapter.artworkUrl} alt="Cover" fill className="object-cover" />
-                        </div>
-                    )}
-                    <div className="text-center space-y-6 mb-12">
-                        <h2 className="text-4xl md:text-6xl font-headline font-bold leading-tight tracking-tight">{chapterTitle}</h2>
-                        {chapterTags.length > 0 && (
-                            <div className="flex flex-wrap justify-center gap-2">
-                                {chapterTags.map(tag => (
-                                    <Badge key={tag} variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20 px-4 h-8 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                                        {tag}
-                                    </Badge>
-                                ))}
+                        <AlertDialogCancel className="rounded-full h-12 w-12 p-0 border-none bg-muted/40 hover:bg-destructive hover:text-white transition-all"><X className="h-5 w-5"/></AlertDialogCancel>
+                    </AlertDialogHeader>
+                    <div className="bg-card p-6 md:p-12 overflow-y-auto max-h-[75vh] scrollbar-hide">
+                        {currentChapter.artworkUrl && (
+                            <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-[32px] overflow-hidden mb-16 shadow-2xl">
+                                <NextImage src={currentChapter.artworkUrl} alt="Cover" fill className="object-cover" />
                             </div>
                         )}
+                        <div className="text-center space-y-6 mb-12">
+                            <h2 className="text-4xl md:text-6xl font-headline font-bold leading-tight tracking-tight">{chapterTitle}</h2>
+                            {chapterTags.length > 0 && (
+                                <div className="flex flex-wrap justify-center gap-2">
+                                    {chapterTags.map(tag => (
+                                        <Badge key={tag} variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20 px-4 h-8 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                                            {tag}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        {/* Visual Parity Enforcement */}
+                        <article className={articleClasses} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
                     </div>
-                    {/* Visual Parity Enforcement */}
-                    <article className={articleClasses} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
-                </div>
-                <AlertDialogFooter className="p-6 bg-muted/20 border-t flex items-center justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 italic">End of manuscript preview</p>
-                    <AlertDialogCancel className="rounded-full px-12 h-12 font-bold uppercase text-xs tracking-widest shadow-lg bg-background border-border/40">Return to Studio</AlertDialogCancel>
-                </AlertDialogFooter>
-            </AlertDialogContent>
+                    <AlertDialogFooter className="p-6 bg-muted/20 border-t flex items-center justify-between">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 italic">End of manuscript preview</p>
+                        <AlertDialogCancel className="rounded-full px-12 h-12 font-bold uppercase text-xs tracking-widest shadow-lg bg-background border-border/40">Return to Studio</AlertDialogCancel>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
 
-        </div>
+            </div>
         </AlertDialog>
         <style dangerouslySetInnerHTML={{ __html: `
             .zen-mode .ProseMirror p {
