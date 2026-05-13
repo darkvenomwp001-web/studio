@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2, Book, Feather, ShieldAlert } from 'lucide-react';
+import { PlusCircle, Loader2, Book, Feather } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -119,16 +119,6 @@ function DashboardContent() {
         <Feather className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
         <h1 className="text-3xl font-headline font-bold text-foreground">Writer Dashboard</h1>
         <p className="text-muted-foreground">Please <Link href="/auth/signin" className="text-primary hover:underline">sign in</Link> to manage your stories.</p>
-      </div>
-    );
-  }
-
-  if (user.role === 'reader') {
-    return (
-      <div className="space-y-8 text-center py-10">
-        <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
-        <h1 className="text-3xl font-headline font-bold text-foreground">Writer Access Required</h1>
-        <p className="text-muted-foreground max-w-md mx-auto">This dashboard is for creating and managing stories. Contributors can grant you writer access to use this feature.</p>
       </div>
     );
   }

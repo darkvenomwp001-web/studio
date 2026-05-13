@@ -12,8 +12,6 @@ import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 
-const OWNER_USERNAMES = ['arnv'];
-
 export default function AiAssistantPage() {
   const { user, loading } = useAuth();
   const [inputText, setInputText] = useState('');
@@ -64,12 +62,15 @@ export default function AiAssistantPage() {
     );
   }
 
-  if (user?.role !== 'writer' && !OWNER_USERNAMES.includes(user?.username || '')) {
+  if (!user) {
     return (
       <div className="space-y-8 text-center py-10 max-w-3xl mx-auto">
         <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
-        <h1 className="text-3xl font-headline font-bold text-foreground">Writer Access Required</h1>
-        <p className="text-muted-foreground max-w-md mx-auto">The AI Assistant is a tool for authors. Contributors can grant you writer access to use this feature.</p>
+        <h1 className="text-3xl font-headline font-bold text-foreground">Sign In Required</h1>
+        <p className="text-muted-foreground max-w-md mx-auto">The AI Assistant is a premium tool for our writing community. Please sign in to access it.</p>
+        <Link href="/auth/signin">
+            <Button className="rounded-full px-8">Sign In to Continue</Button>
+        </Link>
       </div>
     );
   }

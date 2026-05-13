@@ -42,7 +42,8 @@ export default function Header() {
 
   const displayName = user?.displayName || user?.username;
   const isOwner = user && OWNER_HANDLES.includes(user.username);
-  const isWriter = user?.role === 'writer' || isOwner;
+  // Any authenticated user can access the Write page
+  const isWriter = !!user;
 
   return (
     <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">

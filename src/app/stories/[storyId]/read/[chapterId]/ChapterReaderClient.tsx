@@ -169,13 +169,14 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
+  // CONTENT SYNCING MOVED TO EFFECT TO PREVENT RENDER-CYCLE ERRORS
   useEffect(() => {
     if (editor && currentChapter && !editor.isDestroyed) {
       if (editor.getHTML() !== currentChapter.content) {
         editor.commands.setContent(currentChapter.content, false);
       }
     }
-  }, [editor, currentChapter?.content]);
+  }, [editor, currentChapter?.id]);
 
   useEffect(() => {
     const savedFontSize = localStorage.getItem('reader-font-size') as FontSize;
@@ -231,16 +232,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   const incrementViewCount = useCallback(async () => {
     if (viewIncrementedRef.current || !storyId) return;
-    try {
-      const storyRef = doc(db, 'stories', storyId);
-      // Fail silently on view count failure to prevent crash for readers
-      updateDoc(storyRef, { views: increment(1) }).catch(() => {
-          console.warn("View counter skipped due to restricted permissions or offline state.");
-      });
-      viewIncrementedRef.current = true;
-    } catch (error) {
-      console.error("Error incrementing view count:", error);
-    }
+    const storyRef = doc(db, 'stories', storyId);
+    // Graceful analytics update: Don't crash if restricted
+    updateDoc(storyRef, { views: increment(1) })
+      .then(() => { viewIncrementedRef.current = true; })
+      .catch(() => { console.warn("Analytics skipped."); });
   }, [storyId]);
 
   useEffect(() => {
@@ -283,7 +279,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 }
               }
             } else {
-              hasAccess = chapterData.status === 'Published';
+              hasAccess = chapterData.status === 'Published' || storyData.visibility === 'Public';
             }
             
             if (currentUser && storyData.collaboratorIds?.includes(currentUser.id)) {
