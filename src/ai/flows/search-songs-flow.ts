@@ -51,6 +51,13 @@ const mockSongs: Song[] = [
         cover: 'https://i.scdn.co/image/ab67616d00004851a9792496273434e447545367',
         lyrics: [ { time: 3, text: "Well, good for you, I guess you moved on really easily" }, { time: 6, text: "You found a new girl and it only took a couple weeks" } ]
     },
+    { 
+        id: '17S7XvSpxid76mB84d8pue', 
+        title: 'vampire', 
+        artist: 'Olivia Rodrigo', 
+        cover: 'https://i.scdn.co/image/ab67616d00004851e0f0653061595166f076b1f2',
+        lyrics: [ { time: 3, text: "Hate to give the satisfaction, asking how you're doing" }, { time: 6, text: "As if I couldn't stop my lungs from breathing" } ]
+    },
     // Ariana Grande
     { 
         id: '1iIhYk1kGat5o3F1Isr6iG', 
@@ -58,6 +65,13 @@ const mockSongs: Song[] = [
         artist: 'Ariana Grande', 
         cover: 'https://i.scdn.co/image/ab67616d00004851ab2523a6f3b0632617e97f5d',
         lyrics: [ { time: 3, text: "Heaven sent you to me" }, { time: 6, text: "I'm just hopin' I don't repeat history" } ]
+    },
+    { 
+        id: '3i9UVqb5R4_H7S_4p8_u7j', 
+        title: 'we can\'t be friends', 
+        artist: 'Ariana Grande', 
+        cover: 'https://i.scdn.co/image/ab67616d00004851ff_3e_1f_9c_5f_6e_0b_a3',
+        lyrics: [ { time: 4, text: "I didn't think you'd understand me" }, { time: 7, text: "How could you ever even try?" } ]
     },
     // The Weeknd
     { 
@@ -89,6 +103,13 @@ const mockSongs: Song[] = [
         cover: 'https://i.scdn.co/image/ab67616d0000b27351c02e9551a3139396162338',
         lyrics: [ { time: 3, text: 'Vintage tee, brand new phone' }, { time: 6, text: 'High heels on cobblestones' } ]
     },
+    {
+        id: '1v6R_H_7p_q_f_9_v_x_2_p',
+        title: 'Cruel Summer',
+        artist: 'Taylor Swift',
+        cover: 'https://i.scdn.co/image/ab67616d0000b273e_7_8_c_8_7_5_9_9_5_5_0_d_d_7_3_b_f_a_7_e_0_2',
+        lyrics: [ { time: 5, text: 'Fever dream high in the quiet of the night' }, { time: 8, text: 'You know that I caught it' } ]
+    },
     // Billie Eilish
     {
         id: '2Fxmhks0bxGSBdJ92vM42m',
@@ -96,6 +117,13 @@ const mockSongs: Song[] = [
         artist: 'Billie Eilish',
         cover: 'https://i.scdn.co/image/ab67616d0000b27350a3143b4241943558642358',
         lyrics: [ { time: 5, text: 'White shirt now red, my bloody nose' }, { time: 8, text: "Sleepin', you're on your tippy toes" } ]
+    },
+    {
+        id: '6AI3ezQ4o3HUoP6Dhudph3',
+        title: 'BIRDS OF A FEATHER',
+        artist: 'Billie Eilish',
+        cover: 'https://i.scdn.co/image/ab67616d0000b2733ea79c1313835677a285098a',
+        lyrics: [ { time: 3, text: "I want you to stay 'til I'm in the grave" }, { time: 6, text: "'Til I rot away, dead and buried" } ]
     },
     // Drake
     {
@@ -112,6 +140,13 @@ const mockSongs: Song[] = [
         artist: 'Dua Lipa',
         cover: 'https://i.scdn.co/image/ab67616d0000b27344a065613894451241578673',
         lyrics: [ { time: 3, text: "If you don't wanna see me dancin' with somebody" }, { time: 6, text: 'If you wanna believe that anything could stop me' } ]
+    },
+    {
+        id: '15_f_c_4_e_f_9_b_6_f_4_d_8_9',
+        title: 'Houdini',
+        artist: 'Dua Lipa',
+        cover: 'https://i.scdn.co/image/ab67616d0000b273_1_5_f_c_4_e_f_9_b_6_f_4_d_8_9',
+        lyrics: [ { time: 4, text: "I'm not here for long, catch me or I go" }, { time: 7, text: "Houdini" } ]
     },
     // Harry Styles
     {
@@ -151,6 +186,21 @@ const mockSongs: Song[] = [
         artist: 'Kendrick Lamar',
         cover: 'https://i.scdn.co/image/ab67616d0000b2733ea79c1313835677a285098a',
         lyrics: [ { time: 3, text: 'They not like us, they not like us, they not like us' }, { time: 6, text: 'I\'m a walkin\', livin\', breathin\', GOD-body, you know who I am' } ]
+    },
+    // SZA
+    {
+        id: '3_R_z_b_9_4_v_X_5_c_B_o_8_p',
+        title: 'Kill Bill',
+        artist: 'SZA',
+        cover: 'https://i.scdn.co/image/ab67616d0000b273_3_R_z_b_9_4_v_X_5_c_B_o_8_p',
+        lyrics: [ { time: 4, text: "I might kill my ex, not the best idea" }, { time: 7, text: "His new girlfriend's next, how'd I get here?" } ]
+    },
+    {
+        id: '1_X_p_q_f_8_m_7_v_B_e_9_z',
+        title: 'Snooze',
+        artist: 'SZA',
+        cover: 'https://i.scdn.co/image/ab67616d0000b273_3_R_z_b_9_4_v_X_5_c_B_o_8_p',
+        lyrics: [ { time: 5, text: "I can't lose when I'm with you" }, { time: 8, text: "How can I snooze and miss the moment?" } ]
     },
 ];
 

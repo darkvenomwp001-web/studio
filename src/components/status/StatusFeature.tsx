@@ -1,14 +1,15 @@
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StatusUpdate, Song, Story } from '@/types';
+import type { User, StatusUpdate, Song, Story, TextOverlayStyle } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, getDocs, limit, doc, getDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, X, Type, Image as LucideImageIcon, Sparkles, Music, BarChart2, BookOpen, Send, ChevronRight } from 'lucide-react';
+import { Loader2, Plus, X, Type, Image as LucideImageIcon, Sparkles, Music, BarChart2, BookOpen, Send, ChevronRight, AlignLeft, AlignCenter, AlignRight, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -20,6 +21,9 @@ import SongSearch from './SongSearch';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { getStatusCaptions } from '@/app/actions/aiActions';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { Label } from '../ui/label';
 
 const gradientBackgrounds = [
   'bg-gradient-to-br from-gray-700 via-gray-900 to-black',
@@ -91,6 +95,14 @@ export default function StatusFeature() {
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [storySearchResults, setStorySearchResults] = useState<Story[]>([]);
   
+  // 3 New Text Features
+  const [textStyle, setTextStyle] = useState<TextOverlayStyle>({
+    font: 'sans',
+    alignment: 'center',
+    background: 'none',
+    color: '#ffffff'
+  });
+
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [isGeneratingAi, startAiTransition] = useTransition();
 
@@ -227,13 +239,20 @@ export default function StatusFeature() {
         if (mediaUrl) {
             statusData.mediaUrl = mediaUrl;
             statusData.mediaType = mediaType;
-            if (noteContent.trim()) statusData.note = noteContent.trim();
+            if (noteContent.trim()) {
+                statusData.note = noteContent.trim();
+                statusData.textOverlayStyle = textStyle;
+            }
         } else if (activeUploaderTab === 'text') {
             statusData.note = noteContent.trim();
             statusData.backgroundStyle = backgroundStyle;
+            statusData.textOverlayStyle = textStyle;
         } else if (activeUploaderTab === 'music' && selectedSong) {
             statusData.spotifyUrl = `https://open.spotify.com/track/${selectedSong.id}`;
-            if (noteContent.trim()) statusData.note = noteContent.trim();
+            if (noteContent.trim()) {
+                statusData.note = noteContent.trim();
+                statusData.textOverlayStyle = textStyle;
+            }
         } else if (activeUploaderTab === 'poll' && pollQuestion.trim()) {
             statusData.poll = {
                 question: pollQuestion.trim(),
@@ -243,7 +262,10 @@ export default function StatusFeature() {
             };
         } else if (activeUploaderTab === 'story' && selectedStory) {
             statusData.sharedStoryId = selectedStory.id;
-            if (noteContent.trim()) statusData.note = noteContent.trim();
+            if (noteContent.trim()) {
+                statusData.note = noteContent.trim();
+                statusData.textOverlayStyle = textStyle;
+            }
         }
 
         await addDoc(collection(db, 'statusUpdates'), statusData);
@@ -267,6 +289,12 @@ export default function StatusFeature() {
     setPollOptions(['', '']);
     setSelectedStory(null);
     setAiSuggestions([]);
+    setTextStyle({
+      font: 'sans',
+      alignment: 'center',
+      background: 'none',
+      color: '#ffffff'
+    });
   };
 
   const handleNextUser = () => {
@@ -338,31 +366,48 @@ export default function StatusFeature() {
       </ScrollArea>
 
       <Dialog open={isCreatorOpen} onOpenChange={setIsCreatorOpen}>
-          <DialogContent className="sm:max-w-md rounded-[2rem] p-6 border-none shadow-2xl mx-auto w-[90vw]">
-              <DialogHeader>
-                  <DialogTitle className="font-headline text-2xl">Create Status</DialogTitle>
-                  <DialogDescription>What's your creative vibe today?</DialogDescription>
+          <DialogContent className="sm:max-w-md rounded-[2.5rem] p-8 border-none shadow-3xl mx-auto w-[90vw] animate-in fade-in zoom-in-95 duration-500">
+              <DialogHeader className="mb-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-3 bg-primary/10 rounded-2xl">
+                        <Sparkles className="h-6 w-6 text-primary animate-pulse" />
+                    </div>
+                    <div>
+                        <DialogTitle className="font-headline text-2xl font-bold">Create Status</DialogTitle>
+                        <DialogDescription className="text-sm">What's your creative vibe today?</DialogDescription>
+                    </div>
+                  </div>
               </DialogHeader>
-              <div className="grid grid-cols-3 gap-2 md:gap-3 py-6">
-                  <Button variant="outline" className="h-20 md:h-24 flex-col gap-2 rounded-2xl border-primary/20 hover:border-primary hover:bg-primary/5 transition-all p-2" onClick={() => { setActiveUploaderTab('text'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
-                      <Type className="h-5 w-5 md:h-6 md:w-6 text-primary"/>
-                      <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Text</span>
+              <div className="grid grid-cols-3 gap-3 md:gap-4 py-4">
+                  <Button variant="outline" className="h-24 md:h-28 flex-col gap-2 rounded-3xl border-primary/10 hover:border-primary hover:bg-primary/5 transition-all p-2 shadow-sm" onClick={() => { setActiveUploaderTab('text'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
+                      <div className="p-3 rounded-2xl bg-primary/10">
+                        <Type className="h-5 w-5 md:h-6 md:w-6 text-primary"/>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Text</span>
                   </Button>
-                  <Button variant="outline" className="h-20 md:h-24 flex-col gap-2 rounded-2xl border-accent/20 hover:border-accent hover:bg-accent/5 transition-all p-2" onClick={() => mediaInputRef.current?.click()}>
-                      <LucideImageIcon className="h-5 w-5 md:h-6 md:w-6 text-accent"/>
-                      <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Art</span>
+                  <Button variant="outline" className="h-24 md:h-28 flex-col gap-2 rounded-3xl border-accent/10 hover:border-accent hover:bg-accent/5 transition-all p-2 shadow-sm" onClick={() => mediaInputRef.current?.click()}>
+                      <div className="p-3 rounded-2xl bg-accent/10">
+                        <LucideImageIcon className="h-5 w-5 md:h-6 md:w-6 text-accent"/>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Art</span>
                   </Button>
-                  <Button variant="outline" className="h-20 md:h-24 flex-col gap-2 rounded-2xl border-green-500/20 hover:border-green-500 hover:bg-green-500/5 transition-all p-2" onClick={() => { setActiveUploaderTab('music'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
-                      <Music className="h-5 w-5 md:h-6 md:w-6 text-green-500"/>
-                      <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Music</span>
+                  <Button variant="outline" className="h-24 md:h-28 flex-col gap-2 rounded-3xl border-green-500/10 hover:border-green-500 hover:bg-green-500/5 transition-all p-2 shadow-sm" onClick={() => { setActiveUploaderTab('music'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
+                      <div className="p-3 rounded-2xl bg-green-500/10">
+                        <Music className="h-5 w-5 md:h-6 md:w-6 text-green-500"/>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Music</span>
                   </Button>
-                  <Button variant="outline" className="h-20 md:h-24 flex-col gap-2 rounded-2xl border-orange-500/20 hover:border-orange-500 hover:bg-orange-500/5 transition-all p-2" onClick={() => { setActiveUploaderTab('poll'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
-                      <BarChart2 className="h-5 w-5 md:h-6 md:w-6 text-orange-500"/>
-                      <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Poll</span>
+                  <Button variant="outline" className="h-24 md:h-28 flex-col gap-2 rounded-3xl border-orange-500/10 hover:border-orange-500 hover:bg-orange-500/5 transition-all p-2 shadow-sm" onClick={() => { setActiveUploaderTab('poll'); setIsUploaderOpen(true); setIsCreatorOpen(false); }}>
+                      <div className="p-3 rounded-2xl bg-orange-500/10">
+                        <BarChart2 className="h-5 w-5 md:h-6 md:w-6 text-orange-500"/>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Poll</span>
                   </Button>
-                  <Button variant="outline" className="h-20 md:h-24 flex-col gap-2 rounded-2xl border-purple-500/20 hover:border-purple-500 hover:bg-purple-500/5 transition-all p-2" onClick={() => { setActiveUploaderTab('story'); setIsUploaderOpen(true); setIsCreatorOpen(false); searchMyStories(); }}>
-                      <BookOpen className="h-5 w-5 md:h-6 md:w-6 text-purple-500"/>
-                      <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Story</span>
+                  <Button variant="outline" className="h-24 md:h-28 flex-col gap-2 rounded-3xl border-purple-500/10 hover:border-purple-500 hover:bg-purple-500/5 transition-all p-2 shadow-sm" onClick={() => { setActiveUploaderTab('story'); setIsUploaderOpen(true); setIsCreatorOpen(false); searchMyStories(); }}>
+                      <div className="p-3 rounded-2xl bg-purple-500/10">
+                        <BookOpen className="h-5 w-5 md:h-6 md:w-6 text-purple-500"/>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Story</span>
                   </Button>
                   <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaSelect} />
               </div>
@@ -370,35 +415,44 @@ export default function StatusFeature() {
       </Dialog>
 
       <Dialog open={isUploaderOpen} onOpenChange={(o) => { setIsUploaderOpen(o); if(!o) resetUploader(); }}>
-          <DialogContent className="p-0 border-none sm:max-w-md flex flex-col rounded-[2.5rem] overflow-hidden shadow-3xl mx-auto w-[95vw] max-h-[90vh]">
-              <DialogHeader className="p-5 bg-muted/30 border-b">
-                  <DialogTitle className="font-headline text-xl">Status Studio</DialogTitle>
-                  <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Style your temporary update</DialogDescription>
+          <DialogContent className="p-0 border-none sm:max-w-md flex flex-col rounded-[2.5rem] overflow-hidden shadow-3xl mx-auto w-[95vw] max-h-[95vh] animate-in slide-in-from-bottom-8 duration-700">
+              <DialogHeader className="p-6 bg-muted/30 border-b flex-shrink-0">
+                  <DialogTitle className="font-headline text-xl font-bold">Status Studio</DialogTitle>
+                  <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Design your temporary update</DialogDescription>
               </DialogHeader>
               <div className={cn(
-                  "relative h-[380px] md:h-[450px] flex flex-col justify-center items-center text-white transition-all duration-500",
+                  "relative h-[420px] md:h-[500px] flex flex-col justify-center items-center text-white transition-all duration-700 transform-gpu",
                   activeUploaderTab === 'text' ? backgroundStyle : 'bg-black'
               )}>
+                  <div className="absolute inset-0 bg-black/5 pointer-events-none" />
+                  
                   {activeUploaderTab === 'art' && mediaPreview && (
-                      <>
-                        <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" />
+                      <div className="w-full h-full relative">
+                        <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" className="animate-in fade-in duration-1000" />
                         <div className="absolute inset-0 bg-black/20 flex flex-col justify-end p-6">
                             <Textarea 
                                 value={noteContent}
                                 onChange={e => setNoteContent(e.target.value)}
                                 placeholder="Add a caption..."
-                                className="bg-black/40 backdrop-blur-md border-none text-white placeholder:text-white/50 rounded-2xl resize-none shadow-lg h-24 text-sm"
+                                className={cn(
+                                    "bg-black/40 backdrop-blur-md border-none text-white placeholder:text-white/50 rounded-[1.5rem] resize-none shadow-2xl h-28 text-lg font-medium p-5 transition-all duration-300",
+                                    textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
+                                    textStyle.alignment === 'center' ? 'text-center' : (textStyle.alignment === 'right' ? 'text-right' : 'text-left')
+                                )}
+                                style={{
+                                    backgroundColor: textStyle.background === 'solid' ? 'rgba(0,0,0,0.8)' : (textStyle.background === 'translucent' ? 'rgba(0,0,0,0.4)' : 'transparent'),
+                                }}
                             />
                             {mediaType === 'image' && (
-                                <div className="mt-4 space-y-2">
-                                    <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 font-bold text-[10px] uppercase tracking-widest gap-2" onClick={handleGenerateAiCaptions} disabled={isGeneratingAi}>
+                                <div className="mt-4 space-y-3">
+                                    <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 font-bold text-[10px] uppercase tracking-widest gap-2 bg-white/5 rounded-full px-4" onClick={handleGenerateAiCaptions} disabled={isGeneratingAi}>
                                         {isGeneratingAi ? <Loader2 className="h-3 w-3 animate-spin"/> : <Sparkles className="h-3 w-3" />}
-                                        AI Hints
+                                        AI Suggested Captions
                                     </Button>
                                     <ScrollArea className="w-full whitespace-nowrap">
-                                        <div className="flex gap-1 pb-1">
+                                        <div className="flex gap-2 pb-2">
                                             {aiSuggestions.map((s, i) => (
-                                                <button key={i} onClick={() => setNoteContent(s)} className="text-[9px] bg-white/20 hover:bg-white/40 px-3 py-1.5 rounded-full text-white truncate max-w-[120px] transition-all border border-white/10 font-bold uppercase tracking-tight">"{s}"</button>
+                                                <button key={i} onClick={() => setNoteContent(s)} className="text-[10px] bg-white/10 hover:bg-white/30 px-4 py-2 rounded-full text-white truncate max-w-[150px] transition-all border border-white/5 font-bold uppercase tracking-tight backdrop-blur-sm">"{s}"</button>
                                             ))}
                                         </div>
                                         <ScrollBar orientation="horizontal" className="hidden" />
@@ -406,34 +460,56 @@ export default function StatusFeature() {
                                 </div>
                             )}
                         </div>
-                      </>
+                      </div>
                   )}
 
                   {activeUploaderTab === 'text' && (
-                      <Textarea
-                        placeholder="Share your creative state..."
-                        value={noteContent}
-                        onChange={e => setNoteContent(e.target.value)}
-                        className="bg-transparent border-0 focus-visible:ring-0 text-2xl md:text-3xl font-bold text-center resize-none shadow-none placeholder:text-white/40 h-full flex items-center justify-center pt-20 px-6"
-                      />
+                      <div className="w-full h-full flex items-center justify-center p-6 relative">
+                        <Textarea
+                            placeholder="Share your creative state..."
+                            value={noteContent}
+                            onChange={e => setNoteContent(e.target.value)}
+                            className={cn(
+                                "bg-transparent border-0 focus-visible:ring-0 text-3xl md:text-4xl font-bold text-center resize-none shadow-none placeholder:text-white/30 h-auto w-full transition-all duration-300 transform-gpu",
+                                textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
+                                textStyle.alignment === 'center' ? 'text-center' : (textStyle.alignment === 'right' ? 'text-right' : 'text-left')
+                            )}
+                            style={{
+                                backgroundColor: textStyle.background === 'solid' ? 'rgba(0,0,0,0.8)' : (textStyle.background === 'translucent' ? 'rgba(0,0,0,0.4)' : 'transparent'),
+                                padding: textStyle.background !== 'none' ? '2rem' : '0',
+                                borderRadius: textStyle.background !== 'none' ? '2rem' : '0'
+                            }}
+                        />
+                      </div>
                   )}
 
                   {activeUploaderTab === 'music' && (
-                      <div className="w-full h-full p-6 flex flex-col justify-center bg-gradient-to-br from-green-900 via-gray-900 to-black">
+                      <div className="w-full h-full p-6 flex flex-col justify-center bg-gradient-to-br from-green-900 via-gray-900 to-black animate-in fade-in duration-500">
                         {selectedSong ? (
-                            <div className="space-y-6 text-center animate-in zoom-in-95">
-                                <div className="relative w-40 h-40 md:w-48 md:h-48 mx-auto rounded-2xl overflow-hidden shadow-2xl">
-                                    <Image src={selectedSong.cover} alt="" layout="fill" objectFit="cover" />
+                            <div className="space-y-8 text-center animate-in zoom-in-95 duration-500">
+                                <div className="relative w-48 h-48 md:w-56 md:h-56 mx-auto rounded-[2.5rem] overflow-hidden shadow-[0_30px_70px_rgba(0,0,0,0.5)] border border-white/10">
+                                    <Image src={selectedSong.cover} alt="" layout="fill" objectFit="cover" className="animate-pulse duration-[4s]" />
                                 </div>
-                                <div>
-                                    <h3 className="text-xl md:text-2xl font-bold truncate px-4">{selectedSong.title}</h3>
-                                    <p className="text-white/60 text-sm">{selectedSong.artist}</p>
+                                <div className="space-y-2">
+                                    <h3 className="text-2xl md:text-3xl font-bold truncate px-4 drop-shadow-lg">{selectedSong.title}</h3>
+                                    <p className="text-white/60 text-lg uppercase tracking-widest font-bold">{selectedSong.artist}</p>
                                 </div>
-                                <Button variant="ghost" className="text-white/40 hover:text-white text-xs uppercase tracking-widest font-bold" onClick={() => setSelectedSong(null)}>Change Song</Button>
+                                <div className="max-w-xs mx-auto">
+                                    <Textarea 
+                                        value={noteContent}
+                                        onChange={e => setNoteContent(e.target.value)}
+                                        placeholder="Add a vibe note..."
+                                        className="bg-white/10 border-none text-white rounded-2xl resize-none text-center h-16"
+                                    />
+                                </div>
+                                <Button variant="ghost" className="text-white/30 hover:text-white text-[10px] uppercase tracking-widest font-bold bg-white/5 rounded-full px-6" onClick={() => setSelectedSong(null)}>Change Soundtrack</Button>
                             </div>
                         ) : (
-                            <div className="space-y-4">
-                                <h3 className="text-center font-headline text-xl mb-4">Pick a soundtrack</h3>
+                            <div className="space-y-6 h-full flex flex-col justify-center max-w-sm mx-auto w-full">
+                                <div className="text-center space-y-1">
+                                    <h3 className="font-headline text-2xl font-bold">Pick a soundtrack</h3>
+                                    <p className="text-white/40 text-xs uppercase tracking-widest font-bold">Thousands of real-time tracks</p>
+                                </div>
                                 <SongSearch onSongSelect={setSelectedSong} />
                             </div>
                         )}
@@ -441,15 +517,15 @@ export default function StatusFeature() {
                   )}
 
                   {activeUploaderTab === 'poll' && (
-                      <div className="w-full h-full p-5 flex flex-col justify-center bg-gradient-to-br from-orange-400 to-rose-500">
-                          <div className="bg-white/10 backdrop-blur-md rounded-[2rem] p-6 space-y-4 shadow-xl border border-white/10 w-full">
+                      <div className="w-full h-full p-6 flex flex-col justify-center bg-gradient-to-br from-orange-400 to-rose-500 animate-in fade-in duration-500">
+                          <div className="bg-white/10 backdrop-blur-2xl rounded-[2.5rem] p-8 space-y-6 shadow-3xl border border-white/20 w-full animate-in zoom-in-95 duration-500">
                               <Input 
                                 placeholder="Ask your community..." 
                                 value={pollQuestion} 
                                 onChange={e => setPollQuestion(e.target.value)}
-                                className="bg-transparent border-none text-white placeholder:text-white/50 text-lg md:text-xl font-bold p-0 h-auto focus-visible:ring-0"
+                                className="bg-transparent border-none text-white placeholder:text-white/50 text-2xl md:text-3xl font-bold p-0 h-auto focus-visible:ring-0 text-center"
                               />
-                              <div className="space-y-2">
+                              <div className="space-y-3">
                                 {pollOptions.map((opt, i) => (
                                     <Input 
                                         key={i} 
@@ -460,11 +536,11 @@ export default function StatusFeature() {
                                             newOpts[i] = e.target.value;
                                             setPollOptions(newOpts);
                                         }}
-                                        className="bg-white/20 border-none text-white h-10 rounded-xl text-sm placeholder:text-white/30"
+                                        className="bg-white/10 border-none text-white h-12 rounded-2xl text-base font-bold placeholder:text-white/20 text-center focus:bg-white/20 transition-all shadow-inner"
                                     />
                                 ))}
                                 {pollOptions.length < 4 && (
-                                    <Button variant="ghost" size="sm" className="text-white/60 hover:text-white text-[10px] font-bold uppercase tracking-widest" onClick={() => setPollOptions([...pollOptions, ''])}>+ Add Option</Button>
+                                    <Button variant="ghost" size="sm" className="w-full text-white/50 hover:text-white text-[10px] font-bold uppercase tracking-widest h-10 border border-white/10 rounded-xl" onClick={() => setPollOptions([...pollOptions, ''])}>+ Add Option</Button>
                                 )}
                               </div>
                           </div>
@@ -472,33 +548,51 @@ export default function StatusFeature() {
                   )}
 
                   {activeUploaderTab === 'story' && (
-                      <div className="w-full h-full p-6 flex flex-col justify-center bg-gradient-to-br from-purple-600 via-indigo-700 to-blue-800">
+                      <div className="w-full h-full p-6 flex flex-col justify-center bg-gradient-to-br from-purple-600 via-indigo-700 to-blue-800 animate-in fade-in duration-500">
                           {selectedStory ? (
-                              <div className="bg-white/10 backdrop-blur-xl rounded-[2rem] p-4 flex gap-4 items-center border border-white/20 shadow-2xl animate-in fade-in w-full">
-                                  <div className="relative w-16 h-24 rounded-xl overflow-hidden flex-shrink-0 shadow-lg">
-                                      <Image src={selectedStory.coverImageUrl || `https://picsum.photos/seed/${selectedStory.id}/512/800`} alt="" fill objectFit="cover" />
+                              <div className="bg-white/10 backdrop-blur-3xl rounded-[2.5rem] p-6 flex flex-col items-center gap-6 border border-white/20 shadow-3xl animate-in zoom-in-95 duration-500 w-full">
+                                  <div className="relative w-32 h-48 md:w-40 md:h-60 rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+                                      <Image src={selectedStory.coverImageUrl || `https://picsum.photos/seed/${selectedStory.id}/512/800`} alt="" fill objectFit="cover" className="animate-in fade-in duration-1000" />
                                   </div>
-                                  <div className="flex-1 overflow-hidden">
-                                      <h4 className="font-bold text-base md:text-lg truncate">{selectedStory.title}</h4>
-                                      <p className="text-[10px] text-white/60 mb-2 truncate uppercase font-bold tracking-widest">@{selectedStory.author.username}</p>
-                                      <Badge className="bg-white/20 hover:bg-white/20 text-white border-none text-[8px] uppercase">{selectedStory.genre}</Badge>
+                                  <div className="text-center space-y-2 overflow-hidden w-full">
+                                      <h4 className="font-bold text-xl md:text-2xl truncate px-2">{selectedStory.title}</h4>
+                                      <p className="text-xs text-white/60 uppercase font-bold tracking-widest">by @{selectedStory.author.username}</p>
+                                      <Badge className="bg-white/20 text-white border-none text-[10px] uppercase h-7 px-4 rounded-full mt-2">{selectedStory.genre}</Badge>
                                   </div>
-                                  <Button variant="ghost" size="icon" className="text-white/50" onClick={() => setSelectedStory(null)}><X className="h-4 w-4"/></Button>
+                                  <div className="w-full">
+                                      <Textarea 
+                                        value={noteContent}
+                                        onChange={e => setNoteContent(e.target.value)}
+                                        placeholder="Add a promo note..."
+                                        className="bg-white/5 border-none text-white text-center rounded-2xl"
+                                        rows={2}
+                                      />
+                                  </div>
+                                  <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white/50 rounded-full h-10 w-10 bg-white/5" onClick={() => setSelectedStory(null)}><X className="h-5 w-5"/></Button>
                               </div>
                           ) : (
-                              <div className="space-y-4 h-full flex flex-col">
-                                  <h3 className="text-center font-headline text-xl mb-2">Share your latest work</h3>
-                                  <ScrollArea className="flex-1">
-                                      <div className="space-y-1.5">
+                              <div className="space-y-6 h-full flex flex-col max-w-sm mx-auto w-full">
+                                  <div className="text-center">
+                                    <h3 className="font-headline text-2xl font-bold mb-1">Share your manuscript</h3>
+                                    <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Only public works visible</p>
+                                  </div>
+                                  <ScrollArea className="flex-1 bg-white/5 rounded-[2rem] p-4 border border-white/10">
+                                      <div className="space-y-2">
                                           {storySearchResults.map(s => (
-                                              <div key={s.id} onClick={() => setSelectedStory(s)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl flex gap-3 items-center cursor-pointer transition-all border border-transparent hover:border-white/20">
-                                                  <div className="relative w-8 h-12 rounded overflow-hidden">
-                                                      <Image src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/80/120`} alt="" fill objectFit="cover" />
+                                              <div key={s.id} onClick={() => setSelectedStory(s)} className="p-4 bg-white/5 hover:bg-white/15 rounded-2xl flex gap-4 items-center cursor-pointer transition-all border border-transparent hover:border-white/10 group">
+                                                  <div className="relative w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 shadow-lg group-hover:scale-105 transition-transform">
+                                                      <Image src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/100/150`} alt="" fill objectFit="cover" />
                                                   </div>
-                                                  <span className="font-bold text-xs truncate max-w-[150px]">{s.title}</span>
-                                                  <ChevronRight className="h-4 w-4 ml-auto opacity-50" />
+                                                  <div className="flex-1 overflow-hidden">
+                                                    <span className="font-bold text-sm block truncate">{s.title}</span>
+                                                    <span className="text-[9px] font-bold uppercase tracking-tighter text-white/40">{s.genre}</span>
+                                                  </div>
+                                                  <ChevronRight className="h-5 w-5 ml-auto opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                               </div>
                                           ))}
+                                          {storySearchResults.length === 0 && (
+                                              <p className="text-center py-10 text-white/30 text-xs italic">No public manuscripts found.</p>
+                                          )}
                                       </div>
                                   </ScrollArea>
                               </div>
@@ -507,29 +601,101 @@ export default function StatusFeature() {
                   )}
               </div>
 
-              <div className="p-5 bg-background border-t space-y-5">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex justify-between items-center">
-                        <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-1">
-                            {activeUploaderTab === 'text' && gradientBackgrounds.map(bg => (
-                                <button key={bg} onClick={() => setBackgroundStyle(bg)} className={cn("w-6 h-6 rounded-full border-2 transition-all flex-shrink-0", backgroundStyle === bg ? "border-primary scale-110 shadow-md" : "border-transparent", bg)} />
-                            ))}
-                        </div>
-                        <div className="flex items-center gap-3">
-                             <div className="flex items-center gap-2">
-                                <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap">Close Friends</span>
-                                <Switch checked={statusVisibility === 'close-friends'} onCheckedChange={(c) => setStatusVisibility(c ? 'close-friends' : 'public')} className="scale-75 md:scale-100" />
+              <div className="flex-1 bg-background overflow-y-auto no-scrollbar">
+                  <div className="p-6 space-y-8">
+                    {/* Text Styling Bar */}
+                    {(activeUploaderTab === 'text' || activeUploaderTab === 'art' || activeUploaderTab === 'music' || activeUploaderTab === 'story') && (
+                        <div className="space-y-6 animate-in slide-in-from-top-4 duration-500">
+                             <div className="flex items-center justify-between border-b pb-4 border-border/40">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                                        <Palette className="h-4 w-4" />
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Text Stylist</span>
+                                </div>
+                                <div className="flex gap-1">
+                                    {activeUploaderTab === 'text' && gradientBackgrounds.map(bg => (
+                                        <button key={bg} onClick={() => setBackgroundStyle(bg)} className={cn("w-5 h-5 rounded-full border-2 transition-all flex-shrink-0", backgroundStyle === bg ? "border-primary scale-110 shadow-md" : "border-transparent", bg)} />
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-3 gap-6">
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 opacity-60">Typography</Label>
+                                    <RadioGroup value={textStyle.font} onValueChange={(v: any) => setTextStyle({...textStyle, font: v})} className="flex gap-2">
+                                        <div className="flex-1">
+                                            <RadioGroupItem value="sans" id="font-sans" className="sr-only" />
+                                            <Label htmlFor="font-sans" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-xs font-bold", textStyle.font === 'sans' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>Abc</Label>
+                                        </div>
+                                        <div className="flex-1">
+                                            <RadioGroupItem value="serif" id="font-serif" className="sr-only" />
+                                            <Label htmlFor="font-serif" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer font-serif text-xs font-bold", textStyle.font === 'serif' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>Abc</Label>
+                                        </div>
+                                        <div className="flex-1">
+                                            <RadioGroupItem value="mono" id="font-mono" className="sr-only" />
+                                            <Label htmlFor="font-mono" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer font-mono text-xs font-bold", textStyle.font === 'mono' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>Abc</Label>
+                                        </div>
+                                    </RadioGroup>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 opacity-60">Alignment</Label>
+                                    <RadioGroup value={textStyle.alignment} onValueChange={(v: any) => setTextStyle({...textStyle, alignment: v})} className="flex gap-2">
+                                        <div className="flex-1">
+                                            <RadioGroupItem value="left" id="align-left" className="sr-only" />
+                                            <Label htmlFor="align-left" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer", textStyle.alignment === 'left' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}><AlignLeft className="h-4 w-4" /></Label>
+                                        </div>
+                                        <div className="flex-1">
+                                            <RadioGroupItem value="center" id="align-center" className="sr-only" />
+                                            <Label htmlFor="align-center" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer", textStyle.alignment === 'center' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}><AlignCenter className="h-4 w-4" /></Label>
+                                        </div>
+                                        <div className="flex-1">
+                                            <RadioGroupItem value="right" id="align-right" className="sr-only" />
+                                            <Label htmlFor="align-right" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer", textStyle.alignment === 'right' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}><AlignRight className="h-4 w-4" /></Label>
+                                        </div>
+                                    </RadioGroup>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 opacity-60">Highlight</Label>
+                                    <RadioGroup value={textStyle.background} onValueChange={(v: any) => setTextStyle({...textStyle, background: v})} className="flex gap-2">
+                                        <div className="flex-1">
+                                            <RadioGroupItem value="none" id="bg-none" className="sr-only" />
+                                            <Label htmlFor="bg-none" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-[8px] font-bold uppercase", textStyle.background === 'none' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>None</Label>
+                                        </div>
+                                        <div className="flex-1">
+                                            <RadioGroupItem value="translucent" id="bg-trans" className="sr-only" />
+                                            <Label htmlFor="bg-trans" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-[8px] font-bold uppercase", textStyle.background === 'translucent' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>Blur</Label>
+                                        </div>
+                                        <div className="flex-1">
+                                            <RadioGroupItem value="solid" id="bg-solid" className="sr-only" />
+                                            <Label htmlFor="bg-solid" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-[8px] font-bold uppercase", textStyle.background === 'solid' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>Solid</Label>
+                                        </div>
+                                    </RadioGroup>
+                                </div>
                             </div>
                         </div>
+                    )}
+
+                    <div className="flex flex-col gap-6">
+                        <div className="flex items-center justify-between p-5 bg-muted/20 rounded-[1.5rem] border border-border/40">
+                             <div className="space-y-1">
+                                <Label htmlFor="cf-toggle" className="text-sm font-bold block cursor-pointer">Close Friends Only</Label>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Share with selected circle</p>
+                            </div>
+                            <Switch id="cf-toggle" checked={statusVisibility === 'close-friends'} onCheckedChange={(c) => setStatusVisibility(c ? 'close-friends' : 'public')} className="data-[state=checked]:bg-green-500" />
+                        </div>
+                        
+                        <Button 
+                            onClick={handlePublishStatus} 
+                            disabled={isSubmitting || (activeUploaderTab === 'text' && !noteContent.trim()) || (activeUploaderTab === 'poll' && !pollQuestion.trim())} 
+                            className="rounded-full w-full h-16 shadow-2xl shadow-primary/30 font-bold uppercase tracking-widest text-sm bg-primary hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Send className="h-5 w-5 mr-2" />}
+                            Publish Transmission
+                        </Button>
                     </div>
-                    <Button 
-                        onClick={handlePublishStatus} 
-                        disabled={isSubmitting || (activeUploaderTab === 'text' && !noteContent.trim()) || (activeUploaderTab === 'poll' && !pollQuestion.trim())} 
-                        className="rounded-full w-full h-12 shadow-xl shadow-primary/20 font-bold uppercase tracking-widest text-xs"
-                    >
-                        {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                        Publish Status
-                    </Button>
                   </div>
               </div>
           </DialogContent>
