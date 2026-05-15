@@ -49,7 +49,10 @@ import {
   CheckCircle,
   RefreshCw,
   ImagePlus,
-  Users
+  Users,
+  Music,
+  Wind,
+  Plus
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -336,7 +339,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             let hasAccess = false;
             if (chapterData.accessType === 'premium') {
               if (currentUser) {
-                if (storyData.author.id === currentUser.id || storyData.collaboratorIds?.includes(currentUser.id) || isAppOwner) {
+                if (storyData.author.id === currentUser.id || storyDetails.collaboratorIds?.includes(currentUser.id) || isAppOwner) {
                   hasAccess = true;
                 } else {
                   const userAccessRecord = chapterData.allowedUsers?.find(u => u.userId === currentUser.id);

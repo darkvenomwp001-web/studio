@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense, ChangeEvent } from 'react';
@@ -47,6 +46,8 @@ import {
   Strikethrough,
   Eraser,
   Minus,
+  ImagePlus,
+  Sparkles
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
