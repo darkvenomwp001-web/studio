@@ -52,6 +52,9 @@ export interface User {
     oledMode: boolean;
     motionLevel: 'full' | 'reduced';
     autoDim: boolean;
+    parchmentMode: boolean;
+    cornerStyle: 'minimal' | 'rounded' | 'organic';
+    ambientSound: 'none' | 'lofi' | 'rain';
   };
 }
 

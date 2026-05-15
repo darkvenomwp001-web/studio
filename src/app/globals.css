@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,12 +9,32 @@ body {
   touch-action: manipulation;
 }
 
-/* Added for Night Reading Portal */
+/* Night Reading Portal */
 body.night-portal {
   --background: 0 0% 0%;
   --foreground: 210 15% 80%;
   --card: 0 0% 5%;
   --border: 210 10% 20%;
+}
+
+/* Parchment Mode Overlay */
+body.parchment-mode::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 100;
+  mix-blend-mode: multiply;
+}
+
+.dark body.parchment-mode::after {
+  opacity: 0.05;
+  mix-blend-mode: overlay;
 }
 
 @layer base {
@@ -117,6 +138,11 @@ body.night-portal {
   [data-accent="honey"] { --primary: 45 100% 65%; --accent: 45 100% 55%; --ring: 45 100% 65%; }
   [data-accent="charcoal"] { --primary: 220 15% 35%; --accent: 220 15% 25%; --ring: 220 15% 35%; }
   [data-accent="pistachio"] { --primary: 100 40% 70%; --accent: 100 40% 60%; --ring: 100 40% 70%; }
+
+  /* Corner Styles */
+  [data-radius="minimal"] { --radius: 0.15rem; }
+  [data-radius="rounded"] { --radius: 0.75rem; }
+  [data-radius="organic"] { --radius: 1.75rem; }
 
   .glass-enabled header,
   .glass-enabled .glass-card { @apply backdrop-blur-md bg-opacity-70; }
