@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, usePathname } from 'next/navigation';
 import NextImage from 'next/image';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -48,7 +48,8 @@ import {
   Cloud,
   CheckCircle,
   RefreshCw,
-  ImagePlus
+  ImagePlus,
+  Users
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -56,7 +57,8 @@ import type { Story, Chapter, Annotation } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn, formatCompactNumber } from '@/lib/utils';
-import { db } from '@/lib/firebase';
+import { db, rtdb } from '@/lib/firebase';
+import { ref, onValue } from 'firebase/database';
 import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment, addDoc, collection } from 'firebase/firestore';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import {
@@ -120,6 +122,7 @@ type LayoutWidth = 'normal' | 'wide';
 
 export default function ChapterReaderClient({ storyId, chapterId }: { storyId: string, chapterId: string }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user: currentUser, addToLibrary, removeFromLibrary } = useAuth();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
@@ -135,6 +138,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [readingProgress, setReadingProgress] = useState(0);
   const [isAccessGranted, setIsAccessGranted] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
+
+  // Real-time Presence
+  const [activeReaders, setActiveReaders] = useState(1);
 
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
@@ -237,6 +243,22 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
     return () => { if (autoScrollInterval.current) clearInterval(autoScrollInterval.current); };
   }, [autoScrollSpeed]);
+
+  // Real-time Presence Sync
+  useEffect(() => {
+    const statusRef = ref(rtdb, 'status');
+    const unsubscribe = onValue(statusRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        let readers = 0;
+        Object.keys(data).forEach(uid => {
+            if (data[uid].state === 'online' && data[uid].active_path === pathname) {
+                readers++;
+            }
+        });
+        setActiveReaders(Math.max(1, readers));
+    });
+    return () => unsubscribe();
+  }, [pathname]);
 
   const resetAppearanceSettings = () => {
     setFontSize('base');
@@ -706,12 +728,18 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         </div>
         <div className="truncate text-center mx-2 flex-1 flex flex-col items-center">
             <h1 className="text-sm sm:text-base font-headline font-semibold text-primary truncate max-w-[200px] sm:max-w-md">{story.title}</h1>
-            {isSynced && (
-                <div className="flex items-center gap-1 text-[8px] uppercase tracking-widest font-bold text-green-500 opacity-60">
-                    <Cloud className="h-2 w-2" />
-                    <span>Cloud Sync</span>
+            <div className="flex items-center gap-2">
+                {isSynced && (
+                    <div className="flex items-center gap-1 text-[8px] uppercase tracking-widest font-bold text-green-500 opacity-60">
+                        <Cloud className="h-2 w-2" />
+                        <span>Synced</span>
+                    </div>
+                )}
+                <div className="flex items-center gap-1 text-[8px] uppercase tracking-widest font-bold text-primary animate-pulse">
+                    <Users className="h-2 w-2" />
+                    <span>{activeReaders} Live</span>
                 </div>
-            )}
+            </div>
         </div>
         <div className="flex items-center gap-1">
             <Popover>
@@ -948,7 +976,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
                             placeholder="Search in chapter..." 
-                            className="pl-10" 
+                            className="pl-10 h-10 rounded-xl" 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -1220,8 +1248,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 <div className="bg-muted/40 backdrop-blur-md rounded-full px-2 py-1 flex items-center gap-1 border border-white/5 shadow-inner">
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className={cn("rounded-full h-10 w-10 transition-all", hasVoted && "text-primary bg-primary/5")} onClick={handleVoteClick} disabled={isVoting}>
-                                <ThumbsUp className={cn("h-5 w-5", hasVoted && "fill-current")} />
+                            <Button variant="ghost" size="sm" className={cn("rounded-full h-10 px-3 gap-1.5 transition-all", hasVoted && "text-primary bg-primary/5")} onClick={handleVoteClick} disabled={isVoting}>
+                                <ThumbsUp className={cn("h-4 w-4", hasVoted && "fill-current")} />
+                                <span className="text-[10px] font-bold">{formatCompactNumber(currentChapter?.votes || 0)}</span>
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent className="text-[10px] font-bold uppercase">Vote</TooltipContent>
@@ -1232,8 +1261,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Link href={`/stories/${storyId}/read/${chapterId}/comments`} passHref>
-                                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:text-primary transition-all">
-                                    <MessageSquare className="h-5 w-5" />
+                                <Button variant="ghost" size="sm" className="rounded-full h-10 px-3 gap-1.5 hover:text-primary transition-all">
+                                    <MessageSquare className="h-4 w-4" />
+                                    <span className="text-[10px] font-bold">{formatCompactNumber(currentChapter?.commentsCount || 0)}</span>
                                 </Button>
                             </Link>
                         </TooltipTrigger>

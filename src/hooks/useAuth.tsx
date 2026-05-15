@@ -96,7 +96,15 @@ const DEFAULT_REDIRECT_AUTHENTICATED = '/';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AppUser | null>(null);
+  // Initialize from session cache for instant UI response
+  const [user, setUser] = useState<AppUser | null>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(USER_CACHE_KEY);
+      return cached ? JSON.parse(cached) : null;
+    }
+    return null;
+  });
+
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
@@ -131,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Presence System with Active Path Tracking
   useEffect(() => {
     if (!user || user.isAnonymous) return;
 
@@ -143,10 +152,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       onDisconnect(userStatusRef).set({
         state: 'offline',
         last_changed: rtdbTimestamp(),
+        active_path: null
       }).then(() => {
         set(userStatusRef, {
           state: 'online',
           last_changed: rtdbTimestamp(),
+          active_path: pathname
         });
       });
     });
@@ -156,9 +167,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       set(userStatusRef, {
         state: 'offline',
         last_changed: rtdbTimestamp(),
+        active_path: null
       });
     };
-  }, [user]);
+  }, [user, pathname]);
 
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | undefined;
@@ -169,7 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (unsubscribeNotifs) unsubscribeNotifs();
 
       if (firebaseUser) {
-        setLoading(true);
+        // If we have a cached user, we can resolve loading faster
         const userRef = doc(db, 'users', firebaseUser.uid);
         
         unsubscribeUserDoc = onSnapshot(userRef, async (userSnap) => {
@@ -448,6 +460,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await set(userStatusRef, {
           state: 'offline',
           last_changed: rtdbTimestamp(),
+          active_path: null
         });
       }
       await signOut(auth);
