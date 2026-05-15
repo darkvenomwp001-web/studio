@@ -164,7 +164,7 @@ function ForYouTabContent() {
             <CarouselContent className="-ml-0">
               {carouselSlides.map((slide, index) => (
                 <CarouselItem key={slide.id} className="pl-0 basis-full">
-                  <Link href={slide.ctaLink} className="block group">
+                  <Link href={slide.ctaLink || '/'} className="block group">
                     <div className="relative aspect-[16/9] md:aspect-[2.5/1] lg:aspect-[3/1] w-full overflow-hidden bg-muted transition-all duration-500 rounded-none md:rounded-b-[40px]">
                       <Image
                         src={slide.imageUrl}

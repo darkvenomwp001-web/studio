@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
@@ -123,8 +122,8 @@ export default function CarouselAdminPage() {
     };
 
     const handleSaveSlide = async () => {
-        if (!selectedSlide?.imageUrl || !selectedSlide?.title) {
-            toast({ title: "Missing Data", description: "Image and Title are required.", variant: "destructive" });
+        if (!selectedSlide?.imageUrl || !selectedSlide?.title || !selectedSlide?.ctaLink) {
+            toast({ title: "Missing Data", description: "Image, Title, and Link are required.", variant: "destructive" });
             return;
         }
         setIsSaving(true);
