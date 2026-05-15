@@ -6,7 +6,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Loader2, 
@@ -14,15 +13,11 @@ import {
   Radio, 
   Image as ImageIcon, 
   X, 
-  Zap, 
-  AlertTriangle, 
-  Info,
-  BadgeAlert,
   Pin
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
@@ -53,7 +48,9 @@ export default function CreateBroadcastForm() {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             setImageFile(file);
-            setImagePreview(URL.createObjectURL(file));
+            const reader = new FileReader();
+            reader.onload = (event) => setImagePreview(event.target?.result as string);
+            reader.readAsDataURL(file);
         }
     };
 
@@ -94,15 +91,33 @@ export default function CreateBroadcastForm() {
 
             await addDoc(collection(db, 'broadcasts'), broadcastData);
             
-            // Push Global Notification for major updates
-            if (priority === 'high' || category === 'announcement') {
-                await addNotification({
-                    type: 'app_update',
-                    userId: 'ALL_USERS_PLACEHOLDER', // In a real app, this would be a trigger for a Function
-                    message: `Official Transmission: ${content.substring(0, 50)}...`,
-                    link: `/?tab=broadcast`,
-                    actor: { id: user.id, username: user.username, displayName: 'D4RKV3NOM Admin', avatarUrl: user.avatarUrl }
-                });
+            // Push Global Notification to Followers
+            try {
+                const followersQuery = query(
+                    collection(db, 'users'), 
+                    where('followingIds', 'array-contains', user.id)
+                );
+                const followersSnapshot = await getDocs(followersQuery);
+                
+                // Notify up to 100 followers instantly for owner broadcasts
+                const followersToNotify = followersSnapshot.docs.slice(0, 100);
+                
+                for (const followerDoc of followersToNotify) {
+                    addNotification({
+                        type: 'app_update',
+                        userId: followerDoc.id,
+                        message: `Official Transmission: ${content.substring(0, 60)}...`,
+                        link: `/?tab=broadcast`,
+                        actor: { 
+                            id: user.id, 
+                            username: user.username, 
+                            displayName: 'D4RKV3NOM Admin', 
+                            avatarUrl: user.avatarUrl 
+                        }
+                    });
+                }
+            } catch (notifErr) {
+                console.warn("Broadcast notifications failed:", notifErr);
             }
 
             toast({ title: "Transmission Successful!" });

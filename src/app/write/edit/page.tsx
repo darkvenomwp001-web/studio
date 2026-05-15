@@ -35,7 +35,7 @@ import {
   AlignJustify,
   History,
   BookMarked,
-  ImagePlus,
+  History as HistoryIcon,
   Camera,
   Timer,
   BarChart3,
@@ -54,7 +54,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import type { Story, Chapter } from '@/types';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -152,7 +152,6 @@ function EditorContentInner() {
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
   const [isFrozen, setIsFrozen] = useState(false);
 
-  // High Fidelity Visual Parity States
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
@@ -405,16 +404,38 @@ function EditorContentInner() {
 
     const storyDocRef = doc(db, 'stories', storyDetails.id);
     updateDoc(storyDocRef, storyUpdateData)
-      .then(() => {
-        if (currentUser.id === storyDetails.author.id) {
-            addNotification({
-                type: 'new_chapter',
-                userId: currentUser.id,
-                message: `${currentUser.displayName || currentUser.username} published a new part "${chapterTitle}" for "${storyDetails.title}".`,
-                link: `/stories/${storyDetails.id}/read/${updatedChapterData.id}`,
-                actor: {id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName || currentUser.username, avatarUrl: currentUser.avatarUrl }
-            });
+      .then(async () => {
+        // Trigger Follower Notifications
+        try {
+            const followersQuery = query(
+                collection(db, 'users'), 
+                where('followingIds', 'array-contains', storyDetails.author.id)
+            );
+            const followersSnapshot = await getDocs(followersQuery);
+            
+            // Notify up to 100 followers instantly
+            const followersToNotify = followersSnapshot.docs.slice(0, 100);
+            
+            for (const followerDoc of followersToNotify) {
+                if (followerDoc.id !== currentUser.id) {
+                    addNotification({
+                        userId: followerDoc.id,
+                        type: 'new_chapter',
+                        message: `published a new part "${chapterTitle}" for "${storyDetails.title}".`,
+                        link: `/stories/${storyDetails.id}/read/${updatedChapterData.id}`,
+                        actor: {
+                            id: currentUser.id, 
+                            username: currentUser.username, 
+                            displayName: currentUser.displayName || currentUser.username, 
+                            avatarUrl: currentUser.avatarUrl 
+                        }
+                    });
+                }
+            }
+        } catch (notifErr) {
+            console.warn("Follower notifications failed:", notifErr);
         }
+
         router.push(`/write/edit-details?storyId=${storyDetails.id}`);
       })
       .catch(async (serverError) => {
