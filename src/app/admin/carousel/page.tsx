@@ -33,6 +33,7 @@ import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 const OWNER_HANDLES = ['arnv'];
 
@@ -359,7 +360,7 @@ export default function CarouselAdminPage() {
                                 <Sparkles className="h-16 w-16 text-primary/20" />
                             </div>
                             <h2 className="text-3xl font-headline font-bold mb-2">Editor Ready</h2>
-                            <p className="text-muted-foreground max-w-sm mx-auto">Select an active slide from the queue or launch a new curation from the studio header.</p>
+                            <p className="text-muted-foreground max-sm mx-auto">Select an active slide from the queue or launch a new curation from the studio header.</p>
                             <div className="mt-8 grid grid-cols-2 gap-4 text-left">
                                 <div className="p-4 rounded-3xl bg-muted/40 border border-border/20">
                                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-1">PRO TIP</h4>
