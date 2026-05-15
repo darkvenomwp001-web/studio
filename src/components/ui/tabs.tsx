@@ -15,7 +15,7 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
+      "inline-flex h-10 items-center justify-center rounded-full bg-muted p-1 text-muted-foreground",
       className
     )}
     {...props}
@@ -88,6 +88,7 @@ interface AnimatedTabsProps {
 const AnimatedTabs: React.FC<AnimatedTabsProps> = ({ tabs, activeTab, className }) => {
   const [indicatorStyle, setIndicatorStyle] = useState({});
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   
   useEffect(() => {
     const activeTabIndex = tabs.findIndex(tab => tab.value === activeTab);
@@ -97,17 +98,20 @@ const AnimatedTabs: React.FC<AnimatedTabsProps> = ({ tabs, activeTab, className 
         left: activeTabElement.offsetLeft,
         width: activeTabElement.offsetWidth,
       });
+      
+      // Ensure the active tab is visible in scroll area if it overflows
+      activeTabElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
   }, [activeTab, tabs]);
 
   return (
-    <TabsList className={cn("relative inline-flex items-center rounded-full bg-muted p-1 text-muted-foreground w-max", className)}>
+    <TabsList ref={containerRef} className={cn("relative inline-flex items-center rounded-full bg-muted p-1 text-muted-foreground w-max flex-shrink-0", className)}>
       {tabs.map((tab, i) => (
         <TabsTrigger
           key={tab.value}
           ref={el => tabsRef.current[i] = el}
           value={tab.value}
-          className="relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground gap-2"
+          className="relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 sm:px-5 py-2 text-[11px] sm:text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground gap-2 flex-shrink-0"
         >
           {tab.icon}
           {tab.label}

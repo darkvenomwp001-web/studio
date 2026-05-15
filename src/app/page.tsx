@@ -279,12 +279,12 @@ export default function HomePage() {
         
         <div className="mt-8">
            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="w-full flex justify-center mb-8 px-4">
-                  <ScrollArea className="w-full max-w-full overflow-hidden">
-                      <div className="flex min-w-full justify-start md:justify-center py-1">
-                          <AnimatedTabs tabs={TABS} activeTab={activeTab} className="mb-1 mx-auto" />
+              <div className="w-full flex justify-center mb-8 px-4 overflow-hidden">
+                  <ScrollArea className="w-full max-w-full">
+                      <div className="flex min-w-max justify-start md:justify-center py-2 px-1">
+                          <AnimatedTabs tabs={TABS} activeTab={activeTab} className="mb-1" />
                       </div>
-                      <ScrollBar orientation="horizontal" className="hidden" />
+                      <ScrollBar orientation="horizontal" className="md:hidden" />
                   </ScrollArea>
               </div>
               
