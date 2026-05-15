@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
+import StoryCard from '@/components/shared/StoryCard';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 import type { Story, Prompt, CarouselSlide } from '@/types';
