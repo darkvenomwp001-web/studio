@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -15,14 +14,18 @@ import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 const accentColors = [
-    { id: 'default', name: 'LitVerse Blue', color: 'bg-blue-500' },
-    { id: 'ube', name: 'Ube Latte', color: 'bg-[#A188D3]' },
-    { id: 'matcha', name: 'Matcha Latte', color: 'bg-[#96AD6B]' },
-    { id: 'chocolate', name: 'Rich Chocolate', color: 'bg-[#4B2E1D]' },
-    { id: 'hazel', name: 'Hazel Latte', color: 'bg-[#C4A484]' },
-    { id: 'tangerine', name: 'Tangerine Latte', color: 'bg-[#FF8C00]' },
-    { id: 'blueberry', name: 'Blueberry Cool', color: 'bg-[#4A90E2]' },
-    { id: 'mint', name: 'Fresh Mint', color: 'bg-[#AEE1E1]' },
+    { id: 'default', name: 'LitVerse Blue', color: 'text-blue-500' },
+    { id: 'strawberry', name: 'Strawberry Silk', color: 'text-[#F472B6]' },
+    { id: 'ube', name: 'Ube Latte', color: 'text-[#A188D3]' },
+    { id: 'matcha', name: 'Matcha Latte', color: 'text-[#96AD6B]' },
+    { id: 'lavender', name: 'Lavender Haze', color: 'text-[#C084FC]' },
+    { id: 'honey', name: 'Golden Honey', color: 'text-[#FACC15]' },
+    { id: 'chocolate', name: 'Rich Mocha', color: 'text-[#4B2E1D]' },
+    { id: 'hazel', name: 'Hazel Fusion', color: 'text-[#C4A484]' },
+    { id: 'tangerine', name: 'Tangerine Pop', color: 'text-[#FF8C00]' },
+    { id: 'blueberry', name: 'Blueberry Rush', color: 'text-[#4A90E2]' },
+    { id: 'mint', name: 'Minty Cloud', color: 'text-[#AEE1E1]' },
+    { id: 'charcoal', name: 'Midnight Ash', color: 'text-[#374151]' },
 ];
 
 export default function AppearanceSettingsPage() {
@@ -108,27 +111,29 @@ export default function AppearanceSettingsPage() {
         </Card>
 
         {/* Cafe-inspired Accent Palette */}
-        <Card className="border-border/50 shadow-sm overflow-hidden">
+        <Card className="border-border/50 shadow-sm overflow-hidden bg-card/40 backdrop-blur-sm">
             <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2"><Coffee className="h-4 w-4 text-primary" /> The Cafe Palette</CardTitle>
-                <CardDescription>Choose a delicious accent color to spice up your interface.</CardDescription>
+                <CardTitle className="text-lg flex items-center gap-2"><Coffee className="h-4 w-4 text-primary" /> LitVerse Flavor Palette</CardTitle>
+                <CardDescription>Choose a delicious accent flavor for your workspace.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
                     {accentColors.map((acc) => (
                         <button
                             key={acc.id}
                             onClick={() => updateAppearance('accentColor', acc.id)}
                             className={cn(
-                                "flex flex-col items-center gap-2 group p-4 rounded-2xl border-2 transition-all relative overflow-hidden",
-                                localSettings.accentColor === acc.id ? "border-primary bg-primary/5 shadow-md" : "border-transparent bg-muted/30 hover:bg-muted/50"
+                                "flex flex-col items-center gap-2 group p-4 rounded-[2rem] border-2 transition-all relative overflow-hidden",
+                                localSettings.accentColor === acc.id ? "border-primary bg-primary/10 shadow-2xl scale-105" : "border-transparent bg-muted/40 hover:bg-muted/60"
                             )}
                         >
-                            <div className={cn("h-10 w-10 rounded-full shadow-inner ring-4 ring-background", acc.color)} />
-                            <span className="text-[10px] uppercase tracking-tighter font-bold">{acc.name}</span>
+                            <div className={cn("h-10 w-10 flex items-center justify-center transition-transform group-hover:scale-110", acc.color)}>
+                                <Coffee className="h-full w-full fill-current opacity-80" />
+                            </div>
+                            <span className="text-[8px] sm:text-[9px] uppercase tracking-tighter font-black text-center leading-none mt-1">{acc.name}</span>
                             {localSettings.accentColor === acc.id && (
-                                <div className="absolute top-2 right-2 bg-primary text-primary-foreground p-0.5 rounded-full">
-                                    <Check className="h-3 w-3" />
+                                <div className="absolute top-2 right-2 bg-primary text-primary-foreground p-0.5 rounded-full shadow-md animate-in zoom-in-50 duration-300">
+                                    <Check className="h-2 w-2" />
                                 </div>
                             )}
                         </button>

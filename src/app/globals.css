@@ -112,6 +112,11 @@ body.night-portal {
   [data-accent="tangerine"] { --primary: 20 100% 64%; --accent: 20 100% 54%; --ring: 20 100% 64%; }
   [data-accent="blueberry"] { --primary: 210 70% 60%; --accent: 210 70% 50%; --ring: 210 70% 60%; }
   [data-accent="mint"] { --primary: 160 50% 75%; --accent: 160 50% 65%; --ring: 160 50% 75%; }
+  [data-accent="strawberry"] { --primary: 350 80% 72%; --accent: 350 80% 62%; --ring: 350 80% 72%; }
+  [data-accent="lavender"] { --primary: 260 60% 78%; --accent: 260 60% 68%; --ring: 260 60% 78%; }
+  [data-accent="honey"] { --primary: 45 100% 65%; --accent: 45 100% 55%; --ring: 45 100% 65%; }
+  [data-accent="charcoal"] { --primary: 220 15% 35%; --accent: 220 15% 25%; --ring: 220 15% 35%; }
+  [data-accent="pistachio"] { --primary: 100 40% 70%; --accent: 100 40% 60%; --ring: 100 40% 70%; }
 
   .glass-enabled header,
   .glass-enabled .glass-card { @apply backdrop-blur-md bg-opacity-70; }
