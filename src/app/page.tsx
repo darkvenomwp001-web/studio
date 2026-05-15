@@ -152,10 +152,10 @@ function ForYouTabContent() {
   }
 
   return (
-    <div className="pb-12 animate-in fade-in duration-700 space-y-12">
+    <div className="pb-12 animate-in fade-in duration-700">
       {/* Dynamic Owner Carousel */}
       {carouselSlides.length > 0 && (
-        <section className="w-full">
+        <section className="w-full mb-10">
           <Carousel
             plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
             opts={{ align: "start", loop: true }}
@@ -310,9 +310,9 @@ export default function HomePage() {
           <StatusFeature />
         </div>
         
-        <div className="mt-8">
+        <div className="mt-4">
            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="w-full flex justify-center mb-8 px-4 overflow-hidden">
+              <div className="w-full flex justify-center mb-4 px-4 overflow-hidden">
                   <ScrollArea className="w-full max-w-full">
                       <div className="flex min-w-max justify-start md:justify-center py-2 px-1">
                           <AnimatedTabs tabs={TABS} activeTab={activeTab} className="mb-1" />

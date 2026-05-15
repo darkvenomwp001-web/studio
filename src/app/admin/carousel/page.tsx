@@ -150,8 +150,13 @@ export default function CarouselAdminPage() {
 
     const handleDeleteSlide = async (id: string) => {
         if (!confirm("Are you sure you want to delete this slide?")) return;
-        await deleteDoc(doc(db, 'featuredCarousel', id));
-        toast({ title: "Slide Deleted" });
+        try {
+            await deleteDoc(doc(db, 'featuredCarousel', id));
+            toast({ title: "Slide Deleted" });
+            setSelectedSlide(null);
+        } catch (error) {
+            toast({ title: "Delete Failed", variant: "destructive" });
+        }
     };
 
     const handleMove = async (index: number, direction: 'up' | 'down') => {

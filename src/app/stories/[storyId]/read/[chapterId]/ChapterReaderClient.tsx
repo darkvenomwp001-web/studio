@@ -309,15 +309,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     setHasError(false);
     setShowSyncRecovery(false);
 
-    // Fail-safe recovery timer
-    const recoveryTimer = setTimeout(() => {
-        if (isLoading) setShowSyncRecovery(true);
-    }, 6000);
-
     const storyDocRef = doc(db, 'stories', storyId);
 
     const unsubscribe = onSnapshot(storyDocRef, (docSnap) => {
-      clearTimeout(recoveryTimer);
       if (docSnap.exists()) {
         const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
         setStory(storyData);
@@ -339,7 +333,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             let hasAccess = false;
             if (chapterData.accessType === 'premium') {
               if (currentUser) {
-                if (storyData.author.id === currentUser.id || storyDetails.collaboratorIds?.includes(currentUser.id) || isAppOwner) {
+                if (storyData.author.id === currentUser.id || storyData.collaboratorIds?.includes(currentUser.id) || isAppOwner) {
                   hasAccess = true;
                 } else {
                   const userAccessRecord = chapterData.allowedUsers?.find(u => u.userId === currentUser.id);
@@ -369,7 +363,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         router.push('/');
       }
     }, (error) => {
-      clearTimeout(recoveryTimer);
       const permissionError = new FirestorePermissionError({
           path: storyDocRef.path,
           operation: 'get',
@@ -381,7 +374,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
     return () => {
       unsubscribe();
-      clearTimeout(recoveryTimer);
       if (typeof document !== 'undefined') {
           document.body.classList.remove('night-portal');
       }
@@ -589,15 +581,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       <div className="flex flex-col justify-center items-center min-h-screen bg-background gap-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground animate-pulse">Syncing Manuscript...</p>
-        {showSyncRecovery && (
-            <div className="mt-8 animate-in fade-in slide-in-from-bottom-2 duration-500 flex flex-col items-center gap-2">
-                <p className="text-xs text-muted-foreground mb-2">Still loading? Local data might be out of sync.</p>
-                <Button onClick={handleHardReset} variant="outline" className="rounded-full h-10 font-bold uppercase text-[10px] tracking-widest gap-2">
-                    <RefreshCw className="h-4 w-4" />
-                    Force Sync Hub
-                </Button>
-            </div>
-        )}
       </div>
     );
   }
