@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -47,8 +47,7 @@ import {
   TriangleAlert,
   Cloud,
   CheckCircle,
-  RefreshCw,
-  ImagePlus
+  RefreshCw
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -56,7 +55,7 @@ import type { Story, Chapter, Annotation } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn, formatCompactNumber } from '@/lib/utils';
-import { db, clearFirestoreCache } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment, addDoc, collection } from 'firebase/firestore';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import {
@@ -106,7 +105,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const router = useRouter();
   const { user: currentUser, addToLibrary, removeFromLibrary } = useAuth();
   const { toast } = useToast();
-  const { setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   
   const [story, setStory] = useState<Story | null>(null);
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
@@ -235,6 +234,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   };
 
   const handleHardReset = async () => {
+    const { clearFirestoreCache } = await import('@/lib/firebase');
     await clearFirestoreCache();
     window.location.reload();
   };
@@ -604,6 +604,20 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       }
   );
 
+  const zenFocusStyles = `
+    .zen-mode .ProseMirror p {
+        opacity: 0.2;
+        transition: opacity 0.4s ease, filter 0.4s ease;
+        filter: blur(1px);
+    }
+    .zen-mode .ProseMirror p:hover,
+    .zen-mode .ProseMirror p:focus,
+    .zen-mode .ProseMirror p:active {
+        opacity: 1;
+        filter: blur(0);
+    }
+  `;
+
   return (
     <TooltipProvider delayDuration={300}>
     <div className={cn("relative min-h-screen bg-background text-foreground", {'select-none': currentChapter.accessType === 'premium'})}>
@@ -954,7 +968,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     <div className="flex items-center gap-2 hover:bg-muted p-2 rounded-md">
                     <Avatar className="h-8 w-8">
                         <AvatarImage src={story.author.avatarUrl} alt={story.author.username} data-ai-hint="profile person" />
-                        <AvatarFallback>{story.author.username.substring(0, 1).toUpperCase()}</AvatarFallback>
+                        <AvatarFallback>{(story.author.username || 'U').substring(0, 1).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <span className="text-sm font-medium truncate">{story.author.displayName || story.author.username}</span>
                     </div>
@@ -1235,7 +1249,10 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             opacity: 1;
             filter: blur(0);
         }
-    `}} />
+        .ProseMirror {
+            outline: none !important;
+        }
+    ` + zenFocusStyles }} />
     </TooltipProvider>
   );
 }

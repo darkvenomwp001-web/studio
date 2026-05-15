@@ -72,7 +72,7 @@ function ReactorsList({ postId, parentCollection }: { postId: string, parentColl
                         <div className="relative">
                             <Avatar className="h-10 w-10 border border-border/20 group-hover:border-primary/30 transition-colors">
                                 <AvatarImage src={react.user.avatarUrl} alt={react.user.displayName} />
-                                <AvatarFallback>{react.user.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                <AvatarFallback>{(react.user.username || 'U').substring(0,1).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 shadow-sm border border-border/10 flex items-center justify-center">
                                 {REACTION_OPTIONS.find(o => o.type === react.type) && (
@@ -95,7 +95,7 @@ function ReactorsList({ postId, parentCollection }: { postId: string, parentColl
 
 interface ReactionButtonProps {
     postId: string;
-    parentCollection?: 'feedPosts' | 'broadcasts';
+    parentCollection?: 'feedPosts' | 'broadcasts' | 'annotations';
     initialReactionsCount: number;
     reactionCounts?: Record<string, number>;
 }

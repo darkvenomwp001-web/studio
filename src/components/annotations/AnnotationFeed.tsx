@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { 
@@ -15,8 +14,7 @@ import {
   increment, 
   serverTimestamp, 
   deleteDoc,
-  runTransaction,
-  addDoc
+  runTransaction
 } from 'firebase/firestore';
 import type { Annotation, Comment as CommentType, ReactionType } from '@/types';
 import { 
@@ -56,6 +54,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { formatDistanceToNow } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
+import ReactionButton from '../threads/ReactionButton';
 
 const OWNER_HANDLES = ['arnv', '@arnv'];
 
@@ -147,7 +146,7 @@ function AnnotationCommentItem({ comment, annotationId, onUpdate, onDelete }: { 
                 <Link href={`/profile/${comment.user.id}`} className="flex-shrink-0">
                     <Avatar className="h-8 w-8">
                         <AvatarImage src={comment.user.avatarUrl} />
-                        <AvatarFallback>{comment.user.username.charAt(0).toUpperCase()}</AvatarFallback>
+                        <AvatarFallback>{(comment.user.username || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                 </Link>
                 <div className="flex-1 min-w-0">
@@ -371,81 +370,7 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
 function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, isOwnArchive: boolean }) {
     const { user } = useAuth();
     const { toast } = useToast();
-    const [isReacting, setIsReacting] = useState(false);
-    const [userReaction, setUserReaction] = useState<ReactionType | null>(null);
     const [isPosterOpen, setIsPosterOpen] = useState(false);
-
-    useEffect(() => {
-        if (!user || !annotation.id) return;
-        const reactionRef = doc(db, 'annotations', annotation.id, 'reactions', user.id);
-        const unsubscribe = onSnapshot(reactionRef, (docSnap) => {
-            if (docSnap.exists()) {
-                setUserReaction(docSnap.data().type as ReactionType);
-            } else {
-                setUserReaction(null);
-            }
-        }, async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: `annotations/${annotation.id}/reactions/${user.id}`,
-                operation: 'get',
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
-        });
-        return () => unsubscribe();
-    }, [user, annotation.id]);
-
-    const handleReaction = async (type: ReactionType) => {
-        if (!user || user.isAnonymous) {
-            toast({ title: "Sign in to react", variant: "destructive" });
-            return;
-        }
-        
-        setIsReacting(true);
-        const annoRef = doc(db, 'annotations', annotation.id);
-        const reactionRef = doc(db, 'annotations', annotation.id, 'reactions', user.id);
-
-        runTransaction(db, async (transaction) => {
-            const reactionDoc = await transaction.get(reactionRef);
-            
-            if (reactionDoc.exists()) {
-                const existingType = reactionDoc.data().type;
-                if (existingType === type) {
-                    transaction.delete(reactionRef);
-                    transaction.update(annoRef, { 
-                        reactionsCount: increment(-1),
-                        [`reactionCounts.${existingType}`]: increment(-1)
-                    });
-                } else {
-                    transaction.update(reactionRef, { type, timestamp: serverTimestamp() });
-                    transaction.update(annoRef, {
-                        [`reactionCounts.${existingType}`]: increment(-1),
-                        [`reactionCounts.${type}`]: increment(1)
-                    });
-                }
-            } else {
-                const reactionData = { 
-                    userId: user.id, 
-                    type,
-                    timestamp: serverTimestamp(),
-                    user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
-                };
-                transaction.set(reactionRef, reactionData);
-                transaction.update(annoRef, { 
-                    reactionsCount: increment(1),
-                    [`reactionCounts.${type}`]: increment(1)
-                });
-            }
-        })
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: reactionRef.path,
-                operation: 'write',
-                requestResourceData: { type },
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
-        })
-        .finally(() => setIsReacting(false));
-    };
 
     const handleToggleVisibility = async () => {
         if (!isOwnArchive) return;
@@ -477,9 +402,6 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
             });
     };
 
-    const activeOption = REACTION_OPTIONS.find(o => o.type === userReaction);
-    const summaryIcons = REACTION_OPTIONS.filter(o => (annotation.reactionCounts?.[o.type] || 0) > 0).slice(0, 3);
-
     return (
         <Card className="flex flex-col rounded-[32px] overflow-hidden border-border/40 shadow-sm hover:shadow-md transition-all group">
             <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
@@ -487,7 +409,7 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
                     {!isOwnArchive && annotation.authorInfo && (
                         <Avatar className="h-8 w-8 border">
                             <AvatarImage src={annotation.authorInfo.avatarUrl} />
-                            <AvatarFallback>{annotation.authorInfo.username.charAt(0).toUpperCase()}</AvatarFallback>
+                            <AvatarFallback>{(annotation.authorInfo.username || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
                     )}
                     <div>
@@ -533,54 +455,7 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
             </CardContent>
             <CardFooter className="flex justify-between items-center bg-muted/10 p-4 border-t border-border/40">
                 <div className="flex items-center gap-2">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className={cn(
-                                    "h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase transition-all",
-                                    activeOption ? "bg-muted/50 shadow-inner" : "hover:bg-primary/5"
-                                )}
-                                onClick={(e) => { e.stopPropagation(); if(!userReaction) handleReaction('love'); }}
-                                disabled={isReacting}
-                            >
-                                {activeOption ? (
-                                    <span className="text-base animate-in zoom-in-50 duration-300 transform-gpu">{activeOption.emoji}</span>
-                                ) : (
-                                    <div className="flex items-center gap-1">
-                                        <div className="flex -space-x-2 mr-0.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                                            {summaryIcons.map(o => (
-                                                <span key={o.type} className="text-xs drop-shadow-sm">{o.emoji}</span>
-                                            ))}
-                                        </div>
-                                        <span className="text-base grayscale group-hover:grayscale-0 transition-all opacity-60 group-hover:opacity-100">❤️</span>
-                                    </div>
-                                )}
-                                <span className={cn("ml-1", activeOption ? "text-primary font-bold" : "text-muted-foreground")}>
-                                    {annotation.reactionsCount || 0}
-                                </span>
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-fit p-1.5 rounded-full bg-card/90 backdrop-blur-xl border-white/10 shadow-3xl animate-in slide-in-from-bottom-2 duration-300" side="top">
-                            <div className="flex gap-1">
-                                {REACTION_OPTIONS.map((option) => (
-                                    <Button 
-                                        key={option.type} 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className={cn(
-                                            "h-10 w-10 rounded-full hover:bg-muted transition-all hover:scale-125 hover:-translate-y-1 active:scale-95 transform-gpu",
-                                            userReaction === option.type && "bg-muted shadow-inner scale-110"
-                                        )}
-                                        onClick={() => handleReaction(option.type)}
-                                    >
-                                        <span className="text-2xl drop-shadow-md">{option.emoji}</span>
-                                    </Button>
-                                ))}
-                            </div>
-                        </PopoverContent>
-                    </Popover>
+                    <ReactionButton postId={annotation.id} parentCollection="annotations" initialReactionsCount={annotation.reactionsCount || 0} reactionCounts={annotation.reactionCounts} />
 
                     <Dialog>
                         <DialogTrigger asChild>

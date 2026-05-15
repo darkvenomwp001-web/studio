@@ -21,8 +21,8 @@ import StoryCard from '@/components/shared/StoryCard';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 import type { Story, Prompt, CarouselSlide } from '@/types';
-import { useEffect, useState } from 'react';
-import { db, clearFirestoreCache } from '@/lib/firebase';
+import { useEffect, useState, Suspense } from 'react';
+import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { AnimatedTabs, Tabs, TabsContent, ScrollBar } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
@@ -121,6 +121,7 @@ function ForYouTabContent() {
   }, []);
 
   const handleHardReset = async () => {
+    const { clearFirestoreCache } = await import('@/lib/firebase');
     await clearFirestoreCache();
     window.location.reload();
   };
@@ -312,7 +313,11 @@ export default function HomePage() {
   }
 
   return (
-    <>
+    <Suspense fallback={
+        <div className="flex justify-center items-center min-h-screen bg-background">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+    }>
       <Header />
       <main className="w-full pb-24 md:pb-12 pt-6 overflow-x-hidden">
         <div className="container mx-auto max-w-7xl px-4">
@@ -367,6 +372,6 @@ export default function HomePage() {
         </div>
       </main>
       <BottomNavigationBar />
-    </>
+    </Suspense>
   );
 }
