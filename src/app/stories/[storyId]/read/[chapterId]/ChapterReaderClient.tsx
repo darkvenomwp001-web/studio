@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -76,6 +75,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,6 +88,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 
 const OWNER_HANDLES = ['arnv', '@arnv'];
 
@@ -201,7 +204,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   }, [fontSize, fontFamily, lineHeight, layoutWidth, isNightPortalActive, isZenFocus]);
   
   useEffect(() => {
-    document.body.classList.toggle('night-portal', isNightPortalActive);
+    if (typeof document !== 'undefined') {
+        document.body.classList.toggle('night-portal', isNightPortalActive);
+    }
   }, [isNightPortalActive]);
 
   useEffect(() => {
@@ -333,7 +338,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     return () => {
       unsubscribe();
       clearTimeout(recoveryTimer);
-      document.body.classList.remove('night-portal');
+      if (typeof document !== 'undefined') {
+          document.body.classList.remove('night-portal');
+      }
     };
   }, [storyId, chapterId, router, isAppOwner, currentUser?.id]);
 
@@ -558,7 +565,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 <AlertCircle className="h-12 w-12 text-destructive" />
             </div>
             <h2 className="text-2xl font-headline font-bold mb-2">Manuscript Error</h2>
-            <p className="text-muted-foreground max-w-sm mx-auto mb-10 leading-relaxed">
+            <p className="text-muted-foreground max-sm mx-auto mb-10 leading-relaxed">
                 We encountered an error while retrieving this part of the archives. This usually happens if the local node is out of sync.
             </p>
             <div className="flex flex-col gap-3 w-full max-w-xs">
@@ -637,7 +644,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     </p>
                     <AlertDialogAction 
                         onClick={handleAcknowledgeDisclaimer}
-                        className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-2xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98] text-base"
+                        className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-2xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-0.98 text-base"
                     >
                         <CheckCircle className="mr-2 h-5 w-5" />
                         Acknowledge & Start Reading
@@ -1136,7 +1143,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 <div className="text-center py-10 flex flex-col items-center gap-4">
                   <Sparkles className="w-16 h-16 text-yellow-500" />
                   <h2 className="text-2xl font-headline font-bold">Premium Chapter</h2>
-                  <p className="text-muted-foreground max-md">This chapter is a special release available only to users granted premium access by the author.</p>
+                  <p className="text-muted-foreground max-sm mx-auto">This chapter is a special release available only to users granted premium access by the author.</p>
                   <Button onClick={() => router.push(`/stories/${storyId}`)}>Back to Story Overview</Button>
                 </div>
               )}
