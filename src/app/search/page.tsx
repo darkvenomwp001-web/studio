@@ -51,7 +51,6 @@ const GENRES = [
 
 const TRENDING_TAGS = ['enemies-to-lovers', 'slow-burn', 'dark-academia', 'cyberpunk', 'isekai', 'found-family', 'betrayal'];
 
-// Debounce function
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: NodeJS.Timeout;
   return (...args: Parameters<F>): Promise<ReturnType<F>> =>
@@ -82,7 +81,6 @@ function SearchResults() {
   const [matureFilter, setMatureFilter] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<'relevance' | 'views' | 'newest'>('relevance');
 
-  // Fetch trending stories for initial state
   useEffect(() => {
     const q = query(
       collection(db, 'stories'),
@@ -99,16 +97,11 @@ function SearchResults() {
 
   const performSearch = async (currentQuery: string, genre: string) => {
     setIsLoading(true);
-    setStoryResults([]); 
-    setUserResults([]);   
-
     try {
-      // 1. Search Stories
       const storiesRef = collection(db, 'stories');
       let storyQuery;
 
       if (currentQuery.trim()) {
-          // Keyword search
           storyQuery = query(
             storiesRef,
             where('visibility', '==', 'Public'),
@@ -118,7 +111,6 @@ function SearchResults() {
             limit(20)
           );
       } else if (genre !== 'all') {
-          // Genre Browse
           storyQuery = query(
             storiesRef,
             where('visibility', '==', 'Public'),
@@ -141,7 +133,6 @@ function SearchResults() {
             } as Story;
       });
 
-      // Apply Client-Side Filters (Firestore doesn't support complex composite queries without indexes)
       if (statusFilter !== 'all') {
           storiesFound = storiesFound.filter(s => s.status === statusFilter);
       }
@@ -149,7 +140,6 @@ function SearchResults() {
           storiesFound = storiesFound.filter(s => !s.isMature);
       }
 
-      // Sort
       if (sortBy === 'views') {
           storiesFound.sort((a, b) => (b.views || 0) - (a.views || 0));
       } else if (sortBy === 'newest') {
@@ -158,7 +148,6 @@ function SearchResults() {
 
       setStoryResults(storiesFound);
 
-      // 2. Search Authors (Only if there's a keyword)
       if (currentQuery.trim()) {
           const usersRef = collection(db, 'users');
           const usernameQuery = query(
@@ -174,7 +163,6 @@ function SearchResults() {
 
     } catch (error) {
       console.error("Search Error:", error);
-      toast({ title: "Search Error", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -195,14 +183,10 @@ function SearchResults() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchTerm(val);
-    if (!val.trim() && activeGenre === 'all') {
-        router.push('/search', { scroll: false });
-    } else {
-        const params = new URLSearchParams();
-        if (val.trim()) params.set('q', val.trim());
-        if (activeGenre !== 'all') params.set('genre', activeGenre);
-        router.push(`/search?${params.toString()}`, { scroll: false });
-    }
+    const params = new URLSearchParams();
+    if (val.trim()) params.set('q', val.trim());
+    if (activeGenre !== 'all') params.set('genre', activeGenre);
+    router.push(`/search?${params.toString()}`, { scroll: false });
   };
 
   const handleGenreClick = (genre: string) => {
@@ -224,76 +208,73 @@ function SearchResults() {
   const hasResults = storyResults.length > 0 || userResults.length > 0;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-4 md:space-y-8 pb-20 animate-in fade-in duration-700">
-      {/* Search Header - Recalibrated for phone-size density */}
-      <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-xl -mx-4 px-4 py-3 md:py-6 border-b border-border/40 space-y-3 md:space-y-6 shadow-sm">
-        <div className="flex items-center gap-2 md:gap-3 max-w-2xl mx-auto">
+    <div className="max-w-4xl mx-auto space-y-4 pb-24 animate-in fade-in duration-500">
+      {/* Ultra-Compact Sticky Search Header */}
+      <div className="sticky top-14 md:top-16 z-30 bg-background/90 backdrop-blur-xl -mx-4 px-4 py-2 md:py-4 border-b border-border/40 shadow-sm space-y-2">
+        <div className="flex items-center gap-2 max-w-2xl mx-auto">
           <div className="relative flex-1 group">
-            <SearchIcon className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-3.5 md:h-5 w-3.5 md:w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input 
-                placeholder="Search manuscripts..." 
-                className="pl-9 md:pl-12 h-10 md:h-14 rounded-xl md:rounded-2xl bg-muted/40 border-none shadow-inner text-xs md:text-lg focus-visible:ring-primary/30"
+                placeholder="Search archives..." 
+                className="pl-9 h-10 md:h-11 rounded-xl bg-muted/30 border-none shadow-inner text-xs md:text-sm focus-visible:ring-primary/20"
                 value={searchTerm}
                 onChange={handleInputChange}
             />
             {searchTerm && (
-                <button 
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-lg hover:bg-muted/60 transition-colors" 
-                  onClick={handleClear}
-                >
-                    <X className="h-3.5 md:h-5 w-3.5 md:w-5" />
+                <button className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center text-muted-foreground" onClick={handleClear}>
+                    <X className="h-4 w-4" />
                 </button>
             )}
           </div>
           
           <Popover>
               <PopoverTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-10 md:h-14 w-10 md:w-14 rounded-xl md:rounded-2xl border-border/40 shadow-sm relative shrink-0">
-                      <SlidersHorizontal className="h-4 md:h-6 w-4 md:w-6" />
+                  <Button variant="outline" size="icon" className="h-10 md:h-11 w-10 md:w-11 rounded-xl border-border/40 shrink-0 relative">
+                      <SlidersHorizontal className="h-4 w-4" />
                       {(statusFilter !== 'all' || matureFilter || sortBy !== 'relevance') && (
-                          <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 md:w-4 md:h-4 bg-primary rounded-full border-2 border-background" />
+                          <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-primary rounded-full border-2 border-background" />
                       )}
                   </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[85vw] max-w-80 p-4 md:p-6 rounded-[1.5rem] md:rounded-3xl border-none shadow-3xl bg-card/95 backdrop-blur-xl" align="end" sideOffset={12}>
-                  <div className="space-y-4 md:space-y-6">
+              <PopoverContent className="w-[85vw] max-w-sm p-4 rounded-3xl border-none shadow-3xl bg-card/95 backdrop-blur-xl" align="end" sideOffset={8}>
+                  <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                          <h4 className="font-headline font-bold text-sm md:text-lg text-foreground">Filter Archives</h4>
-                          <Button variant="ghost" size="sm" className="text-[9px] uppercase font-bold tracking-widest text-primary h-7 px-2" onClick={() => { setStatusFilter('all'); setMatureFilter(false); setSortBy('relevance'); }}>Reset</Button>
+                          <h4 className="font-headline font-bold text-sm">Filter Discovery</h4>
+                          <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase text-primary h-6" onClick={() => { setStatusFilter('all'); setMatureFilter(false); setSortBy('relevance'); }}>Reset</Button>
                       </div>
                       
-                      <div className="space-y-2">
-                          <Label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Manuscript Status</Label>
-                          <RadioGroup value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)} className="grid grid-cols-3 gap-1.5">
+                      <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Status</Label>
+                          <RadioGroup value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)} className="grid grid-cols-3 gap-1">
                               {['all', 'Ongoing', 'Completed'].map(s => (
-                                  <Label key={s} htmlFor={`status-${s}`} className="flex flex-col items-center justify-center p-1.5 rounded-lg border-2 border-transparent bg-muted/40 cursor-pointer transition-all peer-data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">
+                                  <Label key={s} htmlFor={`status-${s}`} className="flex items-center justify-center h-8 rounded-lg border bg-muted/20 cursor-pointer transition-all peer-data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">
                                       <RadioGroupItem value={s} id={`status-${s}`} className="sr-only" />
-                                      <span className="text-[9px] font-bold capitalize">{s === 'all' ? 'All' : s}</span>
+                                      <span className="text-[9px] font-bold uppercase">{s}</span>
                                   </Label>
                               ))}
                           </RadioGroup>
                       </div>
 
-                      <div className="flex items-center justify-between p-2.5 md:p-4 bg-muted/20 rounded-xl border border-dashed border-red-500/20">
+                      <div className="flex items-center justify-between p-3 bg-muted/20 rounded-xl">
                           <div className="space-y-0.5">
-                              <Label className="text-[10px] md:text-sm font-bold block">Mature Content</Label>
-                              <p className="text-[8px] md:text-[10px] text-muted-foreground uppercase tracking-tight">Include 18+ stories</p>
+                              <Label className="text-xs font-bold block">18+ Content</Label>
+                              <p className="text-[9px] text-muted-foreground uppercase">Show mature works</p>
                           </div>
-                          <Switch checked={matureFilter} onCheckedChange={setMatureFilter} className="scale-75 md:scale-100" />
+                          <Switch checked={matureFilter} onCheckedChange={setMatureFilter} className="scale-75" />
                       </div>
 
-                      <div className="space-y-2">
-                          <Label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Sort Preference</Label>
-                          <RadioGroup value={sortBy} onValueChange={(v) => setSortBy(v)} className="space-y-1">
+                      <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Sort By</Label>
+                          <RadioGroup value={sortBy} onValueChange={(v) => setSortBy(v as any)} className="space-y-0.5">
                               {[
                                   { id: 'relevance', label: 'Relevance', icon: Sparkles },
                                   { id: 'views', label: 'Most Read', icon: TrendingUp },
-                                  { id: 'newest', label: 'Recently Updated', icon: BookOpen },
+                                  { id: 'newest', label: 'Recent', icon: BookOpen },
                               ].map(s => (
-                                  <Label key={s.id} htmlFor={`sort-${s.id}`} className="flex items-center gap-2.5 p-2 md:p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors group">
+                                  <Label key={s.id} htmlFor={`sort-${s.id}`} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors group">
                                       <RadioGroupItem value={s.id} id={`sort-${s.id}`} />
-                                      <s.icon className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                      <span className="text-xs md:text-sm font-medium">{s.label}</span>
+                                      <s.icon className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                                      <span className="text-[11px] font-bold">{s.label}</span>
                                   </Label>
                               ))}
                           </RadioGroup>
@@ -303,16 +284,15 @@ function SearchResults() {
           </Popover>
         </div>
 
-        {/* Genre Scroll - Refined for mobile kinetic feel */}
         <ScrollArea className="w-full whitespace-nowrap scrollbar-hide">
-            <div className="flex items-center gap-1.5 max-w-7xl mx-auto px-4">
+            <div className="flex items-center gap-1 mx-auto px-1 pb-1">
                 <Button 
                     variant={activeGenre === 'all' ? 'default' : 'ghost'} 
                     size="sm" 
-                    className="rounded-full h-8 md:h-10 px-3 md:px-6 font-bold text-[9px] md:text-xs uppercase tracking-widest shadow-sm shrink-0"
+                    className="rounded-full h-7 px-3 font-bold text-[9px] uppercase tracking-widest shrink-0"
                     onClick={() => handleGenreClick('all')}
                 >
-                    All Genres
+                    All
                 </Button>
                 {GENRES.map(genre => (
                     <Button 
@@ -320,8 +300,8 @@ function SearchResults() {
                         variant={activeGenre === genre ? 'default' : 'ghost'} 
                         size="sm" 
                         className={cn(
-                            "rounded-full h-8 md:h-10 px-3 md:px-6 font-bold text-[9px] md:text-xs uppercase tracking-widest transition-all shrink-0",
-                            activeGenre === genre ? "shadow-lg shadow-primary/20 scale-105" : "bg-muted/40 hover:bg-primary/5 hover:text-primary"
+                            "rounded-full h-7 px-3 font-bold text-[9px] uppercase tracking-widest transition-all shrink-0",
+                            activeGenre === genre ? "shadow-md scale-105" : "text-muted-foreground hover:bg-primary/5 hover:text-primary"
                         )}
                         onClick={() => handleGenreClick(genre)}
                     >
@@ -333,87 +313,68 @@ function SearchResults() {
         </ScrollArea>
       </div>
 
-      {/* Discovery Hub - Tighter Mobile Layout */}
+      {/* Discovery Hub Redesign */}
       {isBrowsing && (
-          <div className="px-4 space-y-6 md:space-y-12 pb-10">
-              <section className="space-y-3 md:space-y-6">
+          <div className="px-4 space-y-6 pb-10">
+              <section className="space-y-3">
                 <div className="flex items-center gap-2 text-primary">
-                    <TrendingUp className="h-4 md:h-6 w-4 md:w-6" />
-                    <h2 className="text-lg md:text-2xl font-headline font-bold tracking-tight">Trending Now</h2>
+                    <TrendingUp className="h-4 w-4" />
+                    <h2 className="text-sm font-black uppercase tracking-[0.2em]">Trending</h2>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-3 md:gap-x-6 gap-y-6 md:gap-y-10">
-                    {trendingStories.map(s => <StoryCard key={s.id} story={s} />)}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {trendingStories.slice(0, 6).map(s => <StoryCard key={s.id} story={s} />)}
                 </div>
               </section>
 
-              <section className="bg-card/50 rounded-2xl md:rounded-[40px] p-5 md:p-12 border border-border/40 shadow-sm overflow-hidden relative">
-                  <div className="absolute top-0 right-0 w-32 md:w-64 h-32 md:h-64 bg-primary/5 rounded-full blur-3xl -mr-16 md:-mr-32 -mt-16 md:-mt-32" />
-                  <div className="relative z-10 space-y-4 md:space-y-8">
-                    <div className="space-y-0.5 md:space-y-2">
-                        <h2 className="text-xl md:text-3xl font-headline font-bold text-foreground">Explore by Vibe</h2>
-                        <p className="text-[10px] md:text-sm text-muted-foreground">Find stories matching specific themes.</p>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 md:gap-3">
-                        {TRENDING_TAGS.map(tag => (
-                            <Button 
-                                key={tag} 
-                                variant="outline" 
-                                className="h-8 md:h-12 rounded-lg md:rounded-2xl gap-1.5 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all font-bold text-[9px] md:text-xs uppercase tracking-widest bg-background/40 px-2.5 md:px-4"
-                                onClick={() => setSearchTerm(tag.replace('-', ' '))}
-                            >
-                                <Sparkles className="h-2.5 md:h-4 w-2.5 md:w-4 text-accent" />
-                                #{tag}
-                            </Button>
-                        ))}
-                    </div>
+              <section className="bg-primary/5 rounded-2xl p-4 border border-primary/10 space-y-4">
+                  <div className="space-y-0.5">
+                      <h2 className="text-sm font-black uppercase tracking-widest">Vibe Check</h2>
+                      <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">Explore by thematic tropes</p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                      {TRENDING_TAGS.map(tag => (
+                          <Button 
+                              key={tag} 
+                              variant="ghost" 
+                              className="h-7 rounded-lg border border-primary/20 bg-background/50 hover:bg-primary/10 transition-all font-bold text-[9px] uppercase tracking-tighter px-2.5"
+                              onClick={() => setSearchTerm(tag.replace('-', ' '))}
+                          >
+                              #{tag}
+                          </Button>
+                      ))}
                   </div>
               </section>
 
-              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-12">
-                  <div className="lg:col-span-2 space-y-3 md:space-y-6">
-                    <h3 className="text-base md:text-xl font-headline font-bold flex items-center gap-2">
-                        <Flame className="h-4 md:h-5 w-4 md:w-5 text-orange-500" />
-                        Fresh Releases
+              <section className="space-y-6">
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 opacity-60">
+                        <Flame className="h-3 w-3 text-orange-500" /> Fresh Releases
                     </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 md:gap-4">
-                        {trendingStories.slice(0, 6).map(s => (
+                    <div className="grid grid-cols-3 gap-2">
+                        {trendingStories.slice(0, 3).map(s => (
                              <Link href={`/stories/${s.id}`} key={s.id} className="group">
-                                <div className="aspect-[2/3] relative rounded-xl md:rounded-2xl overflow-hidden bg-muted mb-1.5 shadow-sm transition-all group-hover:shadow-md group-hover:-translate-y-1">
-                                    <NextImage src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/512/800`} alt="" fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
+                                <div className="aspect-[2/3] relative rounded-lg overflow-hidden bg-muted mb-1 shadow-sm transition-all group-hover:-translate-y-0.5">
+                                    <NextImage src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/512/800`} alt="" fill className="object-cover" />
                                 </div>
-                                <p className="text-[10px] md:text-xs font-bold truncate group-hover:text-primary transition-colors px-0.5">{s.title}</p>
+                                <p className="text-[9px] font-black uppercase tracking-tighter truncate group-hover:text-primary transition-colors px-0.5">{s.title}</p>
                              </Link>
                         ))}
                     </div>
                   </div>
-                  <div className="space-y-3 md:space-y-6">
-                    <h3 className="text-base md:text-xl font-headline font-bold flex items-center gap-2">
-                        <Users className="h-4 md:h-5 w-4 md:w-5 text-blue-500" />
-                        Rising Authors
+
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 opacity-60">
+                        <Users className="h-3 w-3 text-blue-500" /> Rising Creators
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 md:gap-3">
-                        {userResults.length > 0 ? userResults.slice(0, 5).map((author, i) => (
-                             <Link href={`/profile/${author.id}`} key={author.id} className="p-2.5 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border/20 flex items-center gap-3 hover:bg-muted/50 cursor-pointer transition-all">
-                                <Avatar className="h-8 w-8 md:h-10 md:w-10 border shadow-sm">
-                                    <AvatarImage src={author.avatarUrl} />
-                                    <AvatarFallback className="bg-primary/10 text-primary text-[9px] font-bold">WR</AvatarFallback>
-                                </Avatar>
+                    <div className="grid grid-cols-1 gap-1.5">
+                        {[...Array(4)].map((_, i) => (
+                             <div key={i} className="p-2 rounded-xl bg-card border border-border/20 flex items-center gap-3 active:bg-muted/50 transition-colors">
+                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">WR</div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-[11px] md:text-sm truncate">@{author.username}</p>
-                                    <p className="text-[8px] md:text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">{author.followersCount || 0} Followers</p>
+                                    <p className="font-black text-[11px] truncate uppercase tracking-tight">@Creator_Node_{i}</p>
+                                    <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-tighter">1.2k Readers</p>
                                 </div>
-                                <ChevronRight className="h-3 md:h-3.5 w-3 md:w-3.5 text-muted-foreground/30" />
-                            </Link>
-                        )) : [...Array(5)].map((_, i) => (
-                            <div key={i} className="p-2.5 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border/20 flex items-center gap-3 md:gap-4 hover:bg-muted/50 cursor-pointer transition-all">
-                                <Avatar className="h-8 w-8 md:h-10 md:w-10 border shadow-sm">
-                                    <AvatarFallback className="bg-primary/10 text-primary text-[9px] font-bold">WR</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-[11px] md:text-sm truncate">@Author_Name</p>
-                                    <p className="text-[8px] md:text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">1.2k Followers</p>
-                                </div>
-                                <ChevronRight className="h-3 md:h-3.5 w-3 md:w-3.5 text-muted-foreground/30" />
+                                <ChevronRight className="h-3 w-3 text-muted-foreground/30" />
                             </div>
                         ))}
                     </div>
@@ -422,94 +383,76 @@ function SearchResults() {
           </div>
       )}
 
-      {/* Results View - Compact Sizing */}
+      {/* Results View - Optimized Sizing */}
       {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 space-y-3 px-4">
-              <Loader2 className="h-7 md:h-10 w-7 md:w-10 animate-spin text-primary" />
-              <p className="text-[8px] md:text-[10px] font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Scanning archives...</p>
+          <div className="flex flex-col items-center justify-center py-20 gap-2">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Scanning Archives</p>
           </div>
       ) : !isBrowsing && (
-        <div className="px-4 space-y-4 md:space-y-10">
-            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2 md:gap-4 border-b border-border/40 pb-4 md:pb-6">
-                <div className="max-w-full">
-                    <h2 className="text-lg md:text-3xl font-headline font-bold tracking-tight truncate">
-                        {searchTerm ? `Results for "${searchTerm}"` : `Browsing ${activeGenre}`}
+        <div className="px-4 space-y-4">
+            <header className="border-b border-border/40 pb-3 flex justify-between items-end">
+                <div className="min-w-0">
+                    <h2 className="text-sm font-black uppercase tracking-widest truncate">
+                        {searchTerm ? `Results: "${searchTerm}"` : `Archive: ${activeGenre}`}
                     </h2>
-                    <p className="text-[9px] md:text-sm text-muted-foreground mt-0.5 uppercase font-bold tracking-tight">Found {storyResults.length} manuscripts and {userResults.length} creators</p>
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">Found {storyResults.length} Manuscripts</p>
                 </div>
-                <div className="flex flex-wrap gap-1 md:gap-2">
-                    {statusFilter !== 'all' && <Badge variant="secondary" className="rounded-full px-2 md:px-3 h-6 md:h-8 gap-1 md:gap-2 font-bold text-[8px] md:text-[10px] uppercase">{statusFilter} <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => setStatusFilter('all')} /></Badge>}
-                    {matureFilter && <Badge variant="secondary" className="rounded-full px-2 md:px-3 h-6 md:h-8 gap-1 md:gap-2 font-bold text-[8px] md:text-[10px] uppercase">18+ <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => setMatureFilter(false)} /></Badge>}
-                    {sortBy !== 'relevance' && <Badge variant="secondary" className="rounded-full px-2 md:px-3 h-6 md:h-8 gap-1 md:gap-2 font-bold text-[8px] md:text-[10px] uppercase">Sort: {sortBy} <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => setSortBy('relevance')} /></Badge>}
+                <div className="flex gap-1 overflow-x-auto no-scrollbar">
+                    {statusFilter !== 'all' && <Badge variant="secondary" className="h-5 px-1.5 text-[8px] uppercase">{statusFilter}</Badge>}
+                    {matureFilter && <Badge variant="secondary" className="h-5 px-1.5 text-[8px] uppercase">18+</Badge>}
                 </div>
             </header>
 
             {!hasResults ? (
-                <div className="text-center py-16 md:py-32 bg-card/50 rounded-[2rem] md:rounded-[40px] border-2 border-dashed border-border/40 max-w-2xl mx-auto px-6">
-                    <div className="bg-muted/30 w-14 md:w-20 h-14 md:h-20 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6">
-                        <SearchIcon className="h-6 md:h-10 w-6 md:w-10 text-muted-foreground/30" />
-                    </div>
-                    <h3 className="text-lg md:text-2xl font-headline font-bold mb-1.5">Archives are empty</h3>
-                    <p className="text-[11px] md:text-sm text-muted-foreground max-sm mx-auto mb-5 md:mb-8 leading-relaxed">No results matched your criteria. Try loosening your filters.</p>
-                    <Button onClick={handleClear} variant="outline" className="rounded-full px-5 md:px-8 h-9 md:h-12 font-bold uppercase text-[9px] md:text-xs tracking-widest">Clear Everything</Button>
+                <div className="text-center py-20 bg-muted/10 rounded-3xl border-2 border-dashed border-border/40 max-w-md mx-auto px-6">
+                    <SearchIcon className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
+                    <h3 className="text-sm font-black uppercase">No Findings</h3>
+                    <p className="text-[10px] text-muted-foreground uppercase mt-1">Try relaxing your filters.</p>
+                    <Button onClick={handleClear} variant="link" className="text-[9px] uppercase font-black mt-4">Clear All</Button>
                 </div>
             ) : (
                 <Tabs defaultValue="stories" className="w-full">
-                    <div className="flex justify-center mb-5 md:mb-10">
-                        <TabsList className="bg-muted/50 p-0.5 md:p-1 rounded-full border border-border/40 shadow-sm backdrop-blur-md h-9 md:h-12">
-                            <TabsTrigger value="stories" className="rounded-full font-bold gap-1.5 px-4 md:px-8 data-[state=active]:bg-background data-[state=active]:shadow-md h-8 md:h-10 text-[9px] md:text-sm transition-all">
-                                <BookOpen className="h-3 md:h-4 w-3 md:w-4" /> Manuscripts
+                    <div className="flex justify-center mb-6">
+                        <TabsList className="bg-muted/50 p-0.5 rounded-full border h-8">
+                            <TabsTrigger value="stories" className="rounded-full text-[9px] font-black uppercase gap-1.5 px-4 h-7">
+                                <BookOpen className="h-3 w-3" /> Manuscripts
                             </TabsTrigger>
-                            <TabsTrigger value="authors" disabled={userResults.length === 0} className="rounded-full font-bold gap-1.5 px-4 md:px-8 data-[state=active]:bg-background data-[state=active]:shadow-md h-8 md:h-10 text-[9px] md:text-sm transition-all">
-                                <Users className="h-3 md:h-4 w-3 md:w-4" /> Creators
+                            <TabsTrigger value="authors" disabled={userResults.length === 0} className="rounded-full text-[9px] font-black uppercase gap-1.5 px-4 h-7">
+                                <Users className="h-3 w-3" /> Creators
                             </TabsTrigger>
                         </TabsList>
                     </div>
 
-                    <TabsContent value="stories" className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-1 duration-500">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-3 md:gap-x-6 gap-y-7 md:gap-y-10">
+                    <TabsContent value="stories" className="mt-0 focus-visible:outline-none">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                             {storyResults.map(story => (
                             <StoryCard key={story.id} story={story} />
                             ))}
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="authors" className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-1 duration-500">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 md:gap-4">
-                            {userResults.map(author => (
-                            <Link href={`/profile/${author.id}`} key={author.id} className="group">
-                                <Card className="rounded-xl md:rounded-3xl border-border/40 shadow-sm hover:shadow-md transition-all group-hover:border-primary/20 overflow-hidden bg-card/60 backdrop-blur-sm">
-                                    <CardContent className="p-3 md:p-5 flex items-center gap-3 md:gap-4">
-                                        <div className="relative">
-                                            <Avatar className="w-11 md:w-16 h-11 md:h-16 border-2 border-primary/10 group-hover:scale-105 transition-transform duration-300 shadow-md">
-                                                <AvatarImage src={author.avatarUrl} alt={author.username} data-ai-hint="profile person" />
-                                                <AvatarFallback className="bg-primary/5 text-primary text-sm md:text-xl font-bold">{(author.username).substring(0, 2).toUpperCase()}</AvatarFallback>
-                                            </Avatar>
-                                            {author.isVerified && (
-                                                <div className="absolute -bottom-0.5 -right-0.5 bg-primary text-white p-0.5 rounded-full shadow-sm ring-2 ring-background">
-                                                    <Check className="h-1.5 md:h-2 w-1.5 md:w-2" />
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold font-headline text-sm md:text-lg group-hover:text-primary transition-colors truncate">
-                                                {author.displayName || author.username}
-                                            </h3>
-                                            <p className="text-[9px] md:text-xs text-muted-foreground font-mono -mt-0.5">@{author.username}</p>
-                                            <div className="flex items-center gap-1.5 md:gap-3 mt-1 md:mt-2 text-[7px] md:text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                                                <span>{author.followersCount || 0} Followers</span>
-                                                <span className="w-0.5 md:w-1 h-0.5 md:h-1 bg-border rounded-full" />
-                                                <span>Writer</span>
-                                            </div>
-                                        </div>
-                                        <Button variant="ghost" size="icon" className="rounded-full opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex">
-                                            <ChevronRight className="h-5 w-5 text-primary" />
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            </Link>
-                            ))}
-                        </div>
+                    <TabsContent value="authors" className="mt-0 focus-visible:outline-none space-y-1.5">
+                        {userResults.map(author => (
+                        <Link href={`/profile/${author.id}`} key={author.id} className="block group">
+                            <Card className="rounded-xl border-border/40 active:bg-muted/50 transition-colors bg-card/60 backdrop-blur-sm">
+                                <CardContent className="p-3 flex items-center gap-3">
+                                    <Avatar className="w-10 h-10 border shadow-sm">
+                                        <AvatarImage src={author.avatarUrl} alt={author.username} />
+                                        <AvatarFallback className="text-[10px] font-black uppercase">{(author.username).substring(0, 2)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-black text-xs truncate uppercase tracking-tight">
+                                            {author.displayName || author.username}
+                                        </h3>
+                                        <p className="text-[8px] text-muted-foreground font-bold tracking-widest -mt-0.5">@{author.username}</p>
+                                        <p className="text-[8px] text-primary uppercase font-black tracking-tighter mt-1">{author.followersCount || 0} Followers</p>
+                                    </div>
+                                    <ChevronRight className="h-3 w-3 text-muted-foreground/30" />
+                                </CardContent>
+                            </Card>
+                        </Link>
+                        ))}
                     </TabsContent>
                 </Tabs>
             )}
@@ -521,7 +464,7 @@ function SearchResults() {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>}>
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>}>
       <SearchResults />
     </Suspense>
   );
