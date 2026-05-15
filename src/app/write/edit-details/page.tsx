@@ -22,6 +22,7 @@ import {
   BookOpen,
   Edit,
   Eye,
+  EyeOff,
   Settings,
   X,
   Sparkles,
@@ -33,7 +34,8 @@ import {
   ChevronDown,
   Star,
   MessageSquare,
-  Calendar
+  Calendar,
+  MoreVertical
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +50,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn, formatCompactNumber } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDate } from '@/lib/placeholder-data';
 
@@ -300,6 +303,25 @@ function StoryDetailsInner() {
       const updatedChapters = story.chapters.filter(ch => ch.id !== chapterId);
       await updateDoc(doc(db, 'stories', story.id), { chapters: updatedChapters, lastUpdated: serverTimestamp() });
       toast({ title: "Chapter deleted" });
+  };
+
+  const handleUnpublishChapter = async (chapterId: string) => {
+    if (!story) return;
+    const updatedChapters = story.chapters.map(ch => {
+        if (ch.id === chapterId) {
+            return { ...ch, status: 'Draft' as const };
+        }
+        return ch;
+    });
+    
+    setSaveStatus('Saving...');
+    updateDoc(doc(db, 'stories', story.id), { 
+        chapters: updatedChapters,
+        lastUpdated: serverTimestamp()
+    }).then(() => {
+        setSaveStatus('Saved');
+        toast({ title: "Part Unpublished", description: "This chapter is now a draft." });
+    });
   };
 
   const handleMoveChapter = async (index: number, direction: 'up' | 'down') => {
@@ -559,17 +581,36 @@ function StoryDetailsInner() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Link href={`/write/edit?storyId=${story.id}&chapterId=${ch.id}`} passHref>
-                                            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary" title="Edit Content"><Edit className="h-4 w-4" /></Button>
                                         </Link>
+                                        
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted" title="Manage Part">
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                                                <DropdownMenuItem onClick={() => router.push(`/stories/${story.id}/read/${ch.id}`)} className="gap-2">
+                                                    <Eye className="h-4 w-4" /> View as Reader
+                                                </DropdownMenuItem>
+                                                {ch.status === 'Published' && (
+                                                    <DropdownMenuItem onClick={() => handleUnpublishChapter(ch.id)} className="gap-2 text-yellow-600 focus:text-yellow-600">
+                                                        <EyeOff className="h-4 w-4" /> Unpublish Part
+                                                    </DropdownMenuItem>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-destructive/10 hover:text-destructive" title="Delete Part"><Trash2 className="h-4 w-4" /></Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent className="rounded-3xl">
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle>Delete this chapter?</AlertDialogTitle>
                                                     <AlertDialogDescription>
-                                                        This action cannot be undone.
+                                                        This action cannot be undone. All engagement data (views, votes, comments) for this part will be lost.
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
