@@ -1,12 +1,28 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, ChevronRight, UserCog, KeyRound, Sparkles, Bell, MessageCircle, Settings, Palette, Info, FileText, ShieldCheck, User } from 'lucide-react';
+import { 
+    Loader2, 
+    ChevronRight, 
+    UserCog, 
+    KeyRound, 
+    Sparkles, 
+    Bell, 
+    MessageCircle, 
+    Settings, 
+    Palette, 
+    Info, 
+    FileText, 
+    ShieldCheck, 
+    User,
+    Database,
+    Zap
+} from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 interface SettingsLinkProps {
   href: string;
@@ -30,8 +46,6 @@ const SettingsLink: React.FC<SettingsLinkProps> = ({ href, icon: Icon, title, de
     </div>
   </Link>
 );
-
-import { cn } from '@/lib/utils';
 
 export default function SettingsHubPage() {
   const { user, loading } = useAuth();
@@ -78,10 +92,11 @@ export default function SettingsHubPage() {
           </div>
         </section>
 
-        {/* Content Management Section */}
+        {/* Performance Section */}
         <section className="space-y-3">
-          <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">History</h2>
+          <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">System & Storage</h2>
           <div className="grid gap-2">
+            <SettingsLink href="/settings/data" icon={Database} title="Data & Cache" description="Fix loading issues and clear app storage." iconColor="text-emerald-500" />
             <SettingsLink href="/settings/echoes" icon={Sparkles} title="Your Echoes" description="Rediscover your journey and community impact." iconColor="text-purple-500" />
           </div>
         </section>

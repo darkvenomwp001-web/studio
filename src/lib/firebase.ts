@@ -1,7 +1,6 @@
-
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence, clearIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getMessaging, isSupported } from 'firebase/messaging';
 import { getDatabase } from 'firebase/database';
@@ -40,6 +39,23 @@ if (typeof window !== 'undefined') {
         }
     });
 }
+
+/**
+ * Utility to clear the local Firestore IndexedDB persistence.
+ * This is useful for resolving "hanging" loads or data inconsistencies.
+ */
+export const clearFirestoreCache = async () => {
+    if (typeof window !== 'undefined') {
+        try {
+            await clearIndexedDbPersistence(db);
+            return true;
+        } catch (e) {
+            console.error("Failed to clear persistence:", e);
+            throw e;
+        }
+    }
+    return false;
+};
 
 // Only initialize messaging on the client
 export const getMessagingInstance = async () => {

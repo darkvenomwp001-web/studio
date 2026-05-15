@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
@@ -87,6 +86,7 @@ interface AuthContextType {
   removeFromLibrary: (storyId: string) => Promise<void>;
   setRequiresPasswordSetup: (requires: boolean) => void;
   setNewUserPassword: (password: string) => Promise<boolean>;
+  clearAppCache: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -594,6 +594,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
+  const clearAppCache = async () => {
+    if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(USER_CACHE_KEY);
+        // Also clear other possible junk
+        Object.keys(sessionStorage).forEach(key => {
+            if (key.startsWith('ach-toast') || key.startsWith('disclaimer-seen')) {
+                sessionStorage.removeItem(key);
+            }
+        });
+        window.location.reload();
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
         user,
@@ -622,7 +635,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         addToLibrary,
         removeFromLibrary,
         setRequiresPasswordSetup,
-        setNewUserPassword
+        setNewUserPassword,
+        clearAppCache
     }}>
       {children}
     </AuthContext.Provider>
