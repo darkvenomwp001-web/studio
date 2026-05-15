@@ -28,7 +28,7 @@ import { formatDate } from '@/lib/placeholder-data';
 import type { Story, UserSummary } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { cn } from '@/lib/utils';
+import { cn, formatCompactNumber } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { useStoryPreview } from '@/context/StoryPreviewProvider';
@@ -221,28 +221,28 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
         <div className="flex flex-col items-center" title="Reads">
           <div className="flex items-center gap-1 text-foreground">
             <Eye className="h-4 w-4 opacity-70" />
-            <strong className="text-lg font-bold">{story.views ? (story.views / 1000).toFixed(1) + 'k' : '0'}</strong>
+            <strong className="text-lg font-bold">{formatCompactNumber(story.views || 0)}</strong>
           </div>
           <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mt-1">Reads</span>
         </div>
         <div className="flex flex-col items-center" title="Votes">
           <div className="flex items-center gap-1 text-foreground">
             <Star className="h-4 w-4 opacity-70" />
-            <strong className="text-lg font-bold">{totalVotes}</strong>
+            <strong className="text-lg font-bold">{formatCompactNumber(totalVotes)}</strong>
           </div>
           <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mt-1">Votes</span>
         </div>
          <div className="flex flex-col items-center" title="Comments">
              <div className="flex items-center gap-1 text-foreground">
                  <MessageSquare className="h-4 w-4 opacity-70" />
-                 <strong className="text-lg font-bold">{commentCount}</strong>
+                 <strong className="text-lg font-bold">{formatCompactNumber(commentCount)}</strong>
              </div>
              <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mt-1">Chat</span>
          </div>
         <div className="flex flex-col items-center" title="Published Chapters">
           <div className="flex items-center gap-1 text-foreground">
             <ListOrdered className="h-4 w-4 opacity-70" />
-            <strong className="text-lg font-bold">{totalPublishedChapters}</strong>
+            <strong className="text-lg font-bold">{formatCompactNumber(totalPublishedChapters)}</strong>
           </div>
           <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mt-1">Parts</span>
         </div>

@@ -29,7 +29,7 @@ import {
 import type { Story, UserSummary } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { cn } from '@/lib/utils';
+import { cn, formatCompactNumber } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 
@@ -176,28 +176,28 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-1.5 text-foreground">
             <Eye className="h-5 w-5 text-primary/60" />
-            <strong className="text-2xl font-bold">{(story.views || 0).toLocaleString()}</strong>
+            <strong className="text-2xl font-bold">{formatCompactNumber(story.views || 0)}</strong>
           </div>
           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Reads</span>
         </div>
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-1.5 text-foreground">
             <Star className="h-5 w-5 text-yellow-500/60" />
-            <strong className="text-2xl font-bold">{totalVotes.toLocaleString()}</strong>
+            <strong className="text-2xl font-bold">{formatCompactNumber(totalVotes)}</strong>
           </div>
           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Votes</span>
         </div>
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-1.5 text-foreground">
             <MessageSquare className="h-5 w-5 text-accent/60" />
-            <strong className="text-2xl font-bold">{(commentCount || 0).toLocaleString()}</strong>
+            <strong className="text-2xl font-bold">{formatCompactNumber(commentCount || 0)}</strong>
           </div>
           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Chat</span>
         </div>
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-1.5 text-foreground">
             <ListOrdered className="h-5 w-5 text-purple-500/60" />
-            <strong className="text-2xl font-bold">{(publishedChapters.length || 0).toLocaleString()}</strong>
+            <strong className="text-2xl font-bold">{formatCompactNumber(publishedChapters.length || 0)}</strong>
           </div>
           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Parts</span>
         </div>

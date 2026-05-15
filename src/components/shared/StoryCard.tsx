@@ -5,7 +5,7 @@ import type { Story } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Star, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatCompactNumber } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useStoryPreview } from '@/context/StoryPreviewProvider';
 
@@ -36,7 +36,7 @@ export default function StoryCard({ story }: StoryCardProps) {
         {/* Overlay Stats - Visible on Hover */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-3">
            <div className="flex items-center justify-between text-white text-[10px] font-bold tracking-tight">
-              <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {(story.views || 0).toLocaleString()}</span>
+              <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {formatCompactNumber(story.views || 0)}</span>
               <span className="flex items-center gap-1 text-yellow-400"><Star className="h-3 w-3 fill-yellow-400" /> {story.rating?.toFixed(1) || '4.8'}</span>
            </div>
         </div>
