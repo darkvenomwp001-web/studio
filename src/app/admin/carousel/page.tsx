@@ -122,8 +122,8 @@ export default function CarouselAdminPage() {
     };
 
     const handleSaveSlide = async () => {
-        if (!selectedSlide?.imageUrl || !selectedSlide?.title || !selectedSlide?.ctaLink) {
-            toast({ title: "Missing Data", description: "Image, Title, and Link are required.", variant: "destructive" });
+        if (!selectedSlide?.imageUrl || !selectedSlide?.ctaLink) {
+            toast({ title: "Missing Data", description: "Image and Target Link are required.", variant: "destructive" });
             return;
         }
         setIsSaving(true);
@@ -131,6 +131,7 @@ export default function CarouselAdminPage() {
         const finalData = {
             ...selectedSlide,
             id: slideId,
+            title: selectedSlide.title || 'Featured Content',
             order: selectedSlide.order ?? slides.length,
             isActive: selectedSlide.isActive ?? true,
             createdAt: serverTimestamp()
@@ -250,8 +251,6 @@ export default function CarouselAdminPage() {
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-12">
                                         <div className="space-y-1 md:space-y-2 max-w-xl">
                                             <Badge className="bg-primary text-white text-[8px] md:text-[10px] uppercase tracking-widest">Featured</Badge>
-                                            <h2 className="text-xl md:text-5xl font-headline font-bold text-white drop-shadow-xl line-clamp-2">{selectedSlide.title || 'Snappy Headline'}</h2>
-                                            <p className="text-[10px] md:text-lg text-white/70 font-medium line-clamp-1">{selectedSlide.subtitle || 'Supporting manuscript description...'}</p>
                                             <div className="pt-2 md:pt-4 flex gap-2 md:gap-4">
                                                 <Button size="sm" className="md:size-lg rounded-full px-6 md:px-8 bg-primary hover:bg-primary/90 shadow-2xl font-bold text-[10px] md:text-sm">{selectedSlide.ctaText || 'Read Now'}</Button>
                                             </div>
@@ -270,20 +269,9 @@ export default function CarouselAdminPage() {
                                     <div className="grid md:grid-cols-2 gap-6 md:gap-8">
                                         <div className="space-y-4 md:space-y-6">
                                             <div className="space-y-2">
-                                                <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Headline</Label>
-                                                <Input value={selectedSlide.title || ''} onChange={e => setSelectedSlide({...selectedSlide, title: e.target.value})} placeholder="Catchy title" className="h-11 md:h-12 rounded-xl md:rounded-2xl bg-muted/20 border-none shadow-inner" />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Sub-Headline</Label>
-                                                <Input value={selectedSlide.subtitle || ''} onChange={e => setSelectedSlide({...selectedSlide, subtitle: e.target.value})} placeholder="Short description" className="h-11 md:h-12 rounded-xl md:rounded-2xl bg-muted/20 border-none shadow-inner" />
-                                            </div>
-                                            <div className="space-y-2">
                                                 <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">CTA Text</Label>
                                                 <Input value={selectedSlide.ctaText || ''} onChange={e => setSelectedSlide({...selectedSlide, ctaText: e.target.value})} placeholder="e.g. Read Now" className="h-11 md:h-12 rounded-xl md:rounded-2xl bg-muted/20 border-none shadow-inner" />
                                             </div>
-                                        </div>
-
-                                        <div className="space-y-4 md:space-y-6">
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Target Link</Label>
                                                 <div className="relative">
@@ -291,6 +279,9 @@ export default function CarouselAdminPage() {
                                                     <Input value={selectedSlide.ctaLink || ''} onChange={e => setSelectedSlide({...selectedSlide, ctaLink: e.target.value})} placeholder="/stories/id..." className="pl-10 h-11 md:h-12 rounded-xl md:rounded-2xl bg-muted/20 border-none shadow-inner" />
                                                 </div>
                                             </div>
+                                        </div>
+
+                                        <div className="space-y-4 md:space-y-6">
                                             <div className="p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border-2 border-dashed border-primary/20 bg-primary/5 space-y-4">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">

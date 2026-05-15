@@ -178,23 +178,9 @@ function ForYouTabContent() {
                         <div className="container mx-auto max-w-7xl px-4 md:px-0">
                           <div className="space-y-1 sm:space-y-3 max-w-2xl translate-y-2 sm:translate-y-4 group-hover:translate-y-0 transition-all duration-500">
                             <Badge className="bg-primary text-primary-foreground mb-1 sm:mb-2 text-[10px] sm:text-xs tracking-[0.2em] font-black uppercase">Featured Selection</Badge>
-                            <h2 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-headline font-bold text-foreground drop-shadow-2xl line-clamp-2 leading-tight tracking-tight">
-                              {slide.title}
-                            </h2>
-                            {slide.subtitle && (
-                                <p className="text-xs sm:text-base md:text-lg text-muted-foreground font-medium line-clamp-1 opacity-90">
-                                    {slide.subtitle}
-                                </p>
-                            )}
-                            <p className="text-[10px] sm:text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-60">
-                              by <span className="text-foreground font-black">@{slide.authorUsername}</span>
-                            </p>
                             <div className="pt-4 sm:pt-6 flex items-center gap-3">
                                 <Button size="lg" className="rounded-full px-6 sm:px-10 bg-primary hover:bg-primary/90 shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 font-bold">
                                     {slide.ctaText || 'Explore Now'}
-                                </Button>
-                                <Button variant="outline" size="lg" className="rounded-full border-foreground/20 bg-background/40 backdrop-blur-xl hover:bg-background/80 transition-all hidden sm:flex font-bold">
-                                    More Info
                                 </Button>
                             </div>
                           </div>
