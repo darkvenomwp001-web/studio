@@ -21,7 +21,7 @@ import type { Story, Prompt, CarouselSlide } from '@/types';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
-import { AnimatedTabs, Tabs, TabsContent } from '@/components/ui/tabs';
+import { AnimatedTabs, Tabs, TabsContent, ScrollBar } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import StatusFeature from '@/components/status/StatusFeature';
@@ -33,7 +33,7 @@ import ThreadsFeed from '@/components/threads/ThreadsFeed';
 import BroadcastFeed from '@/components/broadcast/BroadcastFeed';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 function ForYouTabContent() {
   const { user } = useAuth();
@@ -279,9 +279,11 @@ export default function HomePage() {
         
         <div className="mt-8">
            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="flex justify-center mb-8 px-4 overflow-hidden">
-                  <ScrollArea className="max-w-full">
-                      <AnimatedTabs tabs={TABS} activeTab={activeTab} className="mb-2" />
+              <div className="w-full flex justify-center mb-8 px-4">
+                  <ScrollArea className="w-full max-w-full overflow-hidden">
+                      <div className="flex min-w-full justify-start md:justify-center py-1">
+                          <AnimatedTabs tabs={TABS} activeTab={activeTab} className="mb-1 mx-auto" />
+                      </div>
                       <ScrollBar orientation="horizontal" className="hidden" />
                   </ScrollArea>
               </div>

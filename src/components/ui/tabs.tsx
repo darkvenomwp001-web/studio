@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -54,6 +53,30 @@ const TabsContent = React.forwardRef<
 ))
 TabsContent.displayName = TabsPrimitive.Content.displayName
 
+const ScrollAreaPrimitive = React.lazy(() => import("@radix-ui/react-scroll-area").then(mod => ({ default: mod.Root })));
+const ScrollAreaViewport = React.lazy(() => import("@radix-ui/react-scroll-area").then(mod => ({ default: mod.Viewport })));
+const ScrollAreaScrollbar = React.lazy(() => import("@radix-ui/react-scroll-area").then(mod => ({ default: mod.Scrollbar })));
+const ScrollAreaThumb = React.lazy(() => import("@radix-ui/react-scroll-area").then(mod => ({ default: mod.Thumb })));
+
+const ScrollBar = React.forwardRef<
+  React.ElementRef<"div">,
+  React.HTMLAttributes<HTMLDivElement> & { orientation?: "horizontal" | "vertical" }
+>(({ className, orientation = "vertical", ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      "flex touch-none select-none transition-colors",
+      orientation === "vertical" &&
+        "h-full w-2.5 border-l border-l-transparent p-[1px]",
+      orientation === "horizontal" &&
+        "h-2.5 flex-col border-t border-t-transparent p-[1px]",
+      className
+    )}
+    {...props}
+  />
+))
+ScrollBar.displayName = "ScrollBar"
+
 
 // New Animated Tabs
 interface AnimatedTabsProps {
@@ -78,13 +101,13 @@ const AnimatedTabs: React.FC<AnimatedTabsProps> = ({ tabs, activeTab, className 
   }, [activeTab, tabs]);
 
   return (
-    <TabsList className={cn("relative inline-flex items-center justify-center rounded-full bg-muted p-1 text-muted-foreground", className)}>
+    <TabsList className={cn("relative inline-flex items-center rounded-full bg-muted p-1 text-muted-foreground w-max", className)}>
       {tabs.map((tab, i) => (
         <TabsTrigger
           key={tab.value}
           ref={el => tabsRef.current[i] = el}
           value={tab.value}
-          className="relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground gap-2"
+          className="relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground gap-2"
         >
           {tab.icon}
           {tab.label}
@@ -99,4 +122,4 @@ const AnimatedTabs: React.FC<AnimatedTabsProps> = ({ tabs, activeTab, className 
 };
 
 
-export { Tabs, TabsList, TabsTrigger, TabsContent, AnimatedTabs };
+export { Tabs, TabsList, TabsTrigger, TabsContent, AnimatedTabs, ScrollBar };
