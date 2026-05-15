@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -1090,7 +1090,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                     </div>
 
                                     <div className="space-y-2">
-                                        <div className="flex justify-between items-center mb-1">
+                                        <div className="flex justify-between items-center mb-1 px-1">
                                             <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Visibility</Label>
                                             <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase", annotationVisibility === 'public' ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>{annotationVisibility}</span>
                                         </div>
@@ -1186,67 +1186,120 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
       <footer
         className={cn(
-          'fixed bottom-0 left-0 z-40 bg-card/80 backdrop-blur-md border-t transform transition-transform duration-300 ease-in-out',
-          controlsVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0',
+          'fixed bottom-0 left-0 z-40 bg-background/80 backdrop-blur-xl border-t border-border/40 transform transition-all duration-500 ease-in-out pb-safe',
+          controlsVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0',
           tocVisible ? 'md:w-[calc(100%-20rem)]' : 'w-full'  
         )}
       >
-        <div className="max-w-4xl mx-auto flex flex-col gap-3 px-2 py-2">
-            <div className="flex items-center gap-3 w-full">
-                <span className="text-xs text-muted-foreground whitespace-nowrap hidden sm:inline">Ch. {currentChapter?.order || 'N/A'}</span>
-                <Progress value={readingProgress} className="w-full h-1.5" aria-label={`Reading progress ${readingProgress.toFixed(0)}%`} />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">{readingProgress.toFixed(0)}%</span>
-            </div>
-            <div className="flex justify-between items-center w-full">
-                <Button variant="ghost" size="icon" onClick={() => prevChapterId && navigateToChapterById(prevChapterId)} disabled={!prevChapterId} aria-label="Previous Chapter">
+        {/* Full-width progress bar at the very top of footer */}
+        <div className="absolute top-0 left-0 w-full h-1 bg-muted/30">
+          <div 
+            className="h-full bg-primary transition-all duration-300 shadow-[0_0_8px_rgba(var(--primary),0.5)]" 
+            style={{ width: `${readingProgress}%` }} 
+          />
+        </div>
+
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-1 sm:gap-2">
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="rounded-full h-10 w-10 hover:bg-primary/10 transition-colors"
+                    onClick={() => prevChapterId && navigateToChapterById(prevChapterId)} 
+                    disabled={!prevChapterId}
+                >
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
-                
-                <div className="flex items-center gap-2 rounded-full bg-muted/50 px-4 py-1">
-                    <Button variant="ghost" size="icon" onClick={handleVoteClick} disabled={isVoting} aria-label="Vote for this chapter">
-                        <ThumbsUp className={cn("h-5 w-5 transition-colors", hasVoted && "fill-primary text-primary")} />
-                    </Button>
-                    <Separator orientation="vertical" className="h-6" />
-                    <Link href={`/stories/${storyId}/read/${chapterId}/comments`} passHref>
-                      <Button variant="ghost" size="icon" aria-label="View comments">
-                          <MessageSquare className="h-5 w-5" />
-                      </Button>
-                    </Link>
-                    <Separator orientation="vertical" className="h-6" />
-                     <Button variant="ghost" size="icon" onClick={handleLibraryAction} aria-label="Add to library">
-                       {isInLibrary ? <BookmarkCheck className="h-5 w-5 text-primary" /> : <Bookmark className="h-5 w-5" />}
-                    </Button>
-                    <Separator orientation="vertical" className="h-6" />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={async () => {
-                        const shareData = {
-                          title: `"${story?.title}" by ${story?.author.displayName || story?.author.username}`,
-                          text: `Check out this chapter on D4RKV3NOM: ${currentChapter?.title}`,
-                          url: window.location.href,
-                        };
-                        try {
-                          if (navigator.share) {
-                            await navigator.share(shareData);
-                            toast({ title: 'Story Shared!' });
-                          } else {
-                            await navigator.clipboard.writeText(window.location.href);
-                            toast({ title: 'Link Copied!' });
-                          }
-                        } catch (error) {
-                          if ((error as Error).name !== 'AbortError') {
-                            toast({ title: 'Share Failed', variant: 'destructive' });
-                          }
-                        }
-                      }}
-                      aria-label="Share this story"
-                    >
-                      <Share2 className="h-5 w-5" />
-                    </Button>
+                <div className="hidden xs:flex flex-col items-start ml-1 min-w-[60px]">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none">Part</span>
+                    <span className="text-xs font-black text-foreground">{currentChapter?.order || 'N/A'}</span>
                 </div>
-                
-                <Button variant="ghost" size="icon" onClick={() => nextChapterId && navigateToChapterById(nextChapterId)} disabled={!nextChapterId} aria-label="Next Chapter">
+            </div>
+            
+            <div className="flex-1 flex items-center justify-center">
+                <div className="bg-muted/40 backdrop-blur-md rounded-full px-2 py-1 flex items-center gap-1 border border-white/5 shadow-inner">
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className={cn("rounded-full h-10 w-10 transition-all", hasVoted && "text-primary bg-primary/5")} onClick={handleVoteClick} disabled={isVoting}>
+                                <ThumbsUp className={cn("h-5 w-5", hasVoted && "fill-current")} />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[10px] font-bold uppercase">Vote</TooltipContent>
+                    </Tooltip>
+
+                    <Separator orientation="vertical" className="h-6 mx-0.5 opacity-20" />
+
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Link href={`/stories/${storyId}/read/${chapterId}/comments`} passHref>
+                                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:text-primary transition-all">
+                                    <MessageSquare className="h-5 w-5" />
+                                </Button>
+                            </Link>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[10px] font-bold uppercase">Chat</TooltipContent>
+                    </Tooltip>
+
+                    <Separator orientation="vertical" className="h-6 mx-0.5 opacity-20" />
+
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className={cn("rounded-full h-10 w-10 transition-all", isInLibrary && "text-primary bg-primary/5")} onClick={handleLibraryAction}>
+                                {isInLibrary ? <BookmarkCheck className="h-5 w-5 fill-current" /> : <BookmarkPlus className="h-5 w-5" />}
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[10px] font-bold uppercase">{isInLibrary ? "Saved" : "Archive"}</TooltipContent>
+                    </Tooltip>
+
+                    <Separator orientation="vertical" className="h-6 mx-0.5 opacity-20" />
+
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="rounded-full h-10 w-10 hover:text-primary transition-all"
+                                onClick={async () => {
+                                    const shareData = {
+                                        title: `"${story?.title}" by ${story?.author.displayName || story?.author.username}`,
+                                        text: `Check out this chapter on D4RKV3NOM: ${currentChapter?.title}`,
+                                        url: window.location.href,
+                                    };
+                                    try {
+                                        if (navigator.share) {
+                                            await navigator.share(shareData);
+                                            toast({ title: 'Manuscript Shared!' });
+                                        } else {
+                                            await navigator.clipboard.writeText(window.location.href);
+                                            toast({ title: 'Link Copied!' });
+                                        }
+                                    } catch (error) {
+                                        if ((error as Error).name !== 'AbortError') {
+                                            toast({ title: 'Share Failed', variant: 'destructive' });
+                                        }
+                                    }
+                                }}
+                            >
+                                <Share2 className="h-5 w-5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[10px] font-bold uppercase">Share</TooltipContent>
+                    </Tooltip>
+                </div>
+            </div>
+            
+            <div className="flex items-center gap-1 sm:gap-2">
+                <div className="hidden xs:flex flex-col items-end mr-1 min-w-[60px]">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none">Status</span>
+                    <span className="text-xs font-black text-foreground">{readingProgress.toFixed(0)}%</span>
+                </div>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="rounded-full h-10 w-10 hover:bg-primary/10 transition-colors"
+                    onClick={() => nextChapterId && navigateToChapterById(nextChapterId)} 
+                    disabled={!nextChapterId}
+                >
                     <ArrowRight className="h-5 w-5" />
                 </Button>
             </div>
