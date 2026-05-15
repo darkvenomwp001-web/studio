@@ -224,73 +224,76 @@ function SearchResults() {
   const hasResults = storyResults.length > 0 || userResults.length > 0;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
-      {/* Search Header */}
-      <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-xl -mx-4 px-4 py-6 border-b border-border/40 space-y-6 shadow-sm">
-        <div className="flex items-center gap-3 max-w-2xl mx-auto">
+    <div className="max-w-7xl mx-auto space-y-4 md:space-y-8 pb-20 animate-in fade-in duration-700">
+      {/* Search Header - Refined for mobile space */}
+      <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-xl -mx-4 px-4 py-4 md:py-6 border-b border-border/40 space-y-4 md:space-y-6 shadow-sm">
+        <div className="flex items-center gap-2 md:gap-3 max-w-2xl mx-auto">
           <div className="relative flex-1 group">
-            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <SearchIcon className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 md:h-5 w-4 md:w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input 
-                placeholder="Search manuscripts, authors, or tropes..." 
-                className="pl-12 h-14 rounded-2xl bg-muted/40 border-none shadow-inner text-lg focus-visible:ring-primary/30"
+                placeholder="Search manuscripts..." 
+                className="pl-10 md:pl-12 h-11 md:h-14 rounded-xl md:rounded-2xl bg-muted/40 border-none shadow-inner text-sm md:text-lg focus-visible:ring-primary/30"
                 value={searchTerm}
                 onChange={handleInputChange}
             />
             {searchTerm && (
-                <Button variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-xl" onClick={handleClear}>
-                    <X className="h-5 w-5" />
-                </Button>
+                <button 
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-lg hover:bg-muted/60 transition-colors" 
+                  onClick={handleClear}
+                >
+                    <X className="h-4 md:h-5 w-4 md:w-5" />
+                </button>
             )}
           </div>
           
           <Popover>
               <PopoverTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-border/40 shadow-sm relative">
-                      <SlidersHorizontal className="h-6 w-6" />
+                  <Button variant="outline" size="icon" className="h-11 md:h-14 w-11 md:w-14 rounded-xl md:rounded-2xl border-border/40 shadow-sm relative shrink-0">
+                      <SlidersHorizontal className="h-5 md:h-6 w-5 md:w-6" />
                       {(statusFilter !== 'all' || matureFilter || sortBy !== 'relevance') && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full border-2 border-background" />
+                          <div className="absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-primary rounded-full border-2 border-background" />
                       )}
                   </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80 p-6 rounded-3xl border-none shadow-3xl bg-card/95 backdrop-blur-xl" align="end">
-                  <div className="space-y-6">
+              <PopoverContent className="w-[85vw] max-w-80 p-5 md:p-6 rounded-[2rem] md:rounded-3xl border-none shadow-3xl bg-card/95 backdrop-blur-xl" align="end" sideOffset={12}>
+                  <div className="space-y-5 md:space-y-6">
                       <div className="flex items-center justify-between">
-                          <h4 className="font-headline font-bold text-lg">Filters</h4>
-                          <Button variant="ghost" size="sm" className="text-[10px] uppercase font-bold tracking-widest text-primary" onClick={() => { setStatusFilter('all'); setMatureFilter(false); setSortBy('relevance'); }}>Reset</Button>
+                          <h4 className="font-headline font-bold text-base md:text-lg">Filters</h4>
+                          <Button variant="ghost" size="sm" className="text-[10px] uppercase font-bold tracking-widest text-primary h-8 px-2" onClick={() => { setStatusFilter('all'); setMatureFilter(false); setSortBy('relevance'); }}>Reset</Button>
                       </div>
                       
                       <div className="space-y-3">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Story Status</Label>
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Manuscript Status</Label>
                           <RadioGroup value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)} className="grid grid-cols-3 gap-2">
                               {['all', 'Ongoing', 'Completed'].map(s => (
                                   <Label key={s} htmlFor={`status-${s}`} className="flex flex-col items-center justify-center p-2 rounded-xl border-2 border-transparent bg-muted/40 cursor-pointer transition-all peer-data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">
                                       <RadioGroupItem value={s} id={`status-${s}`} className="sr-only" />
-                                      <span className="text-xs font-bold capitalize">{s}</span>
+                                      <span className="text-[10px] font-bold capitalize">{s === 'all' ? 'All' : s}</span>
                                   </Label>
                               ))}
                           </RadioGroup>
                       </div>
 
-                      <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border border-dashed border-red-500/20">
+                      <div className="flex items-center justify-between p-3 md:p-4 bg-muted/20 rounded-2xl border border-dashed border-red-500/20">
                           <div className="space-y-0.5">
-                              <Label className="text-sm font-bold block">Mature Content</Label>
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Include 18+ stories</p>
+                              <Label className="text-xs md:text-sm font-bold block">Mature Content</Label>
+                              <p className="text-[9px] md:text-[10px] text-muted-foreground uppercase tracking-tight">Include 18+ stories</p>
                           </div>
-                          <Switch checked={matureFilter} onCheckedChange={setMatureFilter} />
+                          <Switch checked={matureFilter} onCheckedChange={setMatureFilter} className="scale-75 md:scale-100" />
                       </div>
 
                       <div className="space-y-3">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Sort By</Label>
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Sort Preference</Label>
                           <RadioGroup value={sortBy} onValueChange={(v) => setSortBy(v)} className="space-y-1">
                               {[
                                   { id: 'relevance', label: 'Relevance', icon: Sparkles },
                                   { id: 'views', label: 'Most Read', icon: TrendingUp },
                                   { id: 'newest', label: 'Recently Updated', icon: BookOpen },
                               ].map(s => (
-                                  <Label key={s.id} htmlFor={`sort-${s.id}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors group">
+                                  <Label key={s.id} htmlFor={`sort-${s.id}`} className="flex items-center gap-3 p-2.5 md:p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors group">
                                       <RadioGroupItem value={s.id} id={`sort-${s.id}`} />
                                       <s.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                                      <span className="text-sm font-medium">{s.label}</span>
+                                      <span className="text-xs md:text-sm font-medium">{s.label}</span>
                                   </Label>
                               ))}
                           </RadioGroup>
@@ -300,13 +303,13 @@ function SearchResults() {
           </Popover>
         </div>
 
-        {/* Genre Scroll */}
-        <ScrollArea className="w-full whitespace-nowrap">
+        {/* Genre Scroll - Refined for mobile kinetic feel */}
+        <ScrollArea className="w-full whitespace-nowrap scrollbar-hide">
             <div className="flex items-center gap-2 max-w-7xl mx-auto px-4">
                 <Button 
                     variant={activeGenre === 'all' ? 'default' : 'ghost'} 
                     size="sm" 
-                    className="rounded-full h-10 px-6 font-bold text-xs uppercase tracking-widest shadow-sm"
+                    className="rounded-full h-9 md:h-10 px-4 md:px-6 font-bold text-[10px] md:text-xs uppercase tracking-widest shadow-sm shrink-0"
                     onClick={() => handleGenreClick('all')}
                 >
                     All Genres
@@ -317,7 +320,7 @@ function SearchResults() {
                         variant={activeGenre === genre ? 'default' : 'ghost'} 
                         size="sm" 
                         className={cn(
-                            "rounded-full h-10 px-6 font-bold text-xs uppercase tracking-widest transition-all",
+                            "rounded-full h-9 md:h-10 px-4 md:px-6 font-bold text-[10px] md:text-xs uppercase tracking-widest transition-all shrink-0",
                             activeGenre === genre ? "shadow-lg shadow-primary/20 scale-105" : "bg-muted/40 hover:bg-primary/5 hover:text-primary"
                         )}
                         onClick={() => handleGenreClick(genre)}
@@ -330,35 +333,35 @@ function SearchResults() {
         </ScrollArea>
       </div>
 
-      {/* Discovery Hub (Initial State) */}
+      {/* Discovery Hub (Initial State) - Refined alignment */}
       {isBrowsing && (
-          <div className="px-4 space-y-12 pb-10">
-              <section className="space-y-6">
+          <div className="px-4 space-y-8 md:space-y-12 pb-10">
+              <section className="space-y-4 md:space-y-6">
                 <div className="flex items-center gap-2 text-primary">
-                    <TrendingUp className="h-6 w-6" />
-                    <h2 className="text-2xl font-headline font-bold tracking-tight">Trending Now</h2>
+                    <TrendingUp className="h-5 md:h-6 w-5 md:w-6" />
+                    <h2 className="text-xl md:text-2xl font-headline font-bold tracking-tight">Trending Now</h2>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 md:gap-x-6 gap-y-8 md:gap-y-10">
                     {trendingStories.map(s => <StoryCard key={s.id} story={s} />)}
                 </div>
               </section>
 
-              <section className="bg-card/50 rounded-[40px] p-8 md:p-12 border border-border/40 shadow-sm overflow-hidden relative">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
-                  <div className="relative z-10 space-y-8">
-                    <div className="space-y-2">
-                        <h2 className="text-3xl font-headline font-bold text-foreground">Explore by Vibe</h2>
-                        <p className="text-muted-foreground">Find stories matching specific themes and tropes.</p>
+              <section className="bg-card/50 rounded-3xl md:rounded-[40px] p-6 md:p-12 border border-border/40 shadow-sm overflow-hidden relative">
+                  <div className="absolute top-0 right-0 w-48 md:w-64 h-48 md:h-64 bg-primary/5 rounded-full blur-3xl -mr-24 md:-mr-32 -mt-24 md:-mt-32" />
+                  <div className="relative z-10 space-y-6 md:space-y-8">
+                    <div className="space-y-1 md:space-y-2">
+                        <h2 className="text-2xl md:text-3xl font-headline font-bold text-foreground">Explore by Vibe</h2>
+                        <p className="text-xs md:text-sm text-muted-foreground">Find stories matching specific themes and tropes.</p>
                     </div>
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-2 md:gap-3">
                         {TRENDING_TAGS.map(tag => (
                             <Button 
                                 key={tag} 
                                 variant="outline" 
-                                className="h-12 rounded-2xl gap-2 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all font-bold text-xs uppercase tracking-widest"
+                                className="h-10 md:h-12 rounded-xl md:rounded-2xl gap-2 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all font-bold text-[10px] md:text-xs uppercase tracking-widest bg-background/40"
                                 onClick={() => setSearchTerm(tag.replace('-', ' '))}
                             >
-                                <Sparkles className="h-4 w-4 text-accent" />
+                                <Sparkles className="h-3 md:h-4 w-3 md:w-4 text-accent" />
                                 #{tag}
                             </Button>
                         ))}
@@ -366,39 +369,39 @@ function SearchResults() {
                   </div>
               </section>
 
-              <section className="grid md:grid-cols-3 gap-8">
-                  <div className="md:col-span-2 space-y-6">
-                    <h3 className="text-xl font-headline font-bold flex items-center gap-2">
-                        <Flame className="h-5 w-5 text-orange-500" />
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
+                  <div className="lg:col-span-2 space-y-4 md:space-y-6">
+                    <h3 className="text-lg md:text-xl font-headline font-bold flex items-center gap-2">
+                        <Flame className="h-4 md:h-5 w-4 md:w-5 text-orange-500" />
                         Fresh Releases
                     </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
                         {trendingStories.slice(0, 6).map(s => (
                              <Link href={`/stories/${s.id}`} key={s.id} className="group">
                                 <div className="aspect-[2/3] relative rounded-2xl overflow-hidden bg-muted mb-2 shadow-sm transition-all group-hover:shadow-md group-hover:-translate-y-1">
-                                    <NextImage src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/512/800`} alt="" fill objectFit="cover" className="transition-transform duration-700 group-hover:scale-110" />
+                                    <NextImage src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/512/800`} alt="" fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
                                 </div>
-                                <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{s.title}</p>
+                                <p className="text-[11px] md:text-xs font-bold truncate group-hover:text-primary transition-colors px-0.5">{s.title}</p>
                              </Link>
                         ))}
                     </div>
                   </div>
-                  <div className="space-y-6">
-                    <h3 className="text-xl font-headline font-bold flex items-center gap-2">
-                        <Users className="h-5 w-5 text-blue-500" />
+                  <div className="space-y-4 md:space-y-6">
+                    <h3 className="text-lg md:text-xl font-headline font-bold flex items-center gap-2">
+                        <Users className="h-4 md:h-5 w-4 md:w-5 text-blue-500" />
                         Rising Authors
                     </h3>
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5 md:gap-3">
                         {[...Array(5)].map((_, i) => (
-                            <div key={i} className="p-4 rounded-2xl bg-card border border-border/20 flex items-center gap-4 hover:bg-muted/50 cursor-pointer transition-all">
-                                <Avatar className="h-10 w-10 border shadow-sm">
-                                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">WR</AvatarFallback>
+                            <div key={i} className="p-3 md:p-4 rounded-2xl bg-card border border-border/20 flex items-center gap-3 md:gap-4 hover:bg-muted/50 cursor-pointer transition-all">
+                                <Avatar className="h-9 w-9 md:h-10 md:w-10 border shadow-sm">
+                                    <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">WR</AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-sm truncate">@Author_Name</p>
-                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">1.2k Followers</p>
+                                    <p className="font-bold text-xs md:text-sm truncate">@Author_Name</p>
+                                    <p className="text-[9px] md:text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">1.2k Followers</p>
                                 </div>
-                                <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30" />
                             </div>
                         ))}
                     </div>
@@ -407,52 +410,52 @@ function SearchResults() {
           </div>
       )}
 
-      {/* Results View */}
+      {/* Results View - Refined alignment and spacing */}
       {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-32 space-y-4">
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Scanning the archives...</p>
+          <div className="flex flex-col items-center justify-center py-32 space-y-4 px-4">
+              <Loader2 className="h-8 md:h-10 w-8 md:w-10 animate-spin text-primary" />
+              <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Scanning the archives...</p>
           </div>
       ) : !isBrowsing && (
-        <div className="px-4 space-y-10">
-            <header className="flex flex-col sm:flex-row justify-between items-end gap-4 border-b border-border/40 pb-6">
-                <div>
-                    <h2 className="text-3xl font-headline font-bold tracking-tight">
+        <div className="px-4 space-y-6 md:space-y-10">
+            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 md:gap-4 border-b border-border/40 pb-5 md:pb-6">
+                <div className="max-w-full">
+                    <h2 className="text-xl md:text-3xl font-headline font-bold tracking-tight truncate">
                         {searchTerm ? `Results for "${searchTerm}"` : `Browsing ${activeGenre}`}
                     </h2>
-                    <p className="text-sm text-muted-foreground mt-1">Found {storyResults.length} manuscripts and {userResults.length} creators</p>
+                    <p className="text-[10px] md:text-sm text-muted-foreground mt-1 uppercase font-bold tracking-tight">Found {storyResults.length} manuscripts and {userResults.length} creators</p>
                 </div>
-                <div className="flex gap-2">
-                    {statusFilter !== 'all' && <Badge variant="secondary" className="rounded-full px-3 h-8 gap-2 font-bold text-[10px] uppercase">{statusFilter} <X className="h-3 w-3 cursor-pointer" onClick={() => setStatusFilter('all')} /></Badge>}
-                    {matureFilter && <Badge variant="secondary" className="rounded-full px-3 h-8 gap-2 font-bold text-[10px] uppercase">18+ <X className="h-3 w-3 cursor-pointer" onClick={() => setMatureFilter(false)} /></Badge>}
-                    {sortBy !== 'relevance' && <Badge variant="secondary" className="rounded-full px-3 h-8 gap-2 font-bold text-[10px] uppercase">Sort: {sortBy} <X className="h-3 w-3 cursor-pointer" onClick={() => setSortBy('relevance')} /></Badge>}
+                <div className="flex flex-wrap gap-1.5 md:gap-2">
+                    {statusFilter !== 'all' && <Badge variant="secondary" className="rounded-full px-2 md:px-3 h-7 md:h-8 gap-1.5 md:gap-2 font-bold text-[9px] md:text-[10px] uppercase">{statusFilter} <X className="h-3 w-3 cursor-pointer" onClick={() => setStatusFilter('all')} /></Badge>}
+                    {matureFilter && <Badge variant="secondary" className="rounded-full px-2 md:px-3 h-7 md:h-8 gap-1.5 md:gap-2 font-bold text-[9px] md:text-[10px] uppercase">18+ <X className="h-3 w-3 cursor-pointer" onClick={() => setMatureFilter(false)} /></Badge>}
+                    {sortBy !== 'relevance' && <Badge variant="secondary" className="rounded-full px-2 md:px-3 h-7 md:h-8 gap-1.5 md:gap-2 font-bold text-[9px] md:text-[10px] uppercase">Sort: {sortBy} <X className="h-3 w-3 cursor-pointer" onClick={() => setSortBy('relevance')} /></Badge>}
                 </div>
             </header>
 
             {!hasResults ? (
-                <div className="text-center py-32 bg-card/50 rounded-[40px] border-2 border-dashed border-border/40 max-w-2xl mx-auto">
-                    <div className="bg-muted/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <SearchIcon className="h-10 w-10 text-muted-foreground/30" />
+                <div className="text-center py-20 md:py-32 bg-card/50 rounded-[32px] md:rounded-[40px] border-2 border-dashed border-border/40 max-w-2xl mx-auto px-6">
+                    <div className="bg-muted/30 w-16 md:w-20 h-16 md:h-20 rounded-full flex items-center justify-center mx-auto mb-5 md:mb-6">
+                        <SearchIcon className="h-8 md:h-10 w-8 md:w-10 text-muted-foreground/30" />
                     </div>
-                    <h3 className="text-2xl font-headline font-bold mb-2">The parchment is empty</h3>
-                    <p className="text-muted-foreground max-sm mx-auto px-6 mb-8">No results matched your criteria. Try loosening your filters or exploring another genre.</p>
-                    <Button onClick={handleClear} variant="outline" className="rounded-full px-8 h-12 font-bold uppercase text-xs tracking-widest">Clear Everything</Button>
+                    <h3 className="text-xl md:text-2xl font-headline font-bold mb-2">The parchment is empty</h3>
+                    <p className="text-xs md:text-sm text-muted-foreground max-sm mx-auto mb-6 md:mb-8 leading-relaxed">No results matched your criteria. Try loosening your filters or exploring another genre.</p>
+                    <Button onClick={handleClear} variant="outline" className="rounded-full px-6 md:px-8 h-10 md:h-12 font-bold uppercase text-[10px] md:text-xs tracking-widest">Clear Everything</Button>
                 </div>
             ) : (
                 <Tabs defaultValue="stories" className="w-full">
-                    <div className="flex justify-center mb-10">
-                        <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm backdrop-blur-md h-12">
-                            <TabsTrigger value="stories" className="rounded-full font-bold gap-2 px-8 data-[state=active]:bg-background data-[state=active]:shadow-md h-10">
-                                <BookOpen className="h-4 w-4" /> Manuscripts
+                    <div className="flex justify-center mb-6 md:mb-10">
+                        <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm backdrop-blur-md h-10 md:h-12">
+                            <TabsTrigger value="stories" className="rounded-full font-bold gap-2 px-5 md:px-8 data-[state=active]:bg-background data-[state=active]:shadow-md h-8 md:h-10 text-[10px] md:text-sm transition-all">
+                                <BookOpen className="h-3.5 md:h-4 w-3.5 md:w-4" /> Manuscripts
                             </TabsTrigger>
-                            <TabsTrigger value="authors" disabled={userResults.length === 0} className="rounded-full font-bold gap-2 px-8 data-[state=active]:bg-background data-[state=active]:shadow-md h-10">
-                                <Users className="h-4 w-4" /> Creators
+                            <TabsTrigger value="authors" disabled={userResults.length === 0} className="rounded-full font-bold gap-2 px-5 md:px-8 data-[state=active]:bg-background data-[state=active]:shadow-md h-8 md:h-10 text-[10px] md:text-sm transition-all">
+                                <Users className="h-3.5 md:h-4 w-3.5 md:w-4" /> Creators
                             </TabsTrigger>
                         </TabsList>
                     </div>
 
                     <TabsContent value="stories" className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-6 gap-y-10">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 md:gap-x-6 gap-y-8 md:gap-y-10">
                             {storyResults.map(story => (
                             <StoryCard key={story.id} story={story} />
                             ))}
@@ -460,34 +463,34 @@ function SearchResults() {
                     </TabsContent>
 
                     <TabsContent value="authors" className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                             {userResults.map(author => (
                             <Link href={`/profile/${author.id}`} key={author.id} className="group">
-                                <Card className="rounded-3xl border-border/40 shadow-sm hover:shadow-md transition-all group-hover:border-primary/20 overflow-hidden bg-card/60 backdrop-blur-sm">
-                                    <CardContent className="p-5 flex items-center gap-4">
+                                <Card className="rounded-[1.5rem] md:rounded-3xl border-border/40 shadow-sm hover:shadow-md transition-all group-hover:border-primary/20 overflow-hidden bg-card/60 backdrop-blur-sm">
+                                    <CardContent className="p-4 md:p-5 flex items-center gap-3 md:gap-4">
                                         <div className="relative">
-                                            <Avatar className="w-16 h-16 border-2 border-primary/10 group-hover:scale-105 transition-transform duration-300 shadow-md">
+                                            <Avatar className="w-14 md:w-16 h-14 md:h-16 border-2 border-primary/10 group-hover:scale-105 transition-transform duration-300 shadow-md">
                                                 <AvatarImage src={author.avatarUrl} alt={author.username} data-ai-hint="profile person" />
-                                                <AvatarFallback className="bg-primary/5 text-primary text-xl font-bold">{(author.username).substring(0, 2).toUpperCase()}</AvatarFallback>
+                                                <AvatarFallback className="bg-primary/5 text-primary text-lg md:text-xl font-bold">{(author.username).substring(0, 2).toUpperCase()}</AvatarFallback>
                                             </Avatar>
                                             {author.isVerified && (
-                                                <div className="absolute -bottom-1 -right-1 bg-primary text-white p-1 rounded-full shadow-sm ring-2 ring-background">
-                                                    <Check className="h-2 w-2" />
+                                                <div className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 md:p-1 rounded-full shadow-sm ring-2 ring-background">
+                                                    <Check className="h-1.5 md:h-2 w-1.5 md:w-2" />
                                                 </div>
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold font-headline text-lg group-hover:text-primary transition-colors truncate">
+                                            <h3 className="font-bold font-headline text-base md:text-lg group-hover:text-primary transition-colors truncate">
                                                 {author.displayName || author.username}
                                             </h3>
-                                            <p className="text-xs text-muted-foreground font-mono -mt-1">@{author.username}</p>
-                                            <div className="flex items-center gap-3 mt-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                                            <p className="text-[10px] md:text-xs text-muted-foreground font-mono -mt-0.5">@{author.username}</p>
+                                            <div className="flex items-center gap-2 md:gap-3 mt-1.5 md:mt-2 text-[8px] md:text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
                                                 <span>{author.followersCount || 0} Followers</span>
-                                                <span className="w-1 h-1 bg-border rounded-full" />
+                                                <span className="w-0.5 md:w-1 h-0.5 md:h-1 bg-border rounded-full" />
                                                 <span>Writer</span>
                                             </div>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="rounded-full opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex">
                                             <ChevronRight className="h-5 w-5 text-primary" />
                                         </Button>
                                     </CardContent>
@@ -506,7 +509,7 @@ function SearchResults() {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>}>
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>}>
       <SearchResults />
     </Suspense>
   );
