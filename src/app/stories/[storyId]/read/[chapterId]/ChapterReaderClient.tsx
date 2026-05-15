@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -48,6 +47,7 @@ import {
   TriangleAlert,
   Cloud,
   CheckCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -55,7 +55,7 @@ import type { Story, Chapter, Annotation } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn, formatCompactNumber } from '@/lib/utils';
-import { db } from '@/lib/firebase';
+import { db, clearFirestoreCache } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment, addDoc, collection } from 'firebase/firestore';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import {
@@ -107,6 +107,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [story, setStory] = useState<Story | null>(null);
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   
   const [controlsVisible, setControlsVisible] = useState(true);
   const [tocVisible, setTocVisible] = useState(false);
@@ -253,6 +254,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     if (!storyId) return;
 
     setIsLoading(true);
+    setHasError(false);
     const storyDocRef = doc(db, 'stories', storyId);
 
     const unsubscribe = onSnapshot(storyDocRef, (docSnap) => {
@@ -320,7 +322,12 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       }
       setIsLoading(false);
     }, (error) => {
-      console.warn("Reader stream error:", error);
+      const permissionError = new FirestorePermissionError({
+          path: storyDocRef.path,
+          operation: 'get',
+      } satisfies SecurityRuleContext);
+      errorEmitter.emit('permission-error', permissionError);
+      setHasError(true);
       setIsLoading(false);
     });
 
@@ -329,6 +336,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       document.body.classList.remove('night-portal');
     };
   }, [storyId, chapterId, router, currentUser, toast, incrementViewCount]);
+
+  const handleHardReset = async () => {
+    await clearFirestoreCache();
+    window.location.reload();
+  };
 
   useEffect(() => {
     contentRef.current?.scrollTo(0, 0);
@@ -500,6 +512,12 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 setLastSelectionRange(null);
             })
             .catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: 'annotations',
+                    operation: 'create',
+                    requestResourceData: annotationData,
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
                 editor.chain().focus().setTextSelection(range).unsetHighlight().run();
             });
 
@@ -520,11 +538,35 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       }
   };
 
-  if (isLoading || !story || !currentChapter || !editor) {
+  if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-background">
+      <div className="flex flex-col justify-center items-center min-h-screen bg-background gap-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground animate-pulse">Syncing Manuscript...</p>
       </div>
+    );
+  }
+
+  if (hasError || !story || !currentChapter || !editor) {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen text-center p-8 bg-background">
+            <div className="p-6 rounded-full bg-destructive/5 mb-6">
+                <AlertCircle className="h-12 w-12 text-destructive" />
+            </div>
+            <h2 className="text-2xl font-headline font-bold mb-2">Manuscript Error</h2>
+            <p className="text-muted-foreground max-w-sm mx-auto mb-10 leading-relaxed">
+                We encountered an error while retrieving this part of the archives. This usually happens if the local node is out of sync.
+            </p>
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+                <Button onClick={handleHardReset} className="rounded-full h-12 font-bold uppercase text-[10px] tracking-widest gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    Deep Reset Persistence
+                </Button>
+                <Button variant="ghost" onClick={() => router.push('/')} className="rounded-full h-12 font-bold uppercase text-[10px] tracking-widest">
+                    Return Home
+                </Button>
+            </div>
+        </div>
     );
   }
   

@@ -164,17 +164,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let unsubscribeUserDoc: (() => void) | undefined;
     let unsubscribeNotifs: (() => void) | undefined;
     
-    if (typeof window !== 'undefined') {
-        try {
-            const cachedUser = sessionStorage.getItem(USER_CACHE_KEY);
-            if (cachedUser) {
-                setUser(JSON.parse(cachedUser));
-            }
-        } catch (e) {
-            console.warn("Could not read user cache", e);
-        }
-    }
-
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (unsubscribeUserDoc) unsubscribeUserDoc();
       if (unsubscribeNotifs) unsubscribeNotifs();
@@ -225,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if(fullUser.achievements) {
                 handleAchievementUnlock(fullUser.achievements, oldAchievements);
             }
+            setLoading(false);
           } else {
             const isAnonymous = firebaseUser.isAnonymous;
             const username = isAnonymous
@@ -268,9 +258,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (typeof window !== 'undefined') {
                 sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(newUserProfile));
             }
+            setLoading(false);
           }
-          setLoading(false);
         }, (error) => {
+            const permissionError = new FirestorePermissionError({
+                path: `users/${firebaseUser.uid}`,
+                operation: 'get',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
             setLoading(false);
         });
 
@@ -282,6 +277,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType)));
+        }, async (error) => {
+             const permissionError = new FirestorePermissionError({
+                path: 'notifications',
+                operation: 'list',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
         });
 
         getRedirectResult(auth).then((result) => {
@@ -315,7 +316,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user && !user.isAnonymous) {
         if (isAuthRoute) router.push(DEFAULT_REDIRECT_AUTHENTICATED);
     } else {
-        if (!isAuthRoute) router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
+        if (!isAuthRoute && !pathname.startsWith('/stories/') && pathname !== '/search' && pathname !== '/') {
+            router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
+        }
     }
   }, [user, loading, pathname, router]);
 

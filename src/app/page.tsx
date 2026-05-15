@@ -12,14 +12,16 @@ import {
   Flame,
   LayoutGrid,
   Quote,
-  Radio
+  Radio,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 import type { Story, Prompt, CarouselSlide } from '@/types';
 import { useEffect, useState } from 'react';
-import { db } from '@/lib/firebase';
+import { db, clearFirestoreCache } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { AnimatedTabs, Tabs, TabsContent, ScrollBar } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
@@ -34,6 +36,8 @@ import BroadcastFeed from '@/components/broadcast/BroadcastFeed';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 function ForYouTabContent() {
   const { user } = useAuth();
@@ -41,9 +45,11 @@ function ForYouTabContent() {
   const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>([]);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     setIsDataLoading(true);
+    setHasError(false);
 
     // Fetch Custom Owner Carousel
     const carouselQuery = query(
@@ -53,6 +59,12 @@ function ForYouTabContent() {
     );
     const unsubCarousel = onSnapshot(carouselQuery, (snapshot) => {
         setCarouselSlides(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CarouselSlide)));
+    }, async (error) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'featuredCarousel',
+            operation: 'list',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
     });
 
     // Fetch Stories for Discovery Hub
@@ -73,8 +85,15 @@ function ForYouTabContent() {
         } as Story
       });
       setAllStories(fetchedStories.filter(s => s.status !== 'Draft'));
+      setIsDataLoading(false);
     }, (error) => {
-        console.error("Home Story Fetch Error:", error);
+        const permissionError = new FirestorePermissionError({
+            path: 'stories',
+            operation: 'list',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+        setHasError(true);
+        setIsDataLoading(false);
     });
 
     const promptsQuery = query(
@@ -85,17 +104,25 @@ function ForYouTabContent() {
     );
     const unsubscribePrompts = onSnapshot(promptsQuery, (snapshot) => {
       setPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
-    }, console.error);
-
-    const timer = setTimeout(() => setIsDataLoading(false), 800);
+    }, async (error) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'prompts',
+            operation: 'list',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    });
 
     return () => {
-      clearTimeout(timer);
       unsubCarousel();
       unsubscribeStories();
       unsubscribePrompts();
     };
   }, []);
+
+  const handleHardReset = async () => {
+    await clearFirestoreCache();
+    window.location.reload();
+  };
 
   const trendingStories = [...allStories].sort((a,b) => ((b.views || 0) + (b.rating || 0) * 100) - ((a.views || 0) + (a.rating || 0) * 100)).slice(0, 12);
 
@@ -103,8 +130,22 @@ function ForYouTabContent() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-muted-foreground font-medium animate-pulse">Curating your experience...</p>
+        <p className="text-muted-foreground font-bold text-[10px] uppercase tracking-[0.2em] animate-pulse">Syncing Hub...</p>
       </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8 bg-card/20 rounded-[40px] border border-dashed border-border/40 max-w-lg mx-auto mt-10">
+            <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+            <h3 className="text-xl font-headline font-bold mb-2">Sync Interrupted</h3>
+            <p className="text-muted-foreground text-sm mb-6">The archives are having trouble synchronizing. This is usually caused by a persistence conflict.</p>
+            <Button onClick={handleHardReset} className="rounded-full px-8 gap-2 font-bold uppercase text-[10px] tracking-widest shadow-lg">
+                <RefreshCw className="h-4 w-4" />
+                Hard Reset Hub
+            </Button>
+        </div>
     );
   }
 
@@ -203,7 +244,7 @@ function ForYouTabContent() {
             </div>
             <div className="flex overflow-x-auto space-x-5 pb-6 -mx-4 px-4 scrollbar-hide md:scrollbar-thin scrollbar-thumb-primary/30">
               {trendingStories.map(story => (
-                <CompactStoryCard key={`trend-${story.id}`} story={story} />
+                <StoryCard key={`trend-${story.id}`} story={story} />
               ))}
             </div>
           </section>
