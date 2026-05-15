@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
@@ -5,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, Save, MoreHorizontal, Smile, EyeOff, Send } from 'lucide-react';
-import type { Comment as CommentType } from '@/types';
+import type { Comment as CommentType, Story } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
@@ -20,7 +21,8 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  runTransaction
 } from 'firebase/firestore';
 import Link from 'next/link';
 import {
@@ -325,7 +327,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
     if (!currentUser || newComment.trim() === '' || !storyId || !chapterId) return;
 
     setIsPostingComment(true);
-    const commentData: Omit<CommentType, 'id'> & { quote?: string, isSpoiler: boolean } = {
+    const commentData: any = {
       user: { 
         id: currentUser.id, 
         username: currentUser.username, 
@@ -345,18 +347,34 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
       commentData.quote = quote;
     }
 
-    const commentsColRef = collection(db, 'comments');
-    addDoc(commentsColRef, commentData)
-        .then(() => {
-            setNewComment('');
-            setReplyingTo(null);
-            setIsSpoiler(false);
-            toast({ title: "Comment posted!" });
-        })
-        .catch(async (serverError) => {
-            console.error("Comment submit error:", serverError);
-        })
-        .finally(() => setIsPostingComment(false));
+    const storyRef = doc(db, 'stories', storyId);
+
+    runTransaction(db, async (transaction) => {
+        const storySnap = await transaction.get(storyRef);
+        if (!storySnap.exists()) throw "Story not found";
+        
+        const storyData = storySnap.data() as Story;
+        const updatedChapters = storyData.chapters.map(ch => {
+            if (ch.id === chapterId) {
+                return { ...ch, commentsCount: (ch.commentsCount || 0) + 1 };
+            }
+            return ch;
+        });
+
+        transaction.update(storyRef, { chapters: updatedChapters });
+        transaction.set(doc(collection(db, 'comments')), commentData);
+    })
+    .then(() => {
+        setNewComment('');
+        setReplyingTo(null);
+        setIsSpoiler(false);
+        toast({ title: "Comment posted!" });
+    })
+    .catch((error) => {
+        console.error("Comment submit error:", error);
+        toast({ title: "Failed to post comment", variant: "destructive" });
+    })
+    .finally(() => setIsPostingComment(false));
   };
 
   const handleReply = (commentId: string, username: string) => {
@@ -373,8 +391,23 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
   };
 
   const handleCommentDelete = async (commentId: string) => {
-    const commentRef = doc(db, 'comments', commentId);
-    deleteDoc(commentRef);
+    const storyRef = doc(db, 'stories', storyId);
+    
+    runTransaction(db, async (transaction) => {
+        const storySnap = await transaction.get(storyRef);
+        if (!storySnap.exists()) throw "Story not found";
+
+        const storyData = storySnap.data() as Story;
+        const updatedChapters = storyData.chapters.map(ch => {
+            if (ch.id === chapterId) {
+                return { ...ch, commentsCount: Math.max(0, (ch.commentsCount || 0) - 1) };
+            }
+            return ch;
+        });
+
+        transaction.update(storyRef, { chapters: updatedChapters });
+        transaction.delete(doc(db, 'comments', commentId));
+    });
   };
   
   const onEmojiClick = (emojiData: EmojiClickData) => {

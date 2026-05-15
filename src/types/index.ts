@@ -103,6 +103,8 @@ export interface Chapter {
   allowedUsers?: AllowedUser[];
   artworkUrl?: string;
   tags?: string[];
+  views?: number;
+  commentsCount?: number;
 }
 
 export interface AllowedUser {

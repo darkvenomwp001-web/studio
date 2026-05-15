@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -53,7 +54,7 @@ import { Separator } from '@/components/ui/separator';
 import type { Story, Chapter, Annotation } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { cn } from '@/lib/utils';
+import { cn, formatCompactNumber } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment, addDoc, collection } from 'firebase/firestore';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
@@ -227,15 +228,26 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   };
 
   const incrementViewCount = useCallback(async () => {
-    if (viewIncrementedRef.current || !storyId) return;
+    if (viewIncrementedRef.current || !storyId || !story || !currentChapter) return;
+    
     const storyRef = doc(db, 'stories', storyId);
-    updateDoc(storyRef, { views: increment(1) })
-      .then(() => { viewIncrementedRef.current = true; })
-      .catch((error) => {
-          // Unauthenticated or restricted analytics updates shouldn't crash the reader.
+    
+    const updatedChapters = story.chapters.map(ch => {
+        if (ch.id === chapterId) {
+            return { ...ch, views: (ch.views || 0) + 1 };
+        }
+        return ch;
+    });
+
+    updateDoc(storyRef, { 
+        views: increment(1),
+        chapters: updatedChapters
+    })
+    .then(() => { viewIncrementedRef.current = true; })
+    .catch((error) => {
           console.warn("Analytics update failed gracefully.");
-      });
-  }, [storyId]);
+    });
+  }, [storyId, story, currentChapter, chapterId]);
 
   useEffect(() => {
     if (!storyId) return;

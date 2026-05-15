@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, Suspense, useCallback, useRef, ChangeEvent } from 'react';
@@ -29,7 +30,10 @@ import {
   UserPlus,
   AlertCircle,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Star,
+  MessageSquare,
+  Calendar
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -41,10 +45,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, formatCompactNumber } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { formatDate } from '@/lib/placeholder-data';
 
 const GENRES = [
     'Fantasy', 'Romance', 'Mystery', 'Thriller', 'Horror', 'Sci-Fi', 
@@ -261,7 +266,6 @@ function StoryDetailsInner() {
   const handleAddChapter = async () => {
       if (!story) return;
       
-      // We initialize a new chapter record before navigating to the editor to ensure it doesn't hang or redirect back.
       const newChapterId = `chapter-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       const newChapter: Chapter = {
         id: newChapterId,
@@ -273,7 +277,9 @@ function StoryDetailsInner() {
         wordCount: 0,
         votes: 0,
         voterIds: [],
-        tags: []
+        tags: [],
+        views: 0,
+        commentsCount: 0
       };
 
       const storyRef = doc(db, 'stories', story.id);
@@ -514,12 +520,40 @@ function StoryDetailsInner() {
                                                 {ch.title}
                                                 {ch.accessType === 'premium' && <Sparkles className="h-3 w-3 text-yellow-500" />}
                                             </h4>
-                                            <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground">
-                                                <span>{ch.wordCount || 0} words</span>
-                                                <span className="w-1 h-1 bg-border rounded-full" />
-                                                <span className={cn(
-                                                    ch.status === 'Published' ? "text-green-600" : "text-yellow-600"
-                                                )}>{ch.status}</span>
+                                            
+                                            <div className="flex flex-col gap-1 mt-1">
+                                              <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground">
+                                                  <span>{ch.wordCount || 0} words</span>
+                                                  <span className="w-1 h-1 bg-border rounded-full" />
+                                                  <div className="flex items-center gap-3">
+                                                      <span className={cn(
+                                                          ch.status === 'Published' ? "text-green-600" : "text-yellow-600"
+                                                      )}>{ch.status}</span>
+                                                      {ch.status === 'Published' && ch.publishedDate && (
+                                                          <div className="flex items-center gap-1 opacity-60">
+                                                              <Calendar className="h-2.5 w-2.5" />
+                                                              <span>{formatDate(ch.publishedDate)}</span>
+                                                          </div>
+                                                      )}
+                                                  </div>
+                                              </div>
+                                              
+                                              {ch.status === 'Published' && (
+                                                  <div className="flex items-center gap-3 text-[10px] font-bold text-primary/70 uppercase tracking-widest">
+                                                      <div className="flex items-center gap-1">
+                                                          <Eye className="h-3 w-3" />
+                                                          <span>{formatCompactNumber(ch.views || 0)}</span>
+                                                      </div>
+                                                      <div className="flex items-center gap-1">
+                                                          <Star className="h-3 w-3" />
+                                                          <span>{formatCompactNumber(ch.votes || 0)}</span>
+                                                      </div>
+                                                      <div className="flex items-center gap-1">
+                                                          <MessageSquare className="h-3 w-3" />
+                                                          <span>{formatCompactNumber(ch.commentsCount || 0)}</span>
+                                                      </div>
+                                                  </div>
+                                              )}
                                             </div>
                                         </div>
                                     </div>
