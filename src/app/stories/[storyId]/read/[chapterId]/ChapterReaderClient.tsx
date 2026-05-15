@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -67,12 +68,10 @@ import { BubbleMenu, EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+import TextAlign from '@tiptap/extension-text-align'
+import FontFamilyExt from '@tiptap/extension-font-family'
+import TextStyle from '@tiptap/extension-text-style'
+import CharacterCount from '@tiptap/extension-character-count'
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -102,12 +101,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const router = useRouter();
   const { user: currentUser, addToLibrary, removeFromLibrary } = useAuth();
   const { toast } = useToast();
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
   
   const [story, setStory] = useState<Story | null>(null);
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [showSyncRecovery, setShowSyncRecovery] = useState(false);
   
   const [controlsVisible, setControlsVisible] = useState(true);
   const [tocVisible, setTocVisible] = useState(false);
@@ -138,7 +138,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [isSynced, setIsSynced] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
-  const viewIncrementedRef = useRef(false);
+  const viewIncrementedRef = useRef<string | null>(null);
 
   const editor = useEditor({
     editable: false, 
@@ -167,7 +167,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [isAuthorOrCollaborator, isFrozen, editor]);
 
-  // Synchronize editor content in a stable useEffect to avoid React render-cycle warnings.
   useEffect(() => {
     if (editor && currentChapter && !editor.isDestroyed) {
       if (editor.getHTML() !== currentChapter.content) {
@@ -228,36 +227,48 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     toast({ title: "Reader preferences reset." });
   };
 
-  const incrementViewCount = useCallback(async () => {
-    if (viewIncrementedRef.current || !storyId || !story || !currentChapter) return;
-    
-    const storyRef = doc(db, 'stories', storyId);
-    
-    const updatedChapters = story.chapters.map(ch => {
-        if (ch.id === chapterId) {
-            return { ...ch, views: (ch.views || 0) + 1 };
-        }
-        return ch;
-    });
+  const handleHardReset = async () => {
+    await clearFirestoreCache();
+    window.location.reload();
+  };
 
-    updateDoc(storyRef, { 
-        views: increment(1),
-        chapters: updatedChapters
-    })
-    .then(() => { viewIncrementedRef.current = true; })
-    .catch((error) => {
-          console.warn("Analytics update failed gracefully.");
-    });
-  }, [storyId, story, currentChapter, chapterId]);
-
+  // Dedicated Analytics Effect
   useEffect(() => {
-    if (!storyId) return;
+    if (isAccessGranted && story && currentChapter && viewIncrementedRef.current !== chapterId) {
+        const storyRef = doc(db, 'stories', story.id);
+        const updatedChapters = story.chapters.map(ch => {
+            if (ch.id === chapterId) {
+                return { ...ch, views: (ch.views || 0) + 1 };
+            }
+            return ch;
+        });
+
+        updateDoc(storyRef, { 
+            views: increment(1),
+            chapters: updatedChapters
+        })
+        .then(() => { viewIncrementedRef.current = chapterId; })
+        .catch(() => {});
+    }
+  }, [isAccessGranted, story, currentChapter, chapterId]);
+
+  // Main Data Fetcher
+  useEffect(() => {
+    if (!storyId || !chapterId) return;
 
     setIsLoading(true);
     setHasError(false);
+    setShowSyncRecovery(false);
+
+    // Fail-safe recovery timer
+    const recoveryTimer = setTimeout(() => {
+        if (isLoading) setShowSyncRecovery(true);
+    }, 6000);
+
     const storyDocRef = doc(db, 'stories', storyId);
 
     const unsubscribe = onSnapshot(storyDocRef, (docSnap) => {
+      clearTimeout(recoveryTimer);
       if (docSnap.exists()) {
         const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
         setStory(storyData);
@@ -279,14 +290,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             let hasAccess = false;
             if (chapterData.accessType === 'premium') {
               if (currentUser) {
-                if (storyData.author.id === currentUser.id) {
+                if (storyData.author.id === currentUser.id || storyData.collaboratorIds?.includes(currentUser.id) || isAppOwner) {
                   hasAccess = true;
-                }
-                const userAccessRecord = chapterData.allowedUsers?.find(u => u.userId === currentUser.id);
-                if (userAccessRecord && userAccessRecord.expiresAt) {
-                  const expiryDate = (userAccessRecord.expiresAt as Timestamp).toDate();
-                  if (expiryDate > new Date()) {
-                    hasAccess = true;
+                } else {
+                  const userAccessRecord = chapterData.allowedUsers?.find(u => u.userId === currentUser.id);
+                  if (userAccessRecord && userAccessRecord.expiresAt) {
+                    const expiryDate = (userAccessRecord.expiresAt as Timestamp).toDate();
+                    if (expiryDate > new Date()) hasAccess = true;
                   }
                 }
               }
@@ -294,34 +304,23 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
               hasAccess = true; 
             }
             
-            if (currentUser && storyData.collaboratorIds?.includes(currentUser.id)) {
-              hasAccess = true;
-            }
-
             setIsAccessGranted(hasAccess);
-
-            if (hasAccess) {
-              incrementViewCount();
-            }
 
             if (storyData.disclaimer && chIndex === 0) {
                 const sessionKey = `disclaimer-seen-${storyData.id}`;
-                if (sessionStorage.getItem(sessionKey) !== 'true') {
-                    setIsDisclaimerOpen(true);
-                }
+                if (sessionStorage.getItem(sessionKey) !== 'true') setIsDisclaimerOpen(true);
             }
-
+            setIsLoading(false);
         } else {
-            toast({ title: "Chapter not found", variant: "destructive" });
+            setIsLoading(false);
             router.push(`/stories/${storyId}`);
         }
-
       } else {
-        toast({ title: "Story Not Found", variant: "destructive" });
+        setIsLoading(false);
         router.push('/');
       }
-      setIsLoading(false);
     }, (error) => {
+      clearTimeout(recoveryTimer);
       const permissionError = new FirestorePermissionError({
           path: storyDocRef.path,
           operation: 'get',
@@ -333,14 +332,10 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
     return () => {
       unsubscribe();
+      clearTimeout(recoveryTimer);
       document.body.classList.remove('night-portal');
     };
-  }, [storyId, chapterId, router, currentUser, toast, incrementViewCount]);
-
-  const handleHardReset = async () => {
-    await clearFirestoreCache();
-    window.location.reload();
-  };
+  }, [storyId, chapterId, router, isAppOwner, currentUser?.id]);
 
   useEffect(() => {
     contentRef.current?.scrollTo(0, 0);
@@ -543,6 +538,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       <div className="flex flex-col justify-center items-center min-h-screen bg-background gap-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground animate-pulse">Syncing Manuscript...</p>
+        {showSyncRecovery && (
+            <div className="mt-8 animate-in fade-in slide-in-from-bottom-2 duration-500 flex flex-col items-center gap-2">
+                <p className="text-xs text-muted-foreground mb-2">Still loading? Local data might be out of sync.</p>
+                <Button onClick={handleHardReset} variant="outline" className="rounded-full h-10 font-bold uppercase text-[10px] tracking-widest gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    Force Sync Hub
+                </Button>
+            </div>
+        )}
       </div>
     );
   }
