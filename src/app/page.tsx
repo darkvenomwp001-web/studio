@@ -1,4 +1,3 @@
-
 'use client'; 
 
 import Link from 'next/link';
@@ -34,6 +33,7 @@ import ThreadsFeed from '@/components/threads/ThreadsFeed';
 import BroadcastFeed from '@/components/broadcast/BroadcastFeed';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 function ForYouTabContent() {
   const { user } = useAuth();
