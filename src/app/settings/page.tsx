@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -18,7 +19,9 @@ import {
     ShieldCheck, 
     User,
     Database,
-    Zap
+    Zap,
+    ShieldAlert,
+    Shield
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -77,22 +80,23 @@ export default function SettingsHubPage() {
             </div>
         </div>
         <div>
-            <h1 className="text-3xl font-headline font-bold text-foreground">Settings</h1>
-            <p className="text-muted-foreground">Manage your account and preferences.</p>
+            <h1 className="text-3xl font-headline font-bold text-foreground">Settings Hub</h1>
+            <p className="text-muted-foreground">Manage your creative identity and platform preferences.</p>
         </div>
       </header>
 
       <div className="grid gap-8">
-        {/* Account Section */}
+        {/* Account & Security Section */}
         <section className="space-y-3">
           <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">Identity & Security</h2>
           <div className="grid gap-2">
             <SettingsLink href="/settings/profile" icon={UserCog} title="Public Profile" description="Update your avatar, username, and bio." iconColor="text-blue-500" />
             <SettingsLink href="/settings/account" icon={KeyRound} title="Account Access" description="Manage your email and password." iconColor="text-orange-500" />
+            <SettingsLink href="/settings/safety" icon={Shield} title="Safety & Blocking" description="Manage your blocked list and content filters." iconColor="text-red-500" />
           </div>
         </section>
 
-        {/* Performance Section */}
+        {/* Performance & Data Section */}
         <section className="space-y-3">
           <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">System & Storage</h2>
           <div className="grid gap-2">
@@ -105,7 +109,7 @@ export default function SettingsHubPage() {
         <section className="space-y-3">
           <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">Experience</h2>
           <div className="grid gap-2">
-            <SettingsLink href="/settings/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." iconColor="text-yellow-500" />
+            <SettingsLink href="/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." iconColor="text-yellow-500" />
             <SettingsLink href="/settings/messaging" icon={MessageCircle} title="Messaging" description="Control who can message you." iconColor="text-green-500" />
             <SettingsLink href="/settings/appearance" icon={Palette} title="Appearance" description="7 unique ways to theme your LitVerse." iconColor="text-pink-500" />
           </div>
@@ -113,7 +117,7 @@ export default function SettingsHubPage() {
 
         {/* About Section */}
         <section className="space-y-3">
-          <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">Platform</h2>
+          <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">Platform Hub</h2>
           <div className="grid gap-2">
             <SettingsLink href="/settings/terms" icon={FileText} title="Terms of Service" description="Read our rules and guidelines." />
             <SettingsLink href="/settings/privacy" icon={ShieldCheck} title="Privacy Policy" description="Learn how we handle your data." />
@@ -123,7 +127,7 @@ export default function SettingsHubPage() {
       </div>
       
       <footer className="pt-10 text-center">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-tighter">LitVerse v1.2.0 • Built for Readers & Writers</p>
+        <p className="text-[10px] text-muted-foreground uppercase tracking-tighter font-bold">D4RKV3NOM &bull; Node 1.2.5 &bull; May 2026 Core</p>
       </footer>
     </div>
   );

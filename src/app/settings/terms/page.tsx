@@ -3,44 +3,64 @@
 
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, FileText } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, FileText, Gavel, Scale, ShieldCheck } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function TermsOfServicePage() {
   const router = useRouter();
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 py-8">
-      <header>
-        <Button variant="ghost" onClick={() => router.push('/settings')} className="mb-2">
+    <div className="max-w-4xl mx-auto space-y-10 py-10 px-4 pb-32 animate-in fade-in duration-700">
+      <header className="space-y-1">
+        <Button variant="ghost" onClick={() => router.push('/settings')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
         </Button>
-        <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-3">
-            <FileText className="h-8 w-8" /> Terms of Service
+        <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground flex items-center gap-4">
+            <FileText className="h-10 w-10 text-primary" /> Terms of Service
         </h1>
-        <p className="text-muted-foreground">Last Updated: July 26, 2024</p>
+        <p className="text-muted-foreground text-sm font-medium">Protocol Update: May 15, 2026</p>
       </header>
       
-      <Card>
-        <CardContent className="prose dark:prose-invert max-w-none pt-6">
-            <h2>1. Introduction</h2>
-            <p>Welcome to LitVerse! These terms and conditions outline the rules and regulations for the use of LitVerse's Website, located at this domain.</p>
-            <p>By accessing this website we assume you accept these terms and conditions. Do not continue to use LitVerse if you do not agree to take all of the terms and conditions stated on this page.</p>
+      <div className="grid gap-8">
+        <Card className="rounded-[2.5rem] border-border/40 shadow-xl bg-card/40 backdrop-blur-sm overflow-hidden">
+            <CardHeader className="bg-primary/5 border-b border-primary/10 p-8">
+                <CardTitle className="text-xl flex items-center gap-3">
+                    <Scale className="h-6 w-6 text-primary" /> Community Contract
+                </CardTitle>
+                <CardDescription>Legal framework for our literary multiverse.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-8 prose dark:prose-invert max-w-none text-sm md:text-base leading-relaxed text-foreground/80">
+                <section>
+                    <h3 className="text-foreground font-bold">1. The Creative License</h3>
+                    <p>At D4RKV3NOM, you remain the sole owner of your intellectual property. By publishing a manuscript on our platform, you grant us a worldwide, non-exclusive, royalty-free license to host, display, and distribute your work. You can withdraw this license at any time by deleting your manuscript.</p>
+                </section>
 
-            <h2>2. Intellectual Property Rights</h2>
-            <p>Other than the content you own, under these Terms, LitVerse and/or its licensors own all the intellectual property rights and materials contained in this Website. You are granted limited license only for purposes of viewing the material contained on this Website.</p>
+                <section>
+                    <h3 className="text-foreground font-bold">2. Community Behavior & Safety</h3>
+                    <p>Our platform embraces a "Dark Aesthetic," but our community values safety. We have zero tolerance for hate speech, harassment, or non-consensual use of others' characters/content. Violation of these standards will result in immediate account termination.</p>
+                </section>
 
-            <h2>3. Your Content</h2>
-            <p>In these Website Standard Terms and Conditions, “Your Content” shall mean any audio, video text, images or other material you choose to display on this Website. By displaying Your Content, you grant LitVerse a non-exclusive, worldwide irrevocable, sub licensable license to use, reproduce, adapt, publish, translate and distribute it in any and all media.</p>
-            <p>Your Content must be your own and must not be invading any third-party's rights. LitVerse reserves the right to remove any of Your Content from this Website at any time without notice.</p>
-            
-            <h2>4. No warranties</h2>
-            <p>This Website is provided “as is,” with all faults, and LitVerse express no representations or warranties, of any kind related to this Website or the materials contained on this Website. Also, nothing contained on this Website shall be interpreted as advising you.</p>
+                <section>
+                    <h3 className="text-foreground font-bold">3. AI-Assisted Writing</h3>
+                    <p>Writers are permitted to use AI tools (like our built-in Writing Assistant) to enhance their work. However, you must explicitly disclose if a manuscript is entirely generated by AI. We reserve the right to label content accordingly to maintain transparency.</p>
+                </section>
 
-            <h2>5. Limitation of liability</h2>
-            <p>In no event shall LitVerse, nor any of its officers, directors and employees, shall be held liable for anything arising out of or in any way connected with your use of this Website whether such liability is under contract. LitVerse, including its officers, directors and employees shall not be held liable for any indirect, consequential or special liability arising out of or in any way related to your use of this Website.</p>
-        </CardContent>
-      </Card>
+                <section>
+                    <h3 className="text-foreground font-bold">4. Premium Access & Transactions</h3>
+                    <p>Authors may restrict chapters to "Premium Access." Users granted this access are prohibited from redistributing or leaking private content. Any detected breach of this protocol will lead to a permanent ban from the archives.</p>
+                </section>
+
+                <section>
+                    <h3 className="text-foreground font-bold">5. Platform Node Reliability</h3>
+                    <p>D4RKV3NOM is a distributed environment utilizing advanced local persistence. We are not liable for data loss occurring due to hardware failure on the user's end. We recommend using our "Cloud Sync" feature regularly.</p>
+                </section>
+            </CardContent>
+            <footer className="p-6 bg-muted/20 border-t border-border/20 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40">Gavel Protocol & bull; D4RKV3NOM Core Governance</p>
+            </footer>
+        </Card>
+      </div>
     </div>
   );
 }

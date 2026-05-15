@@ -21,6 +21,7 @@ export interface User {
   followingCount?: number;
   followingIds?: string[];
   closeFriendIds?: string[]; 
+  blockedUserIds?: string[]; // New: For community safety
   fcmTokens?: string[]; 
   writtenStories?: Story[]; 
   readingList?: ReadingListItem[];
