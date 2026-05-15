@@ -359,3 +359,17 @@ export interface Announcement {
     content: string;
     timestamp: any;
 }
+
+export interface CarouselSlide {
+    id: string;
+    title: string;
+    subtitle?: string;
+    imageUrl: string;
+    storyId?: string;
+    ctaText?: string;
+    ctaLink: string;
+    order: number;
+    isActive: boolean;
+    authorUsername: string;
+    createdAt: any;
+}

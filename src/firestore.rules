@@ -60,6 +60,12 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.author.id || isAppOwner());
     }
 
+    // Carousel Collection
+    match /featuredCarousel/{slideId} {
+      allow read: if true;
+      allow write: if isAppOwner();
+    }
+
     // Broadcasts Collection
     match /broadcasts/{broadcastId} {
       allow read: if true;
