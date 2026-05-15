@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -83,7 +82,7 @@ export default function SettingsHubPage() {
             <h2 className="text-lg font-headline font-semibold mb-2 px-4">Preferences</h2>
             <Card>
                  <CardContent className="p-2">
-                    <SettingsLink href="/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." />
+                    <SettingsLink href="/settings/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." />
                     <SettingsLink href="/settings/messaging" icon={MessageCircle} title="Messaging" description="Control who can message you." />
                     <SettingsLink href="/settings/close-friends" icon={Users} title="Close Friends" description="Manage your list for private statuses." />
                      <SettingsLink href="/settings/appearance" icon={Palette} title="Appearance" description="Customize the look and feel." />

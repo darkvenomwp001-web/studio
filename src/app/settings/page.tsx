@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -109,7 +108,7 @@ export default function SettingsHubPage() {
         <section className="space-y-3">
           <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">Experience</h2>
           <div className="grid gap-2">
-            <SettingsLink href="/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." iconColor="text-yellow-500" />
+            <SettingsLink href="/settings/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." iconColor="text-yellow-500" />
             <SettingsLink href="/settings/messaging" icon={MessageCircle} title="Messaging" description="Control who can message you." iconColor="text-green-500" />
             <SettingsLink href="/settings/appearance" icon={Palette} title="Appearance" description="7 unique ways to theme your LitVerse." iconColor="text-pink-500" />
           </div>
