@@ -43,6 +43,10 @@ import {
   TriangleAlert,
   PlusCircle,
   Tag,
+  MoreHorizontal,
+  Strikethrough,
+  Eraser,
+  Minus,
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
@@ -69,6 +73,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuGroup,
+} from "@/components/ui/dropdown-menu"
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -648,17 +661,29 @@ function EditorContentInner() {
                     <div className="bg-card/90 backdrop-blur-2xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.4)] rounded-3xl p-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar">
                         
                         <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-muted/40 rounded-2xl mr-1 border border-border/40">
-                            <div className="flex items-center gap-3 mt-1">
-                                    <span className="text-xs font-bold font-mono">{wordCount} W</span>
-                                    <span className="text-xs font-bold font-mono">{readingTimeMinutes} M</span>
+                            <div className="flex items-center gap-3">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-bold font-mono leading-none">{wordCount} W</span>
+                                        <span className="text-[10px] font-bold font-mono leading-none mt-1">{readingTimeMinutes} M</span>
+                                    </div>
+                                    <BarChart3 className="h-4 w-4 text-primary/40" />
                             </div>
-                            <BarChart3 className="h-4 w-4 text-primary/40" />
                         </div>
 
-                        <div className="flex items-center gap-1 pr-2 border-r border-border/40">
+                        <div className="flex items-center gap-1 pr-1">
                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all"><Undo className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all"><Redo className="h-4 w-4" /></Button>
                         </div>
+
+                        <Separator orientation="vertical" className="h-6 mx-1" />
+
+                        <div className="flex items-center gap-0.5">
+                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBold().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bold') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Bold className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleItalic().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('italic') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Italic className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleUnderline().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('underline') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Underline className="h-4 w-4" /></Button>
+                        </div>
+
+                        <Separator orientation="vertical" className="h-6 mx-1" />
 
                         <Popover>
                             <TooltipProvider>
@@ -696,65 +721,75 @@ function EditorContentInner() {
                             </PopoverContent>
                         </Popover>
 
-                        <Separator orientation="vertical" className="h-6" />
-
-                        <div className="flex items-center gap-0.5">
-                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBold().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bold') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Bold className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleItalic().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('italic') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Italic className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleUnderline().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('underline') ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10")}><Underline className="h-4 w-4" /></Button>
-                        </div>
-
-                        <Separator orientation="vertical" className="h-6" />
-
-                        <Popover>
+                        <DropdownMenu>
                             <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <PopoverTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl hover:bg-primary/10 transition-all">
-                                            {editor.isActive({ textAlign: 'center' }) ? <AlignCenter className="h-4 w-4" /> : 
-                                            editor.isActive({ textAlign: 'right' }) ? <AlignRight className="h-4 w-4" /> :
-                                            editor.isActive({ textAlign: 'justify' }) ? <AlignJustify className="h-4 w-4" /> :
-                                            <AlignLeft className="h-4 w-4" />}
+                                            <MoreHorizontal className="h-5 w-5" />
                                         </Button>
-                                    </PopoverTrigger>
+                                    </DropdownMenuTrigger>
                                 </TooltipTrigger>
-                                <TooltipContent>Paragraph Flow</TooltipContent>
+                                <TooltipContent>More Options</TooltipContent>
                             </Tooltip>
                             </TooltipProvider>
-                            <PopoverContent className="w-fit p-1.5 bg-card/95 backdrop-blur-xl border-white/10 rounded-2xl flex gap-1 shadow-2xl" side="top" align="center">
-                                {[
-                                    { action: () => editor.chain().focus().setTextAlign('left').run(), icon: AlignLeft, value: 'left' },
-                                    { action: () => editor.chain().focus().setTextAlign('center').run(), icon: AlignCenter, value: 'center' },
-                                    { action: () => editor.chain().focus().setTextAlign('right').run(), icon: AlignRight, value: 'right' },
-                                    { action: () => editor.chain().focus().setTextAlign('justify').run(), icon: AlignJustify, value: 'justify' },
-                                ].map((align, i) => (
-                                    <Button 
-                                        key={i} 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        onClick={align.action} 
-                                        className={cn("h-10 w-10 rounded-xl", editor.isActive({ textAlign: align.value }) ? "bg-primary text-white shadow-md" : "hover:bg-primary/10")}
-                                    >
-                                        <align.icon className="h-4 w-4" />
-                                    </Button>
-                                ))}
-                            </PopoverContent>
-                        </Popover>
+                            <DropdownMenuContent side="top" align="center" className="w-56 rounded-2xl p-2 bg-card/95 backdrop-blur-xl border-white/10 shadow-3xl">
+                                <DropdownMenuLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground px-3 py-2">Paragraph Flow</DropdownMenuLabel>
+                                <DropdownMenuGroup className="grid grid-cols-4 gap-1 p-1">
+                                    <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().setTextAlign('left').run()} className={cn("h-9 w-full rounded-xl", editor.isActive({ textAlign: 'left' }) && "bg-primary text-white")}><AlignLeft className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().setTextAlign('center').run()} className={cn("h-9 w-full rounded-xl", editor.isActive({ textAlign: 'center' }) && "bg-primary text-white")}><AlignCenter className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().setTextAlign('right').run()} className={cn("h-9 w-full rounded-xl", editor.isActive({ textAlign: 'right' }) && "bg-primary text-white")}><AlignRight className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().setTextAlign('justify').run()} className={cn("h-9 w-full rounded-xl", editor.isActive({ textAlign: 'justify' }) && "bg-primary text-white")}><AlignJustify className="h-4 w-4" /></Button>
+                                </DropdownMenuGroup>
+                                
+                                <DropdownMenuSeparator className="opacity-40" />
+                                
+                                <DropdownMenuGroup>
+                                    <DropdownMenuItem onClick={() => editor.chain().focus().toggleStrike().run()} className="rounded-xl gap-3 py-2.5">
+                                        <Strikethrough className="h-4 w-4" />
+                                        <span className="font-bold text-xs uppercase">Strikethrough</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => editor.chain().focus().setHorizontalRule().run()} className="rounded-xl gap-3 py-2.5">
+                                        <Minus className="h-4 w-4" />
+                                        <span className="font-bold text-xs uppercase">Scene Break</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => editor.chain().focus().unsetAllMarks().run()} className="rounded-xl gap-3 py-2.5 text-destructive focus:text-destructive">
+                                        <Eraser className="h-4 w-4" />
+                                        <span className="font-bold text-xs uppercase">Clear Styles</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuGroup>
+                                
+                                <DropdownMenuSeparator className="opacity-40" />
 
-                        <Separator orientation="vertical" className="h-6" />
+                                <DropdownMenuGroup>
+                                    <DropdownMenuItem onClick={() => editor.chain().focus().toggleBulletList().run()} className="rounded-xl gap-3 py-2.5">
+                                        <List className="h-4 w-4" />
+                                        <span className="font-bold text-xs uppercase">Bullet List</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => editor.chain().focus().toggleBlockquote().run()} className="rounded-xl gap-3 py-2.5">
+                                        <Quote className="h-4 w-4" />
+                                        <span className="font-bold text-xs uppercase">Blockquote</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuGroup>
+                                
+                                <DropdownMenuSeparator className="opacity-40" />
 
-                        <div className="flex items-center gap-0.5">
-                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBulletList().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('bulletList') ? "bg-primary text-white" : "hover:bg-primary/10")}><List className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('blockquote') ? "bg-primary text-white" : "hover:bg-primary/10")}><Quote className="h-4 w-4" /></Button>
-                        </div>
+                                <DropdownMenuGroup className="grid grid-cols-2 gap-1 p-1">
+                                     <Button variant="ghost" size="sm" onClick={() => setLayoutWidth(layoutWidth === 'normal' ? 'wide' : 'normal')} className={cn("rounded-xl h-9 gap-2 font-bold text-[10px] uppercase", layoutWidth === 'wide' && "bg-primary text-white")}>
+                                        <BookMarked className="h-3 w-3" /> {layoutWidth === 'wide' ? 'Wide' : 'Box'}
+                                     </Button>
+                                     <Button variant="ghost" size="sm" className="rounded-xl h-9 gap-2 font-bold text-[10px] uppercase" onClick={() => storyDetails && router.push(`/write/edit-details?storyId=${storyDetails.id}&tab=canvas`)}>
+                                        <Book className="h-3 w-3" /> Bible
+                                     </Button>
+                                </DropdownMenuGroup>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
 
-                        <Separator orientation="vertical" className="h-6" />
-
-                        <div className="flex items-center gap-1 pl-1">
-                            <Popover>
+                        <div className="flex items-center gap-1 pl-1 border-l border-border/40 ml-1">
+                             <Popover>
                                 <PopoverTrigger asChild>
-                                    <Button variant="ghost" size="icon" className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('highlight') && "bg-primary text-white")}><Highlighter className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" className={cn("h-10 w-10 rounded-2xl transition-all", editor.isActive('highlight') && "bg-primary text-white shadow-lg")}><Highlighter className="h-4 w-4" /></Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-fit p-1.5 flex gap-1 bg-card/95 backdrop-blur-xl border-white/10 rounded-full shadow-2xl" side="top">
                                     <button onClick={() => editor.chain().focus().toggleHighlight({ color: '#fde047' }).run()} className="h-8 w-8 rounded-full bg-yellow-300 border border-black/10 hover:scale-110 transition-transform" />
@@ -764,49 +799,6 @@ function EditorContentInner() {
                                 </PopoverContent>
                             </Popover>
                             
-                            <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        onClick={() => setLayoutWidth(layoutWidth === 'normal' ? 'wide' : 'normal')}
-                                        className={cn("h-10 w-10 rounded-2xl hover:bg-primary/10", layoutWidth === 'wide' && "text-primary bg-primary/5")}
-                                    >
-                                        <BookMarked className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Canvas Width</TooltipContent>
-                            </Tooltip>
-                            </TooltipProvider>
-
-                            <Popover>
-                                <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl hover:bg-primary/10 hover:text-primary transition-all">
-                                                <Book className="h-4 w-4" />
-                                            </Button>
-                                        </PopoverTrigger>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Story Bible</TooltipContent>
-                                </Tooltip>
-                                </TooltipProvider>
-                                <PopoverContent className="w-80 p-0 border-none shadow-3xl rounded-2xl overflow-hidden bg-card/95 backdrop-blur-xl" side="top" align="end">
-                                    <div className="p-4 border-b bg-primary/5 flex items-center gap-2">
-                                        <Book className="h-4 w-4 text-primary" />
-                                        <h4 className="text-sm font-headline font-bold">Manuscript Notes</h4>
-                                    </div>
-                                    <div className="p-4 space-y-3">
-                                        <p className="text-xs text-muted-foreground leading-relaxed italic">
-                                            {storyDetails?.notes || "No workspace notes found. Add some in Story Details to keep them persistent here."}
-                                        </p>
-                                        <Button variant="outline" size="sm" className="w-full h-8 text-[10px] uppercase font-bold tracking-widest rounded-lg" onClick={() => storyDetails && router.push(`/write/edit-details?storyId=${storyDetails.id}&tab=canvas`)}>Edit Compendium</Button>
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-
                             <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -830,7 +822,7 @@ function EditorContentInner() {
                                 <BookOpen className="h-6 w-6" />
                             </div>
                             <div>
-                                <AlertDialogTitle className="text-3xl font-headline font-bold text-foreground leading-none mb-1">{chapterTitle || 'Untitled Part'}</AlertDialogTitle>
+                                <AlertDialogTitle className="text-3xl font-headline text-3xl font-bold text-foreground leading-none mb-1">{chapterTitle || 'Untitled Part'}</AlertDialogTitle>
                                 <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Immersive Reader Experience & bull; High Fidelity</AlertDialogDescription>
                             </div>
                         </div>
@@ -843,7 +835,7 @@ function EditorContentInner() {
                             </div>
                         )}
                         <div className="text-center space-y-6 mb-12">
-                            <h2 className="text-4xl md:text-6xl font-headline font-bold leading-tight tracking-tight">{chapterTitle}</h2>
+                            <h2 className="text-4xl md:text-6xl font-headline text-4xl md:text-6xl font-bold leading-tight tracking-tight">{chapterTitle}</h2>
                             {chapterTags.length > 0 && (
                                 <div className="flex flex-wrap justify-center gap-2">
                                     {chapterTags.map(tag => (
