@@ -34,20 +34,15 @@ import BroadcastFeed from '@/components/broadcast/BroadcastFeed';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 function ForYouTabContent() {
   const { user } = useAuth();
   const [allStories, setAllStories] = useState<Story[]>([]);
   const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>([]);
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     setIsDataLoading(true);
-    setHasError(false);
 
     const carouselQuery = query(
         collection(db, 'featuredCarousel'),
@@ -69,26 +64,25 @@ function ForYouTabContent() {
       const fetchedStories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
       setAllStories(fetchedStories.filter(s => s.status !== 'Draft' && s.title));
       setIsDataLoading(false);
-    }, (error) => {
-        setHasError(true);
+    }, () => {
         setIsDataLoading(false);
-    });
-
-    const promptsQuery = query(collection(db, 'prompts'), where('isArchived', '==', false), orderBy('createdAt', 'desc'), firestoreLimit(10));
-    const unsubscribePrompts = onSnapshot(promptsQuery, (snapshot) => {
-      setPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prompt)));
     });
 
     return () => {
       unsubCarousel();
       unsubscribeStories();
-      unsubscribePrompts();
     };
   }, []);
 
   const validSlides = carouselSlides.filter(s => !!s.imageUrl && !!s.ctaLink);
   const trendingStories = [...allStories].sort((a,b) => ((b.views || 0) + (b.rating || 0) * 100) - ((a.views || 0) + (a.rating || 0) * 100)).slice(0, 12);
-  const myReadingList = user?.readingList?.filter(s => !!s.id && !!s.title) || [];
+  
+  // CRITICAL: Filter reading list to only include existing, public stories
+  const myReadingList = user?.readingList?.filter(s => 
+    !!s.id && 
+    !!s.title && 
+    allStories.some(as => as.id === s.id)
+  ) || [];
 
   if (isDataLoading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -155,7 +149,7 @@ export default function HomePage() {
       <main className="w-full pb-24 md:pb-12 pt-4">
         <div className="container mx-auto max-w-7xl px-4"><StatusFeature /></div>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="flex justify-center border-b border-border/40 pb-2"><AnimatedTabs tabs={TABS} activeTab={activeTab} /></div>
+            <div className="flex justify-center border-b border-border/40 pb-2 mb-4"><AnimatedTabs tabs={TABS} activeTab={activeTab} /></div>
             <TabsContent value="for-you" className="mt-0"><ForYouTabContent /></TabsContent>
             <TabsContent value="annotations" className="container mx-auto px-4 mt-8"><AnnotationFeed /></TabsContent>
             <TabsContent value="feed" className="container mx-auto px-4 mt-8"><ThreadsFeed /></TabsContent>

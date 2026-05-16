@@ -370,7 +370,7 @@ function StoryDetailsInner() {
 
     if (!cloudName || !uploadPreset) {
         toast({ title: "Configuration Error", variant: "destructive"});
-        setIsUploading(false);
+        setIsUploadingArtwork(false);
         return;
     }
 
