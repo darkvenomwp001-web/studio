@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -18,11 +19,20 @@ import {
   Trash2, 
   Lock, 
   Pin, 
-  BookOpen 
+  BookOpen,
+  Sparkles,
+  PencilLine,
+  Coffee,
+  CloudRain,
+  Zap,
+  Zzz,
+  GraduationCap,
+  Heart,
+  Headphones
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Story, User as AppUser, Announcement } from '@/types';
+import type { Story, User as AppUser, Announcement, WritingStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -52,6 +62,18 @@ import ProfilePhotoGrid from '@/components/profile/ProfilePhotoGrid';
 import VerifiedBadge from '@/components/icons/VerifiedBadge';
 
 const OWNER_HANDLES = ['arnv'];
+
+const WRITING_STATUS_MAP: Record<WritingStatus, { label: string; icon: any; color: string }> = {
+    none: { label: '', icon: null, color: '' },
+    writing: { label: 'Currently Writing', icon: PencilLine, color: 'text-primary' },
+    break: { label: 'Taking a Short Break', icon: Coffee, color: 'text-orange-400' },
+    hiatus: { label: 'On Hiatus', icon: CloudRain, color: 'text-blue-400' },
+    update: { label: 'Preparing Big Update', icon: Zap, color: 'text-yellow-500' },
+    burnout: { label: 'Burned Out', icon: Zzz, color: 'text-purple-400' },
+    school: { label: 'Busy With School', icon: GraduationCap, color: 'text-emerald-500' },
+    rewriting: { label: 'Rewriting Story', icon: Heart, color: 'text-rose-500' },
+    brainstorming: { label: 'Brainstorming Arc', icon: Headphones, color: 'text-cyan-500' },
+};
 
 function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>, isPrivate?: boolean }) {
   const editLink = `/write/edit-details?storyId=${story.id}`;
@@ -390,6 +412,9 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
   const isFollowing = currentUser?.followingIds?.includes(profileUser.id) || false;
   const displayName = profileUser.displayName || profileUser.username;
   const showAnnouncementsTab = isOwnProfile || announcementCount > 0;
+  const writingStatus = profileUser.writingStatus && profileUser.writingStatus !== 'none' 
+    ? WRITING_STATUS_MAP[profileUser.writingStatus] 
+    : null;
 
   return (
     <div className="space-y-10 pb-20 animate-in fade-in duration-500">
@@ -400,6 +425,12 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                       <AvatarImage src={profileUser.avatarUrl} />
                       <AvatarFallback className="text-4xl bg-muted text-primary">{displayName.substring(0, 1).toUpperCase()}</AvatarFallback>
                   </Avatar>
+                  {writingStatus && (
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-background border shadow-xl px-3 py-1.5 rounded-full flex items-center gap-2 whitespace-nowrap z-10 animate-in slide-in-from-bottom-2 duration-700">
+                        <writingStatus.icon className={cn("h-4 w-4", writingStatus.color)} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/80">{writingStatus.label}</span>
+                      </div>
+                  )}
               </div>
               
               <div className="flex-1 text-center md:text-left space-y-3">
@@ -408,7 +439,15 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                         {displayName}
                         {profileUser.isVerified && <VerifiedBadge className="h-5 w-5" />}
                       </h1>
-                      <p className="text-muted-foreground text-sm font-medium">@{profileUser.username}</p>
+                      <div className="flex items-center justify-center md:justify-start gap-2">
+                        <p className="text-muted-foreground text-sm font-medium">@{profileUser.username}</p>
+                        {writingStatus && <div className="h-1 w-1 bg-border rounded-full md:block hidden" />}
+                        {writingStatus && (
+                             <p className={cn("text-[10px] font-black uppercase tracking-widest hidden md:block", writingStatus.color)}>
+                                {writingStatus.label}
+                             </p>
+                        )}
+                      </div>
                   </div>
 
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm font-semibold">

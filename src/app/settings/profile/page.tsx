@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
@@ -9,13 +10,25 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Save, UploadCloud, ArrowLeft, Music, User, AtSign, AlignLeft, Info, ExternalLink } from 'lucide-react';
+import { Loader2, Save, UploadCloud, ArrowLeft, Music, User, AtSign, AlignLeft, Info, ExternalLink, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { User as AppUser } from '@/types';
+import type { User as AppUser, WritingStatus } from '@/types';
+
+const WRITING_STATUSES: { value: WritingStatus; label: string; icon: string }[] = [
+    { value: 'none', label: 'No Status', icon: '😶' },
+    { value: 'writing', label: 'Currently Writing', icon: '✍️' },
+    { value: 'break', label: 'Taking a Short Break', icon: '☕' },
+    { value: 'hiatus', label: 'On Hiatus', icon: '🌧' },
+    { value: 'update', label: 'Preparing Big Update', icon: '🔥' },
+    { value: 'burnout', label: 'Burned Out', icon: '💤' },
+    { value: 'school', label: 'Busy With School', icon: '🎓' },
+    { value: 'rewriting', label: 'Rewriting Story', icon: '❤️' },
+    { value: 'brainstorming', label: 'Brainstorming Arc', icon: '🎧' },
+];
 
 export default function EditProfilePage() {
   const { user, loading: authLoadingGlobal, authLoading: specificAuthLoading, updateUserProfile } = useAuth();
@@ -30,6 +43,7 @@ export default function EditProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [profileSongUrl, setProfileSongUrl] = useState('');
   const [profileSongNote, setProfileSongNote] = useState('');
+  const [writingStatus, setWritingStatus] = useState<WritingStatus>('none');
   
   const [isProfileUpdating, setIsProfileUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -43,6 +57,7 @@ export default function EditProfilePage() {
       setAvatarPreview(user.avatarUrl || null);
       setProfileSongUrl(user.profileSongUrl || '');
       setProfileSongNote(user.profileSongNote || '');
+      setWritingStatus(user.writingStatus || 'none');
     }
   }, [user]);
 
@@ -114,8 +129,6 @@ export default function EditProfilePage() {
         }
     }
     
-    // Surgical update: Only send fields that have actually changed.
-    // This prevents Firebase from flagging "protected" fields that haven't actually been modified.
     const updates: Partial<AppUser> = {};
     if (displayName !== user.displayName) updates.displayName = displayName;
     if (username !== user.username) updates.username = username;
@@ -124,6 +137,7 @@ export default function EditProfilePage() {
     if (role !== user.role) updates.role = role;
     if (profileSongUrl !== user.profileSongUrl) updates.profileSongUrl = profileSongUrl;
     if (profileSongNote !== user.profileSongNote) updates.profileSongNote = profileSongNote;
+    if (writingStatus !== user.writingStatus) updates.writingStatus = writingStatus;
 
     if (Object.keys(updates).length > 0) {
         await updateUserProfile(updates);
@@ -201,6 +215,38 @@ export default function EditProfilePage() {
             </CardHeader>
 
             <CardContent className="p-6 space-y-8">
+                {/* Author Status Section */}
+                <div className="space-y-6">
+                    <div className="flex items-center gap-2 text-primary font-semibold">
+                        <Sparkles className="h-5 w-5" />
+                        <h3 className="text-lg font-headline">Manuscript Status</h3>
+                    </div>
+                    <div className="space-y-4">
+                        <p className="text-xs text-muted-foreground">Let your readers know what you're working on in real-time.</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {WRITING_STATUSES.map((status) => (
+                                <button
+                                    key={status.value}
+                                    type="button"
+                                    onClick={() => setWritingStatus(status.value)}
+                                    className={cn(
+                                        "flex items-center gap-3 p-3 rounded-xl border text-sm transition-all text-left",
+                                        writingStatus === status.value 
+                                            ? "bg-primary/10 border-primary text-primary shadow-sm" 
+                                            : "bg-muted/20 border-transparent hover:bg-muted/40"
+                                    )}
+                                >
+                                    <span className="text-lg">{status.icon}</span>
+                                    <span className="font-bold text-[11px] uppercase tracking-wider">{status.label}</span>
+                                    {writingStatus === status.value && <CheckCircle className="h-3 w-3 ml-auto" />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <Separator />
+
                 {/* Identity Section */}
                 <div className="space-y-6">
                     <div className="flex items-center gap-2 text-primary font-semibold">
@@ -228,8 +274,6 @@ export default function EditProfilePage() {
                                     disabled={anySubmitting} 
                                 />
                             </div>
-                            <p className="text-[10px] text-muted-foreground mt-1 px-1">Lowercases, numbers, and underscores only. This is your unique identifier.</p>
-                            <p className="text-[10px] text-muted-foreground px-1">Unique URL: D4RKV3NOM.app/profile/{username || '...'}</p>
                         </div>
                     </div>
                     <div className="space-y-2">

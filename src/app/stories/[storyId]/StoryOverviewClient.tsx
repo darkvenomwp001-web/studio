@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -24,14 +25,15 @@ import {
   BookmarkCheck,
   Lock,
   ChevronDown,
-  Share2
+  Share2,
+  Calendar
 } from 'lucide-react';
-import type { Story, UserSummary } from '@/types';
+import type { Story, UserSummary, Chapter } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn, formatCompactNumber } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
 
 export default function StoryOverviewClient({ storyId }: { storyId: string }) {
   const router = useRouter();
@@ -70,16 +72,30 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
   }, [storyId]);
 
   const publishedChapters = useMemo(() => {
-    return story?.chapters?.filter(ch => ch.status === 'Published' || ch.accessType === 'premium') || [];
-  }, [story]);
+    if (!story) return [];
+    const isOwner = user && (story.author.id === user.id || story.collaboratorIds?.includes(user.id));
+    
+    return story.chapters.filter(ch => {
+        if (isOwner) return true;
+        
+        // Hide scheduled chapters
+        if (ch.scheduledAt) {
+            const scheduledDate = ch.scheduledAt instanceof Timestamp ? ch.scheduledAt.toDate() : new Date(ch.scheduledAt);
+            if (scheduledDate > new Date()) return false;
+        }
+
+        // Standard checks
+        return ch.status === 'Published' || ch.accessType === 'premium' || (ch.accessType === 'exclusive' && user && ch.invitedUserIds?.includes(user.id));
+    }).sort((a, b) => a.order - b.order);
+  }, [story, user]);
 
   const handleReadClick = () => {
     if (!story) return;
-    const firstChapter = publishedChapters.sort((a, b) => a.order - b.order)[0];
+    const firstChapter = publishedChapters[0];
     if (firstChapter) {
       router.push(`/stories/${story.id}/read/${firstChapter.id}`);
     } else {
-      toast({ title: "Draft in progress", description: "This story doesn't have any published parts yet." });
+      toast({ title: "Manuscript Entry Restricted", description: "This author hasn't released any public parts yet." });
     }
   };
 
@@ -130,7 +146,7 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
             width={512}
             height={800}
             className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105"
-            data-ai-hint="book cover"
+            data-ai-hint={story.dataAiHint || "book cover"}
           />
         </div>
 
@@ -149,9 +165,6 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
                   "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest",
                   story.status === 'Completed' ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-blue-500/10 text-blue-500 border-blue-500/20"
               )}>{story.status || 'Ongoing'}</Badge>
-              {story.visibility !== 'Public' && (
-                  <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">{story.visibility}</Badge>
-              )}
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -204,15 +217,7 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
       </div>
       
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-headline font-bold text-foreground tracking-tight">Summary</h2>
-            {story.summary && story.summary.length > 250 && (
-                <Button variant="ghost" size="sm" onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="text-primary font-bold text-[10px] uppercase tracking-widest gap-1">
-                    {isDescriptionExpanded ? "Show Less" : "Show More"}
-                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-300", isDescriptionExpanded && "rotate-180")} />
-                </Button>
-            )}
-        </div>
+        <h2 className="text-2xl font-headline font-bold text-foreground tracking-tight">Summary</h2>
         <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none">
             <p className={cn(
                 "whitespace-pre-line text-muted-foreground leading-relaxed text-base transition-all duration-300",
@@ -221,11 +226,6 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
             {story.summary || "This author hasn't provided a summary for this manuscript yet."}
             </p>
         </div>
-        <div className="flex flex-wrap gap-2 pt-2">
-            {story.tags?.map(tag => (
-                <Badge key={tag} variant="secondary" className="bg-muted text-muted-foreground hover:text-primary transition-colors text-[10px] font-medium px-3 rounded-full cursor-pointer">#{tag}</Badge>
-            ))}
-        </div>
       </div>
 
       <Separator className="opacity-40" />
@@ -233,13 +233,13 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
             <h2 className="text-2xl font-headline font-bold text-foreground tracking-tight">Table of Contents</h2>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted px-3 py-1 rounded-full">{publishedChapters.length} Published Parts</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted px-3 py-1 rounded-full">{publishedChapters.length} Public Parts</span>
         </div>
         
         {publishedChapters.length > 0 ? (
           <div className="border border-border/40 rounded-3xl overflow-hidden bg-card/30 backdrop-blur-sm shadow-inner">
             <ul className="divide-y divide-border/20">
-              {publishedChapters.sort((a, b) => a.order - b.order).map((chapter) => (
+              {publishedChapters.map((chapter) => (
                 <li key={chapter.id}>
                   <Link href={`/stories/${story.id}/read/${chapter.id}`} className="group block p-6 hover:bg-primary/5 transition-all">
                     <div className="flex justify-between items-center">
@@ -248,11 +248,9 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
                         <div className="min-w-0">
                             <span className="font-bold text-base text-foreground group-hover:text-primary transition-colors flex items-center gap-2 truncate">
                                 {chapter.title}
-                                {chapter.accessType === 'premium' && <Lock className="h-3.5 w-3.5 text-yellow-500" />}
+                                {chapter.accessType === 'exclusive' && <Lock className="h-3.5 w-3.5 text-yellow-500" />}
+                                {chapter.scheduledAt && <Calendar className="h-3.5 w-3.5 text-primary" />}
                             </span>
-                            {chapter.wordCount && (
-                                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter mt-0.5">{Math.round(chapter.wordCount / 200) || 1} minute read</p>
-                            )}
                         </div>
                       </div>
                       <ChevronDown className="h-5 w-5 text-muted-foreground/30 -rotate-90 group-hover:text-primary transition-all group-hover:translate-x-1" />
@@ -265,7 +263,7 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
         ) : (
           <div className="text-center py-16 bg-muted/20 rounded-3xl border-2 border-dashed border-border/40">
               <BookOpen className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground font-medium">Drafting in progress...</p>
+              <p className="text-muted-foreground font-medium">Archive entries pending release...</p>
           </div>
         )}
       </div>

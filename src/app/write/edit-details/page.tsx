@@ -35,12 +35,16 @@ import {
   Star,
   MessageSquare,
   Calendar,
-  MoreVertical
+  MoreVertical,
+  Timer,
+  Share2,
+  Users,
+  AtSign
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; 
-import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, arrayUnion, arrayRemove, Timestamp } from 'firebase/firestore';
 import type { Story, UserSummary, Chapter } from '@/types';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -49,7 +53,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCompactNumber } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDate } from '@/lib/placeholder-data';
@@ -60,6 +65,173 @@ const GENRES = [
 ];
 
 const LANGUAGES = ['English', 'Filipino', 'Spanish', 'French', 'German', 'Japanese'];
+
+function ChapterSchedulingDialog({ storyId, chapter, onUpdate }: { storyId: string, chapter: Chapter, onUpdate: (updates: Partial<Chapter>) => void }) {
+    const [date, setDate] = useState('');
+    const [time, setTime] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (chapter.scheduledAt) {
+            const d = chapter.scheduledAt instanceof Timestamp ? chapter.scheduledAt.toDate() : new Date(chapter.scheduledAt);
+            setDate(d.toISOString().split('T')[0]);
+            setTime(d.toTimeString().split(' ')[0].substring(0, 5));
+        }
+    }, [chapter]);
+
+    const handleSave = async () => {
+        if (!date || !time) return;
+        setIsSaving(true);
+        const scheduledDate = new Date(`${date}T${time}:00`);
+        
+        onUpdate({ 
+            scheduledAt: Timestamp.fromDate(scheduledDate),
+            status: 'Draft' // Ensure it's not "Published" while scheduled
+        });
+        toast({ title: "Release Scheduled!" });
+        setIsSaving(false);
+    };
+
+    const handleClear = () => {
+        onUpdate({ scheduledAt: null });
+        toast({ title: "Schedule Cleared" });
+    };
+
+    return (
+        <DialogContent className="rounded-3xl">
+            <DialogHeader>
+                <DialogTitle className="font-headline text-2xl flex items-center gap-2">
+                    <Calendar className="h-6 w-6 text-primary" />
+                    Schedule Release
+                </DialogTitle>
+                <DialogDescription>Select the exact date and time this part will be published.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-6 py-4">
+                <div className="space-y-2">
+                    <Label htmlFor="date">Date</Label>
+                    <Input id="date" type="date" value={date} onChange={e => setDate(e.target.value)} className="rounded-xl bg-muted/30 border-none" />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="time">Time (24h)</Label>
+                    <Input id="time" type="time" value={time} onChange={e => setTime(e.target.value)} className="rounded-xl bg-muted/30 border-none" />
+                </div>
+                {chapter.scheduledAt && (
+                    <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl flex items-center gap-3">
+                        <Timer className="h-4 w-4 text-primary" />
+                        <span className="text-xs font-bold uppercase tracking-widest text-primary">Live: {formatDate(chapter.scheduledAt)}</span>
+                    </div>
+                )}
+            </div>
+            <DialogFooter className="flex-row gap-2 justify-end">
+                {chapter.scheduledAt && <Button variant="ghost" className="rounded-full" onClick={handleClear}>Clear Schedule</Button>}
+                <DialogClose asChild>
+                    <Button onClick={handleSave} disabled={isSaving || !date || !time} className="rounded-full px-8">Save Schedule</Button>
+                </DialogClose>
+            </DialogFooter>
+        </DialogContent>
+    );
+}
+
+function ChapterAccessDialog({ storyId, chapter, onUpdate }: { storyId: string, chapter: Chapter, onUpdate: (updates: Partial<Chapter>) => void }) {
+    const [inviteUsername, setInviteUsername] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
+    const { toast } = useToast();
+
+    const handleInviteUser = async () => {
+        if (!inviteUsername.trim()) return;
+        setIsSearching(true);
+        const q = query(collection(db, 'users'), where('username', '==', inviteUsername.trim().toLowerCase()));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+            const targetId = snap.docs[0].id;
+            if (chapter.invitedUserIds?.includes(targetId)) {
+                toast({ title: "Already invited" });
+            } else {
+                onUpdate({ invitedUserIds: arrayUnion(targetId) as any });
+                setInviteUsername('');
+                toast({ title: "User Invited!" });
+            }
+        } else {
+            toast({ title: "User not found", variant: "destructive" });
+        }
+        setIsSearching(false);
+    };
+
+    return (
+        <DialogContent className="rounded-3xl max-w-md">
+            <DialogHeader>
+                <DialogTitle className="font-headline text-2xl flex items-center gap-2">
+                    <Lock className="h-6 w-6 text-yellow-500" />
+                    Special Access
+                </DialogTitle>
+                <DialogDescription>Chapters marked as exclusive are only readable by you and specific invited users.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+                <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl">
+                    <div className="space-y-0.5">
+                        <Label className="text-sm font-bold block">Exclusive Mode</Label>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Manual invitations only</p>
+                    </div>
+                    <Switch 
+                        checked={chapter.accessType === 'exclusive'} 
+                        onCheckedChange={(c) => onUpdate({ accessType: c ? 'exclusive' : 'public' })} 
+                    />
+                </div>
+
+                {chapter.accessType === 'exclusive' && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Invite User</Label>
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                    <Input 
+                                        placeholder="Handle..." 
+                                        value={inviteUsername} 
+                                        onChange={e => setInviteUsername(e.target.value)} 
+                                        className="pl-9 bg-muted/30 border-none rounded-xl h-11"
+                                    />
+                                </div>
+                                <Button onClick={handleInviteUser} disabled={isSearching || !inviteUsername.trim()} className="rounded-xl px-6">
+                                    {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Invite'}
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                             <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Invited Access ({chapter.invitedUserIds?.length || 0})</Label>
+                             <ScrollArea className="h-32 border rounded-2xl p-2 bg-muted/10">
+                                {chapter.invitedUserIds && chapter.invitedUserIds.length > 0 ? (
+                                    <div className="space-y-1">
+                                        {chapter.invitedUserIds.map(uid => (
+                                            <div key={uid} className="flex items-center justify-between p-2 bg-background rounded-lg shadow-sm">
+                                                <span className="text-xs font-bold font-mono">#{uid.substring(0,8)}</span>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-6 w-6 text-destructive"
+                                                    onClick={() => onUpdate({ invitedUserIds: arrayRemove(uid) as any })}
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-[10px] text-center text-muted-foreground py-10 italic">No invitations sent yet.</p>
+                                )}
+                             </ScrollArea>
+                        </div>
+                    </div>
+                )}
+            </div>
+            <DialogFooter>
+                <DialogClose asChild><Button variant="outline" className="rounded-full px-8">Done</Button></DialogClose>
+            </DialogFooter>
+        </DialogContent>
+    );
+}
 
 function StoryDetailsInner() {
   const searchParams = useSearchParams();
@@ -161,19 +333,13 @@ function StoryDetailsInner() {
     });
   }, [story, toast]);
 
-  const handleDeleteStory = async () => {
-    if (!story || !user || story.author.id !== user.id) return;
-    setIsLoading(true);
-    const storyRef = doc(db, 'stories', story.id);
-    deleteDoc(storyRef)
-      .then(() => {
-        toast({ title: "Manuscript Deleted", description: "Your story has been permanently removed." });
-        router.push('/write');
-      })
-      .catch((error) => {
-        setIsLoading(false);
-        toast({ title: "Error", description: "Could not delete story.", variant: "destructive" });
+  const handleUpdateChapter = async (chapterId: string, updates: Partial<Chapter>) => {
+      if (!story) return;
+      const updatedChapters = story.chapters.map(ch => {
+          if (ch.id === chapterId) return { ...ch, ...updates };
+          return ch;
       });
+      handleUpdateField('chapters', updatedChapters);
   };
 
   const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -185,7 +351,7 @@ function StoryDetailsInner() {
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
     if (!cloudName || !uploadPreset) {
-        toast({ title: "Configuration Error", description: "Cloudinary settings missing.", variant: "destructive"});
+        toast({ title: "Configuration Error", variant: "destructive"});
         setIsUploading(false);
         return;
     }
@@ -222,48 +388,6 @@ function StoryDetailsInner() {
     const newTags = tags.filter(t => t !== tagToRemove);
     setTags(newTags);
     handleUpdateField('tags', newTags);
-  };
-
-  const handleAddCollaborator = async () => {
-    if (!story || !collaboratorUsername.trim()) return;
-    setIsProcessingCollaboration(true);
-    const q = query(collection(db, 'users'), where('username', '==', collaboratorUsername.trim()));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      const newUser = { id: snap.docs[0].id, ...snap.docs[0].data() } as UserSummary;
-      
-      if (story.collaboratorIds?.includes(newUser.id)) {
-          toast({ title: "Already added", description: "This user is already a collaborator." });
-      } else {
-          await updateDoc(doc(db, 'stories', story.id), {
-            collaboratorIds: arrayUnion(newUser.id),
-            collaborators: arrayUnion({ 
-                id: newUser.id, 
-                username: newUser.username, 
-                displayName: newUser.displayName || newUser.username, 
-                avatarUrl: newUser.avatarUrl 
-            })
-          });
-          setCollaboratorUsername('');
-          toast({ title: "Collaborator Added!" });
-      }
-    } else {
-      toast({ title: "User not found", variant: "destructive" });
-    }
-    setIsProcessingCollaboration(false);
-  };
-
-  const handleRemoveCollaborator = async (collaboratorId: string) => {
-    if (!story) return;
-    const targetCollab = story.collaborators?.find(c => c.id === collaboratorId);
-    if (targetCollab) {
-        await updateDoc(doc(db, 'stories', story.id), { 
-            collaborators: arrayRemove(targetCollab), 
-            collaboratorIds: arrayRemove(collaboratorId), 
-            lastUpdated: serverTimestamp() 
-        });
-        toast({ title: "Collaborator Removed" });
-    }
   };
 
   const handleAddChapter = async () => {
@@ -303,50 +427,6 @@ function StoryDetailsInner() {
       const updatedChapters = story.chapters.filter(ch => ch.id !== chapterId);
       await updateDoc(doc(db, 'stories', story.id), { chapters: updatedChapters, lastUpdated: serverTimestamp() });
       toast({ title: "Chapter deleted" });
-  };
-
-  const handleUnpublishChapter = async (chapterId: string) => {
-    if (!story) return;
-    const updatedChapters = story.chapters.map(ch => {
-        if (ch.id === chapterId) {
-            return { ...ch, status: 'Draft' as const };
-        }
-        return ch;
-    });
-    
-    setSaveStatus('Saving...');
-    updateDoc(doc(db, 'stories', story.id), { 
-        chapters: updatedChapters,
-        lastUpdated: serverTimestamp()
-    }).then(() => {
-        setSaveStatus('Saved');
-        toast({ title: "Part Unpublished", description: "This chapter is now a draft." });
-    });
-  };
-
-  const handleMoveChapter = async (index: number, direction: 'up' | 'down') => {
-    if (!story) return;
-    const sortedChapters = [...story.chapters].sort((a, b) => a.order - b.order);
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
-    if (targetIndex < 0 || targetIndex >= sortedChapters.length) return;
-
-    const chaptersToUpdate = sortedChapters.map((ch, idx) => ({ ...ch, order: idx + 1 }));
-    
-    const tempOrder = chaptersToUpdate[index].order;
-    chaptersToUpdate[index].order = chaptersToUpdate[targetIndex].order;
-    chaptersToUpdate[targetIndex].order = tempOrder;
-
-    const finalChapters = chaptersToUpdate.sort((a, b) => a.order - b.order);
-
-    setSaveStatus('Saving...');
-    updateDoc(doc(db, 'stories', story.id), { 
-        chapters: finalChapters,
-        lastUpdated: serverTimestamp()
-    }).then(() => {
-        setSaveStatus('Saved');
-        toast({ title: "Order Updated" });
-    });
   };
 
   if (isLoading || authLoading || !story) {
@@ -468,30 +548,6 @@ function StoryDetailsInner() {
                             className="rounded-2xl bg-card border-none shadow-inner resize-none text-base p-4 focus-visible:ring-primary/30" 
                           />
                       </div>
-
-                      <div className="space-y-3">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Tags</Label>
-                          <div className="flex flex-wrap gap-2 mb-3">
-                              {tags.map(t => (
-                                  <Badge key={t} variant="secondary" className="px-3 py-1 rounded-full gap-1 text-[11px] font-bold uppercase">
-                                      {t}
-                                      <button onClick={() => handleRemoveTag(t)} className="hover:text-destructive transition-colors"><X className="h-3 w-3" /></button>
-                                  </Badge>
-                              ))}
-                          </div>
-                          <div className="flex gap-2">
-                              <Input 
-                                placeholder="Add a tag..." 
-                                value={tagInput}
-                                onChange={e => setTagInput(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleAddTag()}
-                                className="h-11 rounded-xl bg-card border-none shadow-inner"
-                              />
-                              <Button variant="outline" className="h-11 rounded-xl" onClick={handleAddTag} disabled={tags.length >= 10}>
-                                  Add
-                              </Button>
-                          </div>
-                      </div>
                   </div>
               </div>
           </TabsContent>
@@ -500,8 +556,8 @@ function StoryDetailsInner() {
               <Card className="rounded-3xl border-none shadow-xl overflow-hidden bg-card/50 backdrop-blur-sm">
                   <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20">
                       <div>
-                          <CardTitle className="font-headline text-xl">Table of Contents</CardTitle>
-                          <CardDescription>{story.chapters.length} Parts total &bull; Arrange your story flow</CardDescription>
+                          <CardTitle className="font-headline text-xl">Manuscript Map</CardTitle>
+                          <CardDescription>{story.chapters.length} Parts total &bull; Exclusive and Scheduled Access</CardDescription>
                       </div>
                       <Button onClick={handleAddChapter} className="rounded-full shadow-lg shadow-primary/20 gap-2">
                           <Plus className="h-4 w-4" />
@@ -511,71 +567,35 @@ function StoryDetailsInner() {
                   <CardContent className="p-0">
                       {story.chapters.length > 0 ? (
                         <div className="divide-y divide-border/40">
-                            {story.chapters.sort((a,b) => a.order - b.order).map((ch, index, array) => (
+                            {story.chapters.sort((a,b) => a.order - b.order).map((ch, index) => (
                                 <div key={ch.id} className="p-5 flex items-center justify-between hover:bg-primary/5 transition-colors group">
                                     <div className="flex items-center gap-4 min-w-0">
-                                        <div className="flex flex-col gap-1 items-center">
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="h-6 w-6 rounded-full opacity-30 group-hover:opacity-100 hover:bg-primary/10 disabled:opacity-0" 
-                                                disabled={index === 0}
-                                                onClick={() => handleMoveChapter(index, 'up')}
-                                            >
-                                                <ChevronUp className="h-4 w-4" />
-                                            </Button>
-                                            <div className="h-8 w-8 rounded-xl bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors">
-                                                {index + 1}
-                                            </div>
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="h-6 w-6 rounded-full opacity-30 group-hover:opacity-100 hover:bg-primary/10 disabled:opacity-0" 
-                                                disabled={index === array.length - 1}
-                                                onClick={() => handleMoveChapter(index, 'down')}
-                                            >
-                                                <ChevronDown className="h-4 w-4" />
-                                            </Button>
+                                        <div className="h-10 w-10 rounded-2xl bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors">
+                                            {index + 1}
                                         </div>
                                         <div className="truncate">
                                             <h4 className="font-bold text-sm truncate flex items-center gap-2">
                                                 {ch.title}
-                                                {ch.accessType === 'premium' && <Sparkles className="h-3 w-3 text-yellow-500" />}
+                                                {ch.accessType === 'exclusive' && <Lock className="h-3 w-3 text-yellow-500" />}
+                                                {ch.scheduledAt && <Calendar className="h-3 w-3 text-primary" />}
                                             </h4>
                                             
-                                            <div className="flex flex-col gap-1 mt-1">
-                                              <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground">
-                                                  <span>{ch.wordCount || 0} words</span>
-                                                  <span className="w-1 h-1 bg-border rounded-full" />
-                                                  <div className="flex items-center gap-3">
-                                                      <span className={cn(
-                                                          ch.status === 'Published' ? "text-green-600" : "text-yellow-600"
-                                                      )}>{ch.status}</span>
-                                                      {ch.status === 'Published' && ch.publishedDate && (
-                                                          <div className="flex items-center gap-1 opacity-60">
-                                                              <Calendar className="h-2.5 w-2.5" />
-                                                              <span>{formatDate(ch.publishedDate)}</span>
-                                                          </div>
-                                                      )}
-                                                  </div>
-                                              </div>
-                                              
-                                              {ch.status === 'Published' && (
-                                                  <div className="flex items-center gap-3 text-[10px] font-bold text-primary/70 uppercase tracking-widest">
-                                                      <div className="flex items-center gap-1">
-                                                          <Eye className="h-3 w-3" />
-                                                          <span>{formatCompactNumber(ch.views || 0)}</span>
-                                                      </div>
-                                                      <div className="flex items-center gap-1">
-                                                          <Star className="h-3 w-3" />
-                                                          <span>{formatCompactNumber(ch.votes || 0)}</span>
-                                                      </div>
-                                                      <div className="flex items-center gap-1">
-                                                          <MessageSquare className="h-3 w-3" />
-                                                          <span>{formatCompactNumber(ch.commentsCount || 0)}</span>
-                                                      </div>
-                                                  </div>
-                                              )}
+                                            <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground mt-1">
+                                                <span className={cn(
+                                                    ch.status === 'Published' ? "text-green-600" : "text-yellow-600"
+                                                )}>{ch.status}</span>
+                                                {ch.scheduledAt && (
+                                                    <div className="flex items-center gap-1 text-primary">
+                                                        <Timer className="h-2.5 w-2.5" />
+                                                        <span>Live: {formatDate(ch.scheduledAt)}</span>
+                                                    </div>
+                                                )}
+                                                {ch.accessType === 'exclusive' && (
+                                                    <div className="flex items-center gap-1 text-yellow-600">
+                                                        <Users className="h-2.5 w-2.5" />
+                                                        <span>{ch.invitedUserIds?.length || 0} Invited</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -584,23 +604,19 @@ function StoryDetailsInner() {
                                             <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary" title="Edit Content"><Edit className="h-4 w-4" /></Button>
                                         </Link>
                                         
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted" title="Manage Part">
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                                                <DropdownMenuItem onClick={() => router.push(`/stories/${story.id}/read/${ch.id}`)} className="gap-2">
-                                                    <Eye className="h-4 w-4" /> View as Reader
-                                                </DropdownMenuItem>
-                                                {ch.status === 'Published' && (
-                                                    <DropdownMenuItem onClick={() => handleUnpublishChapter(ch.id)} className="gap-2 text-yellow-600 focus:text-yellow-600">
-                                                        <EyeOff className="h-4 w-4" /> Unpublish Part
-                                                    </DropdownMenuItem>
-                                                )}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary" title="Schedule Release"><Calendar className="h-4 w-4" /></Button>
+                                            </DialogTrigger>
+                                            <ChapterSchedulingDialog storyId={story.id} chapter={ch} onUpdate={(u) => handleUpdateChapter(ch.id, u)} />
+                                        </Dialog>
+
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-yellow-500/10 hover:text-yellow-600" title="Exclusive Access"><Lock className="h-4 w-4" /></Button>
+                                            </DialogTrigger>
+                                            <ChapterAccessDialog storyId={story.id} chapter={ch} onUpdate={(u) => handleUpdateChapter(ch.id, u)} />
+                                        </Dialog>
 
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
@@ -609,13 +625,11 @@ function StoryDetailsInner() {
                                             <AlertDialogContent className="rounded-3xl">
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle>Delete this chapter?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        This action cannot be undone. All engagement data (views, votes, comments) for this part will be lost.
-                                                    </AlertDialogDescription>
+                                                    <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
                                                     <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteChapter(ch.id)} className="bg-destructive hover:bg-destructive/90 rounded-full px-6">Delete Forever</AlertDialogAction>
+                                                    <AlertDialogAction onClick={() => handleDeleteChapter(ch.id)} className="bg-destructive hover:bg-destructive/90 rounded-full px-6">Delete</AlertDialogAction>
                                                 </AlertDialogFooter>
                                             </AlertDialogContent>
                                         </AlertDialog>
@@ -639,7 +653,6 @@ function StoryDetailsInner() {
                   <Card className="rounded-3xl border-none shadow-xl">
                       <CardHeader>
                           <CardTitle className="text-lg flex items-center gap-2"><Globe className="h-5 w-5 text-primary" /> Distribution</CardTitle>
-                          <CardDescription>Control who can access this story.</CardDescription>
                       </CardHeader>
                       <CardContent>
                           <RadioGroup value={visibility} onValueChange={(v) => { setVisibility(v as any); handleUpdateField('visibility', v); }} className="space-y-3">
@@ -648,13 +661,6 @@ function StoryDetailsInner() {
                                   <Label htmlFor="pub" className="flex-1 cursor-pointer">
                                       <span className="font-bold block">Public</span>
                                       <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Everyone can read</span>
-                                  </Label>
-                              </div>
-                              <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
-                                  <RadioGroupItem value="Unlisted" id="unl" />
-                                  <Label htmlFor="unl" className="flex-1 cursor-pointer">
-                                      <span className="font-bold block">Unlisted</span>
-                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Link only access</span>
                                   </Label>
                               </div>
                               <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
@@ -667,104 +673,7 @@ function StoryDetailsInner() {
                           </RadioGroup>
                       </CardContent>
                   </Card>
-
-                  <Card className="rounded-3xl border-none shadow-xl">
-                      <CardHeader>
-                          <CardTitle className="text-lg flex items-center gap-2">Content Rating</CardTitle>
-                          <CardDescription>Guidelines for audience.</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                          <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border border-dashed border-red-500/20">
-                              <div className="space-y-0.5">
-                                  <Label className="text-sm font-bold block">Mature Content (18+)</Label>
-                                  <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Explicit scenes or violence</p>
-                              </div>
-                              <Switch checked={isMature} onCheckedChange={(v) => { setIsMature(v); handleUpdateField('isMature', v); }} />
-                          </div>
-                          
-                          <div className="bg-muted/30 p-4 rounded-2xl">
-                                <h5 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Manuscript Status</h5>
-                                <div className="flex gap-2">
-                                    {['Ongoing', 'Completed', 'Draft'].map(s => (
-                                        <Button 
-                                            key={s} 
-                                            variant={story.status === s ? 'default' : 'outline'} 
-                                            size="sm" 
-                                            className="rounded-full text-[10px] font-bold uppercase h-8 px-4"
-                                            onClick={() => handleUpdateField('status', s)}
-                                        >
-                                            {s}
-                                        </Button>
-                                    ))}
-                                </div>
-                          </div>
-                      </CardContent>
-                  </Card>
               </div>
-
-              <Card className="rounded-3xl border-none shadow-xl overflow-hidden">
-                <CardHeader className="bg-primary/5 border-b border-primary/10">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <AlertCircle className="h-5 w-5 text-primary" /> Mandatory Reader Disclaimer
-                    </CardTitle>
-                    <CardDescription>
-                        This note will appear as a required popup for all users before they start reading the first chapter.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="disclaimer" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Full Disclaimer Text</Label>
-                        <Textarea 
-                            id="disclaimer"
-                            value={disclaimer}
-                            onChange={(e) => setDisclaimer(e.target.value)}
-                            onBlur={() => handleUpdateField('disclaimer', disclaimer)}
-                            placeholder="Add content warnings, copyright information, or special instructions for your readers..."
-                            rows={6}
-                            className="rounded-2xl bg-muted/20 border-none shadow-inner resize-none text-base p-4 focus-visible:ring-primary/30"
-                        />
-                        <p className="text-[10px] text-muted-foreground italic px-1">
-                            * Note: If left empty, no popup will be shown to readers.
-                        </p>
-                    </div>
-                </CardContent>
-              </Card>
-
-              {isOwner && (
-                <Card className="rounded-3xl border-2 border-destructive/20 shadow-xl overflow-hidden bg-destructive/5">
-                    <CardHeader className="bg-destructive/10 border-b border-destructive/10">
-                        <CardTitle className="text-lg text-destructive flex items-center gap-2">
-                            <Trash2 className="h-5 w-5" /> Danger Zone
-                        </CardTitle>
-                        <CardDescription className="text-destructive/70">Irreversible actions for this manuscript.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div className="space-y-1">
-                                <h4 className="font-bold text-sm text-foreground">Delete Manuscript</h4>
-                                <p className="text-xs text-muted-foreground">Once deleted, all parts, comments, and data are gone forever.</p>
-                            </div>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" className="rounded-xl px-6">Delete Story</Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="rounded-3xl">
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle className="text-2xl font-headline font-bold">Are you absolutely sure?</AlertDialogTitle>
-                                        <AlertDialogDescription className="text-base">
-                                            This action cannot be undone. This will permanently delete your story <strong>"{title}"</strong> and all its associated chapters and data.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleDeleteStory} className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold">Delete Forever</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-                    </CardContent>
-                </Card>
-              )}
           </TabsContent>
 
           <TabsContent value="team" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -772,7 +681,6 @@ function StoryDetailsInner() {
                 <Card className="rounded-3xl border-none shadow-xl overflow-hidden">
                     <CardHeader className="bg-muted/30 border-b">
                         <CardTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Story Collaboration</CardTitle>
-                        <CardDescription>Grant editing access to fellow writers.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6 space-y-6">
                         {isOwner && (
@@ -781,80 +689,13 @@ function StoryDetailsInner() {
                                     placeholder="Enter username..." 
                                     value={collaboratorUsername} 
                                     onChange={e => setCollaboratorUsername(e.target.value)} 
-                                    className="h-12 rounded-xl bg-muted/20 border-none shadow-inner"
-                                    disabled={isProcessingCollaboration}
+                                    className="h-12 rounded-xl bg-muted/20 border-none"
                                 />
                                 <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim()} className="rounded-xl h-12 px-6">
                                     {isProcessingCollaboration ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Invite'}
                                 </Button>
                             </div>
                         )}
-
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Current Team</Label>
-                            <div className="grid gap-2">
-                                <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/20 rounded-2xl">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-10 w-10 border-2 border-background">
-                                            <AvatarImage src={story.author.avatarUrl} />
-                                            <AvatarFallback>{story.author.username.charAt(0).toUpperCase()}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="font-bold text-sm flex items-center gap-1.5">
-                                            <span>@{story.author.username}</span>
-                                            <Badge className="bg-primary text-[8px] uppercase h-4">Owner</Badge>
-                                        </div>
-                                    </div>
-                                </div>
-                                {story.collaborators?.map(c => {
-                                    const isSelf = user?.id === c.id;
-                                    const canRemove = isOwner || isSelf;
-
-                                    return (
-                                        <div key={c.id} className="flex items-center justify-between p-3 border rounded-2xl hover:bg-muted/30 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="h-10 w-10">
-                                                    <AvatarImage src={c.avatarUrl} />
-                                                    <AvatarFallback>{c.username.charAt(0).toUpperCase()}</AvatarFallback>
-                                                </Avatar>
-                                                <div className="font-bold text-sm">
-                                                    @{c.username}
-                                                </div>
-                                            </div>
-                                            {canRemove && (
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-full">
-                                                            <Trash2 className="h-4 w-4"/>
-                                                        </Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent className="rounded-3xl">
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle className="text-2xl font-headline font-bold">
-                                                                {isSelf ? "Leave the team?" : "Remove collaborator?"}
-                                                            </AlertDialogTitle>
-                                                            <AlertDialogDescription className="text-base">
-                                                                {isSelf 
-                                                                    ? "You will lose editing access to this manuscript immediately." 
-                                                                    : `This will remove @${c.username}'s access to edit this manuscript.`}
-                                                            </AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-                                                            <AlertDialogAction 
-                                                                onClick={() => handleRemoveCollaborator(c.id)} 
-                                                                className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold"
-                                                            >
-                                                                {isSelf ? "Leave Story" : "Remove Access"}
-                                                            </AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
                     </CardContent>
                 </Card>
               </div>

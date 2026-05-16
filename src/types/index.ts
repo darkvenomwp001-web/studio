@@ -1,6 +1,17 @@
 
 import type { Timestamp } from 'firebase/firestore';
 
+export type WritingStatus = 
+  | 'writing' 
+  | 'break' 
+  | 'hiatus' 
+  | 'update' 
+  | 'burnout' 
+  | 'school' 
+  | 'rewriting' 
+  | 'brainstorming'
+  | 'none';
+
 export interface Achievement {
   id: string;
   name: string;
@@ -21,7 +32,7 @@ export interface User {
   followingCount?: number;
   followingIds?: string[];
   closeFriendIds?: string[]; 
-  blockedUserIds?: string[]; // New: For community safety
+  blockedUserIds?: string[]; 
   fcmTokens?: string[]; 
   writtenStories?: Story[]; 
   readingList?: ReadingListItem[];
@@ -32,6 +43,7 @@ export interface User {
   achievements?: Achievement[];
   profileSongUrl?: string;
   profileSongNote?: string;
+  writingStatus?: WritingStatus;
   createdAt?: any;
   updatedAt?: any;
   dataAiHint?: string; 
@@ -100,8 +112,10 @@ export interface Chapter {
   votes?: number;
   voterIds?: string[];
   publishedDate?: string;
-  accessType: 'public' | 'premium';
+  accessType: 'public' | 'premium' | 'exclusive';
   allowedUsers?: AllowedUser[];
+  invitedUserIds?: string[];
+  scheduledAt?: any;
   artworkUrl?: string;
   tags?: string[];
   views?: number;
