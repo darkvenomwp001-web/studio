@@ -3,9 +3,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { 
-  BookHeart, 
   Loader2, 
-  Heart as HeartIcon, 
   Sparkles, 
   PenSquare, 
   ChevronRight,
@@ -152,10 +150,10 @@ function ForYouTabContent() {
   }
 
   return (
-    <div className="pb-12 animate-in fade-in duration-700">
+    <div className="animate-in fade-in duration-700">
       {/* Dynamic Owner Carousel */}
       {carouselSlides.length > 0 && (
-        <section className="w-full mb-10">
+        <section className="w-full mb-6">
           <Carousel
             plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
             opts={{ align: "start", loop: true }}
@@ -174,7 +172,7 @@ function ForYouTabContent() {
                         data-ai-hint="landscape story banner"
                         priority={index === 0}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent flex flex-col justify-end p-4 md:p-8 lg:p-12">
+                      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent flex flex-col justify-end p-4 md:p-8 lg:p-12">
                         <div className="container mx-auto max-w-7xl px-4 md:px-0">
                           <div className="space-y-1 sm:space-y-3 max-w-2xl translate-y-2 sm:translate-y-4 group-hover:translate-y-0 transition-all duration-500">
                             <Badge className="bg-primary text-primary-foreground mb-1 sm:mb-2 text-[10px] sm:text-xs tracking-[0.2em] font-black uppercase">Featured Selection</Badge>
@@ -202,7 +200,7 @@ function ForYouTabContent() {
       )}
 
       {/* Discovery Rows */}
-      <div className="container mx-auto max-w-7xl px-4 space-y-12">
+      <div className="container mx-auto max-w-7xl px-4 space-y-10 pb-20">
         {user && user.readingList && user.readingList.length > 0 && (
           <section className="space-y-4 animate-in slide-in-from-bottom-2 duration-500">
             <div className="flex items-center justify-between">
@@ -210,7 +208,7 @@ function ForYouTabContent() {
               <Link href="/library" className="text-sm font-semibold text-primary hover:underline">View Library</Link>
             </div>
             <div className="flex overflow-x-auto space-x-5 pb-6 -mx-4 px-4 scrollbar-hide md:scrollbar-thin scrollbar-thumb-primary/30">
-              {user.readingList.slice(0, 8).map(story => (
+              {user.readingList.filter(s => !!s.id).slice(0, 8).map(story => (
                 <CompactStoryCard key={`lib-${story.id}`} story={story} />
               ))}
             </div>
@@ -310,12 +308,12 @@ export default function HomePage() {
           <StatusFeature />
         </div>
         
-        <div className="mt-4">
+        <div className="mt-2">
            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="w-full flex justify-center mb-4 px-4 overflow-hidden">
+              <div className="w-full flex justify-center mb-1 px-4 overflow-hidden">
                   <ScrollArea className="w-full max-w-full">
                       <div className="flex min-w-max justify-start md:justify-center py-2 px-1">
-                          <AnimatedTabs tabs={TABS} activeTab={activeTab} className="mb-1" />
+                          <AnimatedTabs tabs={TABS} activeTab={activeTab} className="mb-0" />
                       </div>
                       <ScrollBar orientation="horizontal" className="md:hidden" />
                   </ScrollArea>
@@ -325,7 +323,7 @@ export default function HomePage() {
                 <ForYouTabContent />
               </TabsContent>
               
-              <TabsContent value="annotations" className="animate-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none container mx-auto max-w-7xl px-4">
+              <TabsContent value="annotations" className="animate-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none container mx-auto max-w-7xl px-4 mt-6">
                 <div className="max-w-5xl mx-auto">
                     <div className="mb-8 text-center">
                         <h2 className="text-3xl font-headline font-bold text-foreground tracking-tight">My Highlights</h2>
@@ -335,7 +333,7 @@ export default function HomePage() {
                 </div>
               </TabsContent>
               
-              <TabsContent value="feed" className="animate-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none container mx-auto max-w-7xl px-4">
+              <TabsContent value="feed" className="animate-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none container mx-auto max-w-7xl px-4 mt-6">
                 <div className="max-w-2xl mx-auto">
                     <div className="mb-8 text-center">
                         <h2 className="text-3xl font-headline font-bold text-foreground tracking-tight">Community Feed</h2>
@@ -345,7 +343,7 @@ export default function HomePage() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="broadcast" className="animate-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none container mx-auto max-w-7xl px-4">
+              <TabsContent value="broadcast" className="animate-in slide-in-from-bottom-4 duration-500 focus-visible:outline-none container mx-auto max-w-7xl px-4 mt-6">
                 <div className="max-w-2xl mx-auto">
                     <div className="mb-8 text-center">
                         <h2 className="text-3xl font-headline font-bold text-foreground tracking-tight">Broadcast Hub</h2>

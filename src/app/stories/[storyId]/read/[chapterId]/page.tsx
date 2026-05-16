@@ -2,13 +2,6 @@ import { Suspense } from 'react';
 import ChapterReaderClient from './ChapterReaderClient';
 import { Loader2 } from 'lucide-react';
 
-export async function generateStaticParams() {
-  // Static parameters are required for static exports (output: export)
-  return [
-    { storyId: 'story', chapterId: 'chapter' },
-  ];
-}
-
 export default async function Page(props: { params: Promise<{ storyId: string; chapterId: string }> }) {
   const params = await props.params;
   return (

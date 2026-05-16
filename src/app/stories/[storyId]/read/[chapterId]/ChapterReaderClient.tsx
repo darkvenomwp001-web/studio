@@ -7,11 +7,9 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import {
   ArrowLeft,
   ArrowRight,
-  Bookmark,
   MessageSquare,
   ThumbsUp,
   Share2,
@@ -47,7 +45,6 @@ import {
   TriangleAlert,
   Cloud,
   CheckCircle,
-  RefreshCw,
   ImagePlus,
   Users,
   Music,
@@ -95,15 +92,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-  DialogClose
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -134,7 +122,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [showSyncRecovery, setShowSyncRecovery] = useState(false);
   
   const [controlsVisible, setControlsVisible] = useState(true);
   const [tocVisible, setTocVisible] = useState(false);
@@ -307,7 +294,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
     setIsLoading(true);
     setHasError(false);
-    setShowSyncRecovery(false);
 
     const storyDocRef = doc(db, 'stories', storyId);
 
@@ -823,7 +809,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                             </TabsList>
                             
                             <TabsContent value="theme" className="pt-4 space-y-4">
-                                <RadioGroup defaultValue={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
+                                <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
                                     <Label htmlFor="light" className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
                                         <RadioGroupItem value="light" id="light" className="sr-only" />
                                         <Sun className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
@@ -857,7 +843,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                         <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Font Size</Label>
                                         <span className="text-xs font-bold uppercase text-primary">{fontSize}</span>
                                     </div>
-                                    <RadioGroup defaultValue={fontSize} onValueChange={(v) => setFontSize(v as FontSize)} className="grid grid-cols-4 gap-2">
+                                    <RadioGroup value={fontSize} onValueChange={(v) => setFontSize(v as FontSize)} className="grid grid-cols-4 gap-2">
                                         {fontSizes.map(size => (
                                             <Label key={size} htmlFor={`font-${size}`} className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-muted/30 p-2 hover:bg-muted/50 transition-all cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
                                                 <RadioGroupItem value={size} id={`font-${size}`} className="sr-only" />
@@ -869,7 +855,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 </div>
                                  <div className="space-y-3">
                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Typography</Label>
-                                    <RadioGroup defaultValue={fontFamily} onValueChange={(v) => setFontFamily(v as FontFamily)} className="grid grid-cols-2 gap-2">
+                                    <RadioGroup value={fontFamily} onValueChange={(v) => setFontFamily(v as FontFamily)} className="grid grid-cols-2 gap-2">
                                         <Label htmlFor="font-sans" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer text-xs font-bold text-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">Modern Sans</Label>
                                         <RadioGroupItem value="sans" id="font-sans" className="sr-only" />
                                         <Label htmlFor="font-serif" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer text-xs font-bold text-center font-serif data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">Classic Serif</Label>
@@ -881,7 +867,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                              <TabsContent value="layout" className="pt-4 space-y-6">
                                  <div className="space-y-3">
                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Line Spacing</Label>
-                                    <RadioGroup defaultValue={lineHeight} onValueChange={(v) => setLineHeight(v as LineHeight)} className="grid grid-cols-3 gap-2">
+                                    <RadioGroup value={lineHeight} onValueChange={(v) => setLineHeight(v as LineHeight)} className="grid grid-cols-3 gap-2">
                                         <Label htmlFor="lh-tight" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><Baseline className="h-5 w-5"/></Label>
                                         <RadioGroupItem value="tight" id="lh-tight" className="sr-only" />
                                         <Label htmlFor="lh-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"><Baseline className="h-5 w-5"/></Label>
@@ -892,7 +878,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 </div>
                                  <div className="space-y-3">
                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Canvas Width</Label>
-                                    <RadioGroup defaultValue={layoutWidth} onValueChange={(v) => setLayoutWidth(v as LayoutWidth)} className="grid grid-cols-2 gap-2">
+                                    <RadioGroup value={layoutWidth} onValueChange={(v) => setLayoutWidth(v as LayoutWidth)} className="grid grid-cols-2 gap-2">
                                        <Label htmlFor="lw-normal" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-90 transition-transform"/></Label>
                                        <RadioGroupItem value="normal" id="lw-normal" className="sr-only" />
                                        <Label htmlFor="lw-wide" className="rounded-xl border-2 border-transparent bg-muted/30 p-3 hover:bg-muted/50 transition-all cursor-pointer flex justify-center data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group"><RectangleHorizontal className="h-5 w-5 group-hover:scale-x-110 transition-transform"/></Label>

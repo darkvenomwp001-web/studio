@@ -313,7 +313,7 @@ function SearchResults() {
         </ScrollArea>
       </div>
 
-      {/* Discovery Hub Redesign */}
+      {/* Discovery Hub */}
       {isBrowsing && (
           <div className="px-4 space-y-6 pb-10">
               <section className="space-y-3">
@@ -345,45 +345,29 @@ function SearchResults() {
                   </div>
               </section>
 
-              <section className="space-y-6">
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 opacity-60">
-                        <Flame className="h-3 w-3 text-orange-500" /> Fresh Releases
-                    </h3>
-                    <div className="grid grid-cols-3 gap-2">
-                        {trendingStories.slice(0, 3).map(s => (
-                             <Link href={`/stories/${s.id}`} key={s.id} className="group">
-                                <div className="aspect-[2/3] relative rounded-lg overflow-hidden bg-muted mb-1 shadow-sm transition-all group-hover:-translate-y-0.5">
-                                    <NextImage src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/512/800`} alt="" fill className="object-cover" />
-                                </div>
-                                <p className="text-[9px] font-black uppercase tracking-tighter truncate group-hover:text-primary transition-colors px-0.5">{s.title}</p>
-                             </Link>
-                        ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 opacity-60">
-                        <Users className="h-3 w-3 text-blue-500" /> Rising Creators
-                    </h3>
-                    <div className="grid grid-cols-1 gap-1.5">
-                        {[...Array(4)].map((_, i) => (
-                             <div key={i} className="p-2 rounded-xl bg-card border border-border/20 flex items-center gap-3 active:bg-muted/50 transition-colors">
-                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">WR</div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-black text-[11px] truncate uppercase tracking-tight">@Creator_Node_{i}</p>
-                                    <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-tighter">1.2k Readers</p>
-                                </div>
-                                <ChevronRight className="h-3 w-3 text-muted-foreground/30" />
-                            </div>
-                        ))}
-                    </div>
-                  </div>
-              </section>
+              {trendingStories.length > 0 && (
+                  <section className="space-y-6">
+                      <div className="space-y-3">
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 opacity-60">
+                            <Flame className="h-3 w-3 text-orange-500" /> Recent Arrivals
+                        </h3>
+                        <div className="grid grid-cols-3 gap-2">
+                            {trendingStories.slice(0, 3).map(s => (
+                                 <Link href={`/stories/${s.id}`} key={s.id} className="group">
+                                    <div className="aspect-[2/3] relative rounded-lg overflow-hidden bg-muted mb-1 shadow-sm transition-all group-hover:-translate-y-0.5">
+                                        <NextImage src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/512/800`} alt="" fill className="object-cover" />
+                                    </div>
+                                    <p className="text-[9px] font-black uppercase tracking-tighter truncate group-hover:text-primary transition-colors px-0.5">{s.title}</p>
+                                 </Link>
+                            ))}
+                        </div>
+                      </div>
+                  </section>
+              )}
           </div>
       )}
 
-      {/* Results View - Optimized Sizing */}
+      {/* Results View */}
       {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-2">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
