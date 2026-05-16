@@ -38,7 +38,8 @@ import {
   Timer,
   Share2,
   Users,
-  AtSign
+  AtSign,
+  TriangleAlert
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -55,6 +56,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { formatDate } from '@/lib/placeholder-data';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const GENRES = [
     'Fantasy', 'Romance', 'Mystery', 'Thriller', 'Horror', 'Sci-Fi', 
@@ -570,6 +573,32 @@ function StoryDetailsInner() {
                             className="rounded-2xl bg-card border-none shadow-inner resize-none text-base p-4 focus-visible:ring-primary/30" 
                           />
                       </div>
+
+                      <div className="space-y-3">
+                          <div className="flex justify-between items-center px-1">
+                              <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Manuscript Tags ({tags.length}/10)</Label>
+                              {tags.length >= 10 && <span className="text-[9px] text-orange-500 font-bold uppercase">Limit Reached</span>}
+                          </div>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                              {tags.map(tag => (
+                                  <Badge key={tag} className="bg-primary/10 text-primary border-primary/20 gap-1 rounded-full px-3 h-8 font-bold text-[10px] uppercase shadow-sm">
+                                      {tag}
+                                      <button onClick={() => handleRemoveTag(tag)} className="ml-1 hover:text-destructive transition-colors"><X className="h-3.5 w-3.5" /></button>
+                                  </Badge>
+                              ))}
+                          </div>
+                          <div className="flex gap-2">
+                              <Input 
+                                placeholder="Add thematic trope (e.g., enemies-to-lovers)..." 
+                                value={tagInput} 
+                                onChange={e => setTagInput(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleAddTag()}
+                                className="h-12 rounded-xl bg-card border-none shadow-inner text-sm"
+                                disabled={tags.length >= 10}
+                              />
+                              <Button variant="secondary" onClick={handleAddTag} disabled={!tagInput.trim() || tags.length >= 10} className="rounded-xl h-12 px-6">Add</Button>
+                          </div>
+                      </div>
                   </div>
               </div>
           </TabsContent>
@@ -579,7 +608,7 @@ function StoryDetailsInner() {
                   <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20">
                       <div>
                           <CardTitle className="font-headline text-xl">Manuscript Map</CardTitle>
-                          <CardDescription>{story.chapters.length} Parts total &bull; Exclusive and Scheduled Access</CardDescription>
+                          <CardDescription>{story.chapters.length} Parts total & bull; Exclusive and Scheduled Access</CardDescription>
                       </div>
                       <Button onClick={handleAddChapter} className="rounded-full shadow-lg shadow-primary/20 gap-2">
                           <Plus className="h-4 w-4" />
@@ -686,6 +715,13 @@ function StoryDetailsInner() {
                                   </Label>
                               </div>
                               <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
+                                  <RadioGroupItem value="Unlisted" id="unl" />
+                                  <Label htmlFor="unl" className="flex-1 cursor-pointer">
+                                      <span className="font-bold block">Unlisted</span>
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Only those with the link</span>
+                                  </Label>
+                              </div>
+                              <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
                                   <RadioGroupItem value="Private" id="pri" />
                                   <Label htmlFor="pri" className="flex-1 cursor-pointer">
                                       <span className="font-bold block">Private</span>
@@ -695,6 +731,42 @@ function StoryDetailsInner() {
                           </RadioGroup>
                       </CardContent>
                   </Card>
+
+                  <div className="space-y-6">
+                    <Card className="rounded-3xl border-none shadow-xl">
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-orange-500" /> Maturity Rating</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl">
+                                <div className="space-y-0.5">
+                                    <Label className="text-sm font-bold block">Mature Content (18+)</Label>
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Requires age verification</p>
+                                </div>
+                                <Switch 
+                                    checked={isMature} 
+                                    onCheckedChange={(v) => { setIsMature(v); handleUpdateField('isMature', v); }} 
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="rounded-3xl border-none shadow-xl">
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2"><AlertCircle className="h-5 w-5 text-primary" /> Disclaimer</CardTitle>
+                            <CardDescription>Content warnings or legal notices displayed before entry.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Textarea 
+                                value={disclaimer}
+                                onChange={e => setDisclaimer(e.target.value)}
+                                onBlur={() => handleUpdateField('disclaimer', disclaimer)}
+                                placeholder="E.g. Warning: Contains intense sequences..."
+                                className="rounded-2xl bg-muted/20 border-none shadow-inner resize-none text-sm h-32"
+                            />
+                        </CardContent>
+                    </Card>
+                  </div>
               </div>
           </TabsContent>
 
@@ -703,28 +775,32 @@ function StoryDetailsInner() {
                 <Card className="rounded-3xl border-none shadow-xl overflow-hidden">
                     <CardHeader className="bg-muted/30 border-b">
                         <CardTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Story Collaboration</CardTitle>
+                        <CardDescription>Add fellow writers to help manage and edit this manuscript.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6 space-y-6">
                         {isOwner && (
                             <div className="flex gap-2">
-                                <Input 
-                                    placeholder="Enter username..." 
-                                    value={collaboratorUsername} 
-                                    onChange={e => setCollaboratorUsername(e.target.value)} 
-                                    className="h-12 rounded-xl bg-muted/20 border-none"
-                                />
+                                <div className="relative flex-1">
+                                    <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input 
+                                        placeholder="Collaborator username..." 
+                                        value={collaboratorUsername} 
+                                        onChange={e => setCollaboratorUsername(e.target.value)} 
+                                        className="pl-10 h-12 rounded-xl bg-muted/20 border-none"
+                                    />
+                                </div>
                                 <Button onClick={handleAddCollaborator} disabled={isProcessingCollaboration || !collaboratorUsername.trim()} className="rounded-xl h-12 px-6">
                                     {isProcessingCollaboration ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Invite'}
                                 </Button>
                             </div>
                         )}
                         <div className="space-y-3">
-                             <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Current Collaborators</Label>
+                             <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Active Team</Label>
                              <div className="grid gap-2">
                                 {story.collaborators && story.collaborators.length > 0 ? story.collaborators.map(collab => (
-                                    <div key={collab.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-2xl">
+                                    <div key={collab.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-2xl border border-transparent hover:border-primary/20 transition-all">
                                         <div className="flex items-center gap-3">
-                                            <Avatar className="h-10 w-10">
+                                            <Avatar className="h-10 w-10 border shadow-sm">
                                                 <AvatarImage src={collab.avatarUrl} />
                                                 <AvatarFallback>{collab.username.substring(0,1).toUpperCase()}</AvatarFallback>
                                             </Avatar>
@@ -737,7 +813,7 @@ function StoryDetailsInner() {
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
-                                                className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full"
                                                 onClick={() => {
                                                     updateDoc(doc(db, 'stories', story.id), {
                                                         collaborators: arrayRemove(collab),
@@ -750,7 +826,10 @@ function StoryDetailsInner() {
                                         )}
                                     </div>
                                 )) : (
-                                    <p className="text-xs text-muted-foreground italic py-4">No collaborators yet.</p>
+                                    <div className="text-center py-10 bg-muted/5 rounded-2xl border-2 border-dashed">
+                                        <Users className="h-8 w-8 mx-auto mb-2 opacity-10" />
+                                        <p className="text-xs text-muted-foreground italic">Solo Project</p>
+                                    </div>
                                 )}
                              </div>
                         </div>
