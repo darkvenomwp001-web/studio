@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
@@ -10,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Save, UploadCloud, ArrowLeft, Music, User, AtSign, AlignLeft, Info, ExternalLink, Sparkles } from 'lucide-react';
+import { Loader2, Save, UploadCloud, ArrowLeft, Music, User, AtSign, AlignLeft, Info, ExternalLink, Sparkles, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';

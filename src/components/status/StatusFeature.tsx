@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -9,7 +8,7 @@ import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestam
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, X, Type, Image as LucideImageIcon, Sparkles, Music, BarChart2, BookOpen, Send, ChevronRight, AlignLeft, AlignCenter, AlignRight, Palette } from 'lucide-react';
+import { Loader2, Plus, X, Type, Image as LucideImageIcon, Sparkles, Music, BarChart2, BookOpen, Send, ChevronRight, AlignLeft, AlignCenter, AlignRight, Palette, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
