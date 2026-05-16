@@ -507,11 +507,11 @@ function StoryDetailsInner() {
       </header>
 
       <Tabs defaultValue="canvas" className="w-full">
-          <TabsList className="grid grid-cols-4 max-w-2xl bg-muted/50 p-1 rounded-full mb-10 shadow-inner">
-              <TabsTrigger value="canvas" className="rounded-full font-bold">Manuscript</TabsTrigger>
-              <TabsTrigger value="chapters" className="rounded-full font-bold">Parts</TabsTrigger>
-              <TabsTrigger value="advanced" className="rounded-full font-bold">Settings</TabsTrigger>
-              <TabsTrigger value="team" className="rounded-full font-bold">Team</TabsTrigger>
+          <TabsList className="bg-muted/50 p-1 rounded-full mb-10 shadow-inner flex overflow-x-auto no-scrollbar">
+              <TabsTrigger value="canvas" className="rounded-full font-bold flex-1 px-4">Manuscript</TabsTrigger>
+              <TabsTrigger value="chapters" className="rounded-full font-bold flex-1 px-4">Parts</TabsTrigger>
+              <TabsTrigger value="advanced" className="rounded-full font-bold flex-1 px-4">Settings</TabsTrigger>
+              <TabsTrigger value="team" className="rounded-full font-bold flex-1 px-4">Team</TabsTrigger>
           </TabsList>
 
           <TabsContent value="canvas" className="animate-in fade-in slide-in-from-bottom-2 duration-500">

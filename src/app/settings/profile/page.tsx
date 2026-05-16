@@ -222,25 +222,21 @@ export default function EditProfilePage() {
                     </div>
                     <div className="space-y-4">
                         <p className="text-xs text-muted-foreground">Let your readers know what you're working on in real-time.</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {WRITING_STATUSES.map((status) => (
-                                <button
-                                    key={status.value}
-                                    type="button"
-                                    onClick={() => setWritingStatus(status.value)}
-                                    className={cn(
-                                        "flex items-center gap-3 p-3 rounded-xl border text-sm transition-all text-left",
-                                        writingStatus === status.value 
-                                            ? "bg-primary/10 border-primary text-primary shadow-sm" 
-                                            : "bg-muted/20 border-transparent hover:bg-muted/40"
-                                    )}
-                                >
-                                    <span className="text-lg">{status.icon}</span>
-                                    <span className="font-bold text-[11px] uppercase tracking-wider">{status.label}</span>
-                                    {writingStatus === status.value && <CheckCircle className="h-3 w-3 ml-auto" />}
-                                </button>
-                            ))}
-                        </div>
+                        <Select value={writingStatus} onValueChange={(v: WritingStatus) => setWritingStatus(v)}>
+                            <SelectTrigger className="h-12 rounded-xl bg-card border-none shadow-inner">
+                                <SelectValue placeholder="Pick a writing status..." />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl border-none shadow-2xl">
+                                {WRITING_STATUSES.map((status) => (
+                                    <SelectItem key={status.value} value={status.value} className="rounded-xl py-3 focus:bg-primary/5">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-lg">{status.icon}</span>
+                                            <span className="font-bold text-[11px] uppercase tracking-wider">{status.label}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
 
