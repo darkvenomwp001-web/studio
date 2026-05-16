@@ -44,7 +44,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; 
 import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, arrayUnion, arrayRemove, Timestamp } from 'firebase/firestore';
-import type { Story, UserSummary, Chapter } from '@/types';
+import type { Story, UserSummary, Chapter, User as AppUser } from '@/types';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -52,10 +52,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCompactNumber } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDate } from '@/lib/placeholder-data';
 
 const GENRES = [
@@ -86,7 +84,7 @@ function ChapterSchedulingDialog({ storyId, chapter, onUpdate }: { storyId: stri
         
         onUpdate({ 
             scheduledAt: Timestamp.fromDate(scheduledDate),
-            status: 'Draft' // Ensure it's not "Published" while scheduled
+            status: 'Draft' 
         });
         toast({ title: "Release Scheduled!" });
         setIsSaving(false);
@@ -762,5 +760,13 @@ function StoryDetailsInner() {
           </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function WriteDetailsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
+      <StoryDetailsInner />
+    </Suspense>
   );
 }
