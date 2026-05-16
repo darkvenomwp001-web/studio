@@ -782,47 +782,6 @@ function StoryDetailsInner() {
                             </RadioGroup>
                         </CardContent>
                     </Card>
-
-                    <Card className="rounded-3xl border-destructive/20 bg-destructive/5 shadow-none overflow-hidden">
-                        <CardHeader className="bg-destructive/10 border-b border-destructive/10">
-                            <CardTitle className="text-lg text-destructive flex items-center gap-2 font-headline">
-                                <ShieldAlert className="h-5 w-5" /> Danger Zone
-                            </CardTitle>
-                            <CardDescription className="text-destructive/70">Wipe all cloud records for this manuscript.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between gap-6">
-                                <div className="space-y-1">
-                                    <h4 className="font-bold text-foreground">Delete Manuscript</h4>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">This will permanently remove the story and all its chapters from our archives. This cannot be undone.</p>
-                                </div>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="destructive" className="rounded-2xl h-11 px-6 font-bold uppercase text-[10px] tracking-widest flex-shrink-0 shadow-lg shadow-destructive/20">
-                                            <Trash2 className="h-4 w-4 mr-2" /> Delete
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent className="rounded-[2.5rem] border-none shadow-3xl">
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle className="text-2xl font-headline font-bold text-destructive">Erase this manuscript?</AlertDialogTitle>
-                                            <AlertDialogDescription className="text-sm">
-                                                Every chapter, comment, and read count will be purged. Type <strong>CONFIRM</strong> below to proceed.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-                                            <AlertDialogAction 
-                                                onClick={handleDeleteStory}
-                                                className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold"
-                                            >
-                                                Permanently Erase
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </div>
-                        </CardContent>
-                    </Card>
                   </div>
 
                   <div className="space-y-8">
@@ -840,6 +799,47 @@ function StoryDetailsInner() {
                                     checked={isMature} 
                                     onCheckedChange={(v) => { setIsMature(v); handleUpdateField('isMature', v); }} 
                                 />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="rounded-3xl border-destructive/20 bg-destructive/5 shadow-none overflow-hidden">
+                        <CardHeader className="bg-destructive/10 border-b border-destructive/10">
+                            <CardTitle className="text-lg text-destructive flex items-center gap-2 font-headline">
+                                <ShieldAlert className="h-5 w-5" /> Danger Zone
+                            </CardTitle>
+                            <CardDescription>Wipe all cloud records for this manuscript.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between gap-6">
+                                <div className="space-y-1">
+                                    <h4 className="font-bold text-foreground">Delete Manuscript</h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">This will permanently remove the story and all its chapters from our archives. This cannot be undone.</p>
+                                </div>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" className="rounded-2xl h-11 px-6 font-bold uppercase text-[10px] tracking-widest flex-shrink-0 shadow-lg shadow-destructive/20">
+                                            <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent className="rounded-[2.5rem] border-none shadow-3xl">
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle className="text-2xl font-headline font-bold text-destructive">Erase this manuscript?</AlertDialogTitle>
+                                            <AlertDialogDescription className="text-sm">
+                                                Every chapter, comment, and read count will be purged. This action cannot be reversed.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                                            <AlertDialogAction 
+                                                onClick={handleDeleteStory}
+                                                className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold"
+                                            >
+                                                Permanently Erase
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             </div>
                         </CardContent>
                     </Card>

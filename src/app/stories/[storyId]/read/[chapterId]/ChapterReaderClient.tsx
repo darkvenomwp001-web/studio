@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import NextImage from 'next/image';
-import Link from 'next/image';
+import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -57,7 +57,8 @@ import {
   CheckCircle,
   Timer,
   ChevronDown,
-  Calendar
+  Calendar,
+  ImagePlus
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -140,7 +141,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     if (!storyId || !chapterId) return;
     setIsLoading(true);
     const storyDocRef = doc(db, 'stories', storyId);
-    const unsubscribe = onSnapshot(storyDocRef, (docSnap) => {
+    const unsubscribeStory = onSnapshot(storyDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
         setStory(storyData);
@@ -255,7 +256,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         <TabsTrigger value="text" className="rounded-lg">Type</TabsTrigger>
                     </TabsList>
                     <TabsContent value="theme" className="pt-4 space-y-4">
-                        <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
+                        <RadioGroup value={theme || 'system'} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
                             {['light', 'dark', 'system'].map(t => (
                                 <Label key={t} htmlFor={t} className="flex flex-col items-center p-3 rounded-xl border-2 border-transparent bg-muted/30 cursor-pointer data-[state=checked]:border-primary">
                                     <RadioGroupItem value={t} id={t} className="sr-only" />
@@ -263,6 +264,23 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 </Label>
                             ))}
                         </RadioGroup>
+                    </TabsContent>
+                    <TabsContent value="text" className="pt-4 space-y-4">
+                         <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Font Family</Label>
+                                <RadioGroup value={fontFamily} onValueChange={(v: any) => setFontFamily(v)} className="flex gap-2">
+                                    <div className="flex-1">
+                                        <RadioGroupItem value="sans" id="font-sans" className="sr-only" />
+                                        <Label htmlFor="font-sans" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-xs font-bold", fontFamily === 'sans' ? "bg-primary text-white border-primary" : "bg-muted/30 border-transparent")}>Sans</Label>
+                                    </div>
+                                    <div className="flex-1">
+                                        <RadioGroupItem value="serif" id="font-serif" className="sr-only" />
+                                        <Label htmlFor="font-serif" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer font-serif text-xs font-bold", fontFamily === 'serif' ? "bg-primary text-white border-primary" : "bg-muted/30 border-transparent")}>Serif</Label>
+                                    </div>
+                                </RadioGroup>
+                            </div>
+                         </div>
                     </TabsContent>
                 </Tabs>
             </PopoverContent>
