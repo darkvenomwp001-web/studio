@@ -1152,9 +1152,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                  </BubbleMenu>
              )}
              <article className={articleClasses}>
-              {currentChapter.artworkUrl && (
+              {currentChapter.artworkUrl ? (
                 <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-[32px] overflow-hidden mb-12 shadow-2xl ring-1 ring-border/40">
                   <NextImage src={currentChapter.artworkUrl} alt="" fill className="object-cover" priority />
+                </div>
+              ) : (
+                <div className="h-40 flex flex-col items-center justify-center text-muted-foreground/10 mb-8 border border-dashed rounded-[32px]">
+                    <ImagePlus className="h-10 w-10" />
                 </div>
               )}
               <div className="text-center space-y-4 mb-12">

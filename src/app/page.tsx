@@ -14,8 +14,8 @@ import {
   RefreshCw,
   AlertCircle
 } from 'lucide-react';
-import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import StoryCard from '@/components/shared/StoryCard';
+import CompactStoryCard from '@/components/shared/CompactStoryCard';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 import type { Story, Prompt, CarouselSlide } from '@/types';
@@ -128,7 +128,7 @@ function ForYouTabContent() {
 
   if (isDataLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+      <div className="flex flex-col items-center justify-center min-h-[40vh] space-y-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
         <p className="text-muted-foreground font-bold text-[10px] uppercase tracking-[0.2em] animate-pulse">Syncing Hub...</p>
       </div>
@@ -137,7 +137,7 @@ function ForYouTabContent() {
 
   if (hasError) {
     return (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8 bg-card/20 rounded-[40px] border border-dashed border-border/40 max-w-lg mx-auto mt-10">
+        <div className="flex flex-col items-center justify-center min-h-[40vh] text-center p-8 bg-card/20 rounded-[40px] border border-dashed border-border/40 max-w-lg mx-auto mt-10">
             <AlertCircle className="h-12 w-12 text-destructive mb-4" />
             <h3 className="text-xl font-headline font-bold mb-2">Sync Interrupted</h3>
             <p className="text-muted-foreground text-sm mb-6">The archives are having trouble synchronizing. This is usually caused by a persistence conflict.</p>
@@ -153,7 +153,7 @@ function ForYouTabContent() {
     <div className="animate-in fade-in duration-700">
       {/* Dynamic Owner Carousel */}
       {carouselSlides.length > 0 && (
-        <section className="w-full mb-6">
+        <section className="w-full mb-8">
           <Carousel
             plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
             opts={{ align: "start", loop: true }}
@@ -208,7 +208,7 @@ function ForYouTabContent() {
               <Link href="/library" className="text-sm font-semibold text-primary hover:underline">View Library</Link>
             </div>
             <div className="flex overflow-x-auto space-x-5 pb-6 -mx-4 px-4 scrollbar-hide md:scrollbar-thin scrollbar-thumb-primary/30">
-              {user.readingList.filter(s => !!s.id).slice(0, 8).map(story => (
+              {user.readingList.filter(s => !!s.id && !!s.title).slice(0, 8).map(story => (
                 <CompactStoryCard key={`lib-${story.id}`} story={story} />
               ))}
             </div>
@@ -260,7 +260,7 @@ function ForYouTabContent() {
         )}
 
         {/* Global Empty State */}
-        {allStories.length === 0 && carouselSlides.length === 0 && prompts.length === 0 && (!user?.readingList || user.readingList.length === 0) && (
+        {allStories.length === 0 && carouselSlides.length === 0 && (
           <div className="text-center py-32 bg-card/50 rounded-[40px] border-2 border-dashed border-border/40">
               <div className="bg-muted/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Sparkles className="h-10 w-10 text-muted-foreground/30" />
