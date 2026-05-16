@@ -21,7 +21,6 @@ import {
   BookOpen,
   Edit,
   Eye,
-  EyeOff,
   Settings,
   X,
   Sparkles,
@@ -36,17 +35,19 @@ import {
   Calendar,
   MoreVertical,
   Timer,
-  Share2,
   Users,
   AtSign,
-  TriangleAlert
+  TriangleAlert,
+  Save,
+  BookMarked,
+  ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase'; 
 import { doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, arrayUnion, arrayRemove, Timestamp } from 'firebase/firestore';
 import type { Story, UserSummary, Chapter, User as AppUser } from '@/types';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -58,6 +59,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { formatDate } from '@/lib/placeholder-data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import StoryCompendium from '@/components/writing/StoryCompendium';
 
 const GENRES = [
     'Fantasy', 'Romance', 'Mystery', 'Thriller', 'Horror', 'Sci-Fi', 
@@ -342,6 +344,21 @@ function StoryDetailsInner() {
       handleUpdateField('chapters', updatedChapters);
   };
 
+  const handleReorderChapter = async (chapterId: string, direction: 'up' | 'down') => {
+      if (!story) return;
+      const sorted = [...story.chapters].sort((a,b) => a.order - b.order);
+      const index = sorted.findIndex(c => c.id === chapterId);
+      if (direction === 'up' && index > 0) {
+          [sorted[index], sorted[index-1]] = [sorted[index-1], sorted[index]];
+      } else if (direction === 'down' && index < sorted.length - 1) {
+          [sorted[index], sorted[index+1]] = [sorted[index+1], sorted[index]];
+      } else {
+          return;
+      }
+      const updated = sorted.map((ch, i) => ({ ...ch, order: i + 1 }));
+      handleUpdateField('chapters', updated);
+  };
+
   const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0] || !story) return;
     const file = e.target.files[0];
@@ -429,6 +446,13 @@ function StoryDetailsInner() {
       toast({ title: "Chapter deleted" });
   };
 
+  const handleDeleteStory = async () => {
+      if (!story) return;
+      await deleteDoc(doc(db, 'stories', story.id));
+      toast({ title: "Manuscript Erased" });
+      router.push('/write');
+  };
+
   const handleAddCollaborator = async () => {
       if (!story || !collaboratorUsername.trim()) return;
       setIsProcessingCollaboration(true);
@@ -468,7 +492,7 @@ function StoryDetailsInner() {
     <div className="max-w-5xl mx-auto p-4 space-y-10 pb-20">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
-              <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="sm" onClick={() => router.push('/write')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
               </Button>
               <h1 className="text-3xl md:text-5xl font-headline font-bold">{title || 'Untitled Manuscript'}</h1>
@@ -492,35 +516,41 @@ function StoryDetailsInner() {
 
           <TabsContent value="canvas" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="flex flex-col md:flex-row gap-10">
-                  <div className="w-full md:w-64 space-y-4">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Cover Art</Label>
-                      <div 
-                        className="relative aspect-[2/3] rounded-2xl overflow-hidden border-2 border-dashed border-border/60 group cursor-pointer bg-muted/30 hover:bg-muted/50 transition-all"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                          {story.coverImageUrl ? (
-                              <>
-                                <NextImage src={story.coverImageUrl} alt="Cover" fill className="object-cover transition-transform group-hover:scale-105" />
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <UploadCloud className="text-white h-10 w-10" />
+                  <div className="w-full md:w-64 space-y-8">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Cover Art</Label>
+                        <div 
+                          className="relative aspect-[2/3] rounded-2xl overflow-hidden border-2 border-dashed border-border/60 group cursor-pointer bg-muted/30 hover:bg-muted/50 transition-all"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                            {story.coverImageUrl ? (
+                                <>
+                                  <NextImage src={story.coverImageUrl} alt="Cover" fill className="object-cover transition-transform group-hover:scale-105" />
+                                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <UploadCloud className="text-white h-10 w-10" />
+                                  </div>
+                                </>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full gap-2 p-6 text-center">
+                                    <UploadCloud className="h-10 w-10 text-muted-foreground/40" />
+                                    <p className="text-xs font-medium text-muted-foreground/60">Upload Cover</p>
                                 </div>
-                              </>
-                          ) : (
-                              <div className="flex flex-col items-center justify-center h-full gap-2 p-6 text-center">
-                                  <UploadCloud className="h-10 w-10 text-muted-foreground/40" />
-                                  <p className="text-xs font-medium text-muted-foreground/60">Upload Cover</p>
-                              </div>
-                          )}
-                          {isUploading && (
-                              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
-                                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                              </div>
-                          )}
+                            )}
+                            {isUploading && (
+                                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                            )}
+                        </div>
+                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleCoverUpload} />
+                        <Button variant="outline" size="sm" className="w-full rounded-xl" onClick={() => fileInputRef.current?.click()}>
+                            {story.coverImageUrl ? 'Change Cover' : 'Upload Cover'}
+                        </Button>
                       </div>
-                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleCoverUpload} />
-                      <Button variant="outline" className="w-full rounded-xl" onClick={() => fileInputRef.current?.click()}>
-                          {story.coverImageUrl ? 'Change Cover' : 'Upload Cover'}
-                      </Button>
+                      
+                      <div className="h-[400px]">
+                        <StoryCompendium storyId={story.id} initialNotes={story.notes} />
+                      </div>
                   </div>
 
                   <div className="flex-1 space-y-8">
@@ -608,7 +638,7 @@ function StoryDetailsInner() {
                   <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20">
                       <div>
                           <CardTitle className="font-headline text-xl">Manuscript Map</CardTitle>
-                          <CardDescription>{story.chapters.length} Parts total & bull; Exclusive and Scheduled Access</CardDescription>
+                          <CardDescription>{story.chapters.length} Parts total & bull; Reorder and Schedule</CardDescription>
                       </div>
                       <Button onClick={handleAddChapter} className="rounded-full shadow-lg shadow-primary/20 gap-2">
                           <Plus className="h-4 w-4" />
@@ -621,8 +651,28 @@ function StoryDetailsInner() {
                             {story.chapters.sort((a,b) => a.order - b.order).map((ch, index) => (
                                 <div key={ch.id} className="p-5 flex items-center justify-between hover:bg-primary/5 transition-colors group">
                                     <div className="flex items-center gap-4 min-w-0">
-                                        <div className="h-10 w-10 rounded-2xl bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors">
-                                            {index + 1}
+                                        <div className="flex flex-col gap-1">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-6 w-6" 
+                                                onClick={() => handleReorderChapter(ch.id, 'up')}
+                                                disabled={index === 0}
+                                            >
+                                                <ChevronUp className="h-3 w-3" />
+                                            </Button>
+                                            <div className="h-10 w-10 rounded-2xl bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors">
+                                                {index + 1}
+                                            </div>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-6 w-6" 
+                                                onClick={() => handleReorderChapter(ch.id, 'down')}
+                                                disabled={index === story.chapters.length - 1}
+                                            >
+                                                <ChevronDown className="h-3 w-3" />
+                                            </Button>
                                         </div>
                                         <div className="truncate">
                                             <h4 className="font-bold text-sm truncate flex items-center gap-2">
@@ -699,40 +749,83 @@ function StoryDetailsInner() {
               </Card>
           </TabsContent>
 
-          <TabsContent value="advanced" className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                  <Card className="rounded-3xl border-none shadow-xl">
-                      <CardHeader>
-                          <CardTitle className="text-lg flex items-center gap-2"><Globe className="h-5 w-5 text-primary" /> Distribution</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                          <RadioGroup value={visibility} onValueChange={(v) => { setVisibility(v as any); handleUpdateField('visibility', v); }} className="space-y-3">
-                              <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
-                                  <RadioGroupItem value="Public" id="pub" />
-                                  <Label htmlFor="pub" className="flex-1 cursor-pointer">
-                                      <span className="font-bold block">Public</span>
-                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Everyone can read</span>
-                                  </Label>
-                              </div>
-                              <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
-                                  <RadioGroupItem value="Unlisted" id="unl" />
-                                  <Label htmlFor="unl" className="flex-1 cursor-pointer">
-                                      <span className="font-bold block">Unlisted</span>
-                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Only those with the link</span>
-                                  </Label>
-                              </div>
-                              <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
-                                  <RadioGroupItem value="Private" id="pri" />
-                                  <Label htmlFor="pri" className="flex-1 cursor-pointer">
-                                      <span className="font-bold block">Private</span>
-                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Author only</span>
-                                  </Label>
-                              </div>
-                          </RadioGroup>
-                      </CardContent>
-                  </Card>
+          <TabsContent value="advanced" className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-8">
+              <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-8">
+                    <Card className="rounded-3xl border-none shadow-xl">
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2"><Globe className="h-5 w-5 text-primary" /> Distribution</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <RadioGroup value={visibility} onValueChange={(v) => { setVisibility(v as any); handleUpdateField('visibility', v); }} className="space-y-3">
+                                <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
+                                    <RadioGroupItem value="Public" id="pub" />
+                                    <Label htmlFor="pub" className="flex-1 cursor-pointer">
+                                        <span className="font-bold block">Public</span>
+                                        <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Everyone can read</span>
+                                    </Label>
+                                </div>
+                                <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
+                                    <RadioGroupItem value="Unlisted" id="unl" />
+                                    <Label htmlFor="unl" className="flex-1 cursor-pointer">
+                                        <span className="font-bold block">Unlisted</span>
+                                        <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Only those with the link</span>
+                                    </Label>
+                                </div>
+                                <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
+                                    <RadioGroupItem value="Private" id="pri" />
+                                    <Label htmlFor="pri" className="flex-1 cursor-pointer">
+                                        <span className="font-bold block">Private</span>
+                                        <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Author only</span>
+                                    </Label>
+                                </div>
+                            </RadioGroup>
+                        </CardContent>
+                    </Card>
 
-                  <div className="space-y-6">
+                    <Card className="rounded-3xl border-destructive/20 bg-destructive/5 shadow-none overflow-hidden">
+                        <CardHeader className="bg-destructive/10 border-b border-destructive/10">
+                            <CardTitle className="text-lg text-destructive flex items-center gap-2 font-headline">
+                                <ShieldAlert className="h-5 w-5" /> Danger Zone
+                            </CardTitle>
+                            <CardDescription className="text-destructive/70">Wipe all cloud records for this manuscript.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between gap-6">
+                                <div className="space-y-1">
+                                    <h4 className="font-bold text-foreground">Delete Manuscript</h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">This will permanently remove the story and all its chapters from our archives. This cannot be undone.</p>
+                                </div>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" className="rounded-2xl h-11 px-6 font-bold uppercase text-[10px] tracking-widest flex-shrink-0 shadow-lg shadow-destructive/20">
+                                            <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent className="rounded-[2.5rem] border-none shadow-3xl">
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle className="text-2xl font-headline font-bold text-destructive">Erase this manuscript?</AlertDialogTitle>
+                                            <AlertDialogDescription className="text-sm">
+                                                Every chapter, comment, and read count will be purged. Type <strong>CONFIRM</strong> below to proceed.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                                            <AlertDialogAction 
+                                                onClick={handleDeleteStory}
+                                                className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold"
+                                            >
+                                                Permanently Erase
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                        </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="space-y-8">
                     <Card className="rounded-3xl border-none shadow-xl">
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-orange-500" /> Maturity Rating</CardTitle>
