@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, Suspense, useCallback, useRef, ChangeEvent } from 'react';
@@ -429,6 +428,31 @@ function StoryDetailsInner() {
       toast({ title: "Chapter deleted" });
   };
 
+  const handleAddCollaborator = async () => {
+      if (!story || !collaboratorUsername.trim()) return;
+      setIsProcessingCollaboration(true);
+      const q = query(collection(db, 'users'), where('username', '==', collaboratorUsername.trim().toLowerCase()));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+          const collabUser = snap.docs[0].data() as AppUser;
+          const collabSummary: UserSummary = { id: collabUser.id, username: collabUser.username, avatarUrl: collabUser.avatarUrl, displayName: collabUser.displayName };
+          
+          if (story.collaboratorIds?.includes(collabUser.id)) {
+              toast({ title: "User already a collaborator" });
+          } else {
+              await updateDoc(doc(db, 'stories', story.id), {
+                  collaborators: arrayUnion(collabSummary),
+                  collaboratorIds: arrayUnion(collabUser.id)
+              });
+              setCollaboratorUsername('');
+              toast({ title: "Collaborator added!" });
+          }
+      } else {
+          toast({ title: "User not found", variant: "destructive" });
+      }
+      setIsProcessingCollaboration(false);
+  };
+
   if (isLoading || authLoading || !story) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
@@ -696,6 +720,42 @@ function StoryDetailsInner() {
                                 </Button>
                             </div>
                         )}
+                        <div className="space-y-3">
+                             <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Current Collaborators</Label>
+                             <div className="grid gap-2">
+                                {story.collaborators && story.collaborators.length > 0 ? story.collaborators.map(collab => (
+                                    <div key={collab.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-2xl">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-10 w-10">
+                                                <AvatarImage src={collab.avatarUrl} />
+                                                <AvatarFallback>{collab.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <p className="font-bold text-sm">@{collab.username}</p>
+                                                <p className="text-[10px] text-muted-foreground uppercase tracking-tighter">{collab.displayName}</p>
+                                            </div>
+                                        </div>
+                                        {isOwner && (
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                onClick={() => {
+                                                    updateDoc(doc(db, 'stories', story.id), {
+                                                        collaborators: arrayRemove(collab),
+                                                        collaboratorIds: arrayRemove(collab.id)
+                                                    });
+                                                }}
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                )) : (
+                                    <p className="text-xs text-muted-foreground italic py-4">No collaborators yet.</p>
+                                )}
+                             </div>
+                        </div>
                     </CardContent>
                 </Card>
               </div>
@@ -703,12 +763,4 @@ function StoryDetailsInner() {
       </Tabs>
     </div>
   );
-}
-
-export default function EditStoryDetailsPage() {
-    return (
-        <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
-            <StoryDetailsInner />
-        </Suspense>
-    );
 }

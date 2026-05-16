@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -8,6 +7,28 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   ArrowLeft,
   ArrowRight,
@@ -62,11 +83,6 @@ import { db, rtdb } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
 import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp, increment, addDoc, collection } from 'firebase/firestore';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { BubbleMenu, EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
@@ -78,31 +94,9 @@ import CharacterCount from '@tiptap/extension-character-count'
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Slider } from '@/components/ui/slider';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Switch } from '@/components/ui/switch';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatDate } from '@/lib/placeholder-data';
 
 const OWNER_HANDLES = ['arnv', '@arnv'];
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
@@ -554,19 +548,36 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         </div>
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
             <Button variant="ghost" size="icon" onClick={() => prevChapterId && router.push(`/stories/${storyId}/read/${prevChapterId}`)} disabled={!prevChapterId}><ArrowLeft className="h-5 w-5" /></Button>
-            <div className="bg-muted/40 backdrop-blur-md rounded-full px-2 py-1 flex items-center gap-1 border">
-                <Button variant="ghost" size="sm" className={cn("rounded-full", currentChapter.voterIds?.includes(currentUser?.id || '') && "text-primary")} onClick={handleVoteClick} disabled={isVoting}>
-                    <ThumbsUp className="h-4 w-4" /> <span className="text-[10px] font-bold ml-1">{formatCompactNumber(currentChapter?.votes || 0)}</span>
-                </Button>
-                <Link href={`/stories/${storyId}/read/${chapterId}/comments`} passHref>
-                    <Button variant="ghost" size="sm" className="rounded-full">
-                        <MessageSquare className="h-4 w-4" /> <span className="text-[10px] font-bold ml-1">{formatCompactNumber(currentChapter?.commentsCount || 0)}</span>
+            
+            <div className="flex flex-col items-center gap-1">
+                <div className="bg-muted/40 backdrop-blur-md rounded-full px-2 py-1 flex items-center gap-1 border border-border/40 shadow-sm">
+                    <Button variant="ghost" size="sm" className={cn("rounded-full h-9 gap-1.5", currentChapter.voterIds?.includes(currentUser?.id || '') && "text-primary")} onClick={handleVoteClick} disabled={isVoting}>
+                        <ThumbsUp className="h-4 w-4" /> 
+                        <span className="text-[10px] font-black uppercase tracking-tighter">{formatCompactNumber(currentChapter?.votes || 0)}</span>
                     </Button>
-                </Link>
-                <Button variant="ghost" size="icon" className={cn("rounded-full", isInLibrary && "text-primary")} onClick={handleLibraryAction}>
-                    {isInLibrary ? <BookmarkCheck className="h-5 w-5" /> : <BookmarkPlus className="h-5 w-5" />}
-                </Button>
+                    
+                    <Link href={`/stories/${storyId}/read/${chapterId}/comments`} passHref>
+                        <Button variant="ghost" size="sm" className="rounded-full h-9 gap-1.5">
+                            <MessageSquare className="h-4 w-4" /> 
+                            <span className="text-[10px] font-black uppercase tracking-tighter">{formatCompactNumber(currentChapter?.commentsCount || 0)}</span>
+                        </Button>
+                    </Link>
+                    
+                    <Button variant="ghost" size="icon" className={cn("rounded-full h-9 w-9", isInLibrary && "text-primary")} onClick={handleLibraryAction}>
+                        {isInLibrary ? <BookmarkCheck className="h-5 w-5" /> : <BookmarkPlus className="h-5 w-5" />}
+                    </Button>
+
+                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-primary transition-colors">
+                        <Share2 className="h-4 w-4" />
+                    </Button>
+                </div>
+                <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                    <span>Part {currentChapter.order}</span>
+                    <div className="w-1 h-1 bg-border rounded-full" />
+                    <span>{Math.round(readingProgress)}% Read</span>
+                </div>
             </div>
+
             <Button variant="ghost" size="icon" onClick={() => nextChapterId && router.push(`/stories/${storyId}/read/${nextChapterId}`)} disabled={!nextChapterId}><ArrowRight className="h-5 w-5" /></Button>
         </div>
       </footer>

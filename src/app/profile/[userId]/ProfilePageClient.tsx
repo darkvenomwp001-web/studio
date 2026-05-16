@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, FormEvent, useMemo } from 'react';
@@ -25,7 +24,7 @@ import {
   Coffee,
   CloudRain,
   Zap,
-  Zzz,
+  Moon,
   GraduationCap,
   Heart,
   Headphones
@@ -69,7 +68,7 @@ const WRITING_STATUS_MAP: Record<WritingStatus, { label: string; icon: any; colo
     break: { label: 'Taking a Short Break', icon: Coffee, color: 'text-orange-400' },
     hiatus: { label: 'On Hiatus', icon: CloudRain, color: 'text-blue-400' },
     update: { label: 'Preparing Big Update', icon: Zap, color: 'text-yellow-500' },
-    burnout: { label: 'Burned Out', icon: Zzz, color: 'text-purple-400' },
+    burnout: { label: 'Burned Out', icon: Moon, color: 'text-purple-400' },
     school: { label: 'Busy With School', icon: GraduationCap, color: 'text-emerald-500' },
     rewriting: { label: 'Rewriting Story', icon: Heart, color: 'text-rose-500' },
     brainstorming: { label: 'Brainstorming Arc', icon: Headphones, color: 'text-cyan-500' },
