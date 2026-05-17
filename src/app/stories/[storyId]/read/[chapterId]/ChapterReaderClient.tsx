@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import NextImage from 'next/image';
 import Link from 'next/link';
@@ -282,9 +282,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     else addToLibrary(story);
   };
 
-  const handleAnnotationAction = (type: 'highlight' | 'comment') => {
+  const handleAnnotationAction = useCallback((type: 'highlight' | 'comment') => {
     if (!editor) return;
     const { from, to } = editor.state.selection;
+    if (from === to) return;
+
     const text = editor.state.doc.textBetween(from, to, ' ');
     if (!text.trim()) return;
 
@@ -293,10 +295,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     if (type === 'highlight') {
         setIsAnnotationDialogOpen(true);
     } else {
-        // Wattpad-style: go straight to comments with a quote
         router.push(`/stories/${story?.id}/read/${currentChapter?.id}/comments?quote=${encodeURIComponent(text.trim())}`);
     }
-  };
+  }, [editor, story?.id, currentChapter?.id, router]);
 
   const saveAnnotation = async () => {
     if (!currentUser || !story || !currentChapter || !selectedText.trim()) return;
@@ -627,32 +628,49 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     {editor && (
                         <BubbleMenu 
                             editor={editor} 
+                            pluginKey="bubbleMenu"
                             tippyOptions={{ 
-                                duration: 100, 
-                                animation: 'scale',
-                                zIndex: 100
+                                duration: 150, 
+                                zIndex: 9999,
+                                placement: 'top',
+                                offset: [0, 15],
+                                animation: 'shift-away'
                             }}
                             className="flex items-center gap-1 p-1 bg-card/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-3xl transform-gpu"
                         >
                             <Button 
                                 variant="ghost" 
                                 size="sm" 
-                                className="h-8 px-3 rounded-full gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-primary hover:text-white transition-all"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={(e) => { e.stopPropagation(); handleAnnotationAction('highlight'); }}
+                                className="h-9 px-3 rounded-full gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-primary hover:text-white transition-all"
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleAnnotationAction('highlight');
+                                }}
                             >
-                                <Highlighter className="h-3.5 w-3.5" />
+                                <Highlighter className="h-4 w-4" />
                                 <span>Highlight</span>
                             </Button>
                             <div className="w-px h-4 bg-white/10 mx-1" />
                             <Button 
                                 variant="ghost" 
                                 size="sm" 
-                                className="h-8 px-3 rounded-full gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-accent hover:text-white transition-all"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={(e) => { e.stopPropagation(); handleAnnotationAction('comment'); }}
+                                className="h-9 px-3 rounded-full gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-accent hover:text-white transition-all"
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleAnnotationAction('comment');
+                                }}
                             >
-                                <MessageSquare className="h-3.5 w-3.5" />
+                                <MessageSquare className="h-4 w-4" />
                                 <span>Comment</span>
                             </Button>
                         </BubbleMenu>
