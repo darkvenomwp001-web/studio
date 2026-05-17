@@ -339,7 +339,7 @@ export default function EditProfilePage() {
                     className="w-full sm:w-auto min-w-[220px] h-14 text-sm font-bold uppercase tracking-[0.2em] shadow-2xl shadow-primary/30 rounded-full bg-primary hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
                   {isProfileUpdating || specificAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                  Archive Changes
+                  Save Changes
                 </Button>
                 <Button 
                     type="button" 
@@ -349,7 +349,7 @@ export default function EditProfilePage() {
                     disabled={anySubmitting}
                 >
                     <ExternalLink className="h-4 w-4" />
-                    View Live Node
+                    View Profile
                 </Button>
             </CardFooter>
           </Card>
