@@ -1,3 +1,5 @@
+'use server';
+
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -120,7 +122,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   
   const [controlsVisible, setControlsVisible] = useState(true);
   const [isTocOpen, setIsTocOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [readingProgress, setReadingProgress] = useState(0);
   const [isAccessGranted, setIsAccessGranted] = useState(false);
@@ -325,7 +326,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   const articleClasses = cn(
       "prose dark:prose-invert max-w-none py-8 px-4 selection:bg-primary/30 transition-all duration-300 transform-gpu",
-      isZenFocus && "zen-focus-enabled",
+      isZenFocus && "zen-mode",
       {
         'prose-sm': fontSize === 'sm', 'prose-base': fontSize === 'base', 'prose-lg': fontSize === 'lg', 'prose-xl': fontSize === 'xl',
         'font-body': fontFamily === 'sans', 'font-serif': fontFamily === 'serif',
@@ -362,6 +363,32 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const nextChapterId = story.chapters.sort((a,b)=>a.order-b.order).find(c => c.order > (currentChapter?.order || 0))?.id;
   const prevChapterId = story.chapters.sort((a,b)=>a.order-b.order).reverse().find(c => c.order < (currentChapter?.order || 0))?.id;
 
+  const zenFocusStyles = `
+    .zen-mode .ProseMirror p {
+        opacity: 0.15;
+        transition: opacity 0.5s ease, filter 0.5s ease, transform 0.3s ease;
+        filter: blur(4px);
+    }
+    .zen-mode .ProseMirror p:hover,
+    .zen-mode .ProseMirror p:focus-within,
+    .zen-mode .ProseMirror p:active {
+        opacity: 1;
+        filter: blur(0);
+        transform: scale(1.02);
+    }
+    .ProseMirror {
+        padding-bottom: 300px !important;
+        outline: none !important;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+  `;
+
   return (
     <TooltipProvider delayDuration={300}>
     <div className={cn(
@@ -374,7 +401,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         <div className="flex items-center">
             <Link href="/" passHref><Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10"><Home className="h-5 w-5" /></Button></Link>
             <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => setIsTocOpen(true)}><ListOrdered className="h-5 w-5" /></Button>
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => setIsSearchOpen(true)}><Search className="h-5 w-5" /></Button>
         </div>
         <div className="truncate text-center mx-2 flex-1 flex flex-col items-center">
             <h1 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 mb-0.5">{story.title}</h1>
@@ -412,14 +438,14 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         <div className="space-y-4 pt-2">
                             <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-primary/10 rounded-lg"><Sparkles className="h-4 w-4 text-primary" /></div>
+                                    <div className="p-1.5 bg-primary/10 rounded-lg"><Sparkles className="h-4 w-4 text-primary" /></div>
                                     <Label htmlFor="zen-focus" className="text-xs font-bold uppercase tracking-tight">Zen Focus</Label>
                                 </div>
                                 <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
                             </div>
                             <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-primary/10 rounded-lg"><Eye className="h-4 w-4 text-primary" /></div>
+                                    <div className="p-1.5 bg-primary/10 rounded-lg"><Eye className="h-4 w-4 text-primary" /></div>
                                     <Label htmlFor="night-portal" className="text-xs font-bold uppercase tracking-tight">Night Portal</Label>
                                 </div>
                                 <Switch id="night-portal" checked={isNightPortalActive} onCheckedChange={setIsNightPortalActive} />
@@ -506,72 +532,57 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         </Popover>
       </header>
 
-      {/* Chapters TOC Panel */}
+      {/* Chapters & Search Panel */}
       <Sheet open={isTocOpen} onOpenChange={setIsTocOpen}>
-          <SheetContent side="left" className="w-80 p-0 border-none shadow-3xl bg-background/95 backdrop-blur-xl">
-              <SheetHeader className="p-6 bg-muted/30 border-b">
-                  <SheetTitle className="font-headline text-xl">Manuscript Map</SheetTitle>
-                  <SheetDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Complete Table of Contents</SheetDescription>
-              </SheetHeader>
-              <ScrollArea className="h-[calc(100vh-140px)]">
-                  <div className="p-4 space-y-1">
-                      {story.chapters.sort((a,b)=>a.order-b.order).map(ch => (
-                          <Link 
-                            key={ch.id} 
-                            href={`/stories/${story.id}/read/${ch.id}`} 
-                            onClick={() => setIsTocOpen(false)}
-                            className={cn(
-                                "flex items-center gap-3 p-3 rounded-xl transition-all group",
-                                ch.id === chapterId ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10"
-                            )}
-                          >
-                              <span className={cn("text-[10px] font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0", ch.id === chapterId ? "bg-white text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-white")}>{ch.order}</span>
-                              <span className="text-sm font-bold truncate flex-1">{ch.title}</span>
-                              {ch.accessType === 'premium' && <Lock className="h-3 w-3 opacity-50" />}
-                          </Link>
-                      ))}
-                  </div>
-              </ScrollArea>
-          </SheetContent>
-      </Sheet>
-
-      {/* Archive Search Panel */}
-      <Sheet open={isSearchOpen} onOpenChange={setIsSearchOpen}>
-          <SheetContent side="right" className="w-80 p-0 border-none shadow-3xl bg-background/95 backdrop-blur-xl">
-              <SheetHeader className="p-6 bg-muted/30 border-b">
-                  <SheetTitle className="font-headline text-xl">Search Archive</SheetTitle>
-                  <SheetDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Scan prose for motifs or strings</SheetDescription>
-              </SheetHeader>
-              <div className="p-6 space-y-6">
-                  <div className="relative">
+          <SheetContent side="left" className="w-80 p-0 border-none shadow-3xl bg-background/95 backdrop-blur-xl flex flex-col">
+              <SheetHeader className="p-6 bg-muted/30 border-b flex-shrink-0">
+                  <div className="relative mb-4">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input 
-                        placeholder="Type to search..." 
+                        placeholder="Search prose..." 
                         value={searchTerm} 
                         onChange={e => setSearchTerm(e.target.value)} 
                         className="pl-9 h-11 rounded-xl bg-muted/30 border-none shadow-inner"
-                        autoFocus
                       />
                   </div>
-                  <ScrollArea className="h-[calc(100vh-220px)]">
-                      <div className="space-y-4 pr-3">
-                          {searchResults.length > 0 ? (
-                              searchResults.map((res, i) => (
-                                  <div key={i} className="p-3 bg-muted/10 rounded-xl border border-border/20 text-xs leading-relaxed text-muted-foreground cursor-pointer hover:bg-primary/5 transition-all" onClick={() => {
-                                      setIsSearchOpen(false);
-                                      // Logic to scroll to index would go here if we tracked DOM offsets
-                                  }}>
-                                      <p dangerouslySetInnerHTML={{ __html: res.snippet }} />
-                                  </div>
-                              ))
-                          ) : (
-                              <div className="py-20 text-center text-muted-foreground italic opacity-40">
-                                  {searchTerm ? 'No matches found in this part.' : 'Prose scanner ready...'}
-                              </div>
-                          )}
-                      </div>
-                  </ScrollArea>
-              </div>
+                  <SheetDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Archive Navigation</SheetDescription>
+              </SheetHeader>
+              <ScrollArea className="flex-1">
+                  <div className="p-4 space-y-6">
+                      {searchTerm ? (
+                          <div className="space-y-4">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-primary ml-1">Results in this Part</p>
+                              {searchResults.length > 0 ? (
+                                  searchResults.map((res, i) => (
+                                      <div key={i} className="p-3 bg-muted/10 rounded-xl border border-border/20 text-xs leading-relaxed text-muted-foreground cursor-pointer hover:bg-primary/5 transition-all" onClick={() => setIsTocOpen(false)}>
+                                          <p dangerouslySetInnerHTML={{ __html: res.snippet }} />
+                                      </div>
+                                  ))
+                              ) : (
+                                  <p className="text-center py-10 text-muted-foreground italic text-xs">No matches found.</p>
+                              )}
+                          </div>
+                      ) : (
+                          <div className="space-y-1">
+                              {story.chapters.sort((a,b)=>a.order-b.order).map(ch => (
+                                  <Link 
+                                    key={ch.id} 
+                                    href={`/stories/${story.id}/read/${ch.id}`} 
+                                    onClick={() => setIsTocOpen(false)}
+                                    className={cn(
+                                        "flex items-center gap-3 p-3 rounded-xl transition-all group",
+                                        ch.id === chapterId ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10"
+                                    )}
+                                  >
+                                      <span className={cn("text-[10px] font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0", ch.id === chapterId ? "bg-white text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-white")}>{ch.order}</span>
+                                      <span className="text-sm font-bold truncate flex-1">{ch.title}</span>
+                                      {ch.accessType === 'premium' && <Lock className="h-3 w-3 opacity-50" />}
+                                  </Link>
+                              ))}
+                          </div>
+                      )}
+                  </div>
+              </ScrollArea>
           </SheetContent>
       </Sheet>
 
@@ -730,6 +741,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         </div>
       </footer>
       <BottomNavigationBar />
+      <style dangerouslySetInnerHTML={{ __html: zenFocusStyles }} />
     </div>
     </TooltipProvider>
   );
