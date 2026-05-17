@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Slider } from '@/components/ui/slider';
 import {
   Dialog,
   DialogContent,
@@ -62,7 +63,11 @@ import {
   Search, 
   Eye, 
   Languages, 
-  BookOpen
+  BookOpen,
+  Maximize2,
+  Minimize2,
+  MousePointer2,
+  RotateCcw
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -106,6 +111,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [isVoting, setIsVoting] = useState(false);
   const [activeReaders, setActiveReaders] = useState(1);
 
+  // High-Fidelity States
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
@@ -116,7 +122,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [isWriterPost, setIsWriterPost] = useState(false);
   const [freezeMode, setFreezeMode] = useState(false);
   const [searchable, setSearchable] = useState(false);
-
+  const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
 
   const editor = useEditor({
     editable: false, 
@@ -129,6 +135,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       editor.commands.setContent(currentChapter.content, false);
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
+
+  // Auto-Scroll Logic
+  useEffect(() => {
+    if (autoScrollSpeed <= 0) return;
+    const interval = setInterval(() => {
+        window.scrollBy({ top: 1, behavior: 'auto' });
+    }, 100 / autoScrollSpeed);
+    return () => clearInterval(interval);
+  }, [autoScrollSpeed]);
 
   useEffect(() => {
     const statusRef = ref(rtdb, 'status');
@@ -225,8 +240,22 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     else addToLibrary(story);
   };
 
+  const resetPreferences = () => {
+    setFontSize('base');
+    setFontFamily('sans');
+    setLineHeight('normal');
+    setLayoutWidth('normal');
+    setIsNightPortalActive(false);
+    setIsZenFocus(false);
+    setIsWriterPost(false);
+    setFreezeMode(false);
+    setAutoScrollSpeed(0);
+    toast({ title: "Preferences Reset" });
+  };
+
   const articleClasses = cn(
-      "prose dark:prose-invert max-w-none py-8 px-4 selection:bg-primary/20",
+      "prose dark:prose-invert max-w-none py-8 px-4 selection:bg-primary/20 transition-all duration-300 transform-gpu",
+      isZenFocus && "zen-focus-enabled",
       {
         'prose-sm': fontSize === 'sm', 'prose-base': fontSize === 'base', 'prose-lg': fontSize === 'lg', 'prose-xl': fontSize === 'xl',
         'font-body': fontFamily === 'sans', 'font-serif': fontFamily === 'serif',
@@ -239,16 +268,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
 
-  if (!story || !currentChapter) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen p-4 text-center">
-        <Loader2 className="h-12 w-12 animate-spin text-destructive mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Loading Error</h2>
-        <p className="text-muted-foreground">There was an issue loading the story data. Please try again later.</p>
-        <Button onClick={() => router.push('/')} className="mt-6">Go Home</Button>
-      </div>
-    );
-  }
+  if (!story || !currentChapter) return null;
 
   const isInLibrary = currentUser?.readingList?.some(item => item.id === story.id);
   const nextChapterId = story.chapters.sort((a,b)=>a.order-b.order).find(c => c.order > currentChapter.order)?.id;
@@ -256,88 +276,145 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   return (
     <TooltipProvider delayDuration={300}>
-    <div className="relative min-h-screen bg-background text-foreground">
-      <AlertDialog open={isDisclaimerOpen} onOpenChange={setIsDisclaimerOpen}>
-        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl p-0 overflow-hidden max-w-xl w-[95vw] bg-background">
-            <div className="p-8 flex flex-col">
-                <div className="mb-6 flex items-center gap-2">
-                    <div className="h-1 w-8 bg-primary rounded-full" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Author's Disclaimer</span>
-                </div>
-                <p className="whitespace-pre-line leading-relaxed text-foreground/80 text-sm font-serif italic mb-6">{story.disclaimer}</p>
-                <AlertDialogAction onClick={() => setIsDisclaimerOpen(false)} className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-bold shadow-xl">
-                    <CheckCircle className="mr-2 h-5 w-5" /> Acknowledge & Start
-                </AlertDialogAction>
-            </div>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <header className={cn('fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b p-3 flex items-center justify-between w-full transition-all duration-300', controlsVisible ? 'translate-y-0' : '-translate-y-full')}>
+    <div className={cn(
+        "relative min-h-screen bg-background text-foreground transition-colors duration-500",
+        isNightPortalActive && "dark night-portal",
+        isZenFocus && "zen-focus-mode"
+    )}>
+      <header className={cn('fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b p-3 flex items-center justify-between w-full transition-all duration-300', controlsVisible ? 'translate-y-0' : '-translate-y-full shadow-lg')}>
         <div className="flex items-center">
-            <Link href="/" passHref><Button variant="ghost" size="icon"><Home className="h-5 w-5" /></Button></Link>
-            <Button variant="ghost" size="icon" onClick={() => setTocVisible(!tocVisible)}><ListOrdered className="h-5 w-5" /></Button>
-            <Button variant="ghost" size="icon" onClick={() => setSearchable(!searchable)}><Search className="h-5 w-5" /></Button>
+            <Link href="/" passHref><Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10"><Home className="h-5 w-5" /></Button></Link>
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => setTocVisible(!tocVisible)}><ListOrdered className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => setSearchable(!searchable)}><Search className="h-5 w-5" /></Button>
         </div>
         <div className="truncate text-center mx-2 flex-1 flex flex-col items-center">
-            <h1 className="text-sm font-headline font-semibold text-primary truncate max-w-[200px]">{story.title}</h1>
-            <div className="flex items-center gap-1 text-[8px] uppercase font-bold text-primary animate-pulse">
-                <Users className="h-2 w-2" /> <span>{activeReaders} Live</span>
+            <h1 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 mb-0.5">{story.title}</h1>
+            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary animate-pulse tracking-widest bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
+                <Users className="h-2.5 w-2.5" /> <span>{activeReaders} Active Readers</span>
             </div>
         </div>
         <Popover>
-            <PopoverTrigger asChild><Button variant="ghost" size="icon"><Palette className="h-5 w-5" /></Button></PopoverTrigger>
-            <PopoverContent className="w-80 p-6 rounded-3xl">
-                <Tabs defaultValue="theme" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-xl">
-                        <TabsTrigger value="theme" className="rounded-lg">Vibe</TabsTrigger>
-                        <TabsTrigger value="text" className="rounded-lg">Type</TabsTrigger>
+            <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 relative">
+                    <Palette className="h-5 w-5" />
+                    {(fontSize !== 'base' || lineHeight !== 'normal' || layoutWidth !== 'wide') && <div className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-background" />}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-6 bg-background/95 backdrop-blur-2xl border border-border/40 shadow-3xl rounded-3xl overflow-hidden" side="bottom" align="center">
+                <Tabs defaultValue="vibe" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 rounded-2xl h-11 mb-6">
+                        <TabsTrigger value="vibe" className="rounded-xl text-[10px] font-bold uppercase tracking-widest">Vibe</TabsTrigger>
+                        <TabsTrigger value="type" className="rounded-xl text-[10px] font-bold uppercase tracking-widest">Type</TabsTrigger>
+                        <TabsTrigger value="view" className="rounded-xl text-[10px] font-bold uppercase tracking-widest">View</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="theme" className="pt-4 space-y-4">
-                        <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
-                            {['light', 'dark', 'system'].map(t => (
-                                <Label key={t} htmlFor={t} className="flex flex-col items-center p-3 rounded-xl border-2 border-transparent bg-muted/30 cursor-pointer data-[state=checked]:border-primary">
-                                    <RadioGroupItem value={t} id={t} className="sr-only" />
-                                    <span className="text-[10px] font-bold uppercase">{t}</span>
-                                </Label>
-                            ))}
-                        </RadioGroup>
-                        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
-                            <div className="flex items-center gap-2">
-                                <Sparkles className="h-4 w-4 text-primary" />
-                                <Label htmlFor="zen-focus" className="text-xs font-bold">Zen Focus</Label>
-                            </div>
-                            <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
+                    
+                    <TabsContent value="vibe" className="space-y-6 animate-in fade-in duration-500">
+                        <div className="space-y-3">
+                            <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Archive Atmosphere</Label>
+                            <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
+                                {['light', 'dark', 'system'].map(t => (
+                                    <Label key={t} htmlFor={t} className="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-transparent bg-muted/30 cursor-pointer transition-all hover:bg-muted/50 data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
+                                        <RadioGroupItem value={t} id={t} className="sr-only" />
+                                        <span className="text-[10px] font-bold uppercase tracking-tighter transition-transform group-active:scale-90">{t}</span>
+                                    </Label>
+                                ))}
+                            </RadioGroup>
                         </div>
-                        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
-                            <div className="flex items-center gap-2">
-                                <Eye className="h-4 w-4 text-primary" />
-                                <Label htmlFor="writer-post" className="text-xs font-bold">Writer's Perspective</Label>
+
+                        <div className="space-y-4 pt-2">
+                            <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20 transition-all hover:border-primary/20">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-primary/10 rounded-lg"><Sparkles className="h-4 w-4 text-primary" /></div>
+                                    <Label htmlFor="zen-focus" className="text-xs font-bold uppercase tracking-tight">Zen Focus</Label>
+                                </div>
+                                <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
                             </div>
-                            <Switch id="writer-post" checked={isWriterPost} onCheckedChange={setIsWriterPost} />
-                        </div>
-                        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
-                            <div className="flex items-center gap-2">
-                                <Languages className="h-4 w-4 text-primary" />
-                                <Label htmlFor="freeze-mode" className="text-xs font-bold">Freeze Mode</Label>
+                            <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20 transition-all hover:border-primary/20">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-primary/10 rounded-lg"><Eye className="h-4 w-4 text-primary" /></div>
+                                    <Label htmlFor="night-portal" className="text-xs font-bold uppercase tracking-tight">Night Portal</Label>
+                                </div>
+                                <Switch id="night-portal" checked={isNightPortalActive} onCheckedChange={setIsNightPortalActive} />
                             </div>
-                            <Switch id="freeze-mode" checked={freezeMode} onCheckedChange={setFreezeMode} />
                         </div>
                     </TabsContent>
-                    <TabsContent value="text" className="pt-4 space-y-4">
+
+                    <TabsContent value="type" className="space-y-6 animate-in fade-in duration-500">
                          <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Font Family</Label>
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Typeface</Label>
                                 <RadioGroup value={fontFamily} onValueChange={(v: any) => setFontFamily(v)} className="flex gap-2">
+                                    {['sans', 'serif'].map(f => (
+                                        <div key={f} className="flex-1">
+                                            <RadioGroupItem value={f} id={`font-${f}`} className="sr-only" />
+                                            <Label htmlFor={`font-${f}`} className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-xs font-bold uppercase tracking-tighter", fontFamily === f ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent hover:bg-muted/50")}>{f}</Label>
+                                        </div>
+                                    ))}
+                                </RadioGroup>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Scale</Label>
+                                <RadioGroup value={fontSize} onValueChange={(v: any) => setFontSize(v)} className="grid grid-cols-4 gap-1">
+                                    {['sm', 'base', 'lg', 'xl'].map(s => (
+                                        <div key={s}>
+                                            <RadioGroupItem value={s} id={`size-${s}`} className="sr-only" />
+                                            <Label htmlFor={`size-${s}`} className={cn("flex items-center justify-center h-9 rounded-xl border transition-all cursor-pointer text-[10px] font-black uppercase", fontSize === s ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent hover:bg-muted/50")}>{s}</Label>
+                                        </div>
+                                    ))}
+                                </RadioGroup>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Flow / Line Height</Label>
+                                <RadioGroup value={lineHeight} onValueChange={(v: any) => setLineHeight(v)} className="grid grid-cols-3 gap-1">
+                                    {['tight', 'normal', 'loose'].map(l => (
+                                        <div key={l}>
+                                            <RadioGroupItem value={l} id={`line-${l}`} className="sr-only" />
+                                            <Label htmlFor={`line-${l}`} className={cn("flex items-center justify-center h-9 rounded-xl border transition-all cursor-pointer text-[9px] font-black uppercase tracking-tighter", lineHeight === l ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent hover:bg-muted/50")}>{l}</Label>
+                                        </div>
+                                    ))}
+                                </RadioGroup>
+                            </div>
+                         </div>
+                    </TabsContent>
+
+                    <TabsContent value="view" className="space-y-6 animate-in fade-in duration-500">
+                         <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Focus Width</Label>
+                                <RadioGroup value={layoutWidth} onValueChange={(v: any) => setLayoutWidth(v)} className="flex gap-2">
                                     <div className="flex-1">
-                                        <RadioGroupItem value="sans" id="font-sans" className="sr-only" />
-                                        <Label htmlFor="font-sans" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-xs font-bold", fontFamily === 'sans' ? "bg-primary text-white border-primary" : "bg-muted/30 border-transparent")}>Sans</Label>
+                                        <RadioGroupItem value="normal" id="width-norm" className="sr-only" />
+                                        <Label htmlFor="width-norm" className={cn("flex flex-col items-center justify-center h-12 rounded-2xl border transition-all cursor-pointer gap-1", layoutWidth === 'normal' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>
+                                            <Minimize2 className="h-4 w-4" />
+                                            <span className="text-[8px] font-bold uppercase tracking-widest">Normal</span>
+                                        </Label>
                                     </div>
                                     <div className="flex-1">
-                                        <RadioGroupItem value="serif" id="font-serif" className="sr-only" />
-                                        <Label htmlFor="font-serif" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer font-serif text-xs font-bold", fontFamily === 'serif' ? "bg-primary text-white border-primary" : "bg-muted/30 border-transparent")}>Serif</Label>
+                                        <RadioGroupItem value="wide" id="width-wide" className="sr-only" />
+                                        <Label htmlFor="width-wide" className={cn("flex flex-col items-center justify-center h-12 rounded-2xl border transition-all cursor-pointer gap-1", layoutWidth === 'wide' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>
+                                            <Maximize2 className="h-4 w-4" />
+                                            <span className="text-[8px] font-bold uppercase tracking-widest">Wide</span>
+                                        </Label>
                                     </div>
                                 </RadioGroup>
                             </div>
+
+                            <div className="space-y-3 p-4 bg-muted/20 rounded-3xl border border-border/20">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <MousePointer2 className="h-3.5 w-3.5 text-primary" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Auto Scroll</span>
+                                    </div>
+                                    <span className="text-[9px] font-mono text-primary font-bold">{autoScrollSpeed}x</span>
+                                </div>
+                                <Slider value={[autoScrollSpeed]} onValueChange={([v]) => setAutoScrollSpeed(v)} max={10} step={0.5} className="py-2" />
+                            </div>
+
+                            <Button variant="ghost" className="w-full rounded-2xl h-11 font-bold uppercase text-[9px] tracking-[0.2em] text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all" onClick={resetPreferences}>
+                                <RotateCcw className="h-3.5 w-3.5 mr-2" /> Reset Preferences
+                            </Button>
                          </div>
                     </TabsContent>
                 </Tabs>
@@ -345,44 +422,73 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         </Popover>
       </header>
 
-      <main className="pt-20 pb-24" onClick={() => setControlsVisible(!controlsVisible)}>
+      <main className="pt-20 pb-24 min-h-screen">
         {isAccessGranted ? (
-            <article className={articleClasses}>
-                <h2 className="font-headline text-3xl font-bold tracking-tight text-center mb-12">{currentChapter.title}</h2>
-                <EditorContent editor={editor} />
+            <article className={cn(articleClasses, currentChapter?.accessType === 'premium' && "select-none")}>
+                <div className="text-center mb-16 space-y-4 px-6 animate-in slide-in-from-top-4 duration-1000">
+                    <Badge variant="outline" className="rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-[0.3em] bg-primary/5 text-primary border-primary/20">Part {currentChapter.order}</Badge>
+                    <h2 className="font-headline text-4xl md:text-7xl font-bold tracking-tight leading-none text-foreground">{currentChapter.title}</h2>
+                    <div className="flex justify-center items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
+                        <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> {currentChapter.wordCount || 0} Words</span>
+                        <div className="h-1 w-1 bg-border rounded-full" />
+                        <span className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> {Math.max(1, Math.round((currentChapter.wordCount || 0) / 225))} Min Read</span>
+                    </div>
+                </div>
+                <div className="relative">
+                    <EditorContent editor={editor} />
+                    {isZenFocus && <div className="fixed inset-0 bg-background pointer-events-none z-[-1] transition-opacity duration-1000" />}
+                </div>
             </article>
         ) : (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
-                <Lock className="h-12 w-12 text-yellow-500 mb-4" />
-                <h2 className="text-2xl font-headline font-bold">Chapter Restricted</h2>
-                <p className="text-muted-foreground text-sm max-w-xs mx-auto">{accessReason === 'scheduled' ? `Scheduled for ${formatDate(currentChapter.scheduledAt)}.` : 'Access to this part is restricted.'}</p>
-                <Button variant="outline" className="mt-8 rounded-full" onClick={() => router.push(`/stories/${storyId}`)}>Go Back</Button>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center animate-in fade-in duration-700">
+                <div className="p-8 rounded-[40px] bg-muted/20 border-2 border-dashed border-border/40 max-w-sm w-full space-y-6">
+                    <Lock className="h-16 w-16 text-yellow-500 mx-auto drop-shadow-2xl animate-bounce" />
+                    <div>
+                        <h2 className="text-2xl font-headline font-bold">Archive Restricted</h2>
+                        <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
+                            {accessReason === 'scheduled' ? `Scheduled for automatic release on ${formatDate(currentChapter.scheduledAt)}.` : 'This entry is restricted to authorized nodes only.'}
+                        </p>
+                    </div>
+                    <Button variant="outline" className="w-full h-14 rounded-2xl font-bold uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-transform" onClick={() => router.push(`/stories/${storyId}`)}>Return to Overview</Button>
+                </div>
             </div>
         )}
       </main>
 
-      <footer className={cn('fixed bottom-0 left-0 z-40 bg-background/80 backdrop-blur-xl border-t w-full transition-all duration-500', controlsVisible ? 'translate-y-0' : '-translate-y-full')}>
-        <div className="absolute top-0 left-0 w-full h-1 bg-muted/30">
-          <div className="h-full bg-primary transition-all duration-300" style={{ width: `${readingProgress}%` }} />
+      <footer className={cn('fixed bottom-0 left-0 z-40 bg-background/90 backdrop-blur-2xl border-t w-full transition-all duration-500 transform-gpu', controlsVisible ? 'translate-y-0' : 'translate-y-full shadow-[0_-10px_30px_rgba(0,0,0,0.1)]')}>
+        <div className="absolute top-0 left-0 w-full h-1 bg-muted/30 overflow-hidden">
+          <div className="h-full bg-primary transition-all duration-700 ease-out" style={{ width: `${readingProgress}%` }} />
         </div>
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-            <Button variant="ghost" size="icon" onClick={() => prevChapterId && router.push(`/stories/${storyId}/read/${prevChapterId}`)} disabled={!prevChapterId}><ArrowLeft className="h-5 w-5" /></Button>
-            <div className="flex flex-col items-center gap-1">
-                <div className="bg-muted/40 rounded-full px-2 py-1 flex items-center gap-1 border border-border/40 shadow-sm">
-                    <Button variant="ghost" size="sm" className="rounded-full h-9 gap-1.5" onClick={handleVoteClick} disabled={isVoting}>
-                        <ThumbsUp className="h-4 w-4" /> <span className="text-[10px] font-black">{formatCompactNumber(currentChapter?.votes || 0)}</span>
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-primary/10 transition-all" onClick={() => prevChapterId && router.push(`/stories/${storyId}/read/${prevChapterId}`)} disabled={!prevChapterId}>
+                <ArrowLeft className="h-6 w-6" />
+            </Button>
+            
+            <div className="flex flex-col items-center gap-1.5">
+                <div className="bg-muted/40 rounded-3xl p-1.5 flex items-center gap-1.5 border border-border/40 shadow-xl backdrop-blur-md">
+                    <Button variant="ghost" size="sm" className="rounded-2xl h-11 px-4 gap-2.5 group hover:bg-primary/10 transition-all" onClick={handleVoteClick} disabled={isVoting}>
+                        {isVoting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsUp className={cn("h-5 w-5 transition-transform group-hover:scale-110", currentChapter?.voterIds?.includes(currentUser?.id || '') && "fill-primary text-primary")} />}
+                        <span className="text-xs font-black tracking-tighter">{formatCompactNumber(currentChapter?.votes || 0)}</span>
                     </Button>
                     <Link href={`/stories/${storyId}/read/${chapterId}/comments`} passHref>
-                        <Button variant="ghost" size="sm" className="rounded-full h-9 gap-1.5">
-                            <MessageSquare className="h-4 w-4" /> <span className="text-[10px] font-black">{formatCompactNumber(currentChapter?.commentsCount || 0)}</span>
+                        <Button variant="ghost" size="sm" className="rounded-2xl h-11 px-4 gap-2.5 hover:bg-primary/10 transition-all">
+                            <MessageSquare className="h-5 w-5" />
+                            <span className="text-xs font-black tracking-tighter">{formatCompactNumber(currentChapter?.commentsCount || 0)}</span>
                         </Button>
                     </Link>
-                    <Button variant="ghost" size="icon" className={cn("rounded-full h-9 w-9", isInLibrary && "text-primary")} onClick={handleLibraryAction}>
+                    <div className="w-px h-6 bg-border/40 mx-1" />
+                    <Button variant="ghost" size="icon" className={cn("rounded-2xl h-11 w-11 transition-all", isInLibrary ? "text-primary bg-primary/10" : "hover:bg-primary/10")} onClick={handleLibraryAction}>
                         {isInLibrary ? <BookmarkCheck className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                     </Button>
                 </div>
+                {autoScrollSpeed > 0 && (
+                    <span className="text-[8px] font-black uppercase tracking-[0.3em] text-primary animate-pulse">Auto Scroll Active</span>
+                )}
             </div>
-            <Button variant="ghost" size="icon" onClick={() => nextChapterId && router.push(`/stories/${storyId}/read/${nextChapterId}`)} disabled={!nextChapterId}><ArrowRight className="h-5 w-5" /></Button>
+
+            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-primary/10 transition-all" onClick={() => nextChapterId && router.push(`/stories/${storyId}/read/${chapterId}/end`)} disabled={!nextChapterId && currentChapter?.status === 'Published'}>
+                <ArrowRight className="h-6 w-6" />
+            </Button>
         </div>
       </footer>
       <BottomNavigationBar />
