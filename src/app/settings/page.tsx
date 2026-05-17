@@ -126,7 +126,7 @@ export default function SettingsHubPage() {
       </div>
       
       <footer className="pt-10 text-center">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-tighter font-bold">D4RKV3NOM &bull; Node 1.2.5 &bull; May 2026 Core</p>
+        <p className="text-[10px] text-muted-foreground uppercase tracking-tighter font-bold">DVHIDEOUT & bull; Node 1.2.5 & bull; May 2026 Core</p>
       </footer>
     </div>
   );
