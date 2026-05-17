@@ -111,7 +111,6 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
   const { toast } = useToast();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [newAnnouncement, setNewAnnouncement] = useState('');
   const [isPosting, setIsPosting] = useState(false);
 
   const [editingPost, setEditingPost] = useState<Announcement | null>(null);
@@ -450,7 +449,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                   {isOwnProfile && (
                       <div className="absolute top-0 right-0 md:top-auto md:bottom-2">
                         <Link href="/settings" passHref>
-                            <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 backdrop-blur-sm bg-background/50">
+                            <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 bg-background/50">
                                 <Settings className="h-4 w-4" />
                                 <span className="hidden sm:inline">Settings</span>
                             </Button>
@@ -513,7 +512,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                             <SpotifyPlayer trackUrl={profileUser.profileSongUrl} />
                         </div>
                         {profileUser.profileSongNote && (
-                            <div className="p-6 md:w-80 flex items-center bg-background/30 backdrop-blur-md border-l border-border/20">
+                            <div className="p-6 md:w-80 flex items-center bg-background/30 border-l border-border/20">
                                 <p className="text-sm italic text-muted-foreground leading-relaxed">"{profileUser.profileSongNote}"</p>
                             </div>
                         )}

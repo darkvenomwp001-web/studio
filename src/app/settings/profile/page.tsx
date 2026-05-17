@@ -182,7 +182,7 @@ export default function EditProfilePage() {
         </header>
 
         <form onSubmit={handleProfileSubmit} className="space-y-10 pb-20">
-          <Card className="shadow-2xl border-none bg-card/50 backdrop-blur-md overflow-hidden rounded-[2.5rem]">
+          <Card className="shadow-2xl border-none bg-card/50 overflow-hidden rounded-[2.5rem]">
             {/* High-Fidelity Cover Upload Interface */}
             <div className="relative w-full aspect-[21/9] md:aspect-[4/1] bg-muted group cursor-pointer overflow-hidden border-b border-border/40" onClick={() => coverInputRef.current?.click()}>
                 {coverPreview ? (
@@ -312,7 +312,7 @@ export default function EditProfilePage() {
                                 Spotify Soundtrack
                                 <Popover>
                                     <PopoverTrigger asChild><Info className="h-3 w-3 cursor-help opacity-40 hover:opacity-100 transition-opacity" /></PopoverTrigger>
-                                    <PopoverContent className="text-[10px] w-64 p-4 space-y-3 bg-card/95 backdrop-blur-xl border-none shadow-2xl rounded-2xl">
+                                    <PopoverContent className="text-[10px] w-64 p-4 space-y-3 bg-card/95 border-none shadow-2xl rounded-2xl">
                                         <p className="font-black uppercase tracking-widest text-primary">Archiving Music:</p>
                                         <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground font-medium">
                                             <li>Open the Spotify Interface</li>
