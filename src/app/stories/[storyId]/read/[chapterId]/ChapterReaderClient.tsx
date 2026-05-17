@@ -634,6 +634,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 variant="ghost" 
                                 size="sm" 
                                 className="h-8 px-3 rounded-full gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-primary hover:text-white transition-all"
+                                onMouseDown={(e) => e.preventDefault()}
                                 onClick={(e) => { e.stopPropagation(); handleAnnotationAction('highlight'); }}
                             >
                                 <Highlighter className="h-3.5 w-3.5" />
@@ -644,6 +645,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 variant="ghost" 
                                 size="sm" 
                                 className="h-8 px-3 rounded-full gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-accent hover:text-white transition-all"
+                                onMouseDown={(e) => e.preventDefault()}
                                 onClick={(e) => { e.stopPropagation(); handleAnnotationAction('comment'); }}
                             >
                                 <MessageSquare className="h-3.5 w-3.5" />
