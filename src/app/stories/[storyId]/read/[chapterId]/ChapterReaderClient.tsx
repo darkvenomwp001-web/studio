@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import NextImage from 'next/image';
 import Link from 'next/link';
@@ -19,6 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
+  DialogClose,
 } from '@/components/ui/dialog';
 import {
   DropdownMenu,
@@ -68,19 +70,21 @@ import {
   Minimize2,
   MousePointer2,
   RotateCcw,
-  FileText
+  FileText,
+  Highlighter,
+  Quote
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
-import type { Story, Chapter } from '@/types'; 
+import type { Story, Chapter, Annotation } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn, formatCompactNumber } from '@/lib/utils';
 import { db, rtdb } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
-import { doc, onSnapshot, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, Timestamp, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
-import { EditorContent, useEditor } from '@tiptap/react'
+import { EditorContent, useEditor, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
@@ -88,10 +92,20 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { formatDate } from '@/lib/placeholder-data';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
 type FontFamily = 'sans' | 'serif';
 type LineHeight = 'tight' | 'normal' | 'loose';
+
+const HIGHLIGHT_COLORS = [
+    { name: 'Gold', value: '#fde047' },
+    { name: 'Emerald', value: '#6ee7b7' },
+    { name: 'Rose', value: '#f472b6' },
+    { name: 'Blue', value: '#60a5fa' },
+    { name: 'Purple', value: '#c084fc' },
+];
 
 export default function ChapterReaderClient({ storyId, chapterId }: { storyId: string, chapterId: string }) {
   const router = useRouter();
@@ -105,30 +119,39 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [isLoading, setIsLoading] = useState(true);
   
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [tocVisible, setTocVisible] = useState(false);
+  const [isTocOpen, setIsTocOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [readingProgress, setReadingProgress] = useState(0);
   const [isAccessGranted, setIsAccessGranted] = useState(false);
   const [accessReason, setAccessReason] = useState<'locked' | 'scheduled' | 'exclusive' | 'none'>('none');
   const [isVoting, setIsVoting] = useState(false);
   const [activeReaders, setActiveReaders] = useState(1);
 
-  // High-Fidelity States
+  // Annotation/Highlight States
+  const [isAnnotationDialogOpen, setIsAnnotationDialogOpen] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const [annotationNote, setAnnotationNote] = useState('');
+  const [selectedColor, setSelectedColor] = useState(HIGHLIGHT_COLORS[0].value);
+  const [isSavingAnnotation, setIsSavingAnnotation] = useState(false);
+
+  // High-Fidelity Style States
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
   const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
   const [isNightPortalActive, setIsNightPortalActive] = useState(false);
   const [isZenFocus, setIsZenFocus] = useState(false);
-  const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
-  const [isWriterPost, setIsWriterPost] = useState(false);
-  const [freezeMode, setFreezeMode] = useState(false);
-  const [searchable, setSearchable] = useState(false);
   const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
 
   const editor = useEditor({
-    editable: false, 
+    extensions: [
+        StarterKit, 
+        TiptapUnderline, 
+        TiptapHighlight.configure({ multicolor: true })
+    ],
     content: '',
-    extensions: [StarterKit, TiptapUnderline, TiptapHighlight.configure({ multicolor: true })],
+    editable: false,
   });
 
   useEffect(() => {
@@ -241,6 +264,54 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     else addToLibrary(story);
   };
 
+  const handleAnnotationAction = (type: 'highlight' | 'comment') => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    const text = editor.state.doc.textBetween(from, to, ' ');
+    if (!text.trim()) return;
+
+    setSelectedText(text);
+    setAnnotationNote('');
+    setIsAnnotationDialogOpen(true);
+  };
+
+  const saveAnnotation = async (type: 'highlight' | 'comment') => {
+    if (!currentUser || !story || !currentChapter || !selectedText.trim()) return;
+    setIsSavingAnnotation(true);
+
+    const annotationData: Omit<Annotation, 'id'> = {
+        userId: currentUser.id,
+        authorInfo: { id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName, avatarUrl: currentUser.avatarUrl },
+        storyId: story.id,
+        chapterId: currentChapter.id,
+        storyTitle: story.title,
+        chapterTitle: currentChapter.title,
+        highlightedText: selectedText.trim(),
+        highlightColor: selectedColor,
+        note: annotationNote.trim(),
+        timestamp: serverTimestamp(),
+        visibility: 'public',
+        reactionsCount: 0,
+        commentsCount: 0
+    };
+
+    try {
+        if (type === 'highlight') {
+            await addDoc(collection(db, 'annotations'), annotationData);
+            editor?.chain().focus().setHighlight({ color: selectedColor }).run();
+            toast({ title: "Highlight Captured", description: "Prose archived in your highlights." });
+        } else {
+            // wattpad style: go straight to comments with a quote
+            router.push(`/stories/${story.id}/read/${currentChapter.id}/comments?quote=${encodeURIComponent(selectedText.trim())}`);
+        }
+        setIsAnnotationDialogOpen(false);
+    } catch (error) {
+        toast({ title: "Capture Failed", variant: "destructive" });
+    } finally {
+        setIsSavingAnnotation(false);
+    }
+  };
+
   const resetPreferences = () => {
     setFontSize('base');
     setFontFamily('sans');
@@ -248,14 +319,12 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     setLayoutWidth('normal');
     setIsNightPortalActive(false);
     setIsZenFocus(false);
-    setIsWriterPost(false);
-    setFreezeMode(false);
     setAutoScrollSpeed(0);
     toast({ title: "Preferences Reset" });
   };
 
   const articleClasses = cn(
-      "prose dark:prose-invert max-w-none py-8 px-4 selection:bg-primary/20 transition-all duration-300 transform-gpu",
+      "prose dark:prose-invert max-w-none py-8 px-4 selection:bg-primary/30 transition-all duration-300 transform-gpu",
       isZenFocus && "zen-focus-enabled",
       {
         'prose-sm': fontSize === 'sm', 'prose-base': fontSize === 'base', 'prose-lg': fontSize === 'lg', 'prose-xl': fontSize === 'xl',
@@ -264,9 +333,27 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         'max-w-3xl mx-auto': layoutWidth === 'normal', 'max-w-5xl mx-auto': layoutWidth === 'wide',
       }
   );
-  
+
+  const searchResults = useMemo(() => {
+      if (!searchTerm || !currentChapter?.content) return [];
+      const text = currentChapter.content.replace(/<[^>]*>/g, '');
+      const regex = new RegExp(searchTerm, 'gi');
+      const matches = [];
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+          const start = Math.max(0, match.index - 30);
+          const end = Math.min(text.length, match.index + searchTerm.length + 30);
+          matches.push({
+              index: match.index,
+              snippet: '...' + text.substring(start, end).replace(regex, (m) => `<span class="bg-primary/30 font-bold">${m}</span>`) + '...'
+          });
+          if (matches.length > 50) break;
+      }
+      return matches;
+  }, [searchTerm, currentChapter?.content]);
+
   if (isLoading || !editor) {
-    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
+    return <div className="flex justify-center items-center h-screen bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
 
   if (!story || !currentChapter) return null;
@@ -286,8 +373,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       <header className={cn('fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b p-3 flex items-center justify-between w-full transition-all duration-300', controlsVisible ? 'translate-y-0' : '-translate-y-full shadow-lg')}>
         <div className="flex items-center">
             <Link href="/" passHref><Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10"><Home className="h-5 w-5" /></Button></Link>
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => setTocVisible(!tocVisible)}><ListOrdered className="h-5 w-5" /></Button>
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => setSearchable(!searchable)}><Search className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => setIsTocOpen(true)}><ListOrdered className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => setIsSearchOpen(true)}><Search className="h-5 w-5" /></Button>
         </div>
         <div className="truncate text-center mx-2 flex-1 flex flex-col items-center">
             <h1 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 mb-0.5">{story.title}</h1>
@@ -310,7 +397,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         <TabsTrigger value="view" className="rounded-xl text-[10px] font-bold uppercase tracking-widest">View</TabsTrigger>
                     </TabsList>
                     
-                    <TabsContent value="vibe" className="space-y-6 animate-in fade-in duration-500">
+                    <TabsContent value="vibe" className="space-y-6">
                         <div className="space-y-3">
                             <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Archive Atmosphere</Label>
                             <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
@@ -322,16 +409,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 ))}
                             </RadioGroup>
                         </div>
-
                         <div className="space-y-4 pt-2">
-                            <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20 transition-all hover:border-primary/20">
+                            <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-primary/10 rounded-lg"><Sparkles className="h-4 w-4 text-primary" /></div>
                                     <Label htmlFor="zen-focus" className="text-xs font-bold uppercase tracking-tight">Zen Focus</Label>
                                 </div>
                                 <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
                             </div>
-                            <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20 transition-all hover:border-primary/20">
+                            <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-primary/10 rounded-lg"><Eye className="h-4 w-4 text-primary" /></div>
                                     <Label htmlFor="night-portal" className="text-xs font-bold uppercase tracking-tight">Night Portal</Label>
@@ -341,7 +427,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="type" className="space-y-6 animate-in fade-in duration-500">
+                    <TabsContent value="type" className="space-y-6">
                          <div className="space-y-4">
                             <div className="space-y-2">
                                 <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Typeface</Label>
@@ -354,7 +440,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                     ))}
                                 </RadioGroup>
                             </div>
-
                             <div className="space-y-2">
                                 <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Scale</Label>
                                 <RadioGroup value={fontSize} onValueChange={(v: any) => setFontSize(v)} className="grid grid-cols-4 gap-1">
@@ -366,9 +451,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                     ))}
                                 </RadioGroup>
                             </div>
-
                             <div className="space-y-2">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Flow / Line Height</Label>
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Line Height</Label>
                                 <RadioGroup value={lineHeight} onValueChange={(v: any) => setLineHeight(v)} className="grid grid-cols-3 gap-1">
                                     {['tight', 'normal', 'loose'].map(l => (
                                         <div key={l}>
@@ -381,7 +465,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                          </div>
                     </TabsContent>
 
-                    <TabsContent value="view" className="space-y-6 animate-in fade-in duration-500">
+                    <TabsContent value="view" className="space-y-6">
                          <div className="space-y-4">
                             <div className="space-y-2">
                                 <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Focus Width</Label>
@@ -402,7 +486,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                     </div>
                                 </RadioGroup>
                             </div>
-
                             <div className="space-y-3 p-4 bg-muted/20 rounded-3xl border border-border/20">
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
@@ -413,7 +496,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 </div>
                                 <Slider value={[autoScrollSpeed]} onValueChange={([v]) => setAutoScrollSpeed(v)} max={10} step={0.5} className="py-2" />
                             </div>
-
                             <Button variant="ghost" className="w-full rounded-2xl h-11 font-bold uppercase text-[9px] tracking-[0.2em] text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all" onClick={resetPreferences}>
                                 <RotateCcw className="h-3.5 w-3.5 mr-2" /> Reset Preferences
                             </Button>
@@ -424,23 +506,123 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         </Popover>
       </header>
 
+      {/* Chapters TOC Panel */}
+      <Sheet open={isTocOpen} onOpenChange={setIsTocOpen}>
+          <SheetContent side="left" className="w-80 p-0 border-none shadow-3xl bg-background/95 backdrop-blur-xl">
+              <SheetHeader className="p-6 bg-muted/30 border-b">
+                  <SheetTitle className="font-headline text-xl">Manuscript Map</SheetTitle>
+                  <SheetDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Complete Table of Contents</SheetDescription>
+              </SheetHeader>
+              <ScrollArea className="h-[calc(100vh-140px)]">
+                  <div className="p-4 space-y-1">
+                      {story.chapters.sort((a,b)=>a.order-b.order).map(ch => (
+                          <Link 
+                            key={ch.id} 
+                            href={`/stories/${story.id}/read/${ch.id}`} 
+                            onClick={() => setIsTocOpen(false)}
+                            className={cn(
+                                "flex items-center gap-3 p-3 rounded-xl transition-all group",
+                                ch.id === chapterId ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10"
+                            )}
+                          >
+                              <span className={cn("text-[10px] font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0", ch.id === chapterId ? "bg-white text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-white")}>{ch.order}</span>
+                              <span className="text-sm font-bold truncate flex-1">{ch.title}</span>
+                              {ch.accessType === 'premium' && <Lock className="h-3 w-3 opacity-50" />}
+                          </Link>
+                      ))}
+                  </div>
+              </ScrollArea>
+          </SheetContent>
+      </Sheet>
+
+      {/* Archive Search Panel */}
+      <Sheet open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+          <SheetContent side="right" className="w-80 p-0 border-none shadow-3xl bg-background/95 backdrop-blur-xl">
+              <SheetHeader className="p-6 bg-muted/30 border-b">
+                  <SheetTitle className="font-headline text-xl">Search Archive</SheetTitle>
+                  <SheetDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Scan prose for motifs or strings</SheetDescription>
+              </SheetHeader>
+              <div className="p-6 space-y-6">
+                  <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Type to search..." 
+                        value={searchTerm} 
+                        onChange={e => setSearchTerm(e.target.value)} 
+                        className="pl-9 h-11 rounded-xl bg-muted/30 border-none shadow-inner"
+                        autoFocus
+                      />
+                  </div>
+                  <ScrollArea className="h-[calc(100vh-220px)]">
+                      <div className="space-y-4 pr-3">
+                          {searchResults.length > 0 ? (
+                              searchResults.map((res, i) => (
+                                  <div key={i} className="p-3 bg-muted/10 rounded-xl border border-border/20 text-xs leading-relaxed text-muted-foreground cursor-pointer hover:bg-primary/5 transition-all" onClick={() => {
+                                      setIsSearchOpen(false);
+                                      // Logic to scroll to index would go here if we tracked DOM offsets
+                                  }}>
+                                      <p dangerouslySetInnerHTML={{ __html: res.snippet }} />
+                                  </div>
+                              ))
+                          ) : (
+                              <div className="py-20 text-center text-muted-foreground italic opacity-40">
+                                  {searchTerm ? 'No matches found in this part.' : 'Prose scanner ready...'}
+                              </div>
+                          )}
+                      </div>
+                  </ScrollArea>
+              </div>
+          </SheetContent>
+      </Sheet>
+
       <main className="pt-20 pb-24 min-h-screen">
         {isAccessGranted ? (
-            <article className={articleClasses}>
-                <div className="text-center mb-16 space-y-4 px-6 animate-in slide-in-from-top-4 duration-1000">
-                    <Badge variant="outline" className="rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-[0.3em] bg-primary/5 text-primary border-primary/20">Part {currentChapter?.order}</Badge>
-                    <h2 className="font-headline text-4xl md:text-7xl font-bold tracking-tight leading-none text-foreground">{currentChapter?.title}</h2>
-                    <div className="flex justify-center items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
-                        <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> {currentChapter?.wordCount || 0} Words</span>
-                        <div className="h-1 w-1 bg-border rounded-full" />
-                        <span className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> {Math.max(1, Math.round((currentChapter?.wordCount || 0) / 225))} Min Read</span>
+            <div className="relative">
+                <article className={articleClasses}>
+                    <div className="text-center mb-16 space-y-4 px-6 animate-in slide-in-from-top-4 duration-1000">
+                        <Badge variant="outline" className="rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-[0.3em] bg-primary/5 text-primary border-primary/20">Part {currentChapter?.order}</Badge>
+                        <h2 className="font-headline text-4xl md:text-7xl font-bold tracking-tight leading-none text-foreground">{currentChapter?.title}</h2>
+                        <div className="flex justify-center items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
+                            <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> {currentChapter?.wordCount || 0} Words</span>
+                            <div className="h-1 w-1 bg-border rounded-full" />
+                            <span className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> {Math.max(1, Math.round((currentChapter?.wordCount || 0) / 225))} Min Read</span>
+                        </div>
                     </div>
-                </div>
-                <div className="relative">
-                    <EditorContent editor={editor} />
-                    {isZenFocus && <div className="fixed inset-0 bg-background pointer-events-none z-[-1] transition-opacity duration-1000" />}
-                </div>
-            </article>
+                    
+                    {editor && (
+                        <BubbleMenu 
+                            editor={editor} 
+                            tippyOptions={{ duration: 100, animation: 'scale' }}
+                            className="flex items-center gap-1 p-1 bg-card/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-3xl transform-gpu"
+                        >
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 px-3 rounded-full gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-primary hover:text-white transition-all"
+                                onClick={() => handleAnnotationAction('highlight')}
+                            >
+                                <Highlighter className="h-3.5 w-3.5" />
+                                <span>Highlight</span>
+                            </Button>
+                            <div className="w-px h-4 bg-white/10 mx-1" />
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 px-3 rounded-full gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-accent hover:text-white transition-all"
+                                onClick={() => handleAnnotationAction('comment')}
+                            >
+                                <MessageSquare className="h-3.5 w-3.5" />
+                                <span>Comment</span>
+                            </Button>
+                        </BubbleMenu>
+                    )}
+
+                    <div className="relative">
+                        <EditorContent editor={editor} />
+                        {isZenFocus && <div className="fixed inset-0 bg-background pointer-events-none z-[-1] transition-opacity duration-1000" />}
+                    </div>
+                </article>
+            </div>
         ) : (
             <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center animate-in fade-in duration-700">
                 <div className="p-8 rounded-[40px] bg-muted/20 border-2 border-dashed border-border/40 max-w-sm w-full space-y-6">
@@ -456,6 +638,60 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             </div>
         )}
       </main>
+
+      {/* Annotation / Highlight Dialog */}
+      <Dialog open={isAnnotationDialogOpen} onOpenChange={setIsAnnotationDialogOpen}>
+          <DialogContent className="sm:max-w-md rounded-[32px] border-none shadow-3xl p-0 overflow-hidden bg-background">
+              <DialogHeader className="p-8 bg-muted/30 border-b">
+                  <DialogTitle className="text-2xl font-headline font-bold">Annotate Prose</DialogTitle>
+                  <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Capture your thoughts on this excerpt</DialogDescription>
+              </DialogHeader>
+              <div className="p-8 space-y-6">
+                  <div className="bg-muted/10 p-5 rounded-2xl border border-border/40 relative">
+                      <Quote className="absolute top-2 left-2 h-4 w-4 text-primary/20 -scale-x-100" />
+                      <p className="italic text-sm text-foreground/80 leading-relaxed pl-4">“{selectedText}”</p>
+                  </div>
+
+                  <div className="space-y-3">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Archive Tint</Label>
+                      <div className="flex gap-2">
+                          {HIGHLIGHT_COLORS.map(c => (
+                              <button 
+                                key={c.value} 
+                                onClick={() => setSelectedColor(c.value)}
+                                className={cn(
+                                    "w-8 h-8 rounded-full border-2 transition-all transform-gpu hover:scale-110",
+                                    selectedColor === c.value ? "border-primary shadow-lg ring-2 ring-primary/20" : "border-transparent"
+                                )}
+                                style={{ backgroundColor: c.value }}
+                              />
+                          ))}
+                      </div>
+                  </div>
+
+                  <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Personal Note (Optional)</Label>
+                      <Textarea 
+                        placeholder="Why does this line resonate? Reflect or analyze..." 
+                        value={annotationNote}
+                        onChange={e => setAnnotationNote(e.target.value)}
+                        className="rounded-xl bg-muted/20 border-none shadow-inner resize-none h-24 text-sm"
+                      />
+                  </div>
+              </div>
+              <DialogFooter className="p-6 bg-muted/20 border-t flex-row justify-end gap-2">
+                  <DialogClose asChild><Button variant="ghost" className="rounded-full px-6 font-bold uppercase text-[10px] tracking-widest">Discard</Button></DialogClose>
+                  <Button 
+                    onClick={() => saveAnnotation('highlight')} 
+                    disabled={isSavingAnnotation} 
+                    className="rounded-full px-8 bg-primary hover:bg-primary/90 font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20"
+                  >
+                      {isSavingAnnotation ? <Loader2 className="h-3 w-3 animate-spin mr-2"/> : <Highlighter className="h-3 w-3 mr-2" />}
+                      Archive Highlight
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
 
       <footer className={cn('fixed bottom-0 left-0 z-40 bg-background/90 backdrop-blur-2xl border-t w-full transition-all duration-500 transform-gpu', controlsVisible ? 'translate-y-0' : 'translate-y-full shadow-[0_-10px_30px_rgba(0,0,0,0.1)]')}>
         <div className="absolute top-0 left-0 w-full h-1 bg-muted/30 overflow-hidden">
