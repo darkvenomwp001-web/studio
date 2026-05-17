@@ -119,6 +119,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [isLoading, setIsLoading] = useState(true);
   
   const [controlsVisible, setControlsVisible] = useState(true);
+  const lastScrollY = useRef(0);
   const [isTocOpen, setIsTocOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [readingProgress, setReadingProgress] = useState(0);
@@ -158,6 +159,24 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       editor.commands.setContent(currentChapter.content, false);
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
+
+  // UI Control Visibility Logic
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        setControlsVisible(false);
+      } else if (currentScrollY < lastScrollY.current) {
+        setControlsVisible(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const toggleControls = () => setControlsVisible(!controlsVisible);
 
   // Auto-Scroll Logic
   useEffect(() => {
@@ -271,10 +290,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
     setSelectedText(text);
     setAnnotationNote('');
-    setIsAnnotationDialogOpen(true);
+    if (type === 'highlight') {
+        setIsAnnotationDialogOpen(true);
+    } else {
+        // Wattpad-style: go straight to comments with a quote
+        router.push(`/stories/${story?.id}/read/${currentChapter?.id}/comments?quote=${encodeURIComponent(text.trim())}`);
+    }
   };
 
-  const saveAnnotation = async (type: 'highlight' | 'comment') => {
+  const saveAnnotation = async () => {
     if (!currentUser || !story || !currentChapter || !selectedText.trim()) return;
     setIsSavingAnnotation(true);
 
@@ -295,14 +319,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     };
 
     try {
-        if (type === 'highlight') {
-            await addDoc(collection(db, 'annotations'), annotationData);
-            editor?.chain().focus().setHighlight({ color: selectedColor }).run();
-            toast({ title: "Highlight Captured", description: "Prose archived in your highlights." });
-        } else {
-            // wattpad style: go straight to comments with a quote
-            router.push(`/stories/${story.id}/read/${currentChapter.id}/comments?quote=${encodeURIComponent(selectedText.trim())}`);
-        }
+        await addDoc(collection(db, 'annotations'), annotationData);
+        editor?.chain().focus().setHighlight({ color: selectedColor }).run();
+        toast({ title: "Highlight Captured", description: "Prose archived in your highlights." });
         setIsAnnotationDialogOpen(false);
     } catch (error) {
         toast({ title: "Capture Failed", variant: "destructive" });
@@ -395,7 +414,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         isZenFocus && "zen-focus-mode",
         currentChapter?.accessType === 'premium' && "select-none"
     )}>
-      <header className={cn('fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b p-3 flex items-center justify-between w-full transition-all duration-300', controlsVisible ? 'translate-y-0' : '-translate-y-full shadow-lg')}>
+      <header className={cn('fixed top-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-b p-3 flex items-center justify-between transition-all duration-300 transform-gpu', controlsVisible ? 'translate-y-0' : '-translate-y-full shadow-lg')}>
         <div className="flex items-center">
             <Link href="/" passHref><Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10"><Home className="h-5 w-5" /></Button></Link>
             <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => setIsTocOpen(true)}><ListOrdered className="h-5 w-5" /></Button>
@@ -587,8 +606,14 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
       <main className="pt-20 pb-24 min-h-screen">
         {isAccessGranted ? (
-            <div className="relative">
+            <div className="relative" onClick={toggleControls}>
                 <article className={articleClasses}>
+                    {currentChapter?.artworkUrl && (
+                        <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-[32px] overflow-hidden mb-16 shadow-2xl animate-in fade-in duration-1000 transform-gpu">
+                            <NextImage src={currentChapter.artworkUrl} alt="Chapter Artwork" fill className="object-cover" priority />
+                        </div>
+                    )}
+                    
                     <div className="text-center mb-16 space-y-4 px-6 animate-in slide-in-from-top-4 duration-1000">
                         <Badge variant="outline" className="rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-[0.3em] bg-primary/5 text-primary border-primary/20">Part {currentChapter?.order}</Badge>
                         <h2 className="font-headline text-4xl md:text-7xl font-bold tracking-tight leading-none text-foreground">{currentChapter?.title}</h2>
@@ -609,7 +634,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 variant="ghost" 
                                 size="sm" 
                                 className="h-8 px-3 rounded-full gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-primary hover:text-white transition-all"
-                                onClick={() => handleAnnotationAction('highlight')}
+                                onClick={(e) => { e.stopPropagation(); handleAnnotationAction('highlight'); }}
                             >
                                 <Highlighter className="h-3.5 w-3.5" />
                                 <span>Highlight</span>
@@ -619,7 +644,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 variant="ghost" 
                                 size="sm" 
                                 className="h-8 px-3 rounded-full gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-accent hover:text-white transition-all"
-                                onClick={() => handleAnnotationAction('comment')}
+                                onClick={(e) => { e.stopPropagation(); handleAnnotationAction('comment'); }}
                             >
                                 <MessageSquare className="h-3.5 w-3.5" />
                                 <span>Comment</span>
@@ -692,7 +717,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
               <DialogFooter className="p-6 bg-muted/20 border-t flex-row justify-end gap-2">
                   <DialogClose asChild><Button variant="ghost" className="rounded-full px-6 font-bold uppercase text-[10px] tracking-widest">Discard</Button></DialogClose>
                   <Button 
-                    onClick={() => saveAnnotation('highlight')} 
+                    onClick={saveAnnotation} 
                     disabled={isSavingAnnotation} 
                     className="rounded-full px-8 bg-primary hover:bg-primary/90 font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20"
                   >
@@ -703,7 +728,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
           </DialogContent>
       </Dialog>
 
-      <footer className={cn('fixed bottom-0 left-0 z-40 bg-background/90 backdrop-blur-2xl border-t w-full transition-all duration-500 transform-gpu', controlsVisible ? 'translate-y-0' : 'translate-y-full shadow-[0_-10px_30px_rgba(0,0,0,0.1)]')}>
+      <footer className={cn('fixed bottom-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-2xl border-t transition-all duration-500 transform-gpu', controlsVisible ? 'translate-y-0' : 'translate-y-full shadow-[0_-10px_30px_rgba(0,0,0,0.1)]')}>
         <div className="absolute top-0 left-0 w-full h-1 bg-muted/30 overflow-hidden">
           <div className="h-full bg-primary transition-all duration-700 ease-out" style={{ width: `${readingProgress}%` }} />
         </div>
@@ -714,7 +739,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             
             <div className="flex flex-col items-center gap-1.5">
                 <div className="bg-muted/40 rounded-3xl p-1.5 flex items-center gap-1.5 border border-border/40 shadow-xl backdrop-blur-md">
-                    <Button variant="ghost" size="sm" className="rounded-2xl h-11 px-4 gap-2.5 group hover:bg-primary/10 transition-all" onClick={handleVoteClick} disabled={isVoting}>
+                    <Button variant="ghost" size="sm" className="rounded-2xl h-11 px-4 gap-2.5 group hover:bg-primary/10 transition-all" onClick={(e) => { e.stopPropagation(); handleVoteClick(); }} disabled={isVoting}>
                         {isVoting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsUp className={cn("h-5 w-5 transition-transform group-hover:scale-110", currentChapter?.voterIds?.includes(currentUser?.id || '') && "fill-primary text-primary")} />}
                         <span className="text-xs font-black tracking-tighter">{formatCompactNumber(currentChapter?.votes || 0)}</span>
                     </Button>
@@ -725,7 +750,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         </Button>
                     </Link>
                     <div className="w-px h-6 bg-border/40 mx-1" />
-                    <Button variant="ghost" size="icon" className={cn("rounded-2xl h-11 w-11 transition-all", isInLibrary ? "text-primary bg-primary/10" : "hover:bg-primary/10")} onClick={handleLibraryAction}>
+                    <Button variant="ghost" size="icon" className={cn("rounded-2xl h-11 w-11 transition-all", isInLibrary ? "text-primary bg-primary/10" : "hover:bg-primary/10")} onClick={(e) => { e.stopPropagation(); handleLibraryAction(); }}>
                         {isInLibrary ? <BookmarkCheck className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                     </Button>
                 </div>
