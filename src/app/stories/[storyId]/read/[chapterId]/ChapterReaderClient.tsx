@@ -67,7 +67,8 @@ import {
   Maximize2,
   Minimize2,
   MousePointer2,
-  RotateCcw
+  RotateCcw,
+  FileText
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -226,10 +227,10 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const handleVoteClick = async () => {
     if (!currentUser || !story || !currentChapter || isVoting) return;
     setIsVoting(true);
-    const wasVoting = currentChapter.voterIds?.includes(currentUser.id) || false;
-    const newVoterIds = wasVoting ? currentChapter.voterIds!.filter(id => id !== currentUser.id) : [...(currentChapter.voterIds || []), currentUser.id];
-    const newVoteCount = wasVoting ? Math.max(0, (currentChapter.votes || 0) - 1) : (currentChapter.votes || 0) + 1;
-    const updatedChapters = story.chapters.map(ch => ch.id === currentChapter.id ? { ...ch, voterIds: newVoterIds, votes: newVoteCount } : ch);
+    const wasVoting = currentChapter?.voterIds?.includes(currentUser.id) || false;
+    const newVoterIds = wasVoting ? currentChapter?.voterIds!.filter(id => id !== currentUser.id) : [...(currentChapter?.voterIds || []), currentUser.id];
+    const newVoteCount = wasVoting ? Math.max(0, (currentChapter?.votes || 0) - 1) : (currentChapter?.votes || 0) + 1;
+    const updatedChapters = story.chapters.map(ch => ch.id === currentChapter?.id ? { ...ch, voterIds: newVoterIds, votes: newVoteCount } : ch);
     updateDoc(doc(db, 'stories', story.id), { chapters: updatedChapters }).finally(() => setIsVoting(false));
   };
 
@@ -271,15 +272,16 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   if (!story || !currentChapter) return null;
 
   const isInLibrary = currentUser?.readingList?.some(item => item.id === story.id);
-  const nextChapterId = story.chapters.sort((a,b)=>a.order-b.order).find(c => c.order > currentChapter.order)?.id;
-  const prevChapterId = story.chapters.sort((a,b)=>a.order-b.order).reverse().find(c => c.order < currentChapter.order)?.id;
+  const nextChapterId = story.chapters.sort((a,b)=>a.order-b.order).find(c => c.order > (currentChapter?.order || 0))?.id;
+  const prevChapterId = story.chapters.sort((a,b)=>a.order-b.order).reverse().find(c => c.order < (currentChapter?.order || 0))?.id;
 
   return (
     <TooltipProvider delayDuration={300}>
     <div className={cn(
         "relative min-h-screen bg-background text-foreground transition-colors duration-500",
         isNightPortalActive && "dark night-portal",
-        isZenFocus && "zen-focus-mode"
+        isZenFocus && "zen-focus-mode",
+        currentChapter?.accessType === 'premium' && "select-none"
     )}>
       <header className={cn('fixed top-0 left-0 z-40 bg-card/80 backdrop-blur-md border-b p-3 flex items-center justify-between w-full transition-all duration-300', controlsVisible ? 'translate-y-0' : '-translate-y-full shadow-lg')}>
         <div className="flex items-center">
@@ -424,14 +426,14 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
       <main className="pt-20 pb-24 min-h-screen">
         {isAccessGranted ? (
-            <article className={cn(articleClasses, currentChapter?.accessType === 'premium' && "select-none")}>
+            <article className={articleClasses}>
                 <div className="text-center mb-16 space-y-4 px-6 animate-in slide-in-from-top-4 duration-1000">
-                    <Badge variant="outline" className="rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-[0.3em] bg-primary/5 text-primary border-primary/20">Part {currentChapter.order}</Badge>
-                    <h2 className="font-headline text-4xl md:text-7xl font-bold tracking-tight leading-none text-foreground">{currentChapter.title}</h2>
+                    <Badge variant="outline" className="rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-[0.3em] bg-primary/5 text-primary border-primary/20">Part {currentChapter?.order}</Badge>
+                    <h2 className="font-headline text-4xl md:text-7xl font-bold tracking-tight leading-none text-foreground">{currentChapter?.title}</h2>
                     <div className="flex justify-center items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
-                        <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> {currentChapter.wordCount || 0} Words</span>
+                        <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> {currentChapter?.wordCount || 0} Words</span>
                         <div className="h-1 w-1 bg-border rounded-full" />
-                        <span className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> {Math.max(1, Math.round((currentChapter.wordCount || 0) / 225))} Min Read</span>
+                        <span className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> {Math.max(1, Math.round((currentChapter?.wordCount || 0) / 225))} Min Read</span>
                     </div>
                 </div>
                 <div className="relative">
@@ -446,7 +448,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     <div>
                         <h2 className="text-2xl font-headline font-bold">Archive Restricted</h2>
                         <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-                            {accessReason === 'scheduled' ? `Scheduled for automatic release on ${formatDate(currentChapter.scheduledAt)}.` : 'This entry is restricted to authorized nodes only.'}
+                            {accessReason === 'scheduled' ? `Scheduled for automatic release on ${formatDate(currentChapter?.scheduledAt)}.` : 'This entry is restricted to authorized nodes only.'}
                         </p>
                     </div>
                     <Button variant="outline" className="w-full h-14 rounded-2xl font-bold uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-transform" onClick={() => router.push(`/stories/${storyId}`)}>Return to Overview</Button>
@@ -486,7 +488,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 )}
             </div>
 
-            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-primary/10 transition-all" onClick={() => nextChapterId && router.push(`/stories/${storyId}/read/${chapterId}/end`)} disabled={!nextChapterId && currentChapter?.status === 'Published'}>
+            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-primary/10 transition-all" onClick={() => nextChapterId && router.push(`/stories/${storyId}/read/${nextChapterId}`)} disabled={!nextChapterId && currentChapter?.status === 'Published'}>
                 <ArrowRight className="h-6 w-6" />
             </Button>
         </div>
