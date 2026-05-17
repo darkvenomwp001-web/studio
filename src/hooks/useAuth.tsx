@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { User as AppUserType, NotificationType, Story, ReadingListItem, Achievement } from '@/types';
 import { auth, db, rtdb } from '@/lib/firebase';
@@ -96,7 +96,6 @@ const DEFAULT_REDIRECT_AUTHENTICATED = '/';
 const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Initialize from session cache for instant UI response
   const [user, setUser] = useState<AppUser | null>(() => {
     if (typeof window !== 'undefined') {
       const cached = sessionStorage.getItem(USER_CACHE_KEY);
@@ -119,14 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newAchievements.length > oldAchievements.length) {
           const latestAchievement = newAchievements[newAchievements.length - 1];
           const toastId = `ach-toast-${latestAchievement.id}`;
-          
           if (typeof window !== 'undefined') {
               const hasSeenToast = sessionStorage.getItem(toastId);
               if (!hasSeenToast) {
-                toast({
-                  title: "🏆 Achievement Unlocked!",
-                  description: latestAchievement.name,
-                });
+                toast({ title: "🏆 Achievement Unlocked!", description: latestAchievement.name });
                 sessionStorage.setItem(toastId, 'true');
               }
           }
@@ -139,56 +134,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Presence System with Active Path Tracking
   useEffect(() => {
     if (!user || user.isAnonymous) return;
-
     const userStatusRef = ref(rtdb, `/status/${user.id}`);
     const connectedRef = ref(rtdb, '.info/connected');
-
-    const unsubscribeConnected = onValue(connectedRef, (snap) => {
+    const unsub = onValue(connectedRef, (snap) => {
       if (snap.val() === false) return;
-
-      onDisconnect(userStatusRef).set({
-        state: 'offline',
-        last_changed: rtdbTimestamp(),
-        active_path: null
-      }).then(() => {
-        set(userStatusRef, {
-          state: 'online',
-          last_changed: rtdbTimestamp(),
-          active_path: pathname
-        });
+      onDisconnect(userStatusRef).set({ state: 'offline', last_changed: rtdbTimestamp(), active_path: null }).then(() => {
+        set(userStatusRef, { state: 'online', last_changed: rtdbTimestamp(), active_path: pathname });
       });
     });
-
     return () => {
-      unsubscribeConnected();
-      set(userStatusRef, {
-        state: 'offline',
-        last_changed: rtdbTimestamp(),
-        active_path: null
-      });
+      unsub();
+      set(userStatusRef, { state: 'offline', last_changed: rtdbTimestamp(), active_path: null });
     };
   }, [user, pathname]);
 
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | undefined;
     let unsubscribeNotifs: (() => void) | undefined;
-    
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (unsubscribeUserDoc) unsubscribeUserDoc();
       if (unsubscribeNotifs) unsubscribeNotifs();
-
       if (firebaseUser) {
-        // If we have a cached user, we can resolve loading faster
         const userRef = doc(db, 'users', firebaseUser.uid);
-        
         unsubscribeUserDoc = onSnapshot(userRef, async (userSnap) => {
           const oldAchievements = user?.achievements || [];
           if (userSnap.exists()) {
             const firestoreUserData = userSnap.data() as AppUser;
-
             const fullUser: AppUser = {
               id: firebaseUser.uid,
               email: firebaseUser.email || firestoreUserData.email,
@@ -218,103 +191,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               createdAt: firestoreUserData.createdAt,
               updatedAt: firestoreUserData.updatedAt,
             };
-
             setUser(fullUser);
-            if (typeof window !== 'undefined') {
-                sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(fullUser));
-            }
-            if(fullUser.achievements) {
-                handleAchievementUnlock(fullUser.achievements, oldAchievements);
-            }
+            if (typeof window !== 'undefined') sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(fullUser));
+            if(fullUser.achievements) handleAchievementUnlock(fullUser.achievements, oldAchievements);
             setLoading(false);
           } else {
             const isAnonymous = firebaseUser.isAnonymous;
-            const username = isAnonymous
-                ? `Guest${firebaseUser.uid.substring(0, 6)}`
-                : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0].toLowerCase() || `user_${firebaseUser.uid.substring(0, 5)}`;
+            const username = isAnonymous ? `Guest${firebaseUser.uid.substring(0, 6)}` : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0].toLowerCase() || `user_${firebaseUser.uid.substring(0, 5)}`;
             const displayName = isAnonymous ? 'A Mysterious Guest' : (firebaseUser.displayName || username);
-
-            const newUserProfile: any = {
-              id: firebaseUser.uid,
-              username: username,
-              displayName: displayName,
-              email: firebaseUser.email || '',
-              emailVerified: firebaseUser.emailVerified,
-              avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`,
-              bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse!',
-              messagingPreference: 'everyone',
-              level: 1,
-              xp: 0,
-              achievements: [],
-              notificationSettings: { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false },
-              followersCount: 0,
-              followingCount: 0,
-              followingIds: [],
-              closeFriendIds: [],
-              fcmTokens: [],
-              readingList: [],
-              isAnonymous: isAnonymous,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            };
-            
+            const newUserProfile: any = { id: firebaseUser.uid, username, displayName, email: firebaseUser.email || '', emailVerified: firebaseUser.emailVerified, avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`, bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse!', messagingPreference: 'everyone', level: 1, xp: 0, achievements: [], notificationSettings: { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false }, followersCount: 0, followingCount: 0, followingIds: [], closeFriendIds: [], fcmTokens: [], readingList: [], isAnonymous, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
             setDoc(userRef, newUserProfile, { merge: true }).catch(async (serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: userRef.path,
-                    operation: 'create',
-                    requestResourceData: newUserProfile,
-                } satisfies SecurityRuleContext);
-                errorEmitter.emit('permission-error', permissionError);
+                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'create', requestResourceData: newUserProfile }));
             });
             setUser(newUserProfile); 
-            if (typeof window !== 'undefined') {
-                sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(newUserProfile));
-            }
+            if (typeof window !== 'undefined') sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(newUserProfile));
             setLoading(false);
           }
-        }, (error) => {
-            const permissionError = new FirestorePermissionError({
-                path: `users/${firebaseUser.uid}`,
-                operation: 'get',
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
-            setLoading(false);
         });
-
-        const notifsQuery = query(
-            collection(db, 'notifications'),
-            where('userId', '==', firebaseUser.uid),
-            orderBy('timestamp', 'desc'),
-            limit(50)
-        );
+        const notifsQuery = query(collection(db, 'notifications'), where('userId', '==', firebaseUser.uid), orderBy('timestamp', 'desc'), limit(50));
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType)));
         }, async (error) => {
-             const permissionError = new FirestorePermissionError({
-                path: 'notifications',
-                operation: 'list',
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'notifications', operation: 'list' }));
         });
-
-        getRedirectResult(auth).then((result) => {
-            if (result) {
-                toast({ title: "Authenticated with Google" });
-            }
-        }).catch((error) => {
-            console.error("Redirect check failed:", error);
-        });
-        
+        getRedirectResult(auth).then((result) => { if (result) toast({ title: "Authenticated with Google" }); }).catch(console.error);
       } else {
         setUser(null);
         setLoading(false);
         setNotifications([]);
-        if (typeof window !== 'undefined') {
-            sessionStorage.removeItem(USER_CACHE_KEY);
-        }
+        if (typeof window !== 'undefined') sessionStorage.removeItem(USER_CACHE_KEY);
       }
     });
-
     return () => {
       unsubscribeAuth();
       if (unsubscribeUserDoc) unsubscribeUserDoc();
@@ -322,52 +229,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [handleAchievementUnlock, toast]);
 
+  // MANDATORY SECURITY LOCKDOWN
   useEffect(() => {
     if (loading) return;
     const isAuthRoute = AUTH_ROUTES.includes(pathname);
-    if (user && !user.isAnonymous) {
+    const isAuthenticated = user && !user.isAnonymous;
+    if (isAuthenticated) {
         if (isAuthRoute) router.push(DEFAULT_REDIRECT_AUTHENTICATED);
     } else {
-        if (!isAuthRoute && !pathname.startsWith('/stories/') && pathname !== '/search' && pathname !== '/') {
-            router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
-        }
+        if (!isAuthRoute) router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
     }
   }, [user, loading, pathname, router]);
 
-  const addNotification = async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
-    const newNotifData = {
-        ...notificationData,
-        timestamp: serverTimestamp(),
-        isRead: false,
-    };
-    const notifColRef = collection(db, 'notifications');
-    addDoc(notifColRef, newNotifData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'notifications',
-            operation: 'create',
-            requestResourceData: newNotifData,
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
+  const addNotification = useCallback(async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
+    const newNotifData = { ...notificationData, timestamp: serverTimestamp(), isRead: false };
+    addDoc(collection(db, 'notifications'), newNotifData).catch(async (serverError) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'notifications', operation: 'create', requestResourceData: newNotifData }));
     });
-  };
+  }, []);
 
-  const markNotificationAsRead = async (notificationId: string) => {
-    const notifRef = doc(db, 'notifications', notificationId);
-    updateDoc(notifRef, { isRead: true });
-  };
+  const markNotificationAsRead = useCallback(async (notificationId: string) => {
+    updateDoc(doc(db, 'notifications', notificationId), { isRead: true });
+  }, []);
 
-  const markAllNotificationsAsRead = async () => {
+  const markAllNotificationsAsRead = useCallback(async () => {
     if (!user) return;
     const batch = writeBatch(db);
     const unreadQuery = query(collection(db, 'notifications'), where('userId', '==', user.id), where('isRead', '==', false));
     const snapshot = await getDocs(unreadQuery);
-    snapshot.forEach(doc => {
-        batch.update(doc.ref, { isRead: true });
-    });
+    snapshot.forEach(doc => batch.update(doc.ref, { isRead: true }));
     batch.commit();
-  };
+  }, [user]);
 
-  const enablePushNotifications = async () => {
+  const enablePushNotifications = useCallback(async () => {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     const permission = await Notification.requestPermission();
     setNotificationPermission(permission);
@@ -377,26 +271,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY });
             if (token) {
                 setFcmToken(token);
-                const userRef = doc(db, 'users', user.id);
-                updateDoc(userRef, {
-                    fcmTokens: arrayUnion(token)
-                });
+                updateDoc(doc(db, 'users', user.id), { fcmTokens: arrayUnion(token) });
             }
         }
     }
-  };
+  }, [user]);
 
-  const sendVerificationEmail = async () => {
+  const sendVerificationEmail = useCallback(async () => {
     toast({ title: "Note", description: "Email verification is currently managed internally." });
-  };
+  }, [toast]);
 
-  const reloadUser = async () => {
-    if (auth.currentUser) {
-        await auth.currentUser.reload();
-    }
-  };
+  const reloadUser = useCallback(async () => {
+    if (auth.currentUser) await auth.currentUser.reload();
+  }, []);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     setAuthLoading(true);
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
@@ -405,77 +294,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "Authenticated with Google" });
     } catch (error: any) {
       if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
-        try {
-          await signInWithRedirect(auth, provider);
-        } catch (redirectError: any) {
-          toast({ title: "Sign-In Error", description: redirectError.message || "Please allow redirects or check your internet.", variant: "destructive" });
+        try { await signInWithRedirect(auth, provider); } catch (redirectError: any) {
+          toast({ title: "Sign-In Error", description: redirectError.message || "Please allow redirects.", variant: "destructive" });
         }
       } else {
         toast({ title: "Sign-In Error", description: error.message || "Failed to connect with Google.", variant: "destructive" });
       }
-    } finally {
-      setAuthLoading(false);
-    }
-  };
+    } finally { setAuthLoading(false); }
+  }, [toast]);
 
-  const signUpWithEmailPassword = async ({ username, email, passwordOne }: { username: string; email: string; passwordOne: string; }) => {
+  const signUpWithEmailPassword = useCallback(async ({ username, email, passwordOne }: { username: string; email: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, email, passwordOne);
       toast({ title: "Account Created!" });
     } catch (error: any) {
       toast({ title: "Sign Up Error", description: error.message, variant: "destructive" });
-    } finally {
-      setAuthLoading(false);
-    }
-  };
+    } finally { setAuthLoading(false); }
+  }, [toast]);
 
-  const signInWithEmailAndPassword = async ({ emailOrUsername, passwordOne }: { emailOrUsername: string; passwordOne: string; }) => {
+  const signInWithEmailAndPassword = useCallback(async ({ emailOrUsername, passwordOne }: { emailOrUsername: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
       let email = emailOrUsername;
       if (!emailOrUsername.includes('@')) {
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('username', '==', emailOrUsername.toLowerCase()));
+        const q = query(collection(db, 'users'), where('username', '==', emailOrUsername.toLowerCase()));
         const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          email = snapshot.docs[0].data().email;
-        } else {
-            throw new Error("No user found with that username.");
-        }
+        if (!snapshot.empty) email = snapshot.docs[0].data().email;
+        else throw new Error("No user found with that username.");
       }
       await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
     } catch (error: any) {
       toast({ title: "Sign In Error", description: error.message, variant: "destructive" });
-    } finally {
-      setAuthLoading(false);
-    }
-  };
+    } finally { setAuthLoading(false); }
+  }, [toast]);
 
-  const signOutFirebase = async () => {
+  const signOutFirebase = useCallback(async () => {
     setAuthLoading(true);
     try {
       if (user) {
         const userStatusRef = ref(rtdb, `/status/${user.id}`);
-        await set(userStatusRef, {
-          state: 'offline',
-          last_changed: rtdbTimestamp(),
-          active_path: null
-        });
+        await set(userStatusRef, { state: 'offline', last_changed: rtdbTimestamp(), active_path: null });
       }
       await signOut(auth);
-      if (typeof window !== 'undefined') {
-          sessionStorage.removeItem(USER_CACHE_KEY);
-      }
+      if (typeof window !== 'undefined') sessionStorage.removeItem(USER_CACHE_KEY);
       router.push('/auth/signin');
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
+    } catch (error) { console.error(error); } finally { setAuthLoading(false); }
+  }, [user, router]);
 
-  const updateUserProfile = async (updates: Partial<AppUser>) => {
+  const updateUserProfile = useCallback(async (updates: Partial<AppUser>) => {
     if (!user) return;
     const userRef = doc(db, 'users', user.id);
     const updateData = { ...updates, updatedAt: serverTimestamp() };
@@ -483,39 +350,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await updateDoc(userRef, updateData);
         if (updates.username || updates.displayName || updates.avatarUrl) {
             const batch = writeBatch(db);
-            const newSummary = {
-                id: user.id,
-                username: updates.username || user.username,
-                displayName: updates.displayName || user.displayName || user.username,
-                avatarUrl: updates.avatarUrl || user.avatarUrl
-            };
-
-            const storiesQuery = query(collection(db, 'stories'), where('author.id', '==', user.id));
-            const storiesSnapshot = await getDocs(storiesQuery);
+            const newSummary = { id: user.id, username: updates.username || user.username, displayName: updates.displayName || user.displayName || user.username, avatarUrl: updates.avatarUrl || user.avatarUrl };
+            const storiesSnapshot = await getDocs(query(collection(db, 'stories'), where('author.id', '==', user.id)));
             storiesSnapshot.forEach(d => batch.update(d.ref, { author: newSummary }));
-
-            const postsQuery = query(collection(db, 'feedPosts'), where('author.id', '==', user.id));
-            const postsSnapshot = await getDocs(postsQuery);
+            const postsSnapshot = await getDocs(query(collection(db, 'feedPosts'), where('author.id', '==', user.id)));
             postsSnapshot.forEach(d => batch.update(d.ref, { author: newSummary }));
-
-            const commentsQuery = query(collection(db, 'comments'), where('user.id', '==', user.id));
-            const commentsSnapshot = await getDocs(commentsQuery);
+            const commentsSnapshot = await getDocs(query(collection(db, 'comments'), where('user.id', '==', user.id)));
             commentsSnapshot.forEach(d => batch.update(d.ref, { user: newSummary }));
-
             await batch.commit();
         }
         toast({ title: "Profile Updated!" });
     } catch (serverError: any) {
-        const permissionError = new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'update',
-            requestResourceData: updateData,
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update', requestResourceData: updateData }));
     }
-  };
+  }, [user, toast]);
 
-  const updateUserEmailFirebase = async (newEmail: string, currentPasswordForReAuth: string) => {
+  const updateUserEmailFirebase = useCallback(async (newEmail: string, currentPasswordForReAuth: string) => {
     if (!auth.currentUser || !auth.currentUser.email) return false;
     const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPasswordForReAuth);
     try {
@@ -528,9 +378,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     }
-  };
+  }, [updateUserProfile, toast]);
 
-  const updateUserPasswordFirebase = async (currentPasswordForReAuth: string, newPasswordVal: string) => {
+  const updateUserPasswordFirebase = useCallback(async (currentPasswordForReAuth: string, newPasswordVal: string) => {
     if (!auth.currentUser || !auth.currentUser.email) return false;
     const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPasswordForReAuth);
     try {
@@ -542,9 +392,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     }
-  };
+  }, [toast]);
 
-  const sendPasswordResetFirebase = async (email: string) => {
+  const sendPasswordResetFirebase = useCallback(async (email: string) => {
     try {
       await sendPasswordResetEmail(auth, email);
       toast({ title: "Reset Link Sent" });
@@ -553,49 +403,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     }
-  };
+  }, [toast]);
 
-  const followUser = async (targetUserId: string) => {
+  const followUser = useCallback(async (targetUserId: string) => {
     if (!user) return;
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(1) });
     batch.commit().then(() => toast({ title: "Following!" }));
-  };
+  }, [user, toast]);
 
-  const unfollowUser = async (targetUserId: string) => {
+  const unfollowUser = useCallback(async (targetUserId: string) => {
     if (!user) return;
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(-1) });
     batch.commit().then(() => toast({ title: "Unfollowed" }));
-  };
+  }, [user, toast]);
 
-  const addToLibrary = async (story: Story) => {
+  const addToLibrary = useCallback(async (story: Story) => {
     if (!user) return;
-    const item: ReadingListItem = {
-        id: story.id,
-        title: story.title,
-        author: story.author,
-        chapters: story.chapters,
-        lastUpdated: story.lastUpdated,
-        coverImageUrl: story.coverImageUrl,
-        status: story.status,
-    };
-    const userRef = doc(db, 'users', user.id);
-    updateDoc(userRef, { readingList: arrayUnion(item) }).then(() => toast({ title: "Added to Library!" }));
-  };
+    const item: ReadingListItem = { id: story.id, title: story.title, author: story.author, chapters: story.chapters, lastUpdated: story.lastUpdated, coverImageUrl: story.coverImageUrl, status: story.status };
+    updateDoc(doc(db, 'users', user.id), { readingList: arrayUnion(item) }).then(() => toast({ title: "Added to Library!" }));
+  }, [user, toast]);
 
-  const removeFromLibrary = async (storyId: string) => {
+  const removeFromLibrary = useCallback(async (storyId: string) => {
     if (!user) return;
     const itemToRemove = user.readingList?.find(i => i.id === storyId);
-    if (itemToRemove) {
-        const userRef = doc(db, 'users', user.id);
-        updateDoc(userRef, { readingList: arrayRemove(itemToRemove) }).then(() => toast({ title: "Removed from Library" }));
-    }
-  };
+    if (itemToRemove) updateDoc(doc(db, 'users', user.id), { readingList: arrayRemove(itemToRemove) }).then(() => toast({ title: "Removed from Library" }));
+  }, [user, toast]);
 
-  const setNewUserPassword = async (password: string) => {
+  const setNewUserPassword = useCallback(async (password: string) => {
     if (auth.currentUser) {
         try {
             await updateFirebasePassword(auth.currentUser, password);
@@ -608,52 +446,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
     return false;
-  };
+  }, [toast]);
 
-  const clearAppCache = async () => {
+  const clearAppCache = useCallback(async () => {
     if (typeof window !== 'undefined') {
         sessionStorage.removeItem(USER_CACHE_KEY);
-        // Also clear other possible junk
         Object.keys(sessionStorage).forEach(key => {
-            if (key.startsWith('ach-toast') || key.startsWith('disclaimer-seen')) {
-                sessionStorage.removeItem(key);
-            }
+            if (key.startsWith('ach-toast') || key.startsWith('disclaimer-seen')) sessionStorage.removeItem(key);
         });
         window.location.reload();
     }
-  };
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    user,
+    loading,
+    authLoading,
+    notifications,
+    requiresPasswordSetup,
+    notificationPermission,
+    fcmToken,
+    addNotification,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    enablePushNotifications,
+    sendVerificationEmail,
+    reloadUser,
+    signInWithGoogle,
+    signUpWithEmailPassword,
+    signInWithEmailAndPassword,
+    signOutFirebase,
+    updateUserProfile,
+    updateUserEmailFirebase,
+    updateUserPasswordFirebase,
+    sendPasswordResetFirebase,
+    followUser,
+    unfollowUser,
+    addToLibrary,
+    removeFromLibrary,
+    setRequiresPasswordSetup,
+    setNewUserPassword,
+    clearAppCache
+  }), [
+    user, loading, authLoading, notifications, requiresPasswordSetup, 
+    notificationPermission, fcmToken, addNotification, markNotificationAsRead, 
+    markAllNotificationsAsRead, enablePushNotifications, sendVerificationEmail, 
+    reloadUser, signInWithGoogle, signUpWithEmailPassword, 
+    signInWithEmailAndPassword, signOutFirebase, updateUserProfile, 
+    updateUserEmailFirebase, updateUserPasswordFirebase, sendPasswordResetFirebase, 
+    followUser, unfollowUser, addToLibrary, removeFromLibrary, 
+    setRequiresPasswordSetup, setNewUserPassword, clearAppCache
+  ]);
 
   return (
-    <AuthContext.Provider value={{
-        user,
-        loading,
-        authLoading,
-        notifications,
-        requiresPasswordSetup,
-        notificationPermission,
-        fcmToken,
-        addNotification,
-        markNotificationAsRead,
-        markAllNotificationsAsRead,
-        enablePushNotifications,
-        sendVerificationEmail,
-        reloadUser,
-        signInWithGoogle,
-        signUpWithEmailPassword,
-        signInWithEmailAndPassword,
-        signOutFirebase,
-        updateUserProfile,
-        updateUserEmailFirebase,
-        updateUserPasswordFirebase,
-        sendPasswordResetFirebase,
-        followUser,
-        unfollowUser,
-        addToLibrary,
-        removeFromLibrary,
-        setRequiresPasswordSetup,
-        setNewUserPassword,
-        clearAppCache
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
@@ -661,8 +507,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
