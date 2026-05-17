@@ -194,7 +194,7 @@ export default function EditProfilePage() {
                     </div>
                 )}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <Button variant="outline" className="bg-white/10 backdrop-blur-md border-white/20 text-white rounded-full gap-2 pointer-events-none">
+                    <Button variant="outline" className="bg-white/10 border-white/20 text-white rounded-full gap-2 pointer-events-none">
                         <Camera className="h-4 w-4" /> Change Banner
                     </Button>
                 </div>

@@ -428,7 +428,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
         ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-accent/20" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60" />
       </div>
 
       <header className="container mx-auto px-4 -mt-16 md:-mt-24 relative z-10">
@@ -523,7 +522,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
             </section>
         )}
 
-        <Tabs defaultValue={defaultTab} className="w-full">
+        <Tabs defaultValue="works" className="w-full">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-8">
             <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all">Works</TabsTrigger>
             <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all">Feed</TabsTrigger>
