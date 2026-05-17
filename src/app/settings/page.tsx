@@ -16,15 +16,14 @@ import {
     Info, 
     FileText, 
     ShieldCheck, 
-    User,
-    Database,
-    Zap,
-    ShieldAlert,
-    Shield
+    Database, 
+    Shield,
+    LogOut
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface SettingsLinkProps {
   href: string;
@@ -50,7 +49,7 @@ const SettingsLink: React.FC<SettingsLinkProps> = ({ href, icon: Icon, title, de
 );
 
 export default function SettingsHubPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, signOutFirebase } = useAuth();
   const router = useRouter();
   
   if (loading && !user) {
@@ -67,7 +66,7 @@ export default function SettingsHubPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-10 py-10 px-4">
+    <div className="max-w-3xl mx-auto space-y-10 py-10 px-4 pb-20">
       <header className="flex flex-col items-center text-center space-y-4">
         <div className="relative">
             <Avatar className="h-24 w-24 border-4 border-background shadow-2xl">
@@ -80,7 +79,7 @@ export default function SettingsHubPage() {
         </div>
         <div>
             <h1 className="text-3xl font-headline font-bold text-foreground">Settings Hub</h1>
-            <p className="text-muted-foreground">Manage your creative identity and platform preferences.</p>
+            <p className="text-muted-foreground text-sm">Manage your creative identity and platform preferences.</p>
         </div>
       </header>
 
@@ -88,7 +87,7 @@ export default function SettingsHubPage() {
         {/* Account & Security Section */}
         <section className="space-y-3">
           <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">Identity & Security</h2>
-          <div className="grid gap-2">
+          <div className="grid gap-1">
             <SettingsLink href="/settings/profile" icon={UserCog} title="Public Profile" description="Update your avatar, username, and bio." iconColor="text-blue-500" />
             <SettingsLink href="/settings/account" icon={KeyRound} title="Account Access" description="Manage your email and password." iconColor="text-orange-500" />
             <SettingsLink href="/settings/safety" icon={Shield} title="Safety & Blocking" description="Manage your blocked list and content filters." iconColor="text-red-500" />
@@ -98,7 +97,7 @@ export default function SettingsHubPage() {
         {/* Performance & Data Section */}
         <section className="space-y-3">
           <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">System & Storage</h2>
-          <div className="grid gap-2">
+          <div className="grid gap-1">
             <SettingsLink href="/settings/data" icon={Database} title="Data & Cache" description="Fix loading issues and clear app storage." iconColor="text-emerald-500" />
             <SettingsLink href="/settings/echoes" icon={Sparkles} title="Your Echoes" description="Rediscover your journey and community impact." iconColor="text-purple-500" />
           </div>
@@ -107,26 +106,38 @@ export default function SettingsHubPage() {
         {/* Interactions & Appearance Section */}
         <section className="space-y-3">
           <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">Experience</h2>
-          <div className="grid gap-2">
+          <div className="grid gap-1">
             <SettingsLink href="/settings/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." iconColor="text-yellow-500" />
             <SettingsLink href="/settings/messaging" icon={MessageCircle} title="Messaging" description="Control who can message you." iconColor="text-green-500" />
-            <SettingsLink href="/settings/appearance" icon={Palette} title="Appearance" description="7 unique ways to theme your LitVerse." iconColor="text-pink-500" />
+            <SettingsLink href="/settings/appearance" icon={Palette} title="Appearance" description="Custom themes and immersion settings." iconColor="text-pink-500" />
           </div>
         </section>
 
-        {/* About Section */}
+        {/* About & Support Section */}
         <section className="space-y-3">
-          <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">Platform Hub</h2>
-          <div className="grid gap-2">
+          <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-2">Support & Safety</h2>
+          <div className="grid gap-1">
             <SettingsLink href="/settings/terms" icon={FileText} title="Terms of Service" description="Read our rules and guidelines." />
             <SettingsLink href="/settings/privacy" icon={ShieldCheck} title="Privacy Policy" description="Learn how we handle your data." />
-            <SettingsLink href="/settings/help" icon={Info} title="Help & Support" description="Get help or contact us." />
+            <SettingsLink href="/settings/help" icon={Info} title="Help & Support" description="Get help or contact the node." />
           </div>
+        </section>
+
+        {/* Sign Out Section - Positioned at the very end */}
+        <section className="pt-6 border-t border-border/40">
+            <Button 
+                variant="ghost" 
+                onClick={signOutFirebase} 
+                className="w-full h-14 rounded-2xl text-destructive hover:bg-destructive/10 hover:text-destructive font-bold uppercase text-xs tracking-widest transition-all"
+            >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out of DVHIDEOUT
+            </Button>
         </section>
       </div>
       
       <footer className="pt-10 text-center">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-tighter font-bold">DVHIDEOUT & bull; Node 1.2.5 & bull; May 2026 Core</p>
+        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold opacity-40">DVHIDEOUT & bull; May 2026 Core Architecture</p>
       </footer>
     </div>
   );

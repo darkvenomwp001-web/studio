@@ -12,12 +12,10 @@ import {
   UserPlus, 
   UserX, 
   Settings, 
-  LogOut, 
   ShieldAlert, 
   MoreHorizontal, 
   Trash2, 
   Lock, 
-  Pin, 
   BookOpen,
   Sparkles,
   PencilLine,
@@ -324,7 +322,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
 }
 
 export default function ProfilePageClient({ userId }: { userId: string }) {
-  const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading, signOutFirebase } = useAuth();
+  const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -416,27 +414,55 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     : null;
 
   return (
-    <div className="space-y-10 pb-20 animate-in fade-in duration-500">
-      <header className="container mx-auto px-4 mt-8">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-              <div className="relative">
-                  <Avatar className="h-32 w-32 md:h-40 md:w-40 border-2 border-border shadow-md">
+    <div className="pb-20 animate-in fade-in duration-500">
+      {/* High-Fidelity Cover Photo Container */}
+      <div className="relative w-full aspect-[21/9] md:aspect-[4/1] bg-muted overflow-hidden">
+        {profileUser.coverImageUrl ? (
+            <Image 
+                src={profileUser.coverImageUrl} 
+                alt="Profile Cover" 
+                fill 
+                className="object-cover" 
+                priority
+            />
+        ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-accent/20" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60" />
+      </div>
+
+      <header className="container mx-auto px-4 -mt-16 md:-mt-24 relative z-10">
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-8">
+              <div className="relative group">
+                  <Avatar className="h-32 w-32 md:h-48 md:w-48 border-[6px] border-background shadow-2xl">
                       <AvatarImage src={profileUser.avatarUrl} />
                       <AvatarFallback className="text-4xl bg-muted text-primary">{displayName.substring(0, 1).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   {writingStatus && (
-                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-background border shadow-xl px-3 py-1.5 rounded-full flex items-center gap-2 whitespace-nowrap z-10 animate-in slide-in-from-bottom-2 duration-700">
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-background border shadow-xl px-3 py-1.5 rounded-full flex items-center gap-2 whitespace-nowrap z-10">
                         <writingStatus.icon className={cn("h-4 w-4", writingStatus.color)} />
                         <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/80">{writingStatus.label}</span>
                       </div>
                   )}
               </div>
               
-              <div className="flex-1 text-center md:text-left space-y-3">
-                  <div>
-                      <h1 className="text-3xl font-headline font-bold flex items-center justify-center md:justify-start gap-2">
+              <div className="flex-1 text-center md:text-left space-y-4 pb-2 relative w-full">
+                  {/* Settings Button - Top Right Alignment */}
+                  {isOwnProfile && (
+                      <div className="absolute top-0 right-0 md:top-auto md:bottom-2">
+                        <Link href="/settings" passHref>
+                            <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 backdrop-blur-sm bg-background/50">
+                                <Settings className="h-4 w-4" />
+                                <span className="hidden sm:inline">Settings</span>
+                            </Button>
+                        </Link>
+                      </div>
+                  )}
+
+                  <div className="space-y-1">
+                      <h1 className="text-3xl md:text-5xl font-headline font-bold flex items-center justify-center md:justify-start gap-2 tracking-tight">
                         {displayName}
-                        {profileUser.isVerified && <VerifiedBadge className="h-5 w-5" />}
+                        {profileUser.isVerified && <VerifiedBadge className="h-6 w-6" />}
                       </h1>
                       <div className="flex items-center justify-center md:justify-start gap-2">
                         <p className="text-muted-foreground text-sm font-medium">@{profileUser.username}</p>
@@ -449,48 +475,47 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                       </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm font-semibold">
-                      <Link href={`/profile/${userId}/connections?tab=followers`} className="hover:underline">{liveFollowersCount ?? '...'} Followers</Link>
-                      <Link href={`/profile/${userId}/connections?tab=following`} className="hover:underline">{profileUser.followingCount || 0} Following</Link>
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-sm font-semibold">
+                      <Link href={`/profile/${userId}/connections?tab=followers`} className="hover:text-primary transition-colors flex items-center gap-1.5">
+                        <span className="font-bold">{liveFollowersCount ?? '...'}</span> 
+                        <span className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Followers</span>
+                      </Link>
+                      <Link href={`/profile/${userId}/connections?tab=following`} className="hover:text-primary transition-colors flex items-center gap-1.5">
+                        <span className="font-bold">{profileUser.followingCount || 0}</span>
+                        <span className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Following</span>
+                      </Link>
                   </div>
 
-                  {profileUser.bio && <p className="text-muted-foreground text-sm max-w-2xl">{profileUser.bio}</p>}
+                  {profileUser.bio && <p className="text-muted-foreground text-sm max-w-2xl leading-relaxed">{profileUser.bio}</p>}
                   
-                  <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-2">
-                    {isOwnProfile ? (
-                        <>
-                        <Link href="/settings" passHref>
-                            <Button variant="outline" size="sm"><Settings className="mr-2 h-4 w-4" /> Settings</Button>
-                        </Link>
-                        <Button variant="ghost" size="sm" onClick={signOutFirebase} className="text-destructive"><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
-                        </>
-                    ) : (
-                        <>
-                        <Button onClick={() => isFollowing ? unfollowUser(profileUser.id) : followUser(profileUser.id)} disabled={followActionLoading} variant={isFollowing ? "outline" : "default"} size="sm">
+                  {!isOwnProfile && (
+                    <div className="flex flex-wrap justify-center md:justify-start gap-3 pt-2">
+                        <Button onClick={() => isFollowing ? unfollowUser(profileUser.id) : followUser(profileUser.id)} disabled={followActionLoading} variant={isFollowing ? "outline" : "default"} className="rounded-full px-8 font-bold">
                             {followActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : isFollowing ? <UserX className="mr-2 h-4 w-4" /> : <UserPlus className="mr-2 h-4 w-4" />}
                             {isFollowing ? 'Unfollow' : 'Follow'}
                         </Button>
                         <Link href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`} passHref>
-                            <Button variant="outline" size="sm"><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
+                            <Button variant="outline" className="rounded-full px-8 gap-2 border-border/60">
+                                <MessageSquare className="h-4 w-4" /> Message
+                            </Button>
                         </Link>
-                        </>
-                    )}
-                  </div>
+                    </div>
+                  )}
               </div>
           </div>
       </header>
 
-      <main className="container mx-auto px-4 space-y-10">
+      <main className="container mx-auto px-4 mt-12 space-y-10">
         {profileUser.profileSongUrl && (
             <section className="animate-in slide-in-from-bottom-2 duration-500">
-                <Card className="bg-muted/10 border-none shadow-sm overflow-hidden">
+                <Card className="bg-muted/10 border-none shadow-sm overflow-hidden rounded-[2rem]">
                     <div className="flex flex-col md:flex-row">
                         <div className="flex-1">
                             <SpotifyPlayer trackUrl={profileUser.profileSongUrl} />
                         </div>
                         {profileUser.profileSongNote && (
-                            <div className="p-4 md:w-64 flex items-center bg-background/50 border-l border-border/50">
-                                <p className="text-xs italic text-muted-foreground">"{profileUser.profileSongNote}"</p>
+                            <div className="p-6 md:w-80 flex items-center bg-background/30 backdrop-blur-md border-l border-border/20">
+                                <p className="text-sm italic text-muted-foreground leading-relaxed">"{profileUser.profileSongNote}"</p>
                             </div>
                         )}
                     </div>
@@ -500,18 +525,18 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
 
         <Tabs defaultValue={defaultTab} className="w-full">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-8">
-            <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-2 px-0">Works</TabsTrigger>
-            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-2 px-0">Feed</TabsTrigger>
+            <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all">Works</TabsTrigger>
+            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all">Feed</TabsTrigger>
             {showAnnouncementsTab && (
-                <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-2 px-0">Updates</TabsTrigger>
+                <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all">Updates</TabsTrigger>
             )}
           </TabsList>
           
           <TabsContent value="works" className="mt-8 space-y-12">
             {publishedWorks.length > 0 && (
               <div>
-                <h2 className="text-xl font-headline font-bold mb-4 flex items-center gap-2"><BookOpen className="h-5 w-5" /> Published Works</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight"><BookOpen className="h-5 w-5 text-primary" /> Published Works</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                     {publishedWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} /> ))}
                 </div>
               </div>
@@ -519,17 +544,18 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
             
             {isOwnProfile && privateWorks.length > 0 && (
               <div>
-                <h2 className="text-xl font-headline font-bold mb-4 flex items-center gap-2"><Lock className="h-5 w-5" /> Private Archives</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight"><Lock className="h-5 w-5 text-muted-foreground" /> Private Archives</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                     {privateWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} isPrivate /> ))}
                 </div>
               </div>
             )}
 
             {publishedWorks.length === 0 && !isOwnProfile && (
-                 <div className="text-center py-20 text-muted-foreground border border-dashed rounded-lg">
-                    <BookOpen className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                    <p>No public works found.</p>
+                 <div className="text-center py-32 text-muted-foreground border-2 border-dashed rounded-[3rem] border-border/40">
+                    <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                    <h3 className="text-lg font-bold text-foreground">Archive is Empty</h3>
+                    <p className="text-sm">This creator hasn't published any public manuscripts yet.</p>
                 </div>
             )}
           </TabsContent>

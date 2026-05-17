@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type WritingStatus = 
@@ -26,6 +25,7 @@ export interface User {
   emailVerified?: boolean;
   bio?: string;
   avatarUrl?: string; 
+  coverImageUrl?: string;
   displayName?: string;
   role?: 'reader' | 'writer' | 'moderator';
   followersCount?: number;
@@ -242,6 +242,13 @@ export interface Message {
     type?: 'text' | 'poll' | 'image' | 'video' | 'file' | 'audio';
     mediaUrl?: string;
     fileName?: string;
+}
+
+export interface GlobalChatMessage {
+    id: string;
+    author: UserSummary;
+    content: string;
+    timestamp: any; 
 }
 
 export interface GlobalChatMessage {
