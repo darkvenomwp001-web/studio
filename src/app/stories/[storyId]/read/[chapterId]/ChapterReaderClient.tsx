@@ -58,7 +58,11 @@ import {
   Timer,
   ChevronDown,
   Calendar,
-  ImagePlus
+  ImagePlus,
+  Search, 
+  Eye, 
+  Languages, 
+  BookOpen
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Separator } from '@/components/ui/separator';
@@ -109,6 +113,10 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [isNightPortalActive, setIsNightPortalActive] = useState(false);
   const [isZenFocus, setIsZenFocus] = useState(false);
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
+  const [isWriterPost, setIsWriterPost] = useState(false);
+  const [freezeMode, setFreezeMode] = useState(false);
+  const [searchable, setSearchable] = useState(false);
+
 
   const editor = useEditor({
     editable: false, 
@@ -138,50 +146,67 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   }, [pathname]);
 
   useEffect(() => {
-    if (!storyId || !chapterId) return;
+    if (!storyId || !chapterId) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     const storyDocRef = doc(db, 'stories', storyId);
+
     const unsubscribeStory = onSnapshot(storyDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
         setStory(storyData);
-        const chapterData = storyData.chapters.find(c => c.id === chapterId);
+        
+        const chapterData = storyData.chapters?.find(c => c.id === chapterId);
+
         if (chapterData) {
-            setCurrentChapter(chapterData);
-            const visibleList = storyData.chapters.filter(c => c.status === 'Published' || c.accessType === 'premium').sort((a,b) => a.order - b.order);
-            const chIndex = visibleList.findIndex(c => c.id === chapterId);
-            setReadingProgress(visibleList.length > 0 ? ((chIndex + 1) / visibleList.length) * 100 : 0);
+          setCurrentChapter(chapterData);
+          const visibleList = storyData.chapters.filter(c => c.status === 'Published' || c.accessType === 'premium').sort((a,b) => a.order - b.order);
+          const chIndex = visibleList.findIndex(c => c.id === chapterId);
+          setReadingProgress(visibleList.length > 0 ? ((chIndex + 1) / visibleList.length) * 100 : 0);
 
-            const isOwner = currentUser && (storyData.author.id === currentUser.id || storyData.collaboratorIds?.includes(currentUser.id));
-            let hasAccess = false;
-            let reason: 'locked' | 'scheduled' | 'exclusive' | 'none' = 'none';
+          const isOwner = currentUser && (storyData.author.id === currentUser.id || storyData.collaboratorIds?.includes(currentUser.id));
+          let hasAccess = false;
+          let reason: 'locked' | 'scheduled' | 'exclusive' | 'none' = 'none';
 
-            if (isOwner) {
-                hasAccess = true;
-            } else {
-                if (chapterData.scheduledAt) {
-                    const scheduledTime = (chapterData.scheduledAt as Timestamp).toDate();
-                    if (scheduledTime > new Date()) reason = 'scheduled';
-                    else hasAccess = true;
-                }
-                if (chapterData.accessType === 'exclusive') {
-                    if (currentUser && chapterData.invitedUserIds?.includes(currentUser.id)) hasAccess = true;
-                    else { hasAccess = false; reason = 'exclusive'; }
-                } else if (!chapterData.scheduledAt || reason !== 'scheduled') {
-                    if (chapterData.status === 'Published' || chapterData.accessType === 'premium') hasAccess = true;
-                    else reason = 'locked';
-                }
-            }
-            setIsAccessGranted(hasAccess);
-            setAccessReason(reason);
-            setIsLoading(false);
+          if (isOwner) {
+              hasAccess = true;
+          } else {
+              if (chapterData.scheduledAt) {
+                  const scheduledTime = (chapterData.scheduledAt as Timestamp).toDate();
+                  if (scheduledTime > new Date()) reason = 'scheduled';
+                  else hasAccess = true;
+              }
+              if (chapterData.accessType === 'exclusive') {
+                  if (currentUser && chapterData.invitedUserIds?.includes(currentUser.id)) hasAccess = true;
+                  else { hasAccess = false; reason = 'exclusive'; }
+              } else if (!chapterData.scheduledAt || reason !== 'scheduled') {
+                  if (chapterData.status === 'Published' || chapterData.accessType === 'premium') hasAccess = true;
+                  else reason = 'locked';
+              }
+          }
+          setIsAccessGranted(hasAccess);
+          setAccessReason(reason);
         } else {
-            router.push(`/stories/${storyId}`);
+          toast({ title: "Chapter Not Found", variant: "destructive" });
+          router.push(`/stories/${storyId}`);
         }
+      } else {
+        toast({ title: "Story Not Found", variant: "destructive" });
+        router.push('/');
       }
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching story:", error);
+      toast({ title: "Error", description: "Could not load the story.", variant: "destructive" });
+      router.push('/');
+      setIsLoading(false);
     });
-    return () => unsubscribe();
-  }, [storyId, chapterId, currentUser?.id, router]);
+
+    return () => unsubscribeStory();
+  }, [storyId, chapterId, currentUser?.id, router, toast]);
 
   const handleVoteClick = async () => {
     if (!currentUser || !story || !currentChapter || isVoting) return;
@@ -209,9 +234,20 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         'max-w-3xl mx-auto': layoutWidth === 'normal', 'max-w-5xl mx-auto': layoutWidth === 'wide',
       }
   );
-
-  if (isLoading || !story || !currentChapter || !editor) {
+  
+  if (isLoading || !editor) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
+  }
+
+  if (!story || !currentChapter) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen p-4 text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-destructive mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Loading Error</h2>
+        <p className="text-muted-foreground">There was an issue loading the story data. Please try again later.</p>
+        <Button onClick={() => router.push('/')} className="mt-6">Go Home</Button>
+      </div>
+    );
   }
 
   const isInLibrary = currentUser?.readingList?.some(item => item.id === story.id);
@@ -240,6 +276,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         <div className="flex items-center">
             <Link href="/" passHref><Button variant="ghost" size="icon"><Home className="h-5 w-5" /></Button></Link>
             <Button variant="ghost" size="icon" onClick={() => setTocVisible(!tocVisible)}><ListOrdered className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => setSearchable(!searchable)}><Search className="h-5 w-5" /></Button>
         </div>
         <div className="truncate text-center mx-2 flex-1 flex flex-col items-center">
             <h1 className="text-sm font-headline font-semibold text-primary truncate max-w-[200px]">{story.title}</h1>
@@ -256,7 +293,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         <TabsTrigger value="text" className="rounded-lg">Type</TabsTrigger>
                     </TabsList>
                     <TabsContent value="theme" className="pt-4 space-y-4">
-                        <RadioGroup value={theme || 'system'} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
+                        <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
                             {['light', 'dark', 'system'].map(t => (
                                 <Label key={t} htmlFor={t} className="flex flex-col items-center p-3 rounded-xl border-2 border-transparent bg-muted/30 cursor-pointer data-[state=checked]:border-primary">
                                     <RadioGroupItem value={t} id={t} className="sr-only" />
@@ -264,6 +301,27 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 </Label>
                             ))}
                         </RadioGroup>
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="h-4 w-4 text-primary" />
+                                <Label htmlFor="zen-focus" className="text-xs font-bold">Zen Focus</Label>
+                            </div>
+                            <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
+                        </div>
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
+                            <div className="flex items-center gap-2">
+                                <Eye className="h-4 w-4 text-primary" />
+                                <Label htmlFor="writer-post" className="text-xs font-bold">Writer's Perspective</Label>
+                            </div>
+                            <Switch id="writer-post" checked={isWriterPost} onCheckedChange={setIsWriterPost} />
+                        </div>
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
+                            <div className="flex items-center gap-2">
+                                <Languages className="h-4 w-4 text-primary" />
+                                <Label htmlFor="freeze-mode" className="text-xs font-bold">Freeze Mode</Label>
+                            </div>
+                            <Switch id="freeze-mode" checked={freezeMode} onCheckedChange={setFreezeMode} />
+                        </div>
                     </TabsContent>
                     <TabsContent value="text" className="pt-4 space-y-4">
                          <div className="space-y-4">
