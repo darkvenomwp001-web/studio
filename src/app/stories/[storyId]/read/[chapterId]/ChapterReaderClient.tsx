@@ -88,6 +88,7 @@ import { EditorContent, useEditor, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
+import BubbleMenuExtension from '@tiptap/extension-bubble-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -148,7 +149,10 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     extensions: [
         StarterKit, 
         TiptapUnderline, 
-        TiptapHighlight.configure({ multicolor: true })
+        TiptapHighlight.configure({ multicolor: true }),
+        BubbleMenuExtension.configure({
+            pluginKey: 'bubbleMenu',
+        })
     ],
     content: '',
     editable: false,
@@ -177,6 +181,22 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   }, []);
 
   const toggleControls = () => setControlsVisible(!controlsVisible);
+
+  const handleManuscriptClick = (e: React.MouseEvent) => {
+    // Check if the user is currently selecting text
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim().length > 0) {
+        return; // Don't toggle controls if highlighting
+    }
+
+    // Ignore clicks on buttons or interactive components
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('[role="dialog"]') || target.closest('.tippy-box')) {
+        return;
+    }
+
+    toggleControls();
+  };
 
   // Auto-Scroll Logic
   useEffect(() => {
@@ -607,7 +627,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
       <main className="pt-20 pb-24 min-h-screen">
         {isAccessGranted ? (
-            <div className="relative" onClick={toggleControls}>
+            <div className="relative" onClick={handleManuscriptClick}>
                 <article className={articleClasses}>
                     {currentChapter?.artworkUrl && (
                         <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-[32px] overflow-hidden mb-16 shadow-2xl animate-in fade-in duration-1000 transform-gpu">
@@ -628,13 +648,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     {editor && (
                         <BubbleMenu 
                             editor={editor} 
-                            pluginKey="bubbleMenu"
+                            shouldShow={({ from, to }) => from !== to}
                             tippyOptions={{ 
-                                duration: 150, 
                                 zIndex: 9999,
                                 placement: 'top',
                                 offset: [0, 15],
-                                animation: 'shift-away'
                             }}
                             className="flex items-center gap-1 p-1 bg-card/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-3xl transform-gpu"
                         >
