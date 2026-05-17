@@ -1,5 +1,3 @@
-'use server';
-
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -325,7 +323,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   };
 
   const articleClasses = cn(
-      "prose dark:prose-invert max-w-none py-8 px-4 selection:bg-primary/30 transition-all duration-300 transform-gpu",
+      "prose dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20 transition-all duration-300 transform-gpu",
       isZenFocus && "zen-mode",
       {
         'prose-sm': fontSize === 'sm', 'prose-base': fontSize === 'base', 'prose-lg': fontSize === 'lg', 'prose-xl': fontSize === 'xl',
@@ -697,7 +695,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     disabled={isSavingAnnotation} 
                     className="rounded-full px-8 bg-primary hover:bg-primary/90 font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20"
                   >
-                      {isSavingAnnotation ? <Loader2 className="h-3 w-3 animate-spin mr-2"/> : <Highlighter className="h-3 w-3 mr-2" />}
+                      {isSavingAnnotation ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Highlighter className="h-3 w-3 mr-2" />}
                       Archive Highlight
                   </Button>
               </DialogFooter>
