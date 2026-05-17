@@ -534,6 +534,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       <Sheet open={isTocOpen} onOpenChange={setIsTocOpen}>
           <SheetContent side="left" className="w-80 p-0 border-none shadow-3xl bg-background/95 backdrop-blur-xl flex flex-col">
               <SheetHeader className="p-6 bg-muted/30 border-b flex-shrink-0">
+                  <SheetTitle className="sr-only">Manuscript Navigation</SheetTitle>
                   <div className="relative mb-4">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input 
