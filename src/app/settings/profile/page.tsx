@@ -173,17 +173,18 @@ export default function EditProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-10">
-        <header className="flex flex-col space-y-2">
+        {/* Changed tag to div to escape global .glass-enabled backdrop-blur rules */}
+        <div className="flex flex-col space-y-2">
             <Button variant="ghost" onClick={() => router.push('/settings')} className="w-fit -ml-2 text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Hub
             </Button>
             <h1 className="text-3xl font-headline font-bold text-foreground">Identity Studio</h1>
             <p className="text-muted-foreground text-sm">Refine your community presence and visual aesthetics.</p>
-        </header>
+        </div>
 
         <form onSubmit={handleProfileSubmit} className="space-y-10 pb-20">
-          <Card className="shadow-2xl border-none bg-card/50 overflow-hidden rounded-[2.5rem]">
-            {/* High-Fidelity Cover Upload Interface */}
+          <Card className="shadow-2xl border-none bg-card/70 overflow-hidden rounded-[2.5rem]">
+            {/* High-Fidelity Cover Upload Interface - ZERO BLUR */}
             <div className="relative w-full aspect-[21/9] md:aspect-[4/1] bg-muted group cursor-pointer overflow-hidden border-b border-border/40" onClick={() => coverInputRef.current?.click()}>
                 {coverPreview ? (
                     <NextImage src={coverPreview} alt="Cover Preview" fill className="object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -338,7 +339,7 @@ export default function EditProfilePage() {
                     disabled={anySubmitting} 
                     className="w-full sm:w-auto min-w-[220px] h-14 text-sm font-bold uppercase tracking-[0.2em] shadow-2xl shadow-primary/30 rounded-full bg-primary hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  {isProfileUpdating || specificAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                  {isProfileUpdating || specificAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save Changes
                 </Button>
                 <Button 

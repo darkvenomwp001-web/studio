@@ -112,6 +112,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
+  const [newAnnouncement, setNewAnnouncement] = useState('');
 
   const [editingPost, setEditingPost] = useState<Announcement | null>(null);
   const [editedContent, setEditedContent] = useState("");
@@ -414,7 +415,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
 
   return (
     <div className="pb-20 animate-in fade-in duration-500">
-      {/* High-Fidelity Cover Photo Container */}
+      {/* High-Fidelity Cover Photo Container - ZERO BLUR */}
       <div className="relative w-full aspect-[21/9] md:aspect-[4/1] bg-muted overflow-hidden">
         {profileUser.coverImageUrl ? (
             <Image 
@@ -429,7 +430,8 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
         )}
       </div>
 
-      <header className="container mx-auto px-4 -mt-16 md:-mt-24 relative z-10">
+      {/* Changed tag to div to escape global .glass-enabled backdrop-blur rules */}
+      <div className="container mx-auto px-4 -mt-16 md:-mt-24 relative z-10">
           <div className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-8">
               <div className="relative group">
                   <Avatar className="h-32 w-32 md:h-48 md:w-48 border-[6px] border-background shadow-2xl">
@@ -445,11 +447,11 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
               </div>
               
               <div className="flex-1 text-center md:text-left space-y-4 pb-2 relative w-full">
-                  {/* Settings Button - Top Right Alignment */}
+                  {/* Settings Button - Zero Blur Interface */}
                   {isOwnProfile && (
                       <div className="absolute top-0 right-0 md:top-auto md:bottom-2">
                         <Link href="/settings" passHref>
-                            <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 bg-background/50">
+                            <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 bg-background/70">
                                 <Settings className="h-4 w-4" />
                                 <span className="hidden sm:inline">Settings</span>
                             </Button>
@@ -501,7 +503,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                   )}
               </div>
           </div>
-      </header>
+      </div>
 
       <main className="container mx-auto px-4 mt-12 space-y-10">
         {profileUser.profileSongUrl && (
