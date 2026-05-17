@@ -627,7 +627,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     {editor && (
                         <BubbleMenu 
                             editor={editor} 
-                            tippyOptions={{ duration: 100, animation: 'scale' }}
+                            tippyOptions={{ 
+                                duration: 100, 
+                                animation: 'scale',
+                                zIndex: 100
+                            }}
                             className="flex items-center gap-1 p-1 bg-card/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-3xl transform-gpu"
                         >
                             <Button 
