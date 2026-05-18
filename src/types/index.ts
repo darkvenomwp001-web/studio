@@ -69,6 +69,11 @@ export interface User {
     cornerStyle: 'minimal' | 'rounded' | 'organic';
     ambientSound: 'none' | 'lofi' | 'rain';
   };
+  readerSettings?: {
+    swipeToNavigate: boolean;
+    navigationStyle: 'horizontal' | 'vertical';
+    autoNextChapter: boolean;
+  };
 }
 
 export interface UserSummary {

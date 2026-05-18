@@ -188,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               profileSongUrl: firestoreUserData.profileSongUrl,
               profileSongNote: firestoreUserData.profileSongNote,
               appearanceSettings: firestoreUserData.appearanceSettings,
+              readerSettings: firestoreUserData.readerSettings || { swipeToNavigate: true, navigationStyle: 'horizontal', autoNextChapter: false },
               createdAt: firestoreUserData.createdAt,
               updatedAt: firestoreUserData.updatedAt,
             };
@@ -199,7 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const isAnonymous = firebaseUser.isAnonymous;
             const username = isAnonymous ? `Guest${firebaseUser.uid.substring(0, 6)}` : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0].toLowerCase() || `user_${firebaseUser.uid.substring(0, 5)}`;
             const displayName = isAnonymous ? 'A Mysterious Guest' : (firebaseUser.displayName || username);
-            const newUserProfile: any = { id: firebaseUser.uid, username, displayName, email: firebaseUser.email || '', emailVerified: firebaseUser.emailVerified, avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`, bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse!', messagingPreference: 'everyone', level: 1, xp: 0, achievements: [], notificationSettings: { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false }, followersCount: 0, followingCount: 0, followingIds: [], closeFriendIds: [], fcmTokens: [], readingList: [], isAnonymous, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+            const newUserProfile: any = { id: firebaseUser.uid, username, displayName, email: firebaseUser.email || '', emailVerified: firebaseUser.emailVerified, avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`, bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse!', messagingPreference: 'everyone', level: 1, xp: 0, achievements: [], notificationSettings: { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false }, followersCount: 0, followingCount: 0, followingIds: [], closeFriendIds: [], fcmTokens: [], readingList: [], readerSettings: { swipeToNavigate: true, navigationStyle: 'horizontal', autoNextChapter: false }, isAnonymous, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
             setDoc(userRef, newUserProfile, { merge: true }).catch(async (serverError) => {
                 errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'create', requestResourceData: newUserProfile }));
             });
@@ -229,7 +230,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [handleAchievementUnlock, toast]);
 
-  // MANDATORY SECURITY LOCKDOWN
   useEffect(() => {
     if (loading) return;
     const isAuthRoute = AUTH_ROUTES.includes(pathname);

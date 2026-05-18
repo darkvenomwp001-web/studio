@@ -18,7 +18,8 @@ import {
     ShieldCheck, 
     Database, 
     Shield,
-    LogOut
+    LogOut,
+    BookMarked
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -109,6 +110,7 @@ export default function SettingsHubPage() {
           <div className="grid gap-1">
             <SettingsLink href="/settings/notifications" icon={Bell} title="Notifications" description="Choose how you're notified." iconColor="text-yellow-500" />
             <SettingsLink href="/settings/messaging" icon={MessageCircle} title="Messaging" description="Control who can message you." iconColor="text-green-500" />
+            <SettingsLink href="/settings/reader" icon={BookMarked} title="Reader Preferences" description="Custom navigation and reading gestures." iconColor="text-orange-400" />
             <SettingsLink href="/settings/appearance" icon={Palette} title="Appearance" description="Custom themes and immersion settings." iconColor="text-pink-500" />
           </div>
         </section>
