@@ -19,7 +19,8 @@ import {
     Database, 
     Shield,
     LogOut,
-    BookMarked
+    BookMarked,
+    ArrowLeft
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -68,6 +69,17 @@ export default function SettingsHubPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-10 py-10 px-4 pb-20">
+      <div className="flex justify-start">
+        <Button 
+            variant="ghost" 
+            onClick={() => router.push(`/profile/${user.id}`)} 
+            className="-ml-2 text-muted-foreground hover:text-foreground font-bold text-xs uppercase tracking-widest gap-2"
+        >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Profile
+        </Button>
+      </div>
+
       <header className="flex flex-col items-center text-center space-y-4">
         <div className="relative">
             <Avatar className="h-24 w-24 border-4 border-background shadow-2xl">
