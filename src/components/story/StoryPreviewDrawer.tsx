@@ -170,7 +170,7 @@ function StoryPreviewContent({ storyId }: { storyId: string }) {
                 {isInLibrary ? <BookmarkCheck className="h-5 w-5 text-primary" /> : <BookmarkPlus className="h-5 w-5" />}
               </Button>
               {isAuthorOrCollaborator && (
-                <Link href={`/write/edit-details?storyId=${story.id}`} passHref>
+                <Link href={`/write/edit-details?storyId=${story.id}`} onClick={onClose} passHref>
                     <Button size="icon" variant="outline" className="rounded-full h-11 w-11">
                     <Edit className="h-5 w-5" />
                     </Button>
