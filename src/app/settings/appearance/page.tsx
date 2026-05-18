@@ -12,8 +12,6 @@ import {
     Moon, 
     Sun, 
     Monitor, 
-    Type, 
-    LayoutGrid, 
     Zap, 
     EyeOff, 
     Sparkles, 
@@ -26,26 +24,7 @@ import {
     BoxSelect, 
     Library,
     HeartPulse,
-    X,
-    Gem,
-    Crown,
-    Flame,
-    Ghost,
-    GlassWater,
-    Flower2,
-    Smile,
-    Heart,
-    Star,
-    Cloud,
-    Droplets,
-    Tags,
-    Waves,
-    Cake,
-    Pizza,
-    Gift,
-    Rocket,
-    Skull,
-    SunMedium
+    X
 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTheme } from 'next-themes';
@@ -53,85 +32,44 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 const accentColors = [
-    { id: 'default', name: 'LitVerse Blue', color: 'text-blue-500', icon: Sparkles },
-    { id: 'strawberry', name: 'Strawberry Silk', color: 'text-[#F472B6]', icon: Heart },
-    { id: 'ube', name: 'Ube Latte', color: 'text-[#A188D3]', icon: Coffee },
-    { id: 'matcha', name: 'Matcha Latte', color: 'text-[#96AD6B]', icon: Leaf },
-    { id: 'lavender', name: 'Lavender Haze', color: 'text-[#C084FC]', icon: Wand2 },
-    { id: 'honey', name: 'Golden Honey', color: 'text-[#FACC15]', icon: SunMedium },
+    { id: 'default', name: 'LitVerse Blue', emoji: '🌀' },
+    { id: 'strawberry', name: 'Strawberry Silk', emoji: '🍓' },
+    { id: 'ube', name: 'Ube Latte', emoji: '☕' },
+    { id: 'matcha', name: 'Matcha Latte', emoji: '🍵' },
+    { id: 'lavender', name: 'Lavender Haze', emoji: '🔮' },
+    { id: 'honey', name: 'Golden Honey', emoji: '🍯' },
     
-    // 25 New Filipino Colors
-    { id: 'ube-overload', name: 'Ube Overload', color: 'text-[#9b59b6]', icon: Gem },
-    { id: 'matcha-diet', name: 'Matcha Diet', color: 'text-[#2ecc71]', icon: Flower2 },
-    { id: 'kalamansi-shot', name: 'Kalamansi Shot', color: 'text-[#cddc39]', icon: Droplets },
-    { id: 'bagoong-sili', name: 'Bagoong with Sili', color: 'text-[#795548]', icon: Flame },
-    { id: 'halo-halo', name: 'Halo-Halo Special', color: 'text-[#9c27b0]', icon: Palette },
-    { id: 'taho-warmth', name: 'Taho in the Morning', color: 'text-[#ffcc80]', icon: GlassWater },
-    { id: 'sorbetes-pink', name: 'Sorbetes Pink', color: 'text-[#f06292]', icon: Smile },
-    { id: 'puto-bumbong', name: 'Puto Bumbong', color: 'text-[#673ab7]', icon: Ghost },
-    { id: 'kwek-kwek', name: 'Kwek-Kwek Orange', color: 'text-[#ff9800]', icon: CircleDot },
-    { id: 'sago-gulaman', name: 'Sago at Gulaman', color: 'text-[#ff8f00]', icon: Waves },
-    { id: 'dirty-ice-cream', name: 'Dirty Ice Cream', color: 'text-[#fff9c4]', icon: HeartPulse },
-    { id: 'adobo-sauce', name: 'Adobo Sauce', color: 'text-[#3e2723]', icon: Skull },
-    { id: 'lechon-skin', name: 'Lechon Skin', color: 'text-[#d84315]', icon: Zap },
-    { id: 'mango-graham', name: 'Mango Graham', color: 'text-[#ffeb3b]', icon: Star },
-    { id: 'bibingka-glow', name: 'Bibingka Glow', color: 'text-[#ffca28]', icon: Sun },
-    { id: 'isaw-burn', name: 'Isaw Burn', color: 'text-[#5d4037]', icon: Wind },
-    { id: 'balut-soup', name: 'Balut Soup', color: 'text-[#78909c]', icon: Cloud },
-    { id: 'siomai-rice', name: 'Siomai Rice', color: 'text-[#f5f5f5]', icon: Pizza },
-    { id: 'kalamay-sticky', name: 'Kalamay Sticky', color: 'text-[#4e342e]', icon: Gift },
-    { id: 'chocnut', name: 'Chocnut Crumble', color: 'text-[#a1887f]', icon: Cake },
-    { id: 'ice-scramble', name: 'Ice Scramble', color: 'text-[#ff4081]', icon: Music },
-    { id: 'kandila', name: 'Kandila Vibes', color: 'text-[#fafafa]', icon: Flame },
-    { id: 'guhit-tadhana', name: 'Guhit ng Tadhana', color: 'text-[#212121]', icon: Rocket },
-    { id: 'shanghai-gold', name: 'Lumpia Shanghai', color: 'text-[#ffb300]', icon: Crown },
-    { id: 'pancit-canton', name: 'Pancit Canton', color: 'text-[#ffee58]', icon: Tags },
+    // 25 New Filipino Colors with Witty Humorous Emojis
+    { id: 'ube-overload', name: 'Ube Overload', emoji: '🍦' },
+    { id: 'matcha-diet', name: 'Matcha Diet', emoji: '🥗' },
+    { id: 'kalamansi-shot', name: 'Kalamansi Shot', emoji: '🍋' },
+    { id: 'bagoong-sili', name: 'Bagoong with Sili', emoji: '🌶️' },
+    { id: 'halo-halo', name: 'Halo-Halo Special', emoji: '🍧' },
+    { id: 'taho-warmth', name: 'Taho in the Morning', emoji: '🥤' },
+    { id: 'sorbetes-pink', name: 'Sorbetes Pink', emoji: '🍨' },
+    { id: 'puto-bumbong', name: 'Puto Bumbong', emoji: '🍮' },
+    { id: 'kwek-kwek', name: 'Kwek-Kwek Orange', emoji: '🍡' },
+    { id: 'sago-gulaman', name: 'Sago at Gulaman', emoji: '🧋' },
+    { id: 'dirty-ice-cream', name: 'Dirty Ice Cream', emoji: '🍦' },
+    { id: 'adobo-sauce', name: 'Adobo Sauce', emoji: '🍲' },
+    { id: 'lechon-skin', name: 'Lechon Skin', emoji: '🥓' },
+    { id: 'mango-graham', name: 'Mango Graham', emoji: '🍰' },
+    { id: 'bibingka-glow', name: 'Bibingka Glow', emoji: '🥧' },
+    { id: 'isaw-burn', name: 'Isaw Burn', emoji: '🍢' },
+    { id: 'balut-soup', name: 'Balut Soup', emoji: '🥚' },
+    { id: 'siomai-rice', name: 'Siomai Rice', emoji: '🥟' },
+    { id: 'kalamay-sticky', name: 'Kalamay Sticky', emoji: '🍮' },
+    { id: 'chocnut', name: 'Chocnut Crumble', emoji: '🍫' },
+    { id: 'ice-scramble', name: 'Ice Scramble', emoji: '🍧' },
+    { id: 'kandila', name: 'Kandila Vibes', emoji: '🕯️' },
+    { id: 'guhit-tadhana', name: 'Guhit ng Tadhana', emoji: '🖋️' },
+    { id: 'shanghai-gold', name: 'Lumpia Shanghai', emoji: '🌯' },
+    { id: 'pancit-canton', name: 'Pancit Canton', emoji: '🍜' },
 ];
-
-function Leaf(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-10 10Z" />
-      <path d="M11 20a7 7 0 0 0-4-4" />
-    </svg>
-  )
-}
-
-function CircleDot(props: any) {
-    return (
-      <svg
-        {...props}
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="12" cy="12" r="10" />
-        <circle cx="12" cy="12" r="1" />
-      </svg>
-    )
-}
 
 export default function AppearanceSettingsPage() {
   const { user, loading, updateUserProfile, authLoading } = useAuth();
@@ -197,7 +135,6 @@ export default function AppearanceSettingsPage() {
 
       <div className="grid lg:grid-cols-12 gap-8">
         <div className="lg:col-span-7 space-y-8">
-            {/* Identity & Theme */}
             <section className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                     <div className="h-1 w-6 bg-primary rounded-full" />
@@ -224,42 +161,40 @@ export default function AppearanceSettingsPage() {
                     </CardContent>
                 </Card>
 
-                {/* CAFE Palette */}
                 <Card className="border-border/40 shadow-xl overflow-hidden bg-card/40 backdrop-blur-sm">
                     <CardHeader className="pb-4 bg-muted/20 border-b border-border/40">
                         <CardTitle className="text-lg flex items-center gap-2"><Coffee className="h-4 w-4 text-primary" /> CAFE palette</CardTitle>
-                        <CardDescription>Choose a delicious accent flavor for buttons and highlights.</CardDescription>
+                        <CardDescription>Choose a high-fidelity accent flavor for your creative workspace.</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
-                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
-                            {accentColors.map((acc) => {
-                                const Icon = acc.icon;
-                                return (
-                                <button
-                                    key={acc.id}
-                                    onClick={() => updateAppearance('accentColor', acc.id)}
-                                    className={cn(
-                                        "flex flex-col items-center gap-2 group p-4 rounded-[2.5rem] border-2 transition-all relative overflow-hidden",
-                                        localSettings.accentColor === acc.id ? "border-primary bg-primary/10 shadow-2xl scale-110" : "border-transparent bg-muted/40 hover:bg-muted/60"
-                                    )}
-                                >
-                                    <div className={cn("h-10 w-10 flex items-center justify-center transition-transform group-hover:scale-125", acc.color)}>
-                                        <Icon className="h-full w-full opacity-80" />
-                                    </div>
-                                    <span className="text-[7px] uppercase tracking-tighter font-black text-center leading-none mt-1">{acc.name}</span>
-                                    {localSettings.accentColor === acc.id && (
-                                        <div className="absolute top-2 right-2 bg-primary text-primary-foreground p-0.5 rounded-full shadow-md animate-in zoom-in-50 duration-500">
-                                            <Check className="h-2 w-2" />
-                                        </div>
-                                    )}
-                                </button>
-                            )})}
-                        </div>
+                        <ScrollArea className="h-[360px] pr-4 -mr-4">
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 pb-4">
+                                {accentColors.map((acc) => (
+                                    <button
+                                        key={acc.id}
+                                        onClick={() => updateAppearance('accentColor', acc.id)}
+                                        className={cn(
+                                            "flex flex-col items-center gap-2 p-4 rounded-[2rem] border-2 transition-all relative group overflow-hidden",
+                                            localSettings.accentColor === acc.id 
+                                                ? "border-primary bg-primary/5 shadow-inner" 
+                                                : "border-transparent bg-muted/30 hover:bg-muted/50"
+                                        )}
+                                    >
+                                        <span className="text-3xl filter drop-shadow-md group-hover:scale-125 transition-transform duration-300 transform-gpu">{acc.emoji}</span>
+                                        <span className="text-[9px] uppercase tracking-tighter font-black text-center leading-none opacity-80">{acc.name}</span>
+                                        {localSettings.accentColor === acc.id && (
+                                            <div className="absolute top-2 right-2 bg-primary text-primary-foreground p-0.5 rounded-full shadow-lg animate-in zoom-in-50 duration-300">
+                                                <Check className="h-2 w-2" />
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </ScrollArea>
                     </CardContent>
                 </Card>
             </section>
 
-            {/* Immersive Reading Section */}
             <section className="space-y-4 pt-4">
                 <div className="flex items-center gap-2 mb-2">
                     <div className="h-1 w-6 bg-accent rounded-full" />
@@ -267,7 +202,6 @@ export default function AppearanceSettingsPage() {
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-6">
-                    {/* Parchment Mode */}
                     <Card className="border-border/40 shadow-md bg-card/30">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-base flex items-center gap-2"><Library className="h-4 w-4 text-amber-600" /> Parchment Mode</CardTitle>
@@ -281,7 +215,6 @@ export default function AppearanceSettingsPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Ambient Soundscapes */}
                     <Card className="border-border/40 shadow-md bg-card/30">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-base flex items-center gap-2"><Music className="h-4 w-4 text-purple-500" /> Reading Focus</CardTitle>
@@ -301,7 +234,6 @@ export default function AppearanceSettingsPage() {
                     </Card>
                 </div>
 
-                {/* Corner Styles */}
                 <Card className="border-border/40 shadow-md bg-card/30">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2"><BoxSelect className="h-4 w-4 text-green-500" /> App Corner Dynamics</CardTitle>
@@ -333,7 +265,6 @@ export default function AppearanceSettingsPage() {
         </div>
 
         <div className="lg:col-span-5 space-y-8">
-            {/* Visual Preview Card */}
             <section className="sticky top-24 space-y-6">
                 <div className="flex items-center gap-2 mb-2">
                     <div className="h-1 w-6 bg-green-500 rounded-full" />
@@ -375,7 +306,6 @@ export default function AppearanceSettingsPage() {
                     </footer>
                 </Card>
 
-                {/* Performance & UX Toggle List */}
                 <Card className="border-border/40 shadow-md bg-card/20">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest"><Wand2 className="h-4 w-4 text-primary" /> Studio Enhancements</CardTitle>
@@ -394,23 +324,6 @@ export default function AppearanceSettingsPage() {
                                 <Switch id={item.id} checked={(localSettings as any)[item.id]} onCheckedChange={(v) => updateAppearance(item.id, v)} />
                             </div>
                         ))}
-                        
-                        <div className="py-4 space-y-4">
-                            <div className="space-y-0.5">
-                                <Label className="text-sm font-bold flex items-center gap-2">Motion Dynamics <Zap className="h-3 w-3 text-yellow-500"/></Label>
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Balance between fluid motion and performance.</p>
-                            </div>
-                            <RadioGroup value={localSettings.motionLevel} onValueChange={(v) => updateAppearance('motionLevel', v)} className="flex gap-2">
-                                <div className="flex-1">
-                                    <RadioGroupItem value="full" id="motion-full" className="sr-only" />
-                                    <Label htmlFor="motion-full" className={cn("flex items-center justify-center h-9 rounded-xl border text-[10px] font-bold uppercase transition-all cursor-pointer", localSettings.motionLevel === 'full' ? "bg-primary text-white border-primary" : "bg-muted/30 border-transparent")}>Fluid</Label>
-                                </div>
-                                <div className="flex-1">
-                                    <RadioGroupItem value="reduced" id="motion-red" className="sr-only" />
-                                    <Label htmlFor="motion-red" className={cn("flex items-center justify-center h-9 rounded-xl border text-[10px] font-bold uppercase transition-all cursor-pointer", localSettings.motionLevel === 'reduced' ? "bg-primary text-white border-primary" : "bg-muted/30 border-transparent")}>Snappy</Label>
-                                </div>
-                            </RadioGroup>
-                        </div>
                     </CardContent>
                 </Card>
             </section>
