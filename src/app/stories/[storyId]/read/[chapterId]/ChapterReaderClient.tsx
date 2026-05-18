@@ -111,7 +111,7 @@ const HIGHLIGHT_COLORS = [
 export default function ChapterReaderClient({ storyId, chapterId }: { storyId: string, chapterId: string }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user: currentUser, addToLibrary, removeFromLibrary } = useAuth();
+  const { user: currentUser, addToLibrary, removeFromLibrary, authLoading } = useAuth();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   
