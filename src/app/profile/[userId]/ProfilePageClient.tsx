@@ -30,7 +30,8 @@ import {
   Trophy,
   Calendar,
   PenTool,
-  Quote
+  Quote,
+  Music
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -452,18 +453,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
               </div>
               
               <div className="flex-1 min-w-0 pb-1 sm:pb-2 relative">
-                  {/* Settings Button - Top Right Alignment */}
-                  {isOwnProfile && (
-                      <div className="absolute top-0 right-0 sm:static sm:flex sm:justify-end sm:mb-2">
-                        <Link href="/settings" passHref>
-                            <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 bg-background/70 h-8 sm:h-10 px-3 sm:px-4">
-                                <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                <span className="hidden sm:inline">Settings</span>
-                            </Button>
-                        </Link>
-                      </div>
-                  )}
-
                   <div className="space-y-0.5 sm:space-y-1 mb-1 sm:mb-2 pr-8 sm:pr-0">
                       <h1 className="text-lg sm:text-3xl md:text-5xl font-headline font-bold flex items-center gap-1.5 sm:gap-2 tracking-tight">
                         <span className="truncate">{displayName}</span>
@@ -478,6 +467,18 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                         )}
                       </div>
                   </div>
+
+                  {/* Settings Button - Aligned below username as requested */}
+                  {isOwnProfile && (
+                      <div className="mb-3">
+                        <Link href="/settings" passHref>
+                            <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 bg-background/70 h-8 sm:h-10 px-3 sm:px-4">
+                                <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                <span className="hidden sm:inline">Settings</span>
+                            </Button>
+                        </Link>
+                      </div>
+                  )}
 
                   <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-[10px] sm:text-sm font-semibold mb-2 sm:mb-3">
                       <Link href={`/profile/${userId}/connections?tab=followers`} className="hover:text-primary transition-colors flex items-center gap-1 sm:gap-1.5">
