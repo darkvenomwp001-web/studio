@@ -25,7 +25,12 @@ import {
   Moon,
   GraduationCap,
   Heart,
-  Headphones
+  Headphones,
+  History,
+  Trophy,
+  Calendar,
+  PenTool,
+  Quote
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -505,23 +510,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
       </div>
 
       <main className="container mx-auto px-4 mt-8 md:mt-12 space-y-10">
-        {profileUser.profileSongUrl && (
-            <section className="animate-in slide-in-from-bottom-2 duration-500">
-                <Card className="bg-muted/10 border-none shadow-sm overflow-hidden rounded-[2rem]">
-                    <div className="flex flex-col md:flex-row">
-                        <div className="flex-1">
-                            <SpotifyPlayer trackUrl={profileUser.profileSongUrl} />
-                        </div>
-                        {profileUser.profileSongNote && (
-                            <div className="p-6 md:w-80 flex items-center bg-background/30 border-l border-border/20">
-                                <p className="text-sm italic text-muted-foreground leading-relaxed">"{profileUser.profileSongNote}"</p>
-                            </div>
-                        )}
-                    </div>
-                </Card>
-            </section>
-        )}
-
         <Tabs defaultValue="works" className="w-full">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-4 md:gap-8">
             <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-[11px] md:text-xs uppercase tracking-widest">Works</TabsTrigger>
@@ -560,7 +548,95 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
           </TabsContent>
 
           <TabsContent value="feed" className="mt-8">
-            <ProfilePhotoGrid userId={profileUser.id} isOwnProfile={isOwnProfile} />
+            <Tabs defaultValue="about" className="w-full">
+                <div className="flex justify-center mb-8">
+                    <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 h-10">
+                        <TabsTrigger value="about" className="rounded-full text-[10px] font-bold uppercase tracking-widest px-6 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm">About Author</TabsTrigger>
+                        <TabsTrigger value="gallery" className="rounded-full text-[10px] font-bold uppercase tracking-widest px-6 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm">Archive Feed</TabsTrigger>
+                    </TabsList>
+                </div>
+
+                <TabsContent value="about" className="space-y-8 animate-in fade-in duration-500">
+                    <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                        <Card className="rounded-[2rem] border-none shadow-sm bg-muted/10">
+                            <CardHeader>
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+                                    <History className="h-4 w-4 text-primary" /> Author Genesis
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="flex items-center justify-between py-2 border-b border-border/40">
+                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Node Access Since</span>
+                                    <span className="text-sm font-bold">{profileUser.createdAt ? formatDistanceToNow(profileUser.createdAt.toDate(), { addSuffix: true }) : 'Beginning of time'}</span>
+                                </div>
+                                <div className="flex items-center justify-between py-2">
+                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Identity Level</span>
+                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 gap-2 h-7 rounded-full font-bold">
+                                        <Trophy className="h-3 w-3" /> LVL {profileUser.level || 1}
+                                    </Badge>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="rounded-[2rem] border-none shadow-sm bg-muted/10">
+                            <CardHeader>
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+                                    <PencilLine className="h-4 w-4 text-primary" /> Writing Rituals
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="flex items-center justify-between py-2 border-b border-border/40">
+                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Current Protocol</span>
+                                    <span className="text-xs font-bold uppercase tracking-widest">{writingStatus?.label || 'Deep Study'}</span>
+                                </div>
+                                <div className="flex items-center justify-between py-2">
+                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Manuscript Tally</span>
+                                    <span className="text-sm font-bold">{publishedWorks.length} Public Entries</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {profileUser.profileSongUrl && (
+                            <Card className="rounded-[2rem] border-none shadow-sm bg-muted/10 md:col-span-2 overflow-hidden">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+                                        <Music className="h-4 w-4 text-primary" /> Atmospheric Frequency
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <SpotifyPlayer trackUrl={profileUser.profileSongUrl} />
+                                    {profileUser.profileSongNote && (
+                                        <div className="p-6 bg-background/40 border-t border-border/20">
+                                            <p className="text-sm italic text-muted-foreground leading-relaxed">
+                                                <Quote className="h-3 w-3 inline mr-2 opacity-30" />
+                                                {profileUser.profileSongNote}
+                                            </p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        <Card className="rounded-[2.5rem] border-none shadow-sm bg-muted/5 md:col-span-2">
+                            <CardHeader>
+                                <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+                                    <PenTool className="h-4 w-4 text-primary" /> Signal from the Desk
+                                </CardTitle>
+                                <CardDescription className="text-[10px] uppercase font-bold tracking-widest opacity-60">Verified Transmission</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm md:text-base leading-relaxed text-foreground/80 whitespace-pre-line">
+                                    {profileUser.bio || "This node has not emitted a signal yet."}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="gallery" className="animate-in fade-in duration-500">
+                    <ProfilePhotoGrid userId={profileUser.id} isOwnProfile={isOwnProfile} />
+                </TabsContent>
+            </Tabs>
           </TabsContent>
 
           {showAnnouncementsTab && (

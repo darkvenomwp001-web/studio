@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -27,7 +26,26 @@ import {
     BoxSelect, 
     Library,
     HeartPulse,
-    X
+    X,
+    Gem,
+    Crown,
+    Flame,
+    Ghost,
+    GlassWater,
+    Flower2,
+    Smile,
+    Heart,
+    Star,
+    Cloud,
+    Droplets,
+    Tags,
+    Waves,
+    Cake,
+    Pizza,
+    Gift,
+    Rocket,
+    Skull,
+    SunMedium
 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTheme } from 'next-themes';
@@ -40,19 +58,80 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 const accentColors = [
-    { id: 'default', name: 'LitVerse Blue', color: 'text-blue-500' },
-    { id: 'strawberry', name: 'Strawberry Silk', color: 'text-[#F472B6]' },
-    { id: 'ube', name: 'Ube Latte', color: 'text-[#A188D3]' },
-    { id: 'matcha', name: 'Matcha Latte', color: 'text-[#96AD6B]' },
-    { id: 'lavender', name: 'Lavender Haze', color: 'text-[#C084FC]' },
-    { id: 'honey', name: 'Golden Honey', color: 'text-[#FACC15]' },
-    { id: 'chocolate', name: 'Rich Mocha', color: 'text-[#4B2E1D]' },
-    { id: 'hazel', name: 'Hazel Fusion', color: 'text-[#C4A484]' },
-    { id: 'tangerine', name: 'Tangerine Pop', color: 'text-[#FF8C00]' },
-    { id: 'blueberry', name: 'Blueberry Rush', color: 'text-[#4A90E2]' },
-    { id: 'mint', name: 'Minty Cloud', color: 'text-[#AEE1E1]' },
-    { id: 'charcoal', name: 'Midnight Ash', color: 'text-[#374151]' },
+    { id: 'default', name: 'LitVerse Blue', color: 'text-blue-500', icon: Sparkles },
+    { id: 'strawberry', name: 'Strawberry Silk', color: 'text-[#F472B6]', icon: Heart },
+    { id: 'ube', name: 'Ube Latte', color: 'text-[#A188D3]', icon: Coffee },
+    { id: 'matcha', name: 'Matcha Latte', color: 'text-[#96AD6B]', icon: Leaf },
+    { id: 'lavender', name: 'Lavender Haze', color: 'text-[#C084FC]', icon: Wand2 },
+    { id: 'honey', name: 'Golden Honey', color: 'text-[#FACC15]', icon: SunMedium },
+    
+    // 25 New Filipino Colors
+    { id: 'ube-overload', name: 'Ube Overload', color: 'text-[#9b59b6]', icon: Gem },
+    { id: 'matcha-diet', name: 'Matcha Diet', color: 'text-[#2ecc71]', icon: Flower2 },
+    { id: 'kalamansi-shot', name: 'Kalamansi Shot', color: 'text-[#cddc39]', icon: Droplets },
+    { id: 'bagoong-sili', name: 'Bagoong with Sili', color: 'text-[#795548]', icon: Flame },
+    { id: 'halo-halo', name: 'Halo-Halo Special', color: 'text-[#9c27b0]', icon: Palette },
+    { id: 'taho-warmth', name: 'Taho in the Morning', color: 'text-[#ffcc80]', icon: GlassWater },
+    { id: 'sorbetes-pink', name: 'Sorbetes Pink', color: 'text-[#f06292]', icon: Smile },
+    { id: 'puto-bumbong', name: 'Puto Bumbong', color: 'text-[#673ab7]', icon: Ghost },
+    { id: 'kwek-kwek', name: 'Kwek-Kwek Orange', color: 'text-[#ff9800]', icon: CircleDot },
+    { id: 'sago-gulaman', name: 'Sago at Gulaman', color: 'text-[#ff8f00]', icon: Waves },
+    { id: 'dirty-ice-cream', name: 'Dirty Ice Cream', color: 'text-[#fff9c4]', icon: HeartPulse },
+    { id: 'adobo-sauce', name: 'Adobo Sauce', color: 'text-[#3e2723]', icon: Skull },
+    { id: 'lechon-skin', name: 'Lechon Skin', color: 'text-[#d84315]', icon: Zap },
+    { id: 'mango-graham', name: 'Mango Graham', color: 'text-[#ffeb3b]', icon: Star },
+    { id: 'bibingka-glow', name: 'Bibingka Glow', color: 'text-[#ffca28]', icon: Sun },
+    { id: 'isaw-burn', name: 'Isaw Burn', color: 'text-[#5d4037]', icon: Wind },
+    { id: 'balut-soup', name: 'Balut Soup', color: 'text-[#78909c]', icon: Cloud },
+    { id: 'siomai-rice', name: 'Siomai Rice', color: 'text-[#f5f5f5]', icon: Pizza },
+    { id: 'kalamay-sticky', name: 'Kalamay Sticky', color: 'text-[#4e342e]', icon: Gift },
+    { id: 'chocnut', name: 'Chocnut Crumble', color: 'text-[#a1887f]', icon: Cake },
+    { id: 'ice-scramble', name: 'Ice Scramble', color: 'text-[#ff4081]', icon: Music },
+    { id: 'kandila', name: 'Kandila Vibes', color: 'text-[#fafafa]', icon: Flame },
+    { id: 'guhit-tadhana', name: 'Guhit ng Tadhana', color: 'text-[#212121]', icon: Rocket },
+    { id: 'shanghai-gold', name: 'Lumpia Shanghai', color: 'text-[#ffb300]', icon: Crown },
+    { id: 'pancit-canton', name: 'Pancit Canton', color: 'text-[#ffee58]', icon: Tags },
 ];
+
+function Leaf(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-10 10Z" />
+      <path d="M11 20a7 7 0 0 0-4-4" />
+    </svg>
+  )
+}
+
+function CircleDot(props: any) {
+    return (
+      <svg
+        {...props}
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="1" />
+      </svg>
+    )
+}
 
 export default function AppearanceSettingsPage() {
   const { user, loading, updateUserProfile, authLoading } = useAuth();
@@ -145,15 +224,17 @@ export default function AppearanceSettingsPage() {
                     </CardContent>
                 </Card>
 
-                {/* Cafe Palette */}
+                {/* CAFE Palette */}
                 <Card className="border-border/40 shadow-xl overflow-hidden bg-card/40 backdrop-blur-sm">
                     <CardHeader className="pb-4 bg-muted/20 border-b border-border/40">
-                        <CardTitle className="text-lg flex items-center gap-2"><Coffee className="h-4 w-4 text-primary" /> LitVerse Cafe Palette</CardTitle>
+                        <CardTitle className="text-lg flex items-center gap-2"><Coffee className="h-4 w-4 text-primary" /> CAFE palette</CardTitle>
                         <CardDescription>Choose a delicious accent flavor for buttons and highlights.</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
                         <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
-                            {accentColors.map((acc) => (
+                            {accentColors.map((acc) => {
+                                const Icon = acc.icon;
+                                return (
                                 <button
                                     key={acc.id}
                                     onClick={() => updateAppearance('accentColor', acc.id)}
@@ -163,7 +244,7 @@ export default function AppearanceSettingsPage() {
                                     )}
                                 >
                                     <div className={cn("h-10 w-10 flex items-center justify-center transition-transform group-hover:scale-125", acc.color)}>
-                                        <Coffee className="h-full w-full fill-current opacity-80" />
+                                        <Icon className="h-full w-full opacity-80" />
                                     </div>
                                     <span className="text-[7px] uppercase tracking-tighter font-black text-center leading-none mt-1">{acc.name}</span>
                                     {localSettings.accentColor === acc.id && (
@@ -172,7 +253,7 @@ export default function AppearanceSettingsPage() {
                                         </div>
                                     )}
                                 </button>
-                            ))}
+                            )})}
                         </div>
                     </CardContent>
                 </Card>

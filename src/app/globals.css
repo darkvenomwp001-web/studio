@@ -138,6 +138,33 @@ body.parchment-mode::after {
   [data-accent="charcoal"] { --primary: 220 15% 35%; --accent: 220 15% 25%; --ring: 220 15% 35%; }
   [data-accent="pistachio"] { --primary: 100 40% 70%; --accent: 100 40% 60%; --ring: 100 40% 70%; }
 
+  /* 25 New Filipino Colors */
+  [data-accent="ube-overload"] { --primary: 271 70% 60%; --accent: 271 70% 50%; --ring: 271 70% 60%; }
+  [data-accent="matcha-diet"] { --primary: 100 40% 50%; --accent: 100 40% 40%; --ring: 100 40% 50%; }
+  [data-accent="kalamansi-shot"] { --primary: 66 90% 45%; --accent: 66 90% 35%; --ring: 66 90% 45%; }
+  [data-accent="bagoong-sili"] { --primary: 15 50% 30%; --accent: 15 50% 20%; --ring: 15 50% 30%; }
+  [data-accent="halo-halo"] { --primary: 290 80% 70%; --accent: 290 80% 60%; --ring: 290 80% 70%; }
+  [data-accent="taho-warmth"] { --primary: 30 40% 70%; --accent: 30 40% 60%; --ring: 30 40% 70%; }
+  [data-accent="sorbetes-pink"] { --primary: 330 80% 75%; --accent: 330 80% 65%; --ring: 330 80% 75%; }
+  [data-accent="puto-bumbong"] { --primary: 280 60% 40%; --accent: 280 60% 30%; --ring: 280 60% 40%; }
+  [data-accent="kwek-kwek"] { --primary: 25 100% 50%; --accent: 25 100% 40%; --ring: 25 100% 50%; }
+  [data-accent="sago-gulaman"] { --primary: 35 70% 40%; --accent: 35 70% 30%; --ring: 35 70% 40%; }
+  [data-accent="dirty-ice-cream"] { --primary: 40 50% 85%; --accent: 40 50% 75%; --ring: 40 50% 85%; }
+  [data-accent="adobo-sauce"] { --primary: 20 40% 20%; --accent: 20 40% 10%; --ring: 20 40% 20%; }
+  [data-accent="lechon-skin"] { --primary: 20 70% 45%; --accent: 20 70% 35%; --ring: 20 70% 45%; }
+  [data-accent="mango-graham"] { --primary: 48 95% 60%; --accent: 48 95% 50%; --ring: 48 95% 60%; }
+  [data-accent="bibingka-glow"] { --primary: 45 80% 75%; --accent: 45 80% 65%; --ring: 45 80% 75%; }
+  [data-accent="isaw-burn"] { --primary: 25 60% 35%; --accent: 25 60% 25%; --ring: 25 60% 35%; }
+  [data-accent="balut-soup"] { --primary: 200 10% 40%; --accent: 200 10% 30%; --ring: 200 10% 40%; }
+  [data-accent="siomai-rice"] { --primary: 50 60% 90%; --accent: 50 60% 80%; --ring: 50 60% 90%; }
+  [data-accent="kalamay-sticky"] { --primary: 25 50% 25%; --accent: 25 50% 15%; --ring: 25 50% 25%; }
+  [data-accent="chocnut"] { --primary: 25 40% 50%; --accent: 25 40% 40%; --ring: 25 40% 50%; }
+  [data-accent="ice-scramble"] { --primary: 320 100% 70%; --accent: 320 100% 60%; --ring: 320 100% 70%; }
+  [data-accent="kandila"] { --primary: 40 40% 95%; --accent: 40 40% 85%; --ring: 40 40% 95%; }
+  [data-accent="guhit-tadhana"] { --primary: 260 50% 15%; --accent: 260 50% 5%; --ring: 260 50% 15%; }
+  [data-accent="shanghai-gold"] { --primary: 40 80% 50%; --accent: 40 80% 40%; --ring: 40 80% 50%; }
+  [data-accent="pancit-canton"] { --primary: 45 70% 65%; --accent: 45 70% 55%; --ring: 45 70% 65%; }
+
   /* Corner Styles */
   [data-radius="minimal"] { --radius: 0.15rem; }
   [data-radius="rounded"] { --radius: 0.75rem; }
