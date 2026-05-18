@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
@@ -480,7 +479,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         transform: scale(1.02);
     }
     .ProseMirror {
-        padding-bottom: 300px !important;
+        padding-bottom: 2rem !important;
         outline: none !important;
     }
     .no-scrollbar::-webkit-scrollbar {

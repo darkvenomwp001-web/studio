@@ -243,7 +243,7 @@ function EditorContentInner() {
         
         setStoryDetails(storyData);
 
-        const chapterToEdit = storyData.chapters.find(c => c.id === queryChapterId);
+        const chapterToEdit = storyDetails.chapters.find(c => c.id === queryChapterId);
 
         if (chapterToEdit) {
           setCurrentChapter(chapterToEdit);
@@ -480,7 +480,7 @@ function EditorContentInner() {
         filter: blur(0);
     }
     .ProseMirror {
-        padding-bottom: 300px !important;
+        padding-bottom: 2rem !important;
         outline: none !important;
     }
     .scrollbar-hide::-webkit-scrollbar {
