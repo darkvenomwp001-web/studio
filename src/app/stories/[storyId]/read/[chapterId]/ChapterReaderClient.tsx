@@ -164,7 +164,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
 
-  // UI Control Visibility Logic
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -183,13 +182,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const toggleControls = () => setControlsVisible(!controlsVisible);
 
   const handleManuscriptClick = (e: React.MouseEvent) => {
-    // Check if the user is currently selecting text
     const selection = window.getSelection();
     if (selection && selection.toString().trim().length > 0) {
-        return; // Don't toggle controls if highlighting
+        return;
     }
 
-    // Ignore clicks on buttons or interactive components
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('[role="dialog"]') || target.closest('.tippy-box')) {
         return;
@@ -198,7 +195,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     toggleControls();
   };
 
-  // Auto-Scroll Logic
   useEffect(() => {
     if (autoScrollSpeed <= 0) return;
     const interval = setInterval(() => {
@@ -283,7 +279,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     });
 
     return () => unsubscribeStory();
-  }, [storyId, chapterId, currentUser?.id, router, toast]);
+  }, [storyId, chapterId, currentUser?.id, router, toast, authLoading]);
 
   const handleVoteClick = async () => {
     if (!currentUser || !story || !currentChapter || isVoting) return;
@@ -362,6 +358,39 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     toast({ title: "Preferences Reset" });
   };
 
+  const handleSearchJump = (searchStr: string) => {
+    setIsTocOpen(false);
+    if ((window as any).find) {
+        window.getSelection()?.removeAllRanges();
+        const found = (window as any).find(searchStr, false, false, true);
+        if (found) {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                const blinker = document.createElement('div');
+                blinker.style.position = 'fixed';
+                blinker.style.left = `${rect.left}px`;
+                blinker.style.top = `${rect.top}px`;
+                blinker.style.width = `${rect.width}px`;
+                blinker.style.height = `${rect.height}px`;
+                blinker.style.backgroundColor = 'hsl(var(--primary))';
+                blinker.style.opacity = '0.5';
+                blinker.style.pointerEvents = 'none';
+                blinker.style.zIndex = '9999';
+                blinker.style.borderRadius = '2px';
+                blinker.className = 'animate-ping';
+                document.body.appendChild(blinker);
+                setTimeout(() => {
+                    if (document.body.contains(blinker)) {
+                        document.body.removeChild(blinker);
+                    }
+                }, 1000);
+            }
+        }
+    }
+  };
+
   const articleClasses = cn(
       "prose dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20 transition-all duration-300 transform-gpu",
       isZenFocus && "zen-mode",
@@ -384,6 +413,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
           const end = Math.min(text.length, match.index + searchTerm.length + 30);
           matches.push({
               index: match.index,
+              text: match[0],
               snippet: '...' + text.substring(start, end).replace(regex, (m) => `<span class="bg-primary/30 font-bold">${m}</span>`) + '...'
           });
           if (matches.length > 50) break;
@@ -438,7 +468,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       <header className={cn('fixed top-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-b p-3 flex items-center justify-between transition-all duration-300 transform-gpu', controlsVisible ? 'translate-y-0' : '-translate-y-full shadow-lg')}>
         <div className="flex items-center">
             <Link href="/" passHref><Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10"><Home className="h-5 w-5" /></Button></Link>
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => setIsTocOpen(true)}><ListOrdered className="h-5 w-5" /></Button>
         </div>
         <div className="truncate text-center mx-2 flex-1 flex flex-col items-center">
             <h1 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 mb-0.5">{story.title}</h1>
@@ -446,182 +475,221 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 <Users className="h-2.5 w-2.5" /> <span>{activeReaders} Active Readers</span>
             </div>
         </div>
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 relative">
-                    <Palette className="h-5 w-5" />
-                    {(fontSize !== 'base' || lineHeight !== 'normal' || layoutWidth !== 'wide') && <div className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-background" />}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-6 bg-background/95 backdrop-blur-2xl border border-border/40 shadow-3xl rounded-3xl overflow-hidden" side="bottom" align="center">
-                <Tabs defaultValue="vibe" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 rounded-2xl h-11 mb-6">
-                        <TabsTrigger value="vibe" className="rounded-xl text-[10px] font-bold uppercase tracking-widest">Vibe</TabsTrigger>
-                        <TabsTrigger value="type" className="rounded-xl text-[10px] font-bold uppercase tracking-widest">Type</TabsTrigger>
-                        <TabsTrigger value="view" className="rounded-xl text-[10px] font-bold uppercase tracking-widest">View</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="vibe" className="space-y-6">
-                        <div className="space-y-3">
-                            <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Archive Atmosphere</Label>
-                            <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
-                                {['light', 'dark', 'system'].map(t => (
-                                    <Label key={t} htmlFor={t} className="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-transparent bg-muted/30 cursor-pointer transition-all hover:bg-muted/50 data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
-                                        <RadioGroupItem value={t} id={t} className="sr-only" />
-                                        <span className="text-[10px] font-bold uppercase tracking-tighter transition-transform group-active:scale-90">{t}</span>
-                                    </Label>
-                                ))}
-                            </RadioGroup>
-                        </div>
-                        <div className="space-y-4 pt-2">
-                            <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-1.5 bg-primary/10 rounded-lg"><Sparkles className="h-4 w-4 text-primary" /></div>
-                                    <Label htmlFor="zen-focus" className="text-xs font-bold uppercase tracking-tight">Zen Focus</Label>
-                                </div>
-                                <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
-                            </div>
-                            <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-1.5 bg-primary/10 rounded-lg"><Eye className="h-4 w-4 text-primary" /></div>
-                                    <Label htmlFor="night-portal" className="text-xs font-bold uppercase tracking-tight">Night Portal</Label>
-                                </div>
-                                <Switch id="night-portal" checked={isNightPortalActive} onCheckedChange={setIsNightPortalActive} />
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="type" className="space-y-6">
-                         <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Typeface</Label>
-                                <RadioGroup value={fontFamily} onValueChange={(v: any) => setFontFamily(v)} className="flex gap-2">
-                                    {['sans', 'serif'].map(f => (
-                                        <div key={f} className="flex-1">
-                                            <RadioGroupItem value={f} id={`font-${f}`} className="sr-only" />
-                                            <Label htmlFor={`font-${f}`} className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-xs font-bold uppercase tracking-tighter", fontFamily === f ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent hover:bg-muted/50")}>{f}</Label>
-                                        </div>
-                                    ))}
-                                </RadioGroup>
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Scale</Label>
-                                <RadioGroup value={fontSize} onValueChange={(v: any) => setFontSize(v)} className="grid grid-cols-4 gap-1">
-                                    {['sm', 'base', 'lg', 'xl'].map(s => (
-                                        <div key={s}>
-                                            <RadioGroupItem value={s} id={`size-${s}`} className="sr-only" />
-                                            <Label htmlFor={`size-${s}`} className={cn("flex items-center justify-center h-9 rounded-xl border transition-all cursor-pointer text-[10px] font-black uppercase", fontSize === s ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent hover:bg-muted/50")}>{s}</Label>
-                                        </div>
-                                    ))}
-                                </RadioGroup>
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Line Height</Label>
-                                <RadioGroup value={lineHeight} onValueChange={(v: any) => setLineHeight(v)} className="grid grid-cols-3 gap-1">
-                                    {['tight', 'normal', 'loose'].map(l => (
-                                        <div key={l}>
-                                            <RadioGroupItem value={l} id={`line-${l}`} className="sr-only" />
-                                            <Label htmlFor={`line-${l}`} className={cn("flex items-center justify-center h-9 rounded-xl border transition-all cursor-pointer text-[9px] font-black uppercase tracking-tighter", lineHeight === l ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent hover:bg-muted/50")}>{l}</Label>
-                                        </div>
-                                    ))}
-                                </RadioGroup>
-                            </div>
-                         </div>
-                    </TabsContent>
-
-                    <TabsContent value="view" className="space-y-6">
-                         <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Focus Width</Label>
-                                <RadioGroup value={layoutWidth} onValueChange={(v: any) => setLayoutWidth(v)} className="flex gap-2">
-                                    <div className="flex-1">
-                                        <RadioGroupItem value="normal" id="width-norm" className="sr-only" />
-                                        <Label htmlFor="width-norm" className={cn("flex flex-col items-center justify-center h-12 rounded-2xl border transition-all cursor-pointer gap-1", layoutWidth === 'normal' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>
-                                            <Minimize2 className="h-4 w-4" />
-                                            <span className="text-[8px] font-bold uppercase tracking-widest">Normal</span>
+        <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => setIsTocOpen(true)}><ListOrdered className="h-5 w-5" /></Button>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 relative">
+                        <Palette className="h-5 w-5" />
+                        {(fontSize !== 'base' || lineHeight !== 'normal' || layoutWidth !== 'wide') && <div className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-background" />}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-6 bg-background/95 backdrop-blur-2xl border border-border/40 shadow-3xl rounded-3xl overflow-hidden" side="bottom" align="center">
+                    <Tabs defaultValue="vibe" className="w-full">
+                        <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 rounded-2xl h-11 mb-6">
+                            <TabsTrigger value="vibe" className="rounded-xl text-[10px] font-bold uppercase tracking-widest">Vibe</TabsTrigger>
+                            <TabsTrigger value="type" className="rounded-xl text-[10px] font-bold uppercase tracking-widest">Type</TabsTrigger>
+                            <TabsTrigger value="view" className="rounded-xl text-[10px] font-bold uppercase tracking-widest">View</TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="vibe" className="space-y-6">
+                            <div className="space-y-3">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Archive Atmosphere</Label>
+                                <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
+                                    {['light', 'dark', 'system'].map(t => (
+                                        <Label key={t} htmlFor={t} className="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-transparent bg-muted/30 cursor-pointer transition-all hover:bg-muted/50 data-[state=checked]:border-primary data-[state=checked]:bg-primary/5 group">
+                                            <RadioGroupItem value={t} id={t} className="sr-only" />
+                                            <span className="text-[10px] font-bold uppercase tracking-tighter transition-transform group-active:scale-90">{t}</span>
                                         </Label>
-                                    </div>
-                                    <div className="flex-1">
-                                        <RadioGroupItem value="wide" id="width-wide" className="sr-only" />
-                                        <Label htmlFor="width-wide" className={cn("flex flex-col items-center justify-center h-12 rounded-2xl border transition-all cursor-pointer gap-1", layoutWidth === 'wide' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>
-                                            <Maximize2 className="h-4 w-4" />
-                                            <span className="text-[8px] font-bold uppercase tracking-widest">Wide</span>
-                                        </Label>
-                                    </div>
+                                    ))}
                                 </RadioGroup>
                             </div>
-                            <div className="space-y-3 p-4 bg-muted/20 rounded-3xl border border-border/20">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <MousePointer2 className="h-3.5 w-3.5 text-primary" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Auto Scroll</span>
+                            <div className="space-y-4 pt-2">
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-1.5 bg-primary/10 rounded-lg"><Sparkles className="h-4 w-4 text-primary" /></div>
+                                        <Label htmlFor="zen-focus" className="text-xs font-bold uppercase tracking-tight">Zen Focus</Label>
                                     </div>
-                                    <span className="text-[9px] font-mono text-primary font-bold">{autoScrollSpeed}x</span>
+                                    <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
                                 </div>
-                                <Slider value={[autoScrollSpeed]} onValueChange={([v]) => setAutoScrollSpeed(v)} max={10} step={0.5} className="py-2" />
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-1.5 bg-primary/10 rounded-lg"><Eye className="h-4 w-4 text-primary" /></div>
+                                        <Label htmlFor="night-portal" className="text-xs font-bold uppercase tracking-tight">Night Portal</Label>
+                                    </div>
+                                    <Switch id="night-portal" checked={isNightPortalActive} onCheckedChange={setIsNightPortalActive} />
+                                </div>
                             </div>
-                            <Button variant="ghost" className="w-full rounded-2xl h-11 font-bold uppercase text-[9px] tracking-[0.2em] text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all" onClick={resetPreferences}>
-                                <RotateCcw className="h-3.5 w-3.5 mr-2" /> Reset Preferences
-                            </Button>
-                         </div>
-                    </TabsContent>
-                </Tabs>
-            </PopoverContent>
-        </Popover>
+                        </TabsContent>
+
+                        <TabsContent value="type" className="space-y-6">
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Typeface</Label>
+                                    <RadioGroup value={fontFamily} onValueChange={(v: any) => setFontFamily(v)} className="flex gap-2">
+                                        {['sans', 'serif'].map(f => (
+                                            <div key={f} className="flex-1">
+                                                <RadioGroupItem value={f} id={`font-${f}`} className="sr-only" />
+                                                <Label htmlFor={`font-${f}`} className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-xs font-bold uppercase tracking-tighter", fontFamily === f ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent hover:bg-muted/50")}>{f}</Label>
+                                            </div>
+                                        ))}
+                                    </RadioGroup>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Scale</Label>
+                                    <RadioGroup value={fontSize} onValueChange={(v: any) => setFontSize(v)} className="grid grid-cols-4 gap-1">
+                                        {['sm', 'base', 'lg', 'xl'].map(s => (
+                                            <div key={s}>
+                                                <RadioGroupItem value={s} id={`size-${s}`} className="sr-only" />
+                                                <Label htmlFor={`size-${s}`} className={cn("flex items-center justify-center h-9 rounded-xl border transition-all cursor-pointer text-[10px] font-black uppercase", fontSize === s ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent hover:bg-muted/50")}>{s}</Label>
+                                            </div>
+                                        ))}
+                                    </RadioGroup>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Line Height</Label>
+                                    <RadioGroup value={lineHeight} onValueChange={(v: any) => setLineHeight(v)} className="grid grid-cols-3 gap-1">
+                                        {['tight', 'normal', 'loose'].map(l => (
+                                            <div key={l}>
+                                                <RadioGroupItem value={l} id={`line-${l}`} className="sr-only" />
+                                                <Label htmlFor={`line-${l}`} className={cn("flex items-center justify-center h-9 rounded-xl border transition-all cursor-pointer text-[9px] font-black uppercase tracking-tighter", lineHeight === l ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent hover:bg-muted/50")}>{l}</Label>
+                                            </div>
+                                        ))}
+                                    </RadioGroup>
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="view" className="space-y-6">
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Focus Width</Label>
+                                    <RadioGroup value={layoutWidth} onValueChange={(v: any) => setLayoutWidth(v)} className="flex gap-2">
+                                        <div className="flex-1">
+                                            <RadioGroupItem value="normal" id="width-norm" className="sr-only" />
+                                            <Label htmlFor="width-norm" className={cn("flex flex-col items-center justify-center h-12 rounded-2xl border transition-all cursor-pointer gap-1", layoutWidth === 'normal' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>
+                                                <Minimize2 className="h-4 w-4" />
+                                                <span className="text-[8px] font-bold uppercase tracking-widest">Normal</span>
+                                            </Label>
+                                        </div>
+                                        <div className="flex-1">
+                                            <RadioGroupItem value="wide" id="width-wide" className="sr-only" />
+                                            <Label htmlFor="width-wide" className={cn("flex flex-col items-center justify-center h-12 rounded-2xl border transition-all cursor-pointer gap-1", layoutWidth === 'wide' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>
+                                                <Maximize2 className="h-4 w-4" />
+                                                <span className="text-[8px] font-bold uppercase tracking-widest">Wide</span>
+                                            </Label>
+                                        </div>
+                                    </RadioGroup>
+                                </div>
+                                <div className="space-y-3 p-4 bg-muted/20 rounded-3xl border border-border/20">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <MousePointer2 className="h-3.5 w-3.5 text-primary" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Auto Scroll</span>
+                                        </div>
+                                        <span className="text-[9px] font-mono text-primary font-bold">{autoScrollSpeed}x</span>
+                                    </div>
+                                    <Slider value={[autoScrollSpeed]} onValueChange={([v]) => setAutoScrollSpeed(v)} max={10} step={0.5} className="py-2" />
+                                </div>
+                                <Button variant="ghost" className="w-full rounded-2xl h-11 font-bold uppercase text-[9px] tracking-[0.2em] text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all" onClick={resetPreferences}>
+                                    <RotateCcw className="h-3.5 w-3.5 mr-2" /> Reset Preferences
+                                </Button>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+                </PopoverContent>
+            </Popover>
+        </div>
       </header>
 
-      {/* Chapters & Search Panel */}
       <Sheet open={isTocOpen} onOpenChange={setIsTocOpen}>
-          <SheetContent side="left" className="w-80 p-0 border-none shadow-3xl bg-background/95 backdrop-blur-xl flex flex-col">
-              <SheetHeader className="p-6 bg-muted/30 border-b flex-shrink-0">
-                  <SheetTitle className="sr-only">Manuscript Navigation</SheetTitle>
-                  <div className="relative mb-4">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        placeholder="Search prose..." 
-                        value={searchTerm} 
-                        onChange={e => setSearchTerm(e.target.value)} 
-                        className="pl-9 h-11 rounded-xl bg-muted/30 border-none shadow-inner"
-                      />
-                  </div>
-                  <SheetDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Archive Navigation</SheetDescription>
-              </SheetHeader>
-              <ScrollArea className="flex-1">
-                  <div className="p-4 space-y-6">
-                      {searchTerm ? (
-                          <div className="space-y-4">
-                              <p className="text-[9px] font-black uppercase tracking-widest text-primary ml-1">Results in this Part</p>
-                              {searchResults.length > 0 ? (
-                                  searchResults.map((res, i) => (
-                                      <div key={i} className="p-3 bg-muted/10 rounded-xl border border-border/20 text-xs leading-relaxed text-muted-foreground cursor-pointer hover:bg-primary/5 transition-all" onClick={() => setIsTocOpen(false)}>
-                                          <p dangerouslySetInnerHTML={{ __html: res.snippet }} />
-                                      </div>
-                                  ))
-                              ) : (
-                                  <p className="text-center py-10 text-muted-foreground italic text-xs">No matches found.</p>
-                              )}
-                          </div>
-                      ) : (
-                          <div className="space-y-1">
+          <SheetContent side="right" className="w-85 sm:w-96 p-0 border-none shadow-3xl bg-background/95 backdrop-blur-xl flex flex-col overflow-hidden">
+              <Tabs defaultValue="chapters" className="h-full flex flex-col">
+                  <SheetHeader className="p-6 bg-muted/30 border-b flex-shrink-0">
+                      <SheetTitle className="sr-only">Manuscript Navigation</SheetTitle>
+                      <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-2xl h-11 mb-2">
+                          <TabsTrigger value="chapters" className="rounded-xl text-[10px] font-bold uppercase tracking-widest gap-2">
+                              <ListOrdered className="h-3.5 w-3.5" /> Chapters
+                          </TabsTrigger>
+                          <TabsTrigger value="search" className="rounded-xl text-[10px] font-bold uppercase tracking-widest gap-2">
+                              <Search className="h-3.5 w-3.5" /> Search
+                          </TabsTrigger>
+                      </TabsList>
+                      <SheetDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60 text-center">Discovery Console</SheetDescription>
+                  </SheetHeader>
+
+                  <TabsContent value="chapters" className="flex-1 m-0 focus-visible:outline-none overflow-hidden">
+                      <ScrollArea className="h-full">
+                          <div className="p-4 space-y-1">
                               {story.chapters.sort((a,b)=>a.order-b.order).map(ch => (
                                   <Link 
                                     key={ch.id} 
                                     href={`/stories/${story.id}/read/${ch.id}`} 
                                     onClick={() => setIsTocOpen(false)}
                                     className={cn(
-                                        "flex items-center gap-3 p-3 rounded-xl transition-all group",
-                                        ch.id === chapterId ? "bg-primary text-white shadow-lg" : "hover:bg-primary/10"
+                                        "flex items-center gap-3 p-4 rounded-2xl transition-all group border border-transparent",
+                                        ch.id === chapterId ? "bg-primary text-white shadow-lg scale-[1.02]" : "hover:bg-primary/5 hover:border-primary/10"
                                     )}
                                   >
-                                      <span className={cn("text-[10px] font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0", ch.id === chapterId ? "bg-white text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-white")}>{ch.order}</span>
-                                      <span className="text-sm font-bold truncate flex-1">{ch.title}</span>
-                                      {ch.accessType === 'premium' && <Lock className="h-3 w-3 opacity-50" />}
+                                      <span className={cn("text-[10px] font-black w-7 h-7 rounded-full flex items-center justify-center shrink-0 shadow-sm", ch.id === chapterId ? "bg-white text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-white")}>{ch.order}</span>
+                                      <div className="flex-1 min-w-0">
+                                          <span className="text-sm font-bold truncate block">{ch.title}</span>
+                                          <span className="text-[9px] font-bold uppercase opacity-60">{Math.max(1, Math.round((ch.wordCount || 0) / 225))} Min Read</span>
+                                      </div>
+                                      {ch.accessType === 'premium' && <Lock className="h-3.5 w-3.5 opacity-50" />}
                                   </Link>
                               ))}
                           </div>
-                      )}
-                  </div>
-              </ScrollArea>
+                      </ScrollArea>
+                  </TabsContent>
+
+                  <TabsContent value="search" className="flex-1 m-0 focus-visible:outline-none flex flex-col overflow-hidden">
+                      <div className="p-4 bg-muted/20 border-b border-border/40">
+                          <div className="relative group">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                              <Input 
+                                placeholder="Search this chapter..." 
+                                value={searchTerm} 
+                                onChange={e => setSearchTerm(e.target.value)} 
+                                className="pl-9 h-12 rounded-2xl bg-background border-none shadow-inner"
+                                autoFocus
+                              />
+                          </div>
+                      </div>
+                      <ScrollArea className="flex-1">
+                          <div className="p-4 space-y-3">
+                              {searchTerm ? (
+                                  searchResults.length > 0 ? (
+                                      searchResults.map((res, i) => (
+                                          <div 
+                                            key={i} 
+                                            className="p-4 bg-muted/10 rounded-2xl border border-border/20 text-xs leading-relaxed text-muted-foreground cursor-pointer hover:bg-primary/5 hover:border-primary/20 transition-all group" 
+                                            onClick={() => handleSearchJump(res.text)}
+                                          >
+                                              <p dangerouslySetInnerHTML={{ __html: res.snippet }} className="italic" />
+                                              <div className="mt-2 flex items-center justify-between">
+                                                  <span className="text-[9px] font-black uppercase text-primary opacity-0 group-hover:opacity-100 transition-opacity">Jump to Prose</span>
+                                                  <ArrowRight className="h-3 w-3 text-primary opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-1" />
+                                              </div>
+                                          </div>
+                                      ))
+                                  ) : (
+                                      <div className="text-center py-20 text-muted-foreground space-y-2">
+                                          <Search className="h-8 w-8 mx-auto opacity-10" />
+                                          <p className="italic text-xs">No matches found in this part.</p>
+                                      </div>
+                                  )
+                              ) : (
+                                  <div className="text-center py-20 text-muted-foreground space-y-4 px-6">
+                                      <BookOpen className="h-10 w-10 mx-auto opacity-10" />
+                                      <p className="text-xs font-bold uppercase tracking-widest">Global Manuscript Search</p>
+                                      <p className="text-[10px] leading-relaxed opacity-60">Type a word or phrase above to scan the current entry for specific themes or dialogue.</p>
+                                  </div>
+                              )}
+                          </div>
+                      </ScrollArea>
+                  </TabsContent>
+              </Tabs>
           </SheetContent>
       </Sheet>
 
@@ -716,7 +784,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         )}
       </main>
 
-      {/* Annotation / Highlight Dialog */}
       <Dialog open={isAnnotationDialogOpen} onOpenChange={setIsAnnotationDialogOpen}>
           <DialogContent className="sm:max-w-md rounded-[32px] border-none shadow-3xl p-0 overflow-hidden bg-background">
               <DialogHeader className="p-8 bg-muted/30 border-b">
