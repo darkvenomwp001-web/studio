@@ -57,6 +57,12 @@ import { cn, formatCompactNumber } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { 
+    DropdownMenu, 
+    DropdownMenuContent, 
+    DropdownMenuItem, 
+    DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 import { formatDate } from '@/lib/placeholder-data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
@@ -686,6 +692,15 @@ function StoryDetailsInner() {
                                                 <span className={cn(
                                                     ch.status === 'Published' ? "text-green-600" : "text-yellow-600"
                                                 )}>{ch.status}</span>
+                                                
+                                                {ch.status === 'Published' && (
+                                                    <div className="flex items-center gap-3 ml-3 pl-3 border-l border-border/40">
+                                                        <span className="flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> {formatCompactNumber(ch.views || 0)}</span>
+                                                        <span className="flex items-center gap-1"><Star className="h-2.5 w-2.5" /> {formatCompactNumber(ch.votes || 0)}</span>
+                                                        <span className="flex items-center gap-1"><MessageSquare className="h-2.5 w-2.5" /> {formatCompactNumber(ch.commentsCount || 0)}</span>
+                                                    </div>
+                                                )}
+
                                                 {ch.scheduledAt && (
                                                     <div className="flex items-center gap-1 text-primary">
                                                         <Timer className="h-2.5 w-2.5" />
@@ -706,35 +721,48 @@ function StoryDetailsInner() {
                                             <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary" title="Edit Content"><Edit className="h-4 w-4" /></Button>
                                         </Link>
                                         
-                                        <Dialog>
-                                            <DialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary" title="Schedule Release"><Calendar className="h-4 w-4" /></Button>
-                                            </DialogTrigger>
-                                            <ChapterSchedulingDialog storyId={story.id} chapter={ch} onUpdate={(u) => handleUpdateChapter(ch.id, u)} />
-                                        </Dialog>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted"><MoreVertical className="h-4 w-4" /></Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="gap-2">
+                                                            <Calendar className="h-4 w-4" /> Schedule Release
+                                                        </DropdownMenuItem>
+                                                    </DialogTrigger>
+                                                    <ChapterSchedulingDialog storyId={story.id} chapter={ch} onUpdate={(u) => handleUpdateChapter(ch.id, u)} />
+                                                </Dialog>
 
-                                        <Dialog>
-                                            <DialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-yellow-500/10 hover:text-yellow-600" title="Exclusive Access"><Lock className="h-4 w-4" /></Button>
-                                            </DialogTrigger>
-                                            <ChapterAccessDialog storyId={story.id} chapter={ch} onUpdate={(u) => handleUpdateChapter(ch.id, u)} />
-                                        </Dialog>
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="gap-2">
+                                                            <Lock className="h-4 w-4" /> Special Access
+                                                        </DropdownMenuItem>
+                                                    </DialogTrigger>
+                                                    <ChapterAccessDialog storyId={story.id} chapter={ch} onUpdate={(u) => handleUpdateChapter(ch.id, u)} />
+                                                </Dialog>
 
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-destructive/10 hover:text-destructive" title="Delete Part"><Trash2 className="h-4 w-4" /></Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent className="rounded-3xl">
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Delete this chapter?</AlertDialogTitle>
-                                                    <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteChapter(ch.id)} className="bg-destructive hover:bg-destructive/90 rounded-full px-6">Delete</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2">
+                                                            <Trash2 className="h-4 w-4" /> Delete Part
+                                                        </DropdownMenuItem>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent className="rounded-3xl">
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Delete this chapter?</AlertDialogTitle>
+                                                            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteChapter(ch.id)} className="bg-destructive hover:bg-destructive/90 rounded-full px-6">Delete</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </div>
                             ))}
