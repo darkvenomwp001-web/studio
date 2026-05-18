@@ -1,19 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef, useTransition } from 'react';
+import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import type { ThreadPost } from '@/types';
-import { Loader2, CameraOff, Trash2, X, AlertTriangle } from 'lucide-react';
+import { Loader2, CameraOff, Grid, List, Heart, MessageCircle } from 'lucide-react';
 import NextImage from 'next/image';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { deleteThreadPost } from '@/app/actions/threadActions';
-import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import ThreadPostCard from '../threads/ThreadPostCard';
 
-// Setting a reset date to clean the feed of old test posts
 const FEED_RESET_DATE = new Date('2025-05-21T00:00:00Z');
 
 interface ProfilePhotoGridProps {
@@ -24,10 +20,7 @@ interface ProfilePhotoGridProps {
 export default function ProfilePhotoGrid({ userId, isOwnProfile }: ProfilePhotoGridProps) {
     const [posts, setPosts] = useState<ThreadPost[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedPost, setSelectedPost] = useState<ThreadPost | null>(null);
-    const [isDeleting, startDeleteTransition] = useTransition();
-    const { toast } = useToast();
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const [viewMode, setViewMode] = useState<'grid' | 'feed'>('grid');
 
     useEffect(() => {
         if (!userId) {
@@ -36,7 +29,6 @@ export default function ProfilePhotoGrid({ userId, isOwnProfile }: ProfilePhotoG
         }
         setIsLoading(true);
         
-        // Only fetch photo posts created after the reset date
         const postsQuery = query(
             collection(db, 'feedPosts'),
             where('author.id', '==', userId),
@@ -47,7 +39,7 @@ export default function ProfilePhotoGrid({ userId, isOwnProfile }: ProfilePhotoG
         const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
             const fetchedPosts = snapshot.docs
                 .map(doc => ({ id: doc.id, ...doc.data() } as ThreadPost))
-                .filter(post => post.imageUrl); // Filter for posts that have an image
+                .filter(post => post.imageUrl);
             setPosts(fetchedPosts);
             setIsLoading(false);
         }, (error) => {
@@ -57,125 +49,91 @@ export default function ProfilePhotoGrid({ userId, isOwnProfile }: ProfilePhotoG
 
         return () => unsubscribe();
     }, [userId]);
-    
-    const handlePressStart = (post: ThreadPost) => {
-        timerRef.current = setTimeout(() => {
-            setSelectedPost(post);
-        }, 800); // 800ms long press
-    };
-
-    const handlePressEnd = () => {
-        if (timerRef.current) {
-            clearTimeout(timerRef.current);
-        }
-    };
-
-    const handleDeletePost = () => {
-        if (!selectedPost || !isOwnProfile) return;
-        startDeleteTransition(async () => {
-            const result = await deleteThreadPost(selectedPost.id, userId);
-            if (result.success) {
-                toast({ title: "Post deleted" });
-                setSelectedPost(null);
-            } else {
-                toast({ title: "Error deleting post", description: result.error, variant: 'destructive' });
-            }
-        });
-    };
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="flex justify-center items-center py-20">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
         );
     }
 
     if (posts.length === 0) {
         return (
-            <div className="text-center py-16 bg-card rounded-lg border border-dashed">
-                <CameraOff className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 text-muted-foreground">No recent photos posted yet.</p>
+            <div className="text-center py-32 bg-card/40 rounded-[40px] border-2 border-dashed border-border/40 max-w-2xl mx-auto">
+                <CameraOff className="h-16 w-16 text-muted-foreground/20 mx-auto mb-4" />
+                <h3 className="text-xl font-headline font-bold text-foreground">No visual archives</h3>
+                <p className="text-sm text-muted-foreground px-8">This author hasn't shared any community snapshots yet.</p>
             </div>
         );
     }
 
     return (
-        <>
-            <div className="grid grid-cols-3 gap-1">
-                {posts.map(post => (
-                    <div
-                        key={post.id}
-                        className="relative aspect-square cursor-pointer group bg-muted"
-                        onClick={() => setSelectedPost(post)}
-                        onMouseDown={() => handlePressStart(post)}
-                        onMouseUp={handlePressEnd}
-                        onMouseLeave={handlePressEnd}
-                        onTouchStart={() => handlePressStart(post)}
-                        onTouchEnd={handlePressEnd}
-                    >
-                        <NextImage
-                            src={post.imageUrl!}
-                            alt="User post"
-                            fill
-                            className="object-cover group-hover:opacity-80 transition-opacity"
-                        />
-                    </div>
-                ))}
-            </div>
-            
-            <Dialog open={!!selectedPost} onOpenChange={(open) => !open && setSelectedPost(null)}>
-                <DialogContent className="p-0 border-0 bg-black shadow-none w-screen h-screen sm:h-auto sm:max-w-2xl flex flex-col items-center justify-center">
-                    <DialogHeader className="sr-only">
-                        <DialogTitle>Image Preview</DialogTitle>
-                        <DialogDescription>A larger view of the selected post.</DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-                        {isOwnProfile && selectedPost && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="icon" className="h-10 w-10 rounded-full shadow-lg">
-                                        <Trash2 className="h-5 w-5" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Delete this post?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This will permanently remove this photo from your feed and profile. This action cannot be undone.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleDeletePost} className="bg-destructive hover:bg-destructive/90">
-                                            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            Delete Post
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+        <div className="space-y-10 animate-in fade-in duration-700">
+            {/* Immersive View Switcher */}
+            <div className="flex justify-center border-t border-border/20 pt-6">
+                <div className="flex items-center gap-1 bg-muted/40 p-1.5 rounded-full border border-border/20 shadow-inner">
+                    <Button 
+                        variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
+                        size="sm" 
+                        onClick={() => setViewMode('grid')}
+                        className={cn(
+                            "rounded-full h-10 px-8 gap-2.5 font-bold text-[10px] uppercase tracking-[0.1em] transition-all duration-300",
+                            viewMode === 'grid' ? "bg-background shadow-lg text-primary" : "text-muted-foreground hover:text-foreground"
                         )}
-                        <DialogClose asChild>
-                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-black/20 hover:bg-black/40 text-white">
-                                <X className="h-6 w-6" />
-                            </Button>
-                        </DialogClose>
-                    </div>
+                    >
+                        <Grid className="h-4 w-4" /> Grid
+                    </Button>
+                    <Button 
+                        variant={viewMode === 'feed' ? 'secondary' : 'ghost'} 
+                        size="sm" 
+                        onClick={() => setViewMode('feed')}
+                        className={cn(
+                            "rounded-full h-10 px-8 gap-2.5 font-bold text-[10px] uppercase tracking-[0.1em] transition-all duration-300",
+                            viewMode === 'feed' ? "bg-background shadow-lg text-primary" : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <List className="h-4 w-4" /> Feed
+                    </Button>
+                </div>
+            </div>
 
-                    {selectedPost?.imageUrl && (
-                        <div className="relative w-full h-full flex items-center justify-center">
+            {viewMode === 'grid' ? (
+                <div className="grid grid-cols-3 gap-1 md:gap-4 pb-20">
+                    {posts.map(post => (
+                        <div
+                            key={post.id}
+                            className="relative aspect-square cursor-pointer group bg-muted overflow-hidden rounded-md md:rounded-[2.5rem] border border-border/10 shadow-sm transition-all duration-500 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1"
+                        >
                             <NextImage
-                                src={selectedPost.imageUrl}
-                                alt="Post preview"
-                                width={1200}
-                                height={1200}
-                                className="object-contain max-h-[90vh] w-auto"
+                                src={post.imageUrl!}
+                                alt="Archive item"
+                                fill
+                                className="object-cover transition-transform duration-1000 group-hover:scale-110"
                             />
+                            {/* High-Fidelity Hover Overlay */}
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-[2px]">
+                                <div className="flex items-center gap-6 text-white scale-90 group-hover:scale-100 transition-transform duration-500">
+                                    <div className="flex flex-col items-center gap-1">
+                                        <Heart className="h-6 w-6 fill-primary text-primary drop-shadow-lg" />
+                                        <span className="text-xs font-bold font-mono">{post.reactionsCount || 0}</span>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-1">
+                                        <MessageCircle className="h-6 w-6 fill-white text-white drop-shadow-lg" />
+                                        <span className="text-xs font-bold font-mono">{post.commentsCount || 0}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    )}
-                </DialogContent>
-            </Dialog>
-        </>
+                    ))}
+                </div>
+            ) : (
+                <div className="max-w-xl mx-auto space-y-10 pb-20 animate-in slide-in-from-bottom-4 duration-700">
+                    {posts.map(post => (
+                        <ThreadPostCard key={post.id} post={post} />
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }
