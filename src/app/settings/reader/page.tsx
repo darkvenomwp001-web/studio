@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Loader2, ArrowLeft, BookMarked, MousePointer2, Smartphone, Zap } from 'lucide-react';
+import { Loader2, ArrowLeft, BookMarked, MousePointer2, Smartphone, Zap, ChevronUp, ChevronDown } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useState, useEffect } from 'react';
