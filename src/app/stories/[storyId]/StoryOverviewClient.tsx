@@ -93,10 +93,7 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
     if (!story) return;
     const firstChapter = publishedChapters[0];
     if (firstChapter) {
-      // Increment views accurately in real time
-      const storyRef = doc(db, 'stories', story.id);
-      await updateDoc(storyRef, { views: increment(1) });
-      
+      // Views are now incremented inside the reader to ensure accuracy and prevent manipulation
       router.push(`/stories/${story.id}/read/${firstChapter.id}`);
     } else {
       toast({ title: "Manuscript Entry Restricted", description: "This author hasn't released any public parts yet." });

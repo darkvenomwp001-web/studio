@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
@@ -81,8 +82,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn, formatCompactNumber } from '@/lib/utils';
 import { db, rtdb } from '@/lib/firebase';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { ref, onValue } from 'firebase/database';
-import { doc, onSnapshot, updateDoc, Timestamp, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, Timestamp, addDoc, collection, serverTimestamp, increment } from 'firebase/firestore';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import { EditorContent, useEditor, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -163,6 +166,38 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       editor.commands.setContent(currentChapter.content, false);
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
+
+  // Accurate View Counting Protocol with Manipulation Restrictions
+  useEffect(() => {
+    if (!story?.id || !currentChapter?.id || !isAccessGranted) return;
+
+    // View restriction: Only count one view per session per chapter
+    // This prevents easy manipulation via refresh spamming and artificial inflation.
+    const viewToken = `view_${story.id}_${currentChapter.id}`;
+    const hasViewed = sessionStorage.getItem(viewToken);
+
+    if (!hasViewed) {
+        const storyRef = doc(db, 'stories', story.id);
+        
+        // Use increment(1) for accurate atomic updates in Firestore
+        // This protocol ensures writers receive 100% accurate engagement telemetry.
+        updateDoc(storyRef, { 
+            views: increment(1) 
+        })
+        .then(() => {
+            sessionStorage.setItem(viewToken, 'true');
+        })
+        .catch(async (serverError) => {
+            // Contextual error handling for security rules
+            const permissionError = new FirestorePermissionError({
+                path: storyRef.path,
+                operation: 'update',
+                requestResourceData: { views: 'increment' },
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        });
+    }
+  }, [story?.id, currentChapter?.id, isAccessGranted]);
 
   useEffect(() => {
     const handleScroll = () => {
