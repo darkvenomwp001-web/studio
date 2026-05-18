@@ -70,31 +70,31 @@ export default function ProfilePhotoGrid({ userId, isOwnProfile }: ProfilePhotoG
 
     return (
         <div className="space-y-10 animate-in fade-in duration-700">
-            {/* Immersive View Switcher */}
-            <div className="flex justify-center border-t border-border/20 pt-6">
-                <div className="flex items-center gap-1 bg-muted/40 p-1.5 rounded-full border border-border/20 shadow-inner">
-                    <Button 
-                        variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
-                        size="sm" 
+            {/* Immersive View Switcher - Refined to match main tabs */}
+            <div className="flex justify-center border-b border-border/20 mb-8">
+                <div className="flex items-center gap-8 h-auto p-0">
+                    <button 
                         onClick={() => setViewMode('grid')}
                         className={cn(
-                            "rounded-full h-10 px-8 gap-2.5 font-bold text-[10px] uppercase tracking-[0.1em] transition-all duration-300",
-                            viewMode === 'grid' ? "bg-background shadow-lg text-primary" : "text-muted-foreground hover:text-foreground"
+                            "rounded-none border-b-2 bg-transparent font-bold pb-4 px-0 transition-all text-[11px] md:text-xs uppercase tracking-widest",
+                            viewMode === 'grid' 
+                                ? "border-primary text-foreground" 
+                                : "border-transparent text-muted-foreground hover:text-foreground"
                         )}
                     >
-                        <Grid className="h-4 w-4" /> Grid
-                    </Button>
-                    <Button 
-                        variant={viewMode === 'feed' ? 'secondary' : 'ghost'} 
-                        size="sm" 
+                        Grid
+                    </button>
+                    <button 
                         onClick={() => setViewMode('feed')}
                         className={cn(
-                            "rounded-full h-10 px-8 gap-2.5 font-bold text-[10px] uppercase tracking-[0.1em] transition-all duration-300",
-                            viewMode === 'feed' ? "bg-background shadow-lg text-primary" : "text-muted-foreground hover:text-foreground"
+                            "rounded-none border-b-2 bg-transparent font-bold pb-4 px-0 transition-all text-[11px] md:text-xs uppercase tracking-widest",
+                            viewMode === 'feed' 
+                                ? "border-primary text-foreground" 
+                                : "border-transparent text-muted-foreground hover:text-foreground"
                         )}
                     >
-                        <List className="h-4 w-4" /> Feed
-                    </Button>
+                        Feed
+                    </button>
                 </div>
             </div>
 
