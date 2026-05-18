@@ -34,7 +34,7 @@ import {
   Star,
   MessageSquare,
   Calendar,
-  MoreVertical,
+  EllipsisVertical,
   Timer,
   Users,
   AtSign,
@@ -723,7 +723,7 @@ function StoryDetailsInner() {
                                         
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted"><MoreVertical className="h-4 w-4" /></Button>
+                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted"><EllipsisVertical className="h-4 w-4" /></Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="w-48 rounded-xl">
                                                 <Dialog>
