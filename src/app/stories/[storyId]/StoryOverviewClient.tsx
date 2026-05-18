@@ -33,7 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn, formatCompactNumber } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, Timestamp, updateDoc, increment } from 'firebase/firestore';
 
 export default function StoryOverviewClient({ storyId }: { storyId: string }) {
   const router = useRouter();
@@ -89,10 +89,14 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
     }).sort((a, b) => a.order - b.order);
   }, [story, user]);
 
-  const handleReadClick = () => {
+  const handleReadClick = async () => {
     if (!story) return;
     const firstChapter = publishedChapters[0];
     if (firstChapter) {
+      // Increment views accurately in real time
+      const storyRef = doc(db, 'stories', story.id);
+      await updateDoc(storyRef, { views: increment(1) });
+      
       router.push(`/stories/${story.id}/read/${firstChapter.id}`);
     } else {
       toast({ title: "Manuscript Entry Restricted", description: "This author hasn't released any public parts yet." });

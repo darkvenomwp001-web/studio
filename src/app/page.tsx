@@ -1,3 +1,4 @@
+
 'use client'; 
 
 import Link from 'next/link';
@@ -11,7 +12,8 @@ import {
   Quote,
   Radio,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Palette
 } from 'lucide-react';
 import StoryCard from '@/components/shared/StoryCard';
 import CompactStoryCard from '@/components/shared/CompactStoryCard';
