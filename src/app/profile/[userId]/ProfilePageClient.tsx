@@ -432,71 +432,70 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
 
       {/* Changed tag to div to escape global .glass-enabled backdrop-blur rules */}
       <div className="container mx-auto px-4 -mt-16 md:-mt-24 relative z-10">
-          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-8">
-              <div className="relative group">
-                  <Avatar className="h-32 w-32 md:h-48 md:w-48 border-[6px] border-background shadow-2xl">
+          <div className="flex flex-row items-end gap-4 md:gap-8">
+              <div className="relative group flex-shrink-0">
+                  <Avatar className="h-24 w-24 sm:h-32 sm:w-32 md:h-48 md:w-48 border-[4px] md:border-[6px] border-background shadow-2xl">
                       <AvatarImage src={profileUser.avatarUrl} />
-                      <AvatarFallback className="text-4xl bg-muted text-primary">{displayName.substring(0, 1).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback className="text-2xl md:text-4xl bg-muted text-primary">{displayName.substring(0, 1).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   {writingStatus && (
-                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-background border shadow-xl px-3 py-1.5 rounded-full flex items-center gap-2 whitespace-nowrap z-10">
-                        <writingStatus.icon className={cn("h-4 w-4", writingStatus.color)} />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/80">{writingStatus.label}</span>
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-background border shadow-xl px-2 py-1 md:px-3 md:py-1.5 rounded-full flex items-center gap-1.5 md:gap-2 whitespace-nowrap z-10">
+                        <writingStatus.icon className={cn("h-3 w-3 md:h-4 md:w-4", writingStatus.color)} />
+                        <span className="text-[8px] md:text-[10px] font-bold uppercase tracking-wider text-foreground/80">{writingStatus.label}</span>
                       </div>
                   )}
               </div>
               
-              <div className="flex-1 text-center md:text-left space-y-4 pb-2 relative w-full">
+              <div className="flex-1 min-w-0 pb-2 relative">
                   {/* Settings Button - Zero Blur Interface */}
                   {isOwnProfile && (
-                      <div className="absolute top-0 right-0 md:top-auto md:bottom-2">
+                      <div className="absolute top-0 right-0">
                         <Link href="/settings" passHref>
                             <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 bg-background/70">
-                                <Settings className="h-4 w-4" />
+                                <Settings className="h-3 w-3 md:h-4 md:w-4" />
                                 <span className="hidden sm:inline">Settings</span>
                             </Button>
                         </Link>
                       </div>
                   )}
 
-                  <div className="space-y-1">
-                      <h1 className="text-3xl md:text-5xl font-headline font-bold flex items-center justify-center md:justify-start gap-2 tracking-tight">
-                        {displayName}
-                        {profileUser.isVerified && <VerifiedBadge className="h-6 w-6" />}
+                  <div className="space-y-1 mb-2 pr-10 sm:pr-0">
+                      <h1 className="text-xl sm:text-3xl md:text-5xl font-headline font-bold flex items-center gap-2 tracking-tight">
+                        <span className="truncate">{displayName}</span>
+                        {profileUser.isVerified && <VerifiedBadge className="h-4 w-4 md:h-6 md:w-6 shrink-0" />}
                       </h1>
-                      <div className="flex items-center justify-center md:justify-start gap-2">
-                        <p className="text-muted-foreground text-sm font-medium">@{profileUser.username}</p>
-                        {writingStatus && <div className="h-1 w-1 bg-border rounded-full md:block hidden" />}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-muted-foreground text-xs md:text-sm font-medium">@{profileUser.username}</p>
                         {writingStatus && (
-                             <p className={cn("text-[10px] font-black uppercase tracking-widest hidden md:block", writingStatus.color)}>
+                             <p className={cn("text-[8px] md:text-[10px] font-black uppercase tracking-widest", writingStatus.color)}>
                                 {writingStatus.label}
                              </p>
                         )}
                       </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-sm font-semibold">
+                  <div className="flex flex-wrap items-center gap-4 md:gap-6 text-xs md:text-sm font-semibold mb-3">
                       <Link href={`/profile/${userId}/connections?tab=followers`} className="hover:text-primary transition-colors flex items-center gap-1.5">
                         <span className="font-bold">{liveFollowersCount ?? '...'}</span> 
-                        <span className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Followers</span>
+                        <span className="text-muted-foreground font-medium uppercase text-[8px] md:text-[10px] tracking-widest">Followers</span>
                       </Link>
                       <Link href={`/profile/${userId}/connections?tab=following`} className="hover:text-primary transition-colors flex items-center gap-1.5">
                         <span className="font-bold">{profileUser.followingCount || 0}</span>
-                        <span className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Following</span>
+                        <span className="text-muted-foreground font-medium uppercase text-[8px] md:text-[10px] tracking-widest">Following</span>
                       </Link>
                   </div>
 
-                  {profileUser.bio && <p className="text-muted-foreground text-sm max-w-2xl leading-relaxed">{profileUser.bio}</p>}
+                  {profileUser.bio && <p className="text-muted-foreground text-xs md:text-sm max-w-2xl leading-relaxed line-clamp-2 sm:line-clamp-none">{profileUser.bio}</p>}
                   
                   {!isOwnProfile && (
-                    <div className="flex flex-wrap justify-center md:justify-start gap-3 pt-2">
-                        <Button onClick={() => isFollowing ? unfollowUser(profileUser.id) : followUser(profileUser.id)} disabled={followActionLoading} variant={isFollowing ? "outline" : "default"} className="rounded-full px-8 font-bold">
-                            {followActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : isFollowing ? <UserX className="mr-2 h-4 w-4" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                    <div className="flex flex-wrap gap-2 md:gap-3 pt-3">
+                        <Button onClick={() => isFollowing ? unfollowUser(profileUser.id) : followUser(profileUser.id)} disabled={followActionLoading} variant={isFollowing ? "outline" : "default"} className="rounded-full px-4 md:px-8 font-bold h-9 md:h-10 text-xs md:text-sm">
+                            {followActionLoading ? <Loader2 className="mr-2 h-3 w-3 md:h-4 md:w-4 animate-spin" /> : isFollowing ? <UserX className="mr-2 h-3 w-3 md:h-4 md:w-4" /> : <UserPlus className="mr-2 h-3 w-3 md:h-4 md:w-4" />}
                             {isFollowing ? 'Unfollow' : 'Follow'}
                         </Button>
                         <Link href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`} passHref>
-                            <Button variant="outline" className="rounded-full px-8 gap-2 border-border/60">
-                                <MessageSquare className="h-4 w-4" /> Message
+                            <Button variant="outline" className="rounded-full px-4 md:px-8 gap-2 border-border/60 h-9 md:h-10 text-xs md:text-sm">
+                                <MessageSquare className="h-3 w-3 md:h-4 md:w-4" /> Message
                             </Button>
                         </Link>
                     </div>
@@ -505,7 +504,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
           </div>
       </div>
 
-      <main className="container mx-auto px-4 mt-12 space-y-10">
+      <main className="container mx-auto px-4 mt-8 md:mt-12 space-y-10">
         {profileUser.profileSongUrl && (
             <section className="animate-in slide-in-from-bottom-2 duration-500">
                 <Card className="bg-muted/10 border-none shadow-sm overflow-hidden rounded-[2rem]">
@@ -524,11 +523,11 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
         )}
 
         <Tabs defaultValue="works" className="w-full">
-          <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-8">
-            <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all">Works</TabsTrigger>
-            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all">Feed</TabsTrigger>
+          <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-4 md:gap-8">
+            <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-sm md:text-base">Works</TabsTrigger>
+            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-sm md:text-base">Feed</TabsTrigger>
             {showAnnouncementsTab && (
-                <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all">Updates</TabsTrigger>
+                <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-sm md:text-base">Updates</TabsTrigger>
             )}
           </TabsList>
           
