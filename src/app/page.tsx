@@ -21,7 +21,7 @@ import Image from 'next/image';
 import type { Story, Prompt, CarouselSlide } from '@/types';
 import { useEffect, useState, Suspense } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, limit as firestoreLimit, getDocs, documentId } from 'firebase/firestore';
 import { AnimatedTabs, Tabs, TabsContent, ScrollBar } from '@/components/ui/tabs';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
@@ -41,6 +41,7 @@ function ForYouTabContent() {
   const [allStories, setAllStories] = useState<Story[]>([]);
   const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
+  const [activeReadingList, setActiveReadingList] = useState<any[]>([]);
 
   useEffect(() => {
     setIsDataLoading(true);
@@ -75,15 +76,36 @@ function ForYouTabContent() {
     };
   }, []);
 
+  // Verification Protocol: Verify reading list existence to hide deleted manuscripts
+  useEffect(() => {
+    if (!user?.readingList || user.readingList.length === 0) {
+        setActiveReadingList([]);
+        return;
+    }
+
+    const verifyReadingList = async () => {
+        const ids = user.readingList!.map(s => s.id);
+        const storiesRef = collection(db, 'stories');
+        
+        try {
+            // Check existence for up to 30 items for the home carousel
+            const q = query(storiesRef, where(documentId(), 'in', ids.slice(0, 30)));
+            const snap = await getDocs(q);
+            const existingIds = new Set(snap.docs.map(d => d.id));
+            
+            // Only show stories that definitely exist
+            const filtered = user.readingList!.filter(s => existingIds.has(s.id));
+            setActiveReadingList(filtered);
+        } catch (err) {
+            console.error("Home feed reading list sync error:", err);
+        }
+    };
+
+    verifyReadingList();
+  }, [user?.readingList]);
+
   const validSlides = carouselSlides.filter(s => !!s.imageUrl && !!s.ctaLink);
   const trendingStories = [...allStories].sort((a,b) => ((b.views || 0) + (b.rating || 0) * 100) - ((a.views || 0) + (a.rating || 0) * 100)).slice(0, 12);
-  
-  // CRITICAL: Filter reading list to only include existing, public stories
-  const myReadingList = user?.readingList?.filter(s => 
-    !!s.id && 
-    !!s.title && 
-    allStories.some(as => as.id === s.id)
-  ) || [];
 
   if (isDataLoading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -107,14 +129,14 @@ function ForYouTabContent() {
       )}
 
       <div className="container mx-auto max-w-7xl px-4 space-y-12 pb-20">
-        {myReadingList.length > 0 && (
+        {activeReadingList.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-headline font-bold">Continue Reading</h2>
               <Link href="/library" className="text-xs font-bold text-primary uppercase">View All</Link>
             </div>
             <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-hide">
-              {myReadingList.slice(0, 10).map(story => <CompactStoryCard key={story.id} story={story} />)}
+              {activeReadingList.slice(0, 10).map(story => <CompactStoryCard key={story.id} story={story} />)}
             </div>
           </section>
         )}

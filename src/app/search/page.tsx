@@ -16,16 +16,9 @@ import {
   Loader2, 
   X, 
   SlidersHorizontal, 
-  TrendingUp, 
-  Sparkles,
-  ChevronRight,
-  Filter,
-  Flame,
-  Check,
   Eye,
   ListOrdered,
-  ChevronDown,
-  LayoutGrid
+  ChevronDown
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -42,11 +35,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { cn, formatCompactNumber } from '@/lib/utils';
 import NextImage from 'next/image';
+import Header from '@/components/layout/Header';
+import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 
 const GENRES = [
     'Romance', 'General Fiction', 'Teen Fiction', 'Fantasy', 'Mystery', 'Thriller', 'Horror', 'Sci-Fi', 
@@ -69,7 +63,6 @@ function SearchResults() {
   const router = useRouter();
   const queryFromUrl = searchParamsHook.get('q') || '';
   const genreFromUrl = searchParamsHook.get('genre') || 'all';
-  const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState(queryFromUrl);
   const [storyResults, setStoryResults] = useState<Story[]>([]);
@@ -213,8 +206,8 @@ function SearchResults() {
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-0 pb-24 animate-in fade-in duration-500 overflow-x-hidden">
-      {/* Search Header - Sticky */}
-      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border/40 px-4 py-3 md:p-4 space-y-4 w-full">
+      {/* Search Header - Sticky below global header */}
+      <div className="sticky top-14 md:top-16 z-40 bg-background/95 backdrop-blur-xl border-b border-border/40 px-4 py-3 md:p-4 space-y-4 w-full">
         <div className="relative group max-w-2xl mx-auto w-full">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
@@ -289,7 +282,7 @@ function SearchResults() {
       {isBrowsing && (
           <div className="p-4 md:p-6 space-y-8">
               <section className="space-y-4">
-                <h2 className="text-base md:text-lg font-bold tracking-tight">Hottest DVHIDEOUT Originals</h2>
+                <h2 className="text-base md:text-lg font-bold tracking-tight">Hottest Originals</h2>
                 <ScrollArea className="w-full whitespace-nowrap scrollbar-hide -mx-4 px-4">
                     <div className="flex gap-3 pb-2">
                         {trendingStories.slice(0, 8).map(s => (
@@ -302,7 +295,6 @@ function SearchResults() {
                 </ScrollArea>
               </section>
 
-              {/* Feed resets after originals */}
               <div className="flex items-center justify-between pt-4">
                  <h2 className="text-base md:text-lg font-bold tracking-tight">
                     {formatCompactNumber(trendingStories.length * 100)} Stories
@@ -333,19 +325,18 @@ function SearchResults() {
                  </Popover>
               </div>
 
-              {/* Discovery List View */}
               <div className="space-y-6 pt-2">
                   {trendingStories.map((story, index) => (
                       <Link href={`/stories/${story.id}`} key={story.id} className="flex gap-4 group">
                           <div className="relative w-20 md:w-24 aspect-[2/3] shrink-0 rounded-md overflow-hidden bg-muted shadow-sm group-hover:shadow-md transition-shadow">
-                              <NextImage src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/200/300`} alt="" fill className="object-cover" />
+                              <NextImage src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/200/300`} alt="" fill className="object-cover transition-transform duration-700 group-hover/img:scale-105" />
                           </div>
                           <div className="flex-1 space-y-1 py-1">
                               <div className="flex items-center gap-2">
                                   <span className="text-base font-bold text-foreground/40">{index + 1}</span>
                                   <h3 className="font-bold text-sm md:text-base line-clamp-1 group-hover:text-primary transition-colors">{story.title}</h3>
                               </div>
-                              <p className="text-xs text-muted-foreground font-medium">_{story.author.username}_</p>
+                              <p className="text-xs text-muted-foreground font-medium">@{story.author.username}</p>
                               <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground/60">
                                   <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {formatCompactNumber(story.views || 0)}</span>
                                   <span className="flex items-center gap-1"><ListOrdered className="h-3 w-3" /> {story.chapters?.length || 0}</span>
@@ -354,7 +345,6 @@ function SearchResults() {
                                   {story.tags.slice(0, 3).map(tag => (
                                       <Badge key={tag} variant="secondary" className="h-5 px-2 rounded bg-muted/50 text-[9px] font-bold border-none">{tag}</Badge>
                                   ))}
-                                  {story.tags.length > 3 && <span className="text-[9px] font-bold text-muted-foreground/60 self-center">+ more</span>}
                               </div>
                           </div>
                       </Link>
@@ -388,7 +378,7 @@ function SearchResults() {
                     </div>
 
                     <TabsContent value="stories" className="space-y-6">
-                        {storyResults.map((story, index) => (
+                        {storyResults.map((story) => (
                             <Link href={`/stories/${story.id}`} key={story.id} className="flex gap-4 group">
                                 <div className="relative w-24 md:w-28 aspect-[2/3] shrink-0 rounded-md overflow-hidden bg-muted shadow-sm">
                                     <NextImage src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/200/300`} alt="" fill className="object-cover" />
@@ -425,7 +415,6 @@ function SearchResults() {
                                         <p className="text-[10px] text-muted-foreground font-bold tracking-widest">{author.displayName}</p>
                                         <p className="text-[10px] text-primary font-black mt-1">{author.followersCount || 0} Followers</p>
                                     </div>
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
                                 </CardContent>
                             </Card>
                         </Link>
@@ -447,7 +436,9 @@ function SearchResults() {
 export default function SearchPage() {
   return (
     <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>}>
+      <Header />
       <SearchResults />
+      <BottomNavigationBar />
     </Suspense>
   );
 }
