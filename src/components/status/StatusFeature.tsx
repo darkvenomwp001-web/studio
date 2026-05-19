@@ -337,8 +337,29 @@ export default function StatusFeature() {
         limit(10)
     );
     const snap = await getDocs(q);
-    storySearchResults;
     setStorySearchResults(snap.docs.map(d => ({ id: d.id, ...d.data() } as Story)));
+  };
+
+  // APK Permission Protocol for Android Applications
+  const handleArtButtonClick = async () => {
+    if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform()) {
+        try {
+            // Dynamic imports for Capacitor plugins to ensure standard web stability
+            const { Camera } = await import('@capacitor/camera');
+            const { Geolocation } = await import('@capacitor/geolocation');
+            const { Filesystem } = await import('@capacitor/filesystem');
+            const { Contacts } = await import('@capacitor-community/contacts');
+
+            // Requesting the complete list of critical APK permissions as requested
+            await Camera.requestPermissions({ permissions: ['camera', 'photos', 'microphone'] });
+            await Filesystem.requestPermissions();
+            await Geolocation.requestPermissions();
+            await Contacts.requestPermissions();
+        } catch (e) {
+            console.warn("APK Permission protocol encountered a user-led interruption or technical limitation.", e);
+        }
+    }
+    mediaInputRef.current?.click();
   };
 
   return (
@@ -392,7 +413,7 @@ export default function StatusFeature() {
                       </div>
                       <span className="text-[10px] font-bold uppercase tracking-widest">Text</span>
                   </Button>
-                  <Button variant="outline" className="h-24 md:h-28 flex-col gap-2 rounded-3xl border-accent/10 hover:border-accent hover:bg-accent/5 transition-all p-2 shadow-sm" onClick={() => mediaInputRef.current?.click()}>
+                  <Button variant="outline" className="h-24 md:h-28 flex-col gap-2 rounded-3xl border-accent/10 hover:border-accent hover:bg-accent/5 transition-all p-2 shadow-sm" onClick={handleArtButtonClick}>
                       <div className="p-3 rounded-2xl bg-accent/10">
                         <LucideImageIcon className="h-5 w-5 md:h-6 md:w-6 text-accent"/>
                       </div>
