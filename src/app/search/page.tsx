@@ -108,7 +108,7 @@ function SearchResults() {
             where('title', '>=', currentQuery.trim()),
             where('title', '<=', currentQuery.trim() + '\uf8ff'),
             orderBy('title'),
-            limit(20)
+            limit(30)
           );
       } else if (genre !== 'all') {
           storyQuery = query(
@@ -116,7 +116,7 @@ function SearchResults() {
             where('visibility', '==', 'Public'),
             where('genre', '==', genre),
             orderBy('lastUpdated', 'desc'),
-            limit(20)
+            limit(30)
           );
       } else {
           setIsLoading(false);
@@ -208,7 +208,7 @@ function SearchResults() {
   const hasResults = storyResults.length > 0 || userResults.length > 0;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 pb-24 px-3 sm:px-4 md:px-6 animate-in fade-in duration-500">
+    <div className="max-w-5xl mx-auto space-y-4 pb-24 px-3 sm:px-4 md:px-6 animate-in fade-in duration-500">
       {/* Ultra-Compact Sticky Search Header */}
       <div className="sticky top-14 md:top-16 z-30 bg-background/90 backdrop-blur-xl -mx-3 sm:-mx-4 md:-mx-6 px-3 sm:px-4 md:px-6 py-2 md:py-4 border-b border-border/40 shadow-sm space-y-2">
         <div className="flex items-center gap-2 max-w-2xl mx-auto">
@@ -321,8 +321,9 @@ function SearchResults() {
                     <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4" />
                     <h2 className="text-[10px] md:text-sm font-black uppercase tracking-[0.2em]">Trending</h2>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {trendingStories.slice(0, 6).map(s => <StoryCard key={s.id} story={s} />)}
+                {/* High Density Trending Grid */}
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 md:gap-4">
+                    {trendingStories.slice(0, 8).map(s => <StoryCard key={s.id} story={s} />)}
                 </div>
               </section>
 
@@ -351,13 +352,13 @@ function SearchResults() {
                         <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 opacity-60">
                             <Flame className="h-3 w-3 text-orange-500" /> Recent Arrivals
                         </h3>
-                        <div className="grid grid-cols-3 gap-2">
-                            {trendingStories.slice(0, 3).map(s => (
+                        <div className="grid grid-cols-4 gap-2">
+                            {trendingStories.slice(0, 4).map(s => (
                                  <Link href={`/stories/${s.id}`} key={s.id} className="group">
                                     <div className="aspect-[2/3] relative rounded-lg overflow-hidden bg-muted mb-1 shadow-sm transition-all group-hover:-translate-y-0.5">
                                         <NextImage src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/512/800`} alt="" fill className="object-cover" />
                                     </div>
-                                    <p className="text-[8px] md:text-[9px] font-black uppercase tracking-tighter truncate group-hover:text-primary transition-colors px-0.5">{s.title}</p>
+                                    <p className="text-[7px] md:text-[8px] font-black uppercase tracking-tighter truncate group-hover:text-primary transition-colors px-0.5">{s.title}</p>
                                  </Link>
                             ))}
                         </div>
@@ -409,7 +410,8 @@ function SearchResults() {
                     </div>
 
                     <TabsContent value="stories" className="mt-0 focus-visible:outline-none">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
+                        {/* Results Grid Optimized for Phone and Laptop */}
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-4">
                             {storyResults.map(story => (
                             <StoryCard key={story.id} story={story} />
                             ))}
