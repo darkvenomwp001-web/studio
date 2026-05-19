@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useState, FormEvent, useMemo } from 'react';
+import { useEffect, useState, FormEvent, useRef, ChangeEvent } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -31,11 +32,18 @@ import {
   Calendar,
   PenTool,
   Quote,
-  Music
+  Music,
+  ImagePlus,
+  FileText,
+  X,
+  Send,
+  Edit,
+  Save,
+  Plus
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Story, User as AppUser, Announcement, WritingStatus } from '@/types';
+import type { Story, User as AppUser, Announcement, WritingStatus, ThreadPost } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -51,10 +59,11 @@ import {
   serverTimestamp,
   updateDoc,
   deleteDoc,
-  limit
+  limit,
+  Timestamp
 } from 'firebase/firestore';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDistanceToNow } from 'date-fns';
@@ -110,6 +119,161 @@ function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id
       <p className="text-[10px] text-muted-foreground truncate">{story.genre}</p>
     </div>
   );
+}
+
+function StudioJournal({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [journalEntries, setJournalEntries] = useState<ThreadPost[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isPosting, setIsPosting] = useState(false);
+    const [newEntry, setNewEntry] = useState('');
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        setIsLoading(true);
+        const q = query(
+            collection(db, 'feedPosts'),
+            where('author.id', '==', profileUser.id),
+            where('type', '==', 'studio_journal'),
+            orderBy('timestamp', 'desc')
+        );
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setJournalEntries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ThreadPost)));
+            setIsLoading(false);
+        });
+        return () => unsubscribe();
+    }, [profileUser.id]);
+
+    const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setImageFile(file);
+            const reader = new FileReader();
+            reader.onload = (event) => setImagePreview(event.target?.result as string);
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const uploadFile = async (file: File): Promise<string> => {
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', uploadPreset!);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+        const data = await res.json();
+        return data.secure_url;
+    };
+
+    const handlePost = async () => {
+        if (!user || !newEntry.trim()) return;
+        setIsPosting(true);
+        try {
+            let imageUrl = '';
+            if (imageFile) {
+                imageUrl = await uploadFile(imageFile);
+            }
+            const postData = {
+                author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
+                content: newEntry.trim(),
+                imageUrl,
+                type: 'studio_journal',
+                timestamp: serverTimestamp(),
+                reactionsCount: 0,
+                commentsCount: 0
+            };
+            await addDoc(collection(db, 'feedPosts'), postData);
+            setNewEntry('');
+            setImageFile(null);
+            setImagePreview(null);
+            toast({ title: "Logged to Journal" });
+        } catch (error) {
+            toast({ title: "Log Failed", variant: "destructive" });
+        } finally {
+            setIsPosting(false);
+        }
+    };
+
+    const handleDelete = (id: string) => {
+        deleteDoc(doc(db, 'feedPosts', id)).then(() => toast({ title: "Entry Erased" }));
+    };
+
+    return (
+        <div className="space-y-6">
+            {isOwnProfile && (
+                <Card className="rounded-[2rem] border-primary/10 bg-primary/5 shadow-sm overflow-hidden">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+                            <Plus className="h-4 w-4 text-primary" /> Daily Log Entry
+                        </CardTitle>
+                        <CardDescription className="text-[10px] uppercase font-bold tracking-tight">Record your creative pulse</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Textarea 
+                            value={newEntry}
+                            onChange={e => setNewEntry(e.target.value)}
+                            placeholder="What's happening in the studio today?"
+                            className="bg-background/50 border-none shadow-inner rounded-2xl resize-none font-medium min-h-[100px]"
+                        />
+                        {imagePreview && (
+                            <div className="relative aspect-video rounded-2xl overflow-hidden border border-border/40 shadow-lg group">
+                                <Image src={imagePreview} alt="Preview" fill className="object-cover" />
+                                <Button variant="destructive" size="icon" className="absolute top-2 right-2 rounded-full h-8 w-8" onClick={() => { setImageFile(null); setImagePreview(null); }}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        )}
+                        <input type="file" ref={imageInputRef} className="hidden" accept="image/*" onChange={handleImageSelect} />
+                    </CardContent>
+                    <CardFooter className="bg-muted/20 p-4 border-t border-border/10 flex justify-between">
+                        <Button variant="ghost" size="icon" className="rounded-full bg-background/50 hover:bg-background shadow-sm" onClick={() => imageInputRef.current?.click()}>
+                            <ImagePlus className="h-4 w-4 text-primary" />
+                        </Button>
+                        <Button onClick={handlePost} disabled={isPosting || !newEntry.trim()} className="rounded-full px-6 font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">
+                            {isPosting ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Send className="h-3 w-3 mr-2" />}
+                            Sync Log
+                        </Button>
+                    </CardFooter>
+                </Card>
+            )}
+
+            <div className="space-y-4">
+                {isLoading ? (
+                    <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
+                ) : journalEntries.length > 0 ? (
+                    journalEntries.map(entry => (
+                        <Card key={entry.id} className="rounded-[2.5rem] border-none shadow-sm bg-muted/10 group">
+                            <CardContent className="p-6 space-y-4">
+                                <div className="flex justify-between items-start">
+                                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-primary/60 bg-primary/5 px-3 py-1 rounded-full border border-primary/10">
+                                        {entry.timestamp?.toDate ? formatDistanceToNow(entry.timestamp.toDate(), { addSuffix: true }) : 'now'}
+                                    </span>
+                                    {isOwnProfile && (
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDelete(entry.id)}>
+                                            <Trash2 className="h-4 w-4 text-destructive/60" />
+                                        </Button>
+                                    )}
+                                </div>
+                                <p className="text-sm md:text-base leading-relaxed text-foreground/80 whitespace-pre-line">{entry.content}</p>
+                                {entry.imageUrl && (
+                                    <div className="relative aspect-video rounded-2xl overflow-hidden border border-border/20 shadow-xl">
+                                        <Image src={entry.imageUrl} alt="Journal Photo" fill className="object-cover" />
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : !isOwnProfile && (
+                    <div className="text-center py-20 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
+                        The journal archives are empty.
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 }
 
 function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
@@ -342,6 +506,10 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
   const [privateWorks, setPrivateWorks] = useState<Story[]>([]); 
 
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [editedBio, setEditedBio] = useState('');
+  const [isSavingBio, setIsSavingBio] = useState(false);
+
   const isOwnProfile = currentUser?.id === userId;
 
   useEffect(() => {
@@ -354,7 +522,9 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     const userDocRef = doc(db, 'users', userId);
     const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
-        setProfileUser({ id: docSnap.id, ...docSnap.data() } as AppUser);
+        const u = { id: docSnap.id, ...docSnap.data() } as AppUser;
+        setProfileUser(u);
+        setEditedBio(u.bio || '');
       } else {
         setProfileUser(null);
       }
@@ -393,6 +563,18 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
 
     return () => unsubStories();
   }, [profileUser, isOwnProfile]);
+
+  const handleSaveBio = async () => {
+    if (!profileUser || !isOwnProfile) return;
+    setIsSavingBio(true);
+    const userRef = doc(db, 'users', profileUser.id);
+    updateDoc(userRef, { bio: editedBio, updatedAt: serverTimestamp() })
+        .then(() => {
+            toast({ title: "Bio Transmission Successful" });
+            setIsEditingBio(false);
+        })
+        .finally(() => setIsSavingBio(false));
+  };
 
   if (authLoading || isLoadingData) {
     return (
@@ -490,7 +672,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                       </Link>
                   </div>
 
-                  {profileUser.bio && <p className="text-muted-foreground text-xs sm:text-sm max-w-2xl leading-relaxed line-clamp-2">{profileUser.bio}</p>}
+                  {profileUser.bio && !isEditingBio && <p className="text-muted-foreground text-xs sm:text-sm max-w-2xl leading-relaxed line-clamp-2">{profileUser.bio}</p>}
                   
                   {!isOwnProfile && (
                     <div className="flex flex-wrap gap-2 sm:gap-3 pt-3 sm:pt-4">
@@ -558,6 +740,50 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
 
                 <TabsContent value="about" className="space-y-8 animate-in fade-in duration-500">
                     <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                        <Card className="rounded-[2.5rem] border-none shadow-sm bg-muted/5 md:col-span-2">
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+                                        <PenTool className="h-4 w-4 text-primary" /> Signal from the Desk
+                                    </CardTitle>
+                                    <CardDescription className="text-[10px] uppercase font-bold tracking-widest opacity-60">Verified Identity Node</CardDescription>
+                                </div>
+                                {isOwnProfile && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-8 px-3 gap-2 rounded-full font-bold text-[10px] uppercase tracking-widest text-primary hover:bg-primary/5"
+                                        onClick={() => setIsEditingBio(!isEditingBio)}
+                                    >
+                                        {isEditingBio ? <X className="h-3 w-3" /> : <Edit className="h-3 w-3" />}
+                                        {isEditingBio ? 'Discard' : 'Edit Identity'}
+                                    </Button>
+                                )}
+                            </CardHeader>
+                            <CardContent>
+                                {isEditingBio ? (
+                                    <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                        <Textarea 
+                                            value={editedBio}
+                                            onChange={e => setEditedBio(e.target.value)}
+                                            placeholder="Update your full creative identity..."
+                                            className="min-h-[150px] bg-background border-none shadow-inner rounded-2xl resize-none text-base p-5 focus-visible:ring-primary/20"
+                                        />
+                                        <div className="flex justify-end">
+                                            <Button onClick={handleSaveBio} disabled={isSavingBio || editedBio === profileUser.bio} className="rounded-full px-8 h-10 font-bold uppercase text-[10px] tracking-widest">
+                                                {isSavingBio ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Save className="h-3 w-3 mr-2" />}
+                                                Sync Transmission
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm md:text-base leading-relaxed text-foreground/80 whitespace-pre-line px-1">
+                                        {profileUser.bio || "This node has not emitted a clear identity signal yet."}
+                                    </p>
+                                )}
+                            </CardContent>
+                        </Card>
+
                         <Card className="rounded-[2rem] border-none shadow-sm bg-muted/10">
                             <CardHeader>
                                 <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
@@ -617,19 +843,13 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                             </Card>
                         )}
 
-                        <Card className="rounded-[2.5rem] border-none shadow-sm bg-muted/5 md:col-span-2">
-                            <CardHeader>
-                                <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
-                                    <PenTool className="h-4 w-4 text-primary" /> Signal from the Desk
-                                </CardTitle>
-                                <CardDescription className="text-[10px] uppercase font-bold tracking-widest opacity-60">Verified Transmission</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-sm md:text-base leading-relaxed text-foreground/80 whitespace-pre-line">
-                                    {profileUser.bio || "This node has not emitted a signal yet."}
-                                </p>
-                            </CardContent>
-                        </Card>
+                        <div className="md:col-span-2 space-y-6">
+                            <div className="flex items-center gap-2 px-2">
+                                <div className="h-1 w-6 bg-primary rounded-full" />
+                                <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground/60">Studio Journal</h3>
+                            </div>
+                            <StudioJournal profileUser={profileUser} isOwnProfile={isOwnProfile} />
+                        </div>
                     </div>
                 </TabsContent>
 
