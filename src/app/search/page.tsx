@@ -39,7 +39,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { cn, formatCompactNumber } from '@/lib/utils';
 import NextImage from 'next/image';
-import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 
 const GENRES = [
@@ -206,9 +205,9 @@ function SearchResults() {
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-0 pb-24 animate-in fade-in duration-500 overflow-x-hidden">
-      {/* Search Header - Sticky below global header */}
-      <div className="sticky top-14 md:top-16 z-40 bg-background/95 backdrop-blur-xl border-b border-border/40 px-4 py-3 md:p-4 space-y-4 w-full">
-        <div className="relative group max-w-2xl mx-auto w-full">
+      {/* Search Header - Sticky at the very top (Header removed from parent) */}
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border/40 px-4 py-3 md:p-4 space-y-4 w-full">
+        <div className="relative group w-full">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
               placeholder="Search for stories or people" 
@@ -223,7 +222,7 @@ function SearchResults() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 max-w-2xl mx-auto w-full">
+        <div className="flex items-center gap-2 w-full">
             <ScrollArea className="flex-1 whitespace-nowrap scrollbar-hide">
                 <div className="flex items-center gap-6 px-1">
                     {GENRES.map(genre => (
@@ -436,7 +435,6 @@ function SearchResults() {
 export default function SearchPage() {
   return (
     <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>}>
-      <Header />
       <SearchResults />
       <BottomNavigationBar />
     </Suspense>
