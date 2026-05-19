@@ -24,6 +24,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '../ui/label';
 
+// Native APK Bridge Imports
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+
 const gradientBackgrounds = [
   'bg-gradient-to-br from-gray-700 via-gray-900 to-black',
   'bg-gradient-to-br from-rose-400 via-fuchsia-500 to-indigo-500',
@@ -342,24 +345,40 @@ export default function StatusFeature() {
 
   // APK Permission Protocol for Android Applications
   const handleArtButtonClick = async () => {
-    if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform()) {
+    const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+    
+    if (isNative) {
         try {
-            // Dynamic imports for Capacitor plugins to ensure standard web stability
-            const { Camera } = await import('@capacitor/camera');
-            const { Geolocation } = await import('@capacitor/geolocation');
-            const { Filesystem } = await import('@capacitor/filesystem');
-            const { Contacts } = await import('@capacitor-community/contacts');
+            // Request permissions before opening the native picker
+            await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
+            
+            const image = await Camera.getPhoto({
+                quality: 90,
+                allowEditing: true,
+                resultType: CameraResultType.Uri,
+                source: CameraSource.Photos
+            });
 
-            // Requesting the complete list of critical APK permissions as requested
-            await Camera.requestPermissions({ permissions: ['camera', 'photos', 'microphone'] });
-            await Filesystem.requestPermissions();
-            await Geolocation.requestPermissions();
-            await Contacts.requestPermissions();
+            if (image.webPath) {
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+                const file = new File([blob], `status-media.${image.format}`, { type: blob.type });
+                
+                // Engage the status creation UI with the native file
+                setMediaFile(file);
+                setMediaPreview(image.webPath);
+                setMediaType('image');
+                setActiveUploaderTab('art');
+                setIsUploaderOpen(true);
+                setIsCreatorOpen(false);
+            }
         } catch (e) {
-            console.warn("APK Permission protocol encountered a user-led interruption or technical limitation.", e);
+            console.warn("APK Native Picker protocol encountered an interruption.", e);
+            mediaInputRef.current?.click(); // Fallback to standard input
         }
+    } else {
+        mediaInputRef.current?.click();
     }
-    mediaInputRef.current?.click();
   };
 
   return (

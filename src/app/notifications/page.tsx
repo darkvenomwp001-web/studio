@@ -108,6 +108,9 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import Image from 'next/image';
 
+// Native APK Bridge Imports
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: NodeJS.Timeout;
   return (...args: Parameters<F>): Promise<ReturnType<F>> =>
@@ -705,7 +708,34 @@ function MessagesClient() {
         });
   };
 
-  const handleGallerySelect = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleGallerySelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+    
+    if (isNative) {
+        try {
+            await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
+            const image = await Camera.getPhoto({
+                quality: 90,
+                allowEditing: true,
+                resultType: CameraResultType.Uri,
+                source: CameraSource.Photos
+            });
+
+            if (image.webPath) {
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+                const file = new File([blob], `msg-media.${image.format}`, { type: blob.type });
+                setPendingMedia(file);
+                setPendingMediaPreview(image.webPath);
+                setPendingFile(null);
+                setAudioBlob(null);
+            }
+        } catch (err) {
+            console.warn("APK native picker protocol interrupted.");
+        }
+        return;
+    }
+
     if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
         setPendingMedia(file);

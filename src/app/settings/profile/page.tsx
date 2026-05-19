@@ -18,6 +18,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { User as AppUser, WritingStatus } from '@/types';
 import NextImage from 'next/image';
 
+// Native APK Bridge Imports
+import { Camera as NativeCamera, CameraResultType, CameraSource } from '@capacitor/camera';
+
 const WRITING_STATUSES: { value: WritingStatus; label: string; icon: string }[] = [
     { value: 'none', label: 'No Status', icon: '😶' },
     { value: 'writing', label: 'Currently Writing', icon: '✍️' },
@@ -89,6 +92,43 @@ export default function EditProfilePage() {
         }
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleNativePick = async (type: 'avatar' | 'cover') => {
+    const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+    if (!isNative) {
+        if (type === 'avatar') avatarInputRef.current?.click();
+        else coverInputRef.current?.click();
+        return;
+    }
+
+    try {
+        await NativeCamera.requestPermissions({ permissions: ['camera', 'photos'] });
+        const image = await NativeCamera.getPhoto({
+            quality: 90,
+            allowEditing: true,
+            resultType: CameraResultType.Uri,
+            source: CameraSource.Photos
+        });
+
+        if (image.webPath) {
+            const response = await fetch(image.webPath);
+            const blob = await response.blob();
+            const file = new File([blob], `${type}-upload.${image.format}`, { type: blob.type });
+            
+            if (type === 'avatar') {
+                setAvatarFile(file);
+                setAvatarPreview(image.webPath);
+            } else {
+                setCoverFile(file);
+                setCoverPreview(image.webPath);
+            }
+        }
+    } catch (e) {
+        console.warn("APK Native Picker protocol interrupted.", e);
+        if (type === 'avatar') avatarInputRef.current?.click();
+        else coverInputRef.current?.click();
     }
   };
 
@@ -173,7 +213,6 @@ export default function EditProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-10">
-        {/* Changed tag to div to escape global .glass-enabled backdrop-blur rules */}
         <div className="flex flex-col space-y-2">
             <Button variant="ghost" onClick={() => router.push('/settings')} className="w-fit -ml-2 text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Hub
@@ -184,8 +223,7 @@ export default function EditProfilePage() {
 
         <form onSubmit={handleProfileSubmit} className="space-y-10 pb-20">
           <Card className="shadow-2xl border-none bg-card/70 overflow-hidden rounded-[2.5rem]">
-            {/* High-Fidelity Cover Upload Interface - ZERO BLUR */}
-            <div className="relative w-full aspect-[21/9] md:aspect-[4/1] bg-muted group cursor-pointer overflow-hidden border-b border-border/40" onClick={() => coverInputRef.current?.click()}>
+            <div className="relative w-full aspect-[21/9] md:aspect-[4/1] bg-muted group cursor-pointer overflow-hidden border-b border-border/40" onClick={() => handleNativePick('cover')}>
                 {coverPreview ? (
                     <NextImage src={coverPreview} alt="Cover Preview" fill className="object-cover transition-transform duration-700 group-hover:scale-105" />
                 ) : (
@@ -204,7 +242,7 @@ export default function EditProfilePage() {
 
             <CardHeader className="relative pb-10 pt-0">
                 <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-16 md:-mt-24 px-6">
-                  <div className="relative group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
+                  <div className="relative group cursor-pointer" onClick={() => handleNativePick('avatar')}>
                     <Avatar className="h-32 w-32 md:h-44 md:w-44 border-[6px] border-card shadow-2xl transition-transform duration-500 group-hover:scale-105">
                       <AvatarImage src={avatarPreview || ''} alt={displayName} />
                       <AvatarFallback className="text-4xl bg-primary/10 text-primary">{displayName?.substring(0, 2).toUpperCase()}</AvatarFallback>
@@ -221,7 +259,7 @@ export default function EditProfilePage() {
                         type="button" 
                         variant="secondary" 
                         size="sm" 
-                        onClick={() => avatarInputRef.current?.click()} 
+                        onClick={() => handleNativePick('avatar')} 
                         disabled={anySubmitting}
                         className="rounded-full h-8 px-4 mt-2 font-bold text-[10px] uppercase tracking-widest shadow-sm"
                     >
@@ -233,7 +271,6 @@ export default function EditProfilePage() {
             </CardHeader>
 
             <CardContent className="p-8 space-y-10">
-                {/* Author Status Section */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 text-primary font-semibold">
                         <Sparkles className="h-5 w-5" />
@@ -258,7 +295,6 @@ export default function EditProfilePage() {
 
                 <Separator className="opacity-40" />
 
-                {/* Identity Section */}
                 <div className="space-y-6">
                     <div className="flex items-center gap-2 text-primary font-semibold">
                         <User className="h-5 w-5" />
@@ -301,7 +337,6 @@ export default function EditProfilePage() {
 
                 <Separator className="opacity-40" />
 
-                {/* Vibe Section */}
                 <div className="space-y-6">
                     <div className="flex items-center gap-2 text-primary font-semibold">
                         <Music className="h-5 w-5" />
