@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader2, Pin, PinOff, Trash2, MailOpen, Mail, ChevronRight, Send, Sparkles, BookOpen, Quote } from 'lucide-react';
+import { Loader2, Pin, PinOff, Trash2, MailOpen, Mail, ChevronRight, Send, BookOpen, Quote, X } from 'lucide-react';
 import type { Letter as LetterType } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -18,7 +18,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ScrollArea } from '../ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import { getMagicLetterDraft } from '@/app/actions/aiActions';
 
 export default function LetterCard({ letter, isAuthorView, isOnline }: { letter: LetterType, isAuthorView: boolean, isOnline: boolean }) {
   const { user, addNotification } = useAuth();
@@ -27,8 +26,6 @@ export default function LetterCard({ letter, isAuthorView, isOnline }: { letter:
   const [authorResponse, setAuthorResponse] = useState(letter.authorResponse || '');
   const [isResponding, setIsResponding] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  const [isDrafting, startDraftTransition] = useTransition();
 
   const handleMarkAsRead = async () => {
     if (isAuthorView && !letter.isReadByAuthor) {
@@ -62,23 +59,6 @@ export default function LetterCard({ letter, isAuthorView, isOnline }: { letter:
             setIsProcessing(false);
             setIsDialogOpen(false);
         });
-  };
-  
-  const handleMagicDraft = () => {
-    startDraftTransition(async () => {
-        const result = await getMagicLetterDraft({
-            context: `Author responding to a reader's letter about the story "${letter.storyTitle}".`,
-            sender_type: 'author',
-            recipient_name: letter.reader.displayName || letter.reader.username,
-            original_letter: letter.content,
-            tone: 'appreciative and warm'
-        });
-        if ('error' in result) {
-            toast({ title: 'AI Error', description: result.error, variant: 'destructive'});
-        } else {
-            setAuthorResponse(result.draft);
-        }
-    });
   };
 
   const handleSendResponse = async () => {
@@ -199,7 +179,7 @@ export default function LetterCard({ letter, isAuthorView, isOnline }: { letter:
                 <DialogTitle className="text-xl md:text-2xl font-headline font-bold truncate">
                     {isAuthorView ? `From: ${displayUser.displayName || displayUser.username}` : `To: ${displayUser.displayName || displayUser.username}`}
                 </DialogTitle>
-                <DialogDescription className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-2 mt-1 truncate">
+                <DialogDescription className="text-xs md:sm font-medium text-muted-foreground flex items-center gap-2 mt-1 truncate">
                     <BookOpen className="h-3 w-3 shrink-0" />
                     <span className="truncate">"{letter.storyTitle}"</span> &bull; <span className="truncate">{letter.chapterTitle}</span>
                 </DialogDescription>
@@ -215,17 +195,13 @@ export default function LetterCard({ letter, isAuthorView, isOnline }: { letter:
                 <div className="bg-muted/10 p-5 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-border/40 relative shadow-inner group">
                     <Quote className="absolute top-4 right-6 h-10 w-10 text-primary/5 -scale-x-100" />
                     <p className="whitespace-pre-line text-sm md:text-base leading-relaxed text-foreground/90 font-serif relative z-10">{letter.content}</p>
-                    <div className="mt-6 pt-4 border-t border-dashed border-border/40 flex justify-between items-center opacity-60">
-                        <span className="text-[9px] font-bold uppercase tracking-widest">ID: {letter.id.substring(0,8)}</span>
-                        <span className="text-[9px] font-bold uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded-full">{letter.visibility} Letter</span>
-                    </div>
                 </div>
 
                 {letter.authorResponse && (
                     <div className="space-y-3 animate-in slide-in-from-bottom-2 duration-500">
                         <div className="flex items-center gap-2 text-primary font-bold text-[10px] uppercase tracking-[0.2em] ml-2">
                             <MailOpen className="h-3.5 w-3.5" />
-                            <span>Author Response</span>
+                            <span>Response</span>
                         </div>
                         <div className="bg-primary/5 p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-primary/20 shadow-sm relative">
                              <Quote className="absolute top-4 right-6 h-10 w-10 text-primary/10 -scale-x-100" />
@@ -236,31 +212,21 @@ export default function LetterCard({ letter, isAuthorView, isOnline }: { letter:
 
                 {isAuthorView && !letter.authorResponse && (
                     <div className="space-y-4 pt-4 border-t border-dashed border-border/40 animate-in fade-in duration-700">
-                        <div className="flex justify-between items-center px-1">
-                            <Label htmlFor="response" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Draft Response</Label>
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-primary hover:text-primary hover:bg-primary/5 font-bold text-[10px] uppercase tracking-widest gap-2 h-7 px-2 rounded-lg"
-                                onClick={handleMagicDraft}
-                                disabled={isDrafting}
-                            >
-                                {isDrafting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                                AI Assistance
-                            </Button>
+                        <div className="px-1">
+                            <Label htmlFor="response" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Your Response</Label>
                         </div>
                         <Textarea 
                             id="response" 
                             value={authorResponse} 
                             onChange={e => setAuthorResponse(e.target.value)} 
-                            placeholder="Write a heartfelt response to this reader..." 
+                            placeholder="Write back to your reader..." 
                             rows={5}
                             className="bg-muted/20 focus-visible:ring-primary/20 rounded-2xl border-none shadow-inner text-sm md:text-base font-serif p-4"
-                            disabled={isResponding || isDrafting}
+                            disabled={isResponding}
                         />
-                        <Button onClick={handleSendResponse} disabled={isResponding || isDrafting || !authorResponse.trim()} className="w-full h-14 bg-primary hover:bg-primary/90 rounded-2xl shadow-xl shadow-primary/20 text-base font-bold uppercase tracking-widest">
+                        <Button onClick={handleSendResponse} disabled={isResponding || !authorResponse.trim()} className="w-full h-14 bg-primary hover:bg-primary/90 rounded-2xl shadow-xl shadow-primary/20 text-base font-bold uppercase tracking-widest">
                             {isResponding ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                            Transmit Response
+                            Send Response
                         </Button>
                     </div>
                 )}
@@ -269,38 +235,36 @@ export default function LetterCard({ letter, isAuthorView, isOnline }: { letter:
 
         <DialogFooter className="p-4 md:p-6 bg-muted/30 border-t flex-row justify-between items-center gap-2">
             <div className="flex gap-2">
-                {isAuthorView && letter.visibility === 'public' && (
+                {isAuthorView && (
                     <Button variant="ghost" size="sm" onClick={handleTogglePin} disabled={isProcessing} className={cn("rounded-full px-4 h-10 gap-2 border border-border/40 font-bold text-[10px] uppercase tracking-widest transition-all", letter.isPinned && "text-primary hover:text-primary bg-primary/10 border-primary/20")}>
                         {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : letter.isPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />}
-                        <span>{letter.isPinned ? 'Unpin' : 'Pin to Story'}</span>
+                        <span>{letter.isPinned ? 'Unpin' : 'Pin'}</span>
                     </Button>
                 )}
             </div>
             
             <div className="flex gap-2">
-                {(!isAuthorView || (isAuthorView && letter.isReadByAuthor)) && (
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full h-10 w-10 border border-border/40" disabled={isProcessing}>
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="rounded-3xl border-none shadow-3xl">
-                            <AlertDialogHeader>
-                                <AlertDialogTitle className="font-headline text-2xl font-bold">Delete transmission?</AlertDialogTitle>
-                                <AlertDialogDescription className="text-sm leading-relaxed">
-                                    This letter will be removed from your archives. This action is permanent and cannot be reversed.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter className="mt-4">
-                                <AlertDialogCancel className="rounded-full px-8 font-bold">Cancel</AlertDialogCancel>
-                                <AlertDialogAction className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold" onClick={handleDeleteLetter}>
-                                    Confirm Deletion
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                )}
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full h-10 w-10 border border-border/40" disabled={isProcessing}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="rounded-3xl border-none shadow-3xl">
+                        <AlertDialogHeader>
+                            <AlertDialogTitle className="font-headline text-2xl font-bold">Delete letter?</AlertDialogTitle>
+                            <AlertDialogDescription className="text-sm leading-relaxed">
+                                This will permanently remove the letter from your view.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="mt-4">
+                            <AlertDialogCancel className="rounded-full px-8 font-bold">Cancel</AlertDialogCancel>
+                            <AlertDialogAction className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold" onClick={handleDeleteLetter}>
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </DialogFooter>
       </DialogContent>
