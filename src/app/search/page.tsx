@@ -24,7 +24,8 @@ import {
   Check,
   Eye,
   ListOrdered,
-  ChevronDown
+  ChevronDown,
+  LayoutGrid
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -227,24 +228,59 @@ function SearchResults() {
           )}
         </div>
 
-        <ScrollArea className="w-full whitespace-nowrap scrollbar-hide">
-            <div className="flex items-center gap-6 px-1">
-                {GENRES.map(genre => (
-                    <button 
-                        key={genre} 
-                        onClick={() => handleGenreClick(genre)}
-                        className={cn(
-                            "text-xs md:text-sm font-bold uppercase tracking-widest transition-all pb-1 border-b-2",
-                            activeGenre === genre ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"
-                        )}
-                    >
-                        {genre}
-                    </button>
-                ))}
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <ScrollBar orientation="horizontal" className="hidden" />
-        </ScrollArea>
+        <div className="flex items-center gap-2 max-w-2xl mx-auto w-full">
+            <ScrollArea className="flex-1 whitespace-nowrap scrollbar-hide">
+                <div className="flex items-center gap-6 px-1">
+                    {GENRES.map(genre => (
+                        <button 
+                            key={genre} 
+                            onClick={() => handleGenreClick(genre)}
+                            className={cn(
+                                "text-xs md:text-sm font-bold uppercase tracking-widest transition-all pb-1 border-b-2",
+                                activeGenre === genre ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"
+                            )}
+                        >
+                            {genre}
+                        </button>
+                    ))}
+                </div>
+                <ScrollBar orientation="horizontal" className="hidden" />
+            </ScrollArea>
+            
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full flex-shrink-0 hover:bg-primary/10 hover:text-primary transition-all">
+                        <ChevronDown className="h-4 w-4" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[90vw] sm:w-[400px] p-4 rounded-3xl border-none shadow-3xl bg-card/95 backdrop-blur-xl" align="end" sideOffset={12}>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                            <h4 className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">Library Categories</h4>
+                            {activeGenre !== 'all' && (
+                                <button onClick={() => handleGenreClick('all')} className="text-[10px] font-black uppercase text-primary hover:underline">Clear</button>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            {GENRES.map(genre => (
+                                <Button
+                                    key={genre}
+                                    variant={activeGenre === genre ? 'default' : 'outline'}
+                                    size="sm"
+                                    className={cn(
+                                        "justify-start h-10 text-[9px] font-black uppercase tracking-widest rounded-xl px-4 border-border/40 transition-all",
+                                        activeGenre === genre ? "shadow-lg shadow-primary/20" : "hover:bg-primary/5 hover:text-primary hover:border-primary/30"
+                                    )}
+                                    onClick={() => handleGenreClick(genre)}
+                                >
+                                    {genre}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                </PopoverContent>
+            </Popover>
+        </div>
       </div>
 
       {/* Discovery Hub */}
