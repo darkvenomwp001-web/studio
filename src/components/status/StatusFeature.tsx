@@ -8,7 +8,7 @@ import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestam
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, X, Type, Image as LucideImageIcon, Sparkles, Music, BarChart2, BookOpen, Send, ChevronRight, AlignLeft, AlignCenter, AlignRight, Palette, CheckCircle } from 'lucide-react';
+import { Loader2, Plus, X, Type, Image as LucideImageIcon, Sparkles, Music, BarChart2, BookOpen, Send, ChevronRight, AlignLeft, AlignCenter, AlignRight, Palette, CheckCircle, MousePointer2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -94,7 +94,9 @@ export default function StatusFeature() {
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [storySearchResults, setStorySearchResults] = useState<Story[]>([]);
   
-  // 3 New Text Features
+  // High-Fidelity Text Layer States
+  const [isDragging, setIsDragging] = useState(false);
+  const [textPosition, setTextPosition] = useState({ x: 50, y: 50 });
   const [textStyle, setTextStyle] = useState<TextOverlayStyle>({
     font: 'sans',
     alignment: 'center',
@@ -239,18 +241,21 @@ export default function StatusFeature() {
             statusData.mediaUrl = mediaUrl;
             statusData.mediaType = mediaType;
             if (noteContent.trim()) {
-                statusData.note = noteContent.trim();
+                statusData.textOverlay = noteContent.trim();
                 statusData.textOverlayStyle = textStyle;
+                statusData.textOverlayPosition = textPosition;
             }
         } else if (activeUploaderTab === 'text') {
             statusData.note = noteContent.trim();
             statusData.backgroundStyle = backgroundStyle;
             statusData.textOverlayStyle = textStyle;
+            statusData.textOverlayPosition = textPosition;
         } else if (activeUploaderTab === 'music' && selectedSong) {
             statusData.spotifyUrl = `https://open.spotify.com/track/${selectedSong.id}`;
             if (noteContent.trim()) {
-                statusData.note = noteContent.trim();
+                statusData.textOverlay = noteContent.trim();
                 statusData.textOverlayStyle = textStyle;
+                statusData.textOverlayPosition = textPosition;
             }
         } else if (activeUploaderTab === 'poll' && pollQuestion.trim()) {
             statusData.poll = {
@@ -262,8 +267,9 @@ export default function StatusFeature() {
         } else if (activeUploaderTab === 'story' && selectedStory) {
             statusData.sharedStoryId = selectedStory.id;
             if (noteContent.trim()) {
-                statusData.note = noteContent.trim();
+                statusData.textOverlay = noteContent.trim();
                 statusData.textOverlayStyle = textStyle;
+                statusData.textOverlayPosition = textPosition;
             }
         }
 
@@ -288,6 +294,7 @@ export default function StatusFeature() {
     setPollOptions(['', '']);
     setSelectedStory(null);
     setAiSuggestions([]);
+    setTextPosition({ x: 50, y: 50 });
     setTextStyle({
       font: 'sans',
       alignment: 'center',
@@ -330,6 +337,7 @@ export default function StatusFeature() {
         limit(10)
     );
     const snap = await getDocs(q);
+    storySearchResults;
     setStorySearchResults(snap.docs.map(d => ({ id: d.id, ...d.data() } as Story)));
   };
 
@@ -419,8 +427,9 @@ export default function StatusFeature() {
                   <DialogTitle className="font-headline text-xl font-bold">Status Studio</DialogTitle>
                   <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Design your temporary update</DialogDescription>
               </DialogHeader>
+              
               <div className={cn(
-                  "relative h-[420px] md:h-[500px] flex flex-col justify-center items-center text-white transition-all duration-700 transform-gpu",
+                  "relative h-[420px] md:h-[500px] flex flex-col justify-center items-center text-white transition-all duration-700 transform-gpu overflow-hidden group/canvas",
                   activeUploaderTab === 'text' ? backgroundStyle : 'bg-black'
               )}>
                   <div className="absolute inset-0 bg-black/5 pointer-events-none" />
@@ -428,22 +437,59 @@ export default function StatusFeature() {
                   {activeUploaderTab === 'art' && mediaPreview && (
                       <div className="w-full h-full relative">
                         <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" className="animate-in fade-in duration-1000" />
-                        <div className="absolute inset-0 bg-black/20 flex flex-col justify-end p-6">
-                            <Textarea 
-                                value={noteContent}
-                                onChange={e => setNoteContent(e.target.value)}
-                                placeholder="Add a caption..."
-                                className={cn(
-                                    "bg-black/40 backdrop-blur-md border-none text-white placeholder:text-white/50 rounded-[1.5rem] resize-none shadow-2xl h-28 text-lg font-medium p-5 transition-all duration-300",
-                                    textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
-                                    textStyle.alignment === 'center' ? 'text-center' : (textStyle.alignment === 'right' ? 'text-right' : 'text-left')
-                                )}
-                                style={{
-                                    backgroundColor: textStyle.background === 'solid' ? 'rgba(0,0,0,0.8)' : (textStyle.background === 'translucent' ? 'rgba(0,0,0,0.4)' : 'transparent'),
-                                }}
-                            />
+                        
+                        {/* High-Fidelity Movable Text Interface */}
+                        <div 
+                            className="absolute inset-0 z-20 cursor-crosshair"
+                            onMouseMove={(e) => {
+                                if (!isDragging) return;
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                                setTextPosition({ x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) });
+                            }}
+                            onTouchMove={(e) => {
+                                if (!isDragging) return;
+                                const touch = e.touches[0];
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const x = ((touch.clientX - rect.left) / rect.width) * 100;
+                                const y = ((touch.clientY - rect.top) / rect.height) * 100;
+                                setTextPosition({ x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) });
+                            }}
+                        >
+                            <div 
+                                className="absolute transform -translate-x-1/2 -translate-y-1/2 min-w-[200px] transition-transform duration-75"
+                                style={{ left: `${textPosition.x}%`, top: `${textPosition.y}%` }}
+                                onMouseDown={() => setIsDragging(true)}
+                                onMouseUp={() => setIsDragging(false)}
+                                onTouchStart={() => setIsDragging(true)}
+                                onTouchEnd={() => setIsDragging(false)}
+                            >
+                                <Textarea 
+                                    value={noteContent}
+                                    onChange={e => setNoteContent(e.target.value)}
+                                    placeholder="Tap to add text..."
+                                    className={cn(
+                                        "bg-transparent border-none text-white placeholder:text-white/30 resize-none shadow-none text-2xl font-bold p-2 transition-all duration-300 focus-visible:ring-0 w-full",
+                                        textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
+                                        textStyle.alignment === 'center' ? 'text-center' : (textStyle.alignment === 'right' ? 'text-right' : 'text-left')
+                                    )}
+                                    style={{
+                                        textShadow: '0 2px 10px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.4)',
+                                        color: textStyle.color,
+                                        backgroundColor: textStyle.background === 'solid' ? 'rgba(0,0,0,0.8)' : (textStyle.background === 'translucent' ? 'rgba(0,0,0,0.4)' : 'transparent'),
+                                        borderRadius: textStyle.background !== 'none' ? '1rem' : '0',
+                                    }}
+                                />
+                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover/canvas:opacity-40 transition-opacity">
+                                    <MousePointer2 className="h-4 w-4 text-white" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-6 pt-12 z-30 pointer-events-none">
                             {mediaType === 'image' && (
-                                <div className="mt-4 space-y-3">
+                                <div className="space-y-3 pointer-events-auto">
                                     <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 font-bold text-[10px] uppercase tracking-widest gap-2 bg-white/5 rounded-full px-4" onClick={handleGenerateAiCaptions} disabled={isGeneratingAi}>
                                         {isGeneratingAi ? <Loader2 className="h-3 w-3 animate-spin"/> : <Sparkles className="h-3 w-3" />}
                                         AI Suggested Captions
@@ -602,7 +648,6 @@ export default function StatusFeature() {
 
               <div className="flex-1 bg-background overflow-y-auto no-scrollbar">
                   <div className="p-6 space-y-8">
-                    {/* Text Styling Bar */}
                     {(activeUploaderTab === 'text' || activeUploaderTab === 'art' || activeUploaderTab === 'music' || activeUploaderTab === 'story') && (
                         <div className="space-y-6 animate-in slide-in-from-top-4 duration-500">
                              <div className="flex items-center justify-between border-b pb-4 border-border/40">
