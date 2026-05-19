@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Send, MoreHorizontal, Edit3, Trash2, Save } from 'lucide-react';
+import { Loader2, Send, EllipsisVertical, Edit3, Trash2, Save } from 'lucide-react';
 import type { Comment as CommentType } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -99,19 +99,21 @@ function ThreadComment({ comment, postId, onUpdate, onDelete }: ThreadCommentPro
                             {canManage && !isEditing && (
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <MoreHorizontal className="h-3 w-3" />
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground relative z-10">
+                                            <EllipsisVertical className="h-3 w-3" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-32">
-                                        <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                                            <Edit3 className="mr-2 h-3 w-3" /> Edit
+                                    <DropdownMenuContent align="end" className="w-32 rounded-xl border-border/40">
+                                        <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
+                                            <Edit3 className="h-3 w-3" /> Edit
                                         </DropdownMenuItem>
-                                        <AlertDialogTrigger asChild>
-                                            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
-                                                <Trash2 className="mr-2 h-3 w-3" /> Delete
-                                            </DropdownMenuItem>
-                                        </AlertDialogTrigger>
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                                            <AlertDialogTrigger asChild>
+                                                <div className="flex items-center w-full gap-2">
+                                                    <Trash2 className="h-3 w-3" /> Delete
+                                                </div>
+                                            </AlertDialogTrigger>
+                                        </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             )}
@@ -140,17 +142,17 @@ function ThreadComment({ comment, postId, onUpdate, onDelete }: ThreadCommentPro
                 </div>
             </div>
 
-            <AlertDialogContent>
+            <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Delete comment?</AlertDialogTitle>
-                    <AlertDialogDescription>
+                    <AlertDialogTitle className="font-headline text-2xl">Delete comment?</AlertDialogTitle>
+                    <AlertDialogDescription className="text-muted-foreground">
                         This action cannot be undone. Your comment will be permanently removed from this thread.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
                     <AlertDialogAction 
-                        className="bg-destructive hover:bg-destructive/90"
+                        className="bg-destructive hover:bg-destructive/90 rounded-full px-8"
                         onClick={() => onDelete(comment.id).then(() => toast({ title: "Comment deleted" }))}
                     >
                         Delete
@@ -329,7 +331,7 @@ export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) 
                                 rows={1}
                                 disabled={isPostingComment}
                             />
-                            <Button type="submit" size="icon" className="rounded-full flex-shrink-0" disabled={isPostingComment || !newComment.trim()}>
+                            <Button type="submit" size="icon" className="rounded-full flex-shrink-0 shadow-lg shadow-primary/20" disabled={isPostingComment || !newComment.trim()}>
                                 {isPostingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                             </Button>
                         </div>

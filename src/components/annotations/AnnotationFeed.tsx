@@ -28,7 +28,7 @@ import {
   Check, 
   Download, 
   Image as ImageIcon,
-  MoreHorizontal,
+  EllipsisVertical,
   Trash2,
   MessageSquare,
   Send,
@@ -162,19 +162,21 @@ function AnnotationCommentItem({ comment, annotationId, onUpdate, onDelete }: { 
                                 {canManage && !isEditing && (
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <MoreHorizontal className="h-3 w-3" />
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground relative z-10 opacity-0 group-hover:opacity-100 transition-all">
+                                                <EllipsisVertical className="h-3 w-3" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                                                <Edit3 className="mr-2 h-3 w-3" /> Edit
+                                        <DropdownMenuContent align="end" className="rounded-xl border-border/40 shadow-xl">
+                                            <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
+                                                <Edit3 className="h-3 w-3" /> Edit
                                             </DropdownMenuItem>
-                                            <AlertDialogTrigger asChild>
-                                                <DropdownMenuItem className="text-destructive">
-                                                    <Trash2 className="mr-2 h-3 w-3" /> Delete
-                                                </DropdownMenuItem>
-                                            </AlertDialogTrigger>
+                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                                                <AlertDialogTrigger asChild>
+                                                    <div className="flex items-center w-full gap-2">
+                                                        <Trash2 className="h-3 w-3" /> Delete
+                                                    </div>
+                                                </AlertDialogTrigger>
+                                            </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 )}
@@ -198,20 +200,20 @@ function AnnotationCommentItem({ comment, annotationId, onUpdate, onDelete }: { 
                                 </div>
                             </div>
                         ) : (
-                            <p className="text-sm text-foreground/80 whitespace-pre-line">{comment.content}</p>
+                            <p className="text-sm text-foreground/80 whitespace-pre-line leading-relaxed">{comment.content}</p>
                         )}
                     </div>
                 </div>
 
-                <AlertDialogContent className="rounded-3xl">
+                <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete comment?</AlertDialogTitle>
-                        <AlertDialogDescription>This cannot be undone. Your thought will be removed from the conversation.</AlertDialogDescription>
+                        <AlertDialogTitle className="font-headline text-2xl">Delete comment?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-muted-foreground">This cannot be undone. Your thought will be removed from the conversation.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
                         <AlertDialogAction 
-                            className="bg-destructive hover:bg-destructive/90 rounded-full"
+                            className="bg-destructive hover:bg-destructive/90 rounded-full px-8"
                             onClick={() => onDelete(comment.id)}
                         >
                             Delete
@@ -302,7 +304,8 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
 
         runTransaction(db, async (transaction) => {
             const annoDoc = await transaction.get(annoRef);
-            if (!annoDoc.exists()) throw "Annotation does not exist.";
+            if (!annoDoc.exists()) throw "Annotation not found";
+            
             const newCount = Math.max(0, (annoDoc.data().commentsCount || 0) - 1);
             transaction.update(annoRef, { commentsCount: newCount });
             transaction.delete(commentRef);
@@ -354,7 +357,7 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
                             disabled={isPosting}
                         />
                         <Button type="submit" size="icon" disabled={isPosting || !newComment.trim()} className="rounded-2xl h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20">
-                            {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                            {isPosting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-4 w-4" />}
                         </Button>
                     </form>
                 ) : (

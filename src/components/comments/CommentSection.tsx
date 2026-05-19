@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, Save, MoreHorizontal, Smile, EyeOff, Send } from 'lucide-react';
+import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, Save, EllipsisVertical, Smile, EyeOff, Send } from 'lucide-react';
 import type { Comment as CommentType, Story } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -141,21 +140,23 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
              {isOwner && !isEditing && (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6">
-                            <MoreHorizontal className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground relative z-10">
+                            <EllipsisVertical className="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={handleEdit}>
-                            <Edit3 className="mr-2 h-4 w-4" />
+                    <DropdownMenuContent align="end" className="rounded-xl border-border/40">
+                        <DropdownMenuItem onClick={handleEdit} className="gap-2">
+                            <Edit3 className="h-4 w-4" />
                             Edit
                         </DropdownMenuItem>
-                         <AlertDialogTrigger asChild>
-                            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                            </DropdownMenuItem>
-                        </AlertDialogTrigger>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                            <AlertDialogTrigger asChild>
+                                <div className="flex items-center w-full gap-2">
+                                    <Trash2 className="h-4 w-4" />
+                                    Delete
+                                </div>
+                            </AlertDialogTrigger>
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             )}
@@ -223,21 +224,21 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
             </div>
         )}
         
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
             <AlertDialogHeader>
-                <AlertDialogTitle>Delete Comment?</AlertDialogTitle>
-                <AlertDialogDescription>
+                <AlertDialogTitle className="font-headline text-2xl">Delete Comment?</AlertDialogTitle>
+                <AlertDialogDescription className="text-muted-foreground">
                 Are you sure you want to delete this comment? This action cannot be undone.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
                 <AlertDialogAction 
                     onClick={() => {
                         onCommentDelete(comment.id)
                             .then(() => toast({ title: "Comment deleted" }));
                     }} 
-                    className="bg-destructive hover:bg-destructive/90"
+                    className="bg-destructive hover:bg-destructive/90 rounded-full px-8"
                 >
                 Delete
                 </AlertDialogAction>
