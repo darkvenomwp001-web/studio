@@ -27,7 +27,7 @@ import {
   Send,
   Trash2,
   User,
-  Image as ImageIcon,
+  ImageIcon,
   Mic,
   FileUp,
   MoreHorizontal,
@@ -234,8 +234,8 @@ function NotificationsList() {
     }
     
     return (
-        <Card className="shadow-none bg-transparent border-0 max-w-3xl mx-auto">
-            <CardHeader className="flex flex-col gap-4 px-4 pt-4 pb-6 md:px-6">
+        <Card className="shadow-none bg-transparent border-0 max-w-3xl mx-auto w-full">
+            <CardHeader className="flex flex-col gap-4 px-4 pt-4 pb-6">
                 <div className="flex flex-row justify-between items-center">
                     <CardTitle className="text-2xl font-headline font-bold">Activity</CardTitle>
                     {notifications.some(n => !n.isRead) && (
@@ -260,11 +260,11 @@ function NotificationsList() {
                         {Object.entries(groupedNotifications).map(([group, notifs]) => 
                          notifs.length > 0 && (
                             <div key={group}>
-                                <h3 className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground/60 px-4 md:px-6 mb-3 flex items-center gap-2">
+                                <h3 className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground/60 px-4 mb-3 flex items-center gap-2">
                                     <span className="flex-shrink-0">{group}</span>
                                     <div className="h-px w-full bg-border/40" />
                                 </h3>
-                                <div className="space-y-1">
+                                <div className="space-y-1 px-2">
                                     {notifs.map((notif) => {
                                         const displayDate = parseSafeDate(notif.timestamp);
                                         const isOnline = userStatuses[notif.actor.id] === 'online';
@@ -273,7 +273,7 @@ function NotificationsList() {
                                                 key={notif.id}
                                                 onClick={() => handleNotificationClick(notif)}
                                                 className={cn(
-                                                    "p-4 mx-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-4 group relative",
+                                                    "p-4 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-4 group relative",
                                                     !notif.isRead ? 'bg-primary/5 hover:bg-primary/10 border border-primary/10' : 'hover:bg-muted/50 border border-transparent'
                                                 )}
                                             >
@@ -313,7 +313,7 @@ function NotificationsList() {
                         )}
                     </div>
                 ) : (
-                    <div className="text-center py-24 text-muted-foreground space-y-4">
+                    <div className="text-center py-24 text-muted-foreground space-y-4 px-4">
                         <div className="bg-muted/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Bell className="h-10 w-10 text-muted-foreground/40" />
                         </div>
@@ -928,7 +928,7 @@ function MessagesClient() {
             if (!isOpen) { setSearchUsername(''); setSearchedUsers([]); }
         }}>
         <TooltipProvider>
-        <div className="flex h-[calc(100vh-12rem)] md:h-[800px] border rounded-3xl bg-card shadow-2xl overflow-hidden mb-10 border-border/40">
+        <div className="flex h-[calc(100vh-14rem)] md:h-[800px] border-none sm:border rounded-none sm:rounded-[2.5rem] bg-card sm:shadow-2xl overflow-hidden mb-10 border-border/40 w-full max-w-full">
             <aside className={cn(
                 "w-full md:w-[340px] lg:w-[400px] border-r flex flex-col bg-background/40 backdrop-blur-xl transition-all duration-300",
                 mobileView === 'chat' ? 'hidden md:flex' : 'flex'
@@ -964,7 +964,7 @@ function MessagesClient() {
                             <span className="text-xs font-bold uppercase tracking-widest opacity-50">Syncing inbox...</span>
                         </div>
                     ) : filteredConversations.length === 0 ? (
-                        <div className="p-12 text-center text-muted-foreground space-y-4">
+                        <div className="p-12 text-center text-muted-foreground space-y-4 px-4">
                             <div className="bg-muted/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
                                 <MessageSquare className="h-8 w-8 text-muted-foreground/40"/>
                             </div>
@@ -1029,18 +1029,18 @@ function MessagesClient() {
             </aside>
 
             <main className={cn(
-                "flex-1 flex-col bg-background",
+                "flex-1 flex-col bg-background h-full max-w-full overflow-hidden",
                 mobileView === 'chat' ? 'flex' : 'hidden md:flex'
             )}>
                 {activeConversation ? (
                     <>
-                    <header className="p-4 border-b bg-card/50 backdrop-blur-md flex items-center justify-between gap-3 shadow-sm z-10">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                             <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={() => setMobileView('list')}>
+                    <header className="p-4 border-b bg-card/50 backdrop-blur-md flex items-center justify-between gap-3 shadow-sm z-10 w-full">
+                        <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                             <Button variant="ghost" size="icon" className="md:hidden -ml-2 shrink-0" onClick={() => setMobileView('list')}>
                                 <ArrowLeft className="h-5 w-5" />
                             </Button>
                             {getOtherParticipant(activeConversation) && (
-                                <Link href={`/profile/${getOtherParticipant(activeConversation)!.id}`}>
+                                <Link href={`/profile/${getOtherParticipant(activeConversation)!.id}`} className="shrink-0">
                                     <div className="relative">
                                         <Avatar className="h-10 w-10 border shadow-sm hover:scale-105 transition-transform">
                                             <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
@@ -1052,8 +1052,8 @@ function MessagesClient() {
                                     </div>
                                 </Link>
                             )}
-                            <div className="truncate">
-                                <h3 className="font-bold text-base truncate">
+                            <div className="truncate flex-1 min-w-0">
+                                <h3 className="font-bold text-sm md:text-base truncate">
                                     {getOtherParticipant(activeConversation)?.displayName || `@${getOtherParticipant(activeConversation)?.username}` || 'Unknown User'}
                                 </h3>
                                 {otherUserTyping ? (
@@ -1063,7 +1063,7 @@ function MessagesClient() {
                                 ) : isOtherParticipantOnline ? (
                                     <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                                        Online Now
+                                        Online
                                     </p>
                                 ) : (
                                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
@@ -1072,7 +1072,7 @@ function MessagesClient() {
                                 )}
                             </div>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 shrink-0">
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button 
@@ -1085,19 +1085,6 @@ function MessagesClient() {
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent className="text-[10px] font-bold uppercase">Audio Call</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className={cn("rounded-full h-10 w-10", isOtherParticipantOnline ? "text-primary" : "text-muted-foreground/40")}
-                                        onClick={() => !isOtherParticipantOnline && toast({ title: "User is away" })}
-                                    >
-                                        {isOtherParticipantOnline ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent className="text-[10px] font-bold uppercase">Video Call</TooltipContent>
                             </Tooltip>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -1141,14 +1128,14 @@ function MessagesClient() {
                         </div>
                     </header>
                     
-                    <ScrollArea className="flex-1 p-6">
+                    <ScrollArea className="flex-1 p-4 md:p-6">
                         <div className="flex flex-col min-h-full">
                             {isLoadingMessages ? (
                                 <div className="flex justify-center items-center h-40">
                                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                 </div>
                             ) : messages.length === 0 ? (
-                                <div className="flex-1 flex flex-col items-center justify-center text-center py-20 gap-6 text-muted-foreground">
+                                <div className="flex-1 flex flex-col items-center justify-center text-center py-20 gap-6 text-muted-foreground px-4">
                                     <div className="bg-muted/20 p-6 rounded-full relative">
                                         <Sparkles className="w-12 h-12 text-primary/40"/>
                                         <div className="absolute -top-1 -right-1 bg-primary text-white p-1 rounded-full"><Plus className="h-3 w-3" /></div>
@@ -1183,45 +1170,42 @@ function MessagesClient() {
                         </div>
                     </ScrollArea>
 
-                    <footer className="p-4 border-t bg-card/50 backdrop-blur-md">
+                    <footer className="p-3 md:p-4 border-t bg-card/50 backdrop-blur-md w-full">
                         <div className="flex flex-col gap-3">
                             {(pendingMediaPreview || pendingFile || audioURL) && (
-                                <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-2xl border border-dashed border-primary/20">
+                                <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-2xl border border-dashed border-primary/20 animate-in slide-in-from-bottom-2">
                                     {pendingMediaPreview && (
-                                        <div className="relative h-16 w-16 rounded-xl overflow-hidden shadow-sm">
+                                        <div className="relative h-16 w-16 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
                                             <Image src={pendingMediaPreview} alt="Preview" layout="fill" objectFit="cover" />
                                             <Button variant="destructive" size="icon" className="absolute top-0 right-0 h-5 w-5 rounded-bl-xl rounded-tr-none" onClick={() => { setPendingMedia(null); setPendingMediaPreview(null); }}>
                                                 <X className="h-3 w-3" />
                                             </Button>
                                         </div>
                                     )}
-                                    <div className="text-[10px] font-bold uppercase tracking-widest text-primary/60">Ready to send</div>
+                                    <div className="text-[10px] font-bold uppercase tracking-widest text-primary/60 truncate">Attachment ready</div>
                                 </div>
                             )}
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2 md:gap-3 w-full">
+                                <div className="flex items-center gap-1 shrink-0">
                                     <input type="file" ref={galleryInputRef} className="hidden" accept="image/*,video/*" onChange={handleGallerySelect} />
                                     <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
-                                    <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => galleryInputRef.current?.click()}>
+                                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-primary hover:bg-primary/10 transition-colors" onClick={() => galleryInputRef.current?.click()}>
                                         <ImageIcon className="h-5 w-5" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="rounded-full text-primary hover:bg-primary/10 transition-colors" onClick={() => fileInputRef.current?.click()}>
-                                        <FileUp className="h-5 w-5" />
                                     </Button>
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className={cn("rounded-full transition-colors", isRecording ? "text-destructive animate-pulse bg-destructive/10" : "text-primary hover:bg-primary/10")} 
+                                        className={cn("rounded-full h-10 w-10 transition-colors", isRecording ? "text-destructive animate-pulse bg-destructive/10" : "text-primary hover:bg-primary/10")} 
                                         onClick={isRecording ? stopRecording : startRecording}
                                     >
                                         {isRecording ? <Square className="h-5 w-5 fill-current" /> : <Mic className="h-5 w-5" />}
                                     </Button>
                                 </div>
-                                <div className="relative flex-1 group">
+                                <div className="relative flex-1 group min-w-0">
                                     <Input 
                                         type="text" 
                                         placeholder={isRecording ? `Recording...` : "Type a message..."} 
-                                        className="flex-1 bg-background focus-visible:ring-primary/20 rounded-full px-5 pr-12 h-11 border-none" 
+                                        className="w-full bg-background focus-visible:ring-primary/20 rounded-full px-5 pr-10 h-11 border-none shadow-inner" 
                                         value={newMessageContent} 
                                         onChange={(e) => handleInputChange(e.target.value)} 
                                         disabled={isSendingMessage || isRecording} 
@@ -1243,7 +1227,7 @@ function MessagesClient() {
                                 <Button 
                                     type="button" 
                                     size="icon" 
-                                    className="bg-primary hover:bg-primary/90 rounded-full h-11 w-11 flex-shrink-0" 
+                                    className="bg-primary hover:bg-primary/90 rounded-full h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20" 
                                     disabled={isSendingMessage || isRecording || (!newMessageContent.trim() && !pendingMedia && !pendingFile && !audioBlob)} 
                                     onClick={() => handleSendMessage()}
                                 >
@@ -1254,13 +1238,13 @@ function MessagesClient() {
                     </footer>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-background/20 backdrop-blur-sm">
-                        <MessageSquare className="h-32 w-32 text-primary/30 mb-8" />
-                        <h2 className="text-3xl font-headline font-bold mb-3 tracking-tight">Your Direct Feed</h2>
-                        <p className="text-muted-foreground max-sm leading-relaxed">Select a thread to start chatting with your fellow creators.</p>
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-background/20 backdrop-blur-sm">
+                        <MessageSquare className="h-24 md:h-32 w-24 md:w-32 text-primary/30 mb-8" />
+                        <h2 className="text-2xl md:text-3xl font-headline font-bold mb-3 tracking-tight">Direct Threads</h2>
+                        <p className="text-muted-foreground max-w-xs leading-relaxed text-sm md:text-base">Select a conversation to start chatting with your fellow creators.</p>
                         <DialogTrigger asChild>
-                            <Button className="mt-8 rounded-full px-10 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20">
-                                <Plus className="mr-2 h-5 w-5" /> New Conversation
+                            <Button className="mt-8 rounded-full px-8 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20">
+                                <Plus className="mr-2 h-5 w-5" /> New Message
                             </Button>
                         </DialogTrigger>
                     </div>
@@ -1268,10 +1252,10 @@ function MessagesClient() {
             </main>
         </div>
         </TooltipProvider>
-        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none rounded-3xl shadow-2xl">
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none rounded-[2.5rem] shadow-3xl mx-auto w-[92vw]">
             <DialogHeader className="p-6 bg-muted/30 border-b">
-                <DialogTitle className="text-2xl font-headline font-bold">New Thread</DialogTitle>
-                <DialogDescription className="text-sm">Find someone by their handle to start a new chat.</DialogDescription>
+                <DialogTitle className="text-xl font-headline font-bold">New Thread</DialogTitle>
+                <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Initiate a direct signal</DialogDescription>
             </DialogHeader>
             <div className="p-6 space-y-6">
                 <div className="relative">
@@ -1280,9 +1264,9 @@ function MessagesClient() {
                         id="search-username" 
                         value={searchUsername} 
                         onChange={(e) => setSearchUsername(e.target.value)}
-                        placeholder="Search handle..." 
+                        placeholder="Search by handle..." 
                         disabled={isCreatingConversation} 
-                        className="pl-10 h-12 rounded-2xl bg-muted/50 border-none"
+                        className="pl-10 h-12 rounded-2xl bg-muted/50 border-none shadow-inner"
                     />
                     {isSearchingUsers && <div className="absolute right-3 top-1/2 -translate-y-1/2"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}
                 </div>
@@ -1301,26 +1285,26 @@ function MessagesClient() {
                                             <AvatarImage src={u.avatarUrl} alt={u.username} data-ai-hint="profile person" />
                                             <AvatarFallback className="bg-muted font-bold text-primary">{u.username.substring(0,1).toUpperCase()}</AvatarFallback>
                                         </Avatar>
-                                        <div>
-                                            <p className="font-bold text-sm">@{u.username}</p>
-                                            <p className="text-xs text-muted-foreground">{u.displayName}</p>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-sm truncate">@{u.username}</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">{u.displayName}</p>
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="rounded-full">
+                                    <Button variant="ghost" size="icon" className="rounded-full shrink-0">
                                         <MessageSquare className="h-4 w-4" />
                                     </Button>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="py-10 text-center text-muted-foreground italic">
-                            Search for creators by handle...
+                        <div className="py-10 text-center text-muted-foreground italic text-xs">
+                            Search for authors by handle...
                         </div>
                     )}
                 </ScrollArea>
             </div>
             <DialogFooter className="p-4 bg-muted/20 border-t">
-                <DialogClose asChild><Button type="button" variant="outline" className="rounded-full px-6" disabled={isCreatingConversation}>Cancel</Button></DialogClose>
+                <DialogClose asChild><Button type="button" variant="ghost" className="rounded-full px-6 font-bold uppercase text-[10px] tracking-widest" disabled={isCreatingConversation}>Cancel</Button></DialogClose>
             </DialogFooter>
         </DialogContent>
         </Dialog>
@@ -1354,26 +1338,26 @@ export default function UnifiedInboxPage() {
     return (
         <Suspense fallback={<div className="flex flex-col justify-center items-center min-h-screen gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-headline font-bold text-xl">Loading inbox...</p></div>}>
             <Header />
-            <div className="max-w-7xl mx-auto space-y-6 pt-6 pb-24 md:pb-12 px-4 md:px-6">
+            <div className="max-w-7xl mx-auto space-y-6 pt-6 pb-24 md:pb-12 px-0 sm:px-4 md:px-6 w-full overflow-x-hidden">
                 <Tabs defaultValue={defaultTab} className="w-full" onValueChange={handleTabChange}>
-                    <div className="flex justify-center mb-6">
-                        <TabsList className="grid grid-cols-2 w-full max-w-[400px] h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-sm">
-                            <TabsTrigger value="messages" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
+                    <div className="flex justify-center mb-6 px-4">
+                        <TabsList className="grid grid-cols-2 w-full max-w-xs sm:max-w-[400px] h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-sm">
+                            <TabsTrigger value="messages" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2 text-xs md:text-sm">
                                 <MessageSquare className="h-4 w-4" /> 
                                 Messages
                             </TabsTrigger>
-                            <TabsTrigger value="notifications" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2">
+                            <TabsTrigger value="notifications" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2 text-xs md:text-sm">
                                 <Bell className="h-4 w-4" /> 
                                 Activity
                             </TabsTrigger>
                         </TabsList>
                     </div>
                     
-                    <TabsContent value="notifications" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
+                    <TabsContent value="notifications" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500 px-0">
                         <NotificationsList />
                     </TabsContent>
                     
-                    <TabsContent value="messages" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500">
+                    <TabsContent value="messages" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500 px-0">
                         <MessagesClient />
                     </TabsContent>
                 </Tabs>
