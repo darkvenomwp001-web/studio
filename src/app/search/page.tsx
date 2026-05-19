@@ -161,6 +161,8 @@ function SearchResults() {
           );
           const usernameSnapshot = await getDocs(usernameQuery);
           setUserResults(usernameSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser)));
+      } else {
+          setUserResults([]);
       }
 
     } catch (error) {
@@ -373,14 +375,14 @@ function SearchResults() {
                 <div className="text-center py-20 bg-muted/10 rounded-3xl border-2 border-dashed border-border/40">
                     <SearchIcon className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
                     <h3 className="text-sm font-bold">No results found</h3>
-                    <Button onClick={handleClear} variant="link" className="text-xs uppercase font-black">Clear Search</Button>
+                    <button className="text-xs font-black uppercase text-primary mt-2" onClick={handleClear}>Clear Search</button>
                 </div>
             ) : (
                 <Tabs defaultValue="stories" className="w-full">
                     <div className="flex justify-between items-center mb-6">
                         <TabsList className="bg-muted/50 p-0.5 rounded-lg h-9">
                             <TabsTrigger value="stories" className="rounded-md text-[10px] font-black uppercase gap-1 px-4 h-8">Manuscripts</TabsTrigger>
-                            <TabsTrigger value="authors" disabled={userResults.length === 0} className="rounded-md text-[10px] font-black uppercase gap-1 px-4 h-8">Creators</TabsTrigger>
+                            <TabsTrigger value="authors" className="rounded-md text-[10px] font-black uppercase gap-1 px-4 h-8">Creators</TabsTrigger>
                         </TabsList>
                         <Badge variant="outline" className="h-6 rounded-full px-3 text-[10px] font-bold uppercase tracking-tight">{storyResults.length} Results</Badge>
                     </div>
@@ -410,7 +412,7 @@ function SearchResults() {
                     </TabsContent>
 
                     <TabsContent value="authors" className="space-y-3">
-                        {userResults.map(author => (
+                        {userResults.length > 0 ? userResults.map(author => (
                         <Link href={`/profile/${author.id}`} key={author.id} className="block group">
                             <Card className="rounded-xl border-border/40 hover:bg-muted/30 transition-colors">
                                 <CardContent className="p-3 flex items-center gap-4">
@@ -427,7 +429,12 @@ function SearchResults() {
                                 </CardContent>
                             </Card>
                         </Link>
-                        ))}
+                        )) : (
+                            <div className="text-center py-20 opacity-40">
+                                <Users className="h-10 w-10 mx-auto mb-2" />
+                                <p className="text-xs font-bold uppercase tracking-widest">No matching creators found</p>
+                            </div>
+                        )}
                     </TabsContent>
                 </Tabs>
             )}
