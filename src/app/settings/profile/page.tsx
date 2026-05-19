@@ -104,26 +104,31 @@ export default function EditProfilePage() {
     }
 
     try {
-        await NativeCamera.requestPermissions({ permissions: ['camera', 'photos'] });
-        const image = await NativeCamera.getPhoto({
-            quality: 90,
-            allowEditing: true,
-            resultType: CameraResultType.Uri,
-            source: CameraSource.Photos
-        });
+        const permissionStatus = await NativeCamera.requestPermissions({ permissions: ['camera', 'photos'] });
+        
+        if (permissionStatus.camera === 'granted' || permissionStatus.photos === 'granted') {
+            const image = await NativeCamera.getPhoto({
+                quality: 90,
+                allowEditing: true,
+                resultType: CameraResultType.Uri,
+                source: CameraSource.Photos
+            });
 
-        if (image.webPath) {
-            const response = await fetch(image.webPath);
-            const blob = await response.blob();
-            const file = new File([blob], `${type}-upload.${image.format}`, { type: blob.type });
-            
-            if (type === 'avatar') {
-                setAvatarFile(file);
-                setAvatarPreview(image.webPath);
-            } else {
-                setCoverFile(file);
-                setCoverPreview(image.webPath);
+            if (image.webPath) {
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+                const file = new File([blob], `${type}-upload.${image.format}`, { type: blob.type });
+                
+                if (type === 'avatar') {
+                    setAvatarFile(file);
+                    setAvatarPreview(image.webPath);
+                } else {
+                    setCoverFile(file);
+                    setCoverPreview(image.webPath);
+                }
             }
+        } else {
+            toast({ title: "Permission Denied", description: "Please enable media access in settings.", variant: "destructive" });
         }
     } catch (e) {
         console.warn("APK Native Picker protocol interrupted.", e);

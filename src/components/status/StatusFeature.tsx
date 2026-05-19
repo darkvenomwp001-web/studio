@@ -350,27 +350,31 @@ export default function StatusFeature() {
     if (isNative) {
         try {
             // Request permissions before opening the native picker
-            await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
+            const permissionStatus = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
             
-            const image = await Camera.getPhoto({
-                quality: 90,
-                allowEditing: true,
-                resultType: CameraResultType.Uri,
-                source: CameraSource.Photos
-            });
+            if (permissionStatus.camera === 'granted' || permissionStatus.photos === 'granted') {
+                const image = await Camera.getPhoto({
+                    quality: 90,
+                    allowEditing: true,
+                    resultType: CameraResultType.Uri,
+                    source: CameraSource.Photos
+                });
 
-            if (image.webPath) {
-                const response = await fetch(image.webPath);
-                const blob = await response.blob();
-                const file = new File([blob], `status-media.${image.format}`, { type: blob.type });
-                
-                // Engage the status creation UI with the native file
-                setMediaFile(file);
-                setMediaPreview(image.webPath);
-                setMediaType('image');
-                setActiveUploaderTab('art');
-                setIsUploaderOpen(true);
-                setIsCreatorOpen(false);
+                if (image.webPath) {
+                    const response = await fetch(image.webPath);
+                    const blob = await response.blob();
+                    const file = new File([blob], `status-media.${image.format}`, { type: blob.type });
+                    
+                    // Engage the status creation UI with the native file
+                    setMediaFile(file);
+                    setMediaPreview(image.webPath);
+                    setMediaType('image');
+                    setActiveUploaderTab('art');
+                    setIsUploaderOpen(true);
+                    setIsCreatorOpen(false);
+                }
+            } else {
+                toast({ title: "Permission Denied", description: "Please enable camera access in your settings.", variant: "destructive" });
             }
         } catch (e) {
             console.warn("APK Native Picker protocol encountered an interruption.", e);

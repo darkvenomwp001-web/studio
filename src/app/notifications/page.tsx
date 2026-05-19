@@ -713,22 +713,26 @@ function MessagesClient() {
     
     if (isNative) {
         try {
-            await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
-            const image = await Camera.getPhoto({
-                quality: 90,
-                allowEditing: true,
-                resultType: CameraResultType.Uri,
-                source: CameraSource.Photos
-            });
+            const permStatus = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
+            if (permStatus.photos === 'granted') {
+                const image = await Camera.getPhoto({
+                    quality: 90,
+                    allowEditing: true,
+                    resultType: CameraResultType.Uri,
+                    source: CameraSource.Photos
+                });
 
-            if (image.webPath) {
-                const response = await fetch(image.webPath);
-                const blob = await response.blob();
-                const file = new File([blob], `msg-media.${image.format}`, { type: blob.type });
-                setPendingMedia(file);
-                setPendingMediaPreview(image.webPath);
-                setPendingFile(null);
-                setAudioBlob(null);
+                if (image.webPath) {
+                    const response = await fetch(image.webPath);
+                    const blob = await response.blob();
+                    const file = new File([blob], `msg-media.${image.format}`, { type: blob.type });
+                    setPendingMedia(file);
+                    setPendingMediaPreview(image.webPath);
+                    setPendingFile(null);
+                    setAudioBlob(null);
+                }
+            } else {
+                toast({ title: "Permission Denied", description: "Access to photos is required.", variant: "destructive" });
             }
         } catch (err) {
             console.warn("APK native picker protocol interrupted.");
@@ -1271,7 +1275,7 @@ function MessagesClient() {
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-background/20 backdrop-blur-sm">
                         <MessageSquare className="h-24 md:h-32 w-24 md:w-32 text-primary/30 mb-8" />
                         <h2 className="text-2xl md:text-3xl font-headline font-bold mb-3 tracking-tight">Direct Threads</h2>
-                        <p className="text-muted-foreground max-w-xs leading-relaxed text-sm md:text-base">Select a conversation to start chatting with your fellow creators.</p>
+                        <p className="text-muted-foreground max-xs leading-relaxed text-sm md:text-base">Select a conversation to start chatting with your fellow creators.</p>
                         <DialogTrigger asChild>
                             <Button className="mt-8 rounded-full px-8 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20">
                                 <Plus className="mr-2 h-5 w-5" /> New Message

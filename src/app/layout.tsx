@@ -14,6 +14,7 @@ import { StoryPreviewProvider } from '@/context/StoryPreviewProvider';
 import StoryPreviewDrawer from '@/components/story/StoryPreviewDrawer';
 import FirebaseErrorListener from '@/components/FirebaseErrorListener';
 import AppearanceManager from '@/components/layout/AppearanceManager';
+import NativePermissionGuard from '@/components/layout/NativePermissionGuard';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
@@ -40,6 +41,7 @@ export default function RootLayout({
           >
           <AuthProvider>
             <AppearanceManager />
+            <NativePermissionGuard />
             <SplashWrapper>
                 <StoryPreviewProvider>
                   <FirebaseErrorListener />
