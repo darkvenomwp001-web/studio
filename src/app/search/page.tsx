@@ -209,14 +209,14 @@ function SearchResults() {
   const hasResults = storyResults.length > 0 || userResults.length > 0;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-0 pb-24 animate-in fade-in duration-500">
+    <div className="w-full max-w-5xl mx-auto space-y-0 pb-24 animate-in fade-in duration-500 overflow-x-hidden">
       {/* Search Header - Sticky */}
-      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border/40 p-3 md:p-4 space-y-4">
-        <div className="relative group max-w-2xl mx-auto">
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border/40 px-4 py-3 md:p-4 space-y-4 w-full">
+        <div className="relative group max-w-2xl mx-auto w-full">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
               placeholder="Search for stories or people" 
-              className="pl-10 h-10 md:h-12 rounded-lg bg-muted/40 border-none shadow-none text-sm focus-visible:ring-primary/20"
+              className="pl-10 w-full h-10 md:h-12 rounded-lg bg-muted/40 border-none shadow-none text-sm focus-visible:ring-primary/20"
               value={searchTerm}
               onChange={handleInputChange}
           />
