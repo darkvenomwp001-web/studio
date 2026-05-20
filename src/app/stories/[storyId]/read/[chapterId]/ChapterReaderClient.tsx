@@ -77,13 +77,10 @@ import { EditorContent, useEditor, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
-import BubbleMenuExtension from '@tiptap/extension-bubble-menu'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { formatDate } from '@/lib/placeholder-data';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
 type FontFamily = 'sans' | 'serif';
@@ -101,6 +98,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const router = useRouter();
   const pathname = usePathname();
   const { user: currentUser, addToLibrary, removeFromLibrary, authLoading } = useAuth();
+  const { showIsland } = useDynamicIsland();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   
@@ -129,7 +127,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
-  const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
   const [isNightPortalActive, setIsNightPortalActive] = useState(false);
   const [isZenFocus, setIsZenFocus] = useState(false);
   const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
@@ -145,10 +142,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         StarterKit, 
         TiptapUnderline, 
         TiptapHighlight.configure({ multicolor: true }),
-        BubbleMenuExtension.configure({
-            pluginKey: 'bubbleMenu',
-            tippyOptions: { duration: 100, animation: 'fade' },
-        })
     ],
     content: '',
     editable: false,
@@ -347,7 +340,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     try {
         await addDoc(collection(db, 'annotations'), annotationData);
         editor?.chain().focus().setHighlight({ color: selectedColor }).run();
-        toast({ title: "Highlight archived" });
+        showIsland({ title: "Highlight archived", type: 'success' });
         setIsAnnotationDialogOpen(false);
     } catch (error) { toast({ title: "Capture Failed" }); } finally { setIsSavingAnnotation(false); }
   };
@@ -415,7 +408,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 relative">
                         <Palette className="h-5 w-5" />
-                        {(fontSize !== 'base' || lineHeight !== 'normal' || layoutWidth !== 'wide') && <div className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-background" />}
+                        {(fontSize !== 'base' || lineHeight !== 'normal') && <div className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-background" />}
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 p-6 bg-background/95 backdrop-blur-2xl border border-border/40 shadow-3xl rounded-3xl" align="center">
@@ -524,12 +517,30 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         <Badge variant="outline" className="rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-[0.3em] bg-primary/5 text-primary border-primary/20">Part {currentChapter?.order}</Badge>
                         <h2 className="font-headline text-4xl md:text-7xl font-bold tracking-tight leading-none text-foreground">{currentChapter?.title}</h2>
                     </div>
+                    
+                    {/* RESTORED HIGH-FIDELITY SELECTION MENU */}
                     {editor && (
-                        <BubbleMenu editor={editor} className="flex items-center gap-1 p-1 bg-card/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-3xl">
-                            <Button variant="ghost" size="icon" onClick={() => handleAnnotationAction('highlight')} className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all">
+                        <BubbleMenu 
+                            editor={editor} 
+                            tippyOptions={{ duration: 150, zIndex: 9999, appendTo: 'parent' }}
+                            className="flex items-center gap-1 p-1 bg-card/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-3xl transform-gpu animate-in zoom-in-95 duration-200"
+                        >
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleAnnotationAction('highlight')} 
+                                className="h-11 w-11 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-90"
+                                title="Highlight"
+                            >
                                 <Highlighter className="h-5 w-5" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleAnnotationAction('comment')} className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all">
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleAnnotationAction('comment')} 
+                                className="h-11 w-11 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-90"
+                                title="Discuss Selection"
+                            >
                                 <MessageSquare className="h-5 w-5" />
                             </Button>
                         </BubbleMenu>
