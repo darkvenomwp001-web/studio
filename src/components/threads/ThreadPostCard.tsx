@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from 'react';
 import type { ThreadPost, UserSummary } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ const OWNER_HANDLES = ['arnv'];
 
 export default function ThreadPostCard({ post }: { post: ThreadPost }) {
   const { user } = useAuth();
+  const { showIsland } = useDynamicIsland();
   const { toast } = useToast();
   const [isProcessing, startProcessingTransition] = useTransition();
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -175,7 +177,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
     const postRef = doc(db, 'feedPosts', post.id);
     deleteDoc(postRef)
         .then(() => {
-            toast({ title: 'Post deleted' });
+            showIsland({ title: 'Post deleted', type: 'success' });
             setIsDeleteDialogOpen(false);
         })
         .catch(async (serverError) => {
