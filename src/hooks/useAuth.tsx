@@ -239,7 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }, async (error) => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'notifications', operation: 'list' }));
         });
-        getRedirectResult(auth).then((result) => { if (result) toast({ title: "Authenticated with Google" }); }).catch(console.error);
+        getRedirectResult(auth).then((result) => { if (result) showIsland({ title: "Welcome back!", type: 'success' }); }).catch(console.error);
       } else {
         setUser(null);
         setLoading(false);
@@ -315,7 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     provider.setCustomParameters({ prompt: 'select_account' });
     try {
       await signInWithPopup(auth, provider);
-      toast({ title: "Authenticated with Google" });
+      showIsland({ title: "Authenticated", type: 'success' });
     } catch (error: any) {
       if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
         try { await signInWithRedirect(auth, provider); } catch (redirectError: any) {
@@ -325,17 +325,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toast({ title: "Sign-In Error", description: error.message || "Failed to connect with Google.", variant: "destructive" });
       }
     } finally { setAuthLoading(false); }
-  }, [toast]);
+  }, [toast, showIsland]);
 
   const signUpWithEmailPassword = useCallback(async ({ username, email, passwordOne }: { username: string; email: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, email, passwordOne);
-      toast({ title: "Account Created!" });
+      showIsland({ title: "Account Created", type: 'success' });
     } catch (error: any) {
       toast({ title: "Sign Up Error", description: error.message, variant: "destructive" });
     } finally { setAuthLoading(false); }
-  }, [toast]);
+  }, [toast, showIsland]);
 
   const signInWithEmailAndPassword = useCallback(async ({ emailOrUsername, passwordOne }: { emailOrUsername: string; passwordOne: string; }) => {
     setAuthLoading(true);
@@ -348,10 +348,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         else throw new Error("No user found with that username.");
       }
       await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
+      showIsland({ title: "Welcome back!", type: 'success' });
     } catch (error: any) {
       toast({ title: "Sign In Error", description: error.message, variant: "destructive" });
     } finally { setAuthLoading(false); }
-  }, [toast]);
+  }, [toast, showIsland]);
 
   const signOutFirebase = useCallback(async () => {
     setAuthLoading(true);
@@ -363,8 +364,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut(auth);
       if (typeof window !== 'undefined') sessionStorage.removeItem(USER_CACHE_KEY);
       router.push('/auth/signin');
+      showIsland({ title: "Signed out", type: 'info' });
     } catch (error) { console.error(error); } finally { setAuthLoading(false); }
-  }, [user, router]);
+  }, [user, router, showIsland]);
 
   const updateUserProfile = useCallback(async (updates: Partial<AppUser>) => {
     if (!user) return;
@@ -383,11 +385,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             commentsSnapshot.forEach(d => batch.update(d.ref, { user: newSummary }));
             await batch.commit();
         }
-        toast({ title: "Profile Updated!" });
+        showIsland({ title: "Profile updated", type: 'success' });
     } catch (serverError: any) {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update', requestResourceData: updateData }));
     }
-  }, [user, toast]);
+  }, [user, toast, showIsland]);
 
   const updateUserEmailFirebase = useCallback(async (newEmail: string, currentPasswordForReAuth: string) => {
     if (!auth.currentUser || !auth.currentUser.email) return false;
@@ -396,13 +398,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await reauthenticateWithCredential(auth.currentUser, credential);
       await updateFirebaseEmail(auth.currentUser, newEmail);
       await updateUserProfile({ email: newEmail });
-      toast({ title: "Email Updated" });
+      showIsland({ title: "Email updated", type: 'success' });
       return true;
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     }
-  }, [updateUserProfile, toast]);
+  }, [updateUserProfile, toast, showIsland]);
 
   const updateUserPasswordFirebase = useCallback(async (currentPasswordForReAuth: string, newPasswordVal: string) => {
     if (!auth.currentUser || !auth.currentUser.email) return false;
@@ -410,59 +412,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await reauthenticateWithCredential(auth.currentUser, credential);
       await updateFirebasePassword(auth.currentUser, newPasswordVal);
-      toast({ title: "Password Updated" });
+      showIsland({ title: "Password updated", type: 'success' });
       return true;
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     }
-  }, [toast]);
+  }, [toast, showIsland]);
 
   const sendPasswordResetFirebase = useCallback(async (email: string) => {
     try {
       await sendPasswordResetEmail(auth, email);
-      toast({ title: "Reset Link Sent" });
+      showIsland({ title: "Reset link sent", type: 'info' });
       return true;
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     }
-  }, [toast]);
+  }, [toast, showIsland]);
 
   const followUser = useCallback(async (targetUserId: string) => {
     if (!user) return;
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(1) });
-    batch.commit().then(() => toast({ title: "Following!" }));
-  }, [user, toast]);
+    batch.commit().then(() => showIsland({ title: "Following", type: 'success' }));
+  }, [user, showIsland]);
 
   const unfollowUser = useCallback(async (targetUserId: string) => {
     if (!user) return;
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(-1) });
-    batch.commit().then(() => toast({ title: "Unfollowed" }));
-  }, [user, toast]);
+    batch.commit().then(() => showIsland({ title: "Unfollowed", type: 'info' }));
+  }, [user, showIsland]);
 
   const addToLibrary = useCallback(async (story: Story) => {
     if (!user) return;
     const item: ReadingListItem = { id: story.id, title: story.title, author: story.author, chapters: story.chapters, lastUpdated: story.lastUpdated, coverImageUrl: story.coverImageUrl, status: story.status };
-    updateDoc(doc(db, 'users', user.id), { readingList: arrayUnion(item) }).then(() => toast({ title: "Added to Library!" }));
-  }, [user, toast]);
+    updateDoc(doc(db, 'users', user.id), { readingList: arrayUnion(item) }).then(() => showIsland({ title: "Added to Library", type: 'success' }));
+  }, [user, showIsland]);
 
   const removeFromLibrary = useCallback(async (storyId: string) => {
     if (!user) return;
     const itemToRemove = user.readingList?.find(i => i.id === storyId);
-    if (itemToRemove) updateDoc(doc(db, 'users', user.id), { readingList: arrayRemove(itemToRemove) }).then(() => toast({ title: "Removed from Library" }));
-  }, [user, toast]);
+    if (itemToRemove) updateDoc(doc(db, 'users', user.id), { readingList: arrayRemove(itemToRemove) }).then(() => showIsland({ title: "Removed from Library", type: 'info' }));
+  }, [user, showIsland]);
 
   const setNewUserPassword = useCallback(async (password: string) => {
     if (auth.currentUser) {
         try {
             await updateFirebasePassword(auth.currentUser, password);
             setRequiresPasswordSetup(false);
-            toast({ title: "Password Set Successfully" });
+            showIsland({ title: "Password setup complete", type: 'success' });
             return true;
         } catch (error: any) {
             toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -470,13 +472,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
     return false;
-  }, [toast]);
+  }, [toast, showIsland]);
 
   const clearAppCache = useCallback(async () => {
     if (typeof window !== 'undefined') {
         sessionStorage.removeItem(USER_CACHE_KEY);
         Object.keys(sessionStorage).forEach(key => {
-            if (key.startsWith('ach-toast') || key.startsWith('disclaimer-seen')) sessionStorage.removeItem(key);
+            if (key.startsWith('ach-toast') || key.startsWith('disclaimer-seen') || key.startsWith('island_seen')) sessionStorage.removeItem(key);
         });
         window.location.reload();
     }

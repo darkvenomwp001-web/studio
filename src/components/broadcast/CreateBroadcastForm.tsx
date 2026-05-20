@@ -123,8 +123,8 @@ export default function CreateBroadcastForm() {
             }
 
             showIsland({
-              title: "Signal Broadcasted",
-              description: "Official update has been synced across the node.",
+              title: "Update posted",
+              description: "Official update synced successfully.",
               type: 'success',
               image: user.avatarUrl
             });

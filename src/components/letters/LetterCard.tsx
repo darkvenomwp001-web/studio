@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 
 export default function LetterCard({ letter, isAuthorView, isOnline }: { letter: LetterType, isAuthorView: boolean, isOnline: boolean }) {
   const { user, addNotification } = useAuth();
+  const { showIsland } = useDynamicIsland();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [authorResponse, setAuthorResponse] = useState(letter.authorResponse || '');
@@ -46,7 +48,7 @@ export default function LetterCard({ letter, isAuthorView, isOnline }: { letter:
     const letterRef = doc(db, 'letters', letter.id);
     const newPinStatus = !letter.isPinned;
     updateDoc(letterRef, { isPinned: newPinStatus })
-        .then(() => toast({ title: `Letter ${newPinStatus ? 'pinned' : 'unpinned'}!` }))
+        .then(() => showIsland({ title: newPinStatus ? "Letter pinned" : "Letter unpinned", type: 'success' }))
         .catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({
                 path: letterRef.path,
@@ -76,7 +78,7 @@ export default function LetterCard({ letter, isAuthorView, isOnline }: { letter:
                   actor: letter.author
                 });
             }
-            toast({ title: "Response sent!" });
+            showIsland({ title: "Response sent", type: 'success' });
         })
         .catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({
@@ -98,7 +100,7 @@ export default function LetterCard({ letter, isAuthorView, isOnline }: { letter:
     const letterRef = doc(db, 'letters', letter.id);
     deleteDoc(letterRef)
         .then(() => {
-            toast({ title: "Letter Deleted" });
+            showIsland({ title: "Letter deleted", type: 'success' });
             setIsDialogOpen(false);
         })
         .catch(async (serverError) => {

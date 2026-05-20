@@ -145,8 +145,8 @@ export default function CreatePostForm() {
                 setAttachedSong(null);
                 setLyricSnippet(null);
                 showIsland({
-                  title: "Transmission Success",
-                  description: "Your post is now live in the community feed.",
+                  title: "Post success",
+                  description: "Your thought is now live in the community feed.",
                   type: 'success',
                   image: user.avatarUrl
                 });

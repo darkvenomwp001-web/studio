@@ -281,8 +281,8 @@ export default function StatusFeature() {
         await addDoc(collection(db, 'statusUpdates'), statusData);
         
         showIsland({
-          title: "Status Transmitted",
-          description: "Your update is now visible in the community ring.",
+          title: "Status posted",
+          description: "Your update is visible in the ring.",
           type: 'success',
           image: user.avatarUrl
         });
@@ -352,42 +352,35 @@ export default function StatusFeature() {
     setStorySearchResults(snap.docs.map(d => ({ id: d.id, ...d.data() } as Story)));
   };
 
-  // APK Permission Protocol for Android Applications
   const handleArtButtonClick = async () => {
     const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
     
     if (isNative) {
         try {
-            // Request permissions before opening the native picker
-            const permissionStatus = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
+            await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
             
-            if (permissionStatus.camera === 'granted' || permissionStatus.photos === 'granted') {
-                const image = await Camera.getPhoto({
-                    quality: 90,
-                    allowEditing: true,
-                    resultType: CameraResultType.Uri,
-                    source: CameraSource.Photos
-                });
+            const image = await Camera.getPhoto({
+                quality: 90,
+                allowEditing: true,
+                resultType: CameraResultType.Uri,
+                source: CameraSource.Photos
+            });
 
-                if (image.webPath) {
-                    const response = await fetch(image.webPath);
-                    const blob = await response.blob();
-                    const file = new File([blob], `status-media.${image.format}`, { type: blob.type });
-                    
-                    // Engage the status creation UI with the native file
-                    setMediaFile(file);
-                    setMediaPreview(image.webPath);
-                    setMediaType('image');
-                    setActiveUploaderTab('art');
-                    setIsUploaderOpen(true);
-                    setIsCreatorOpen(false);
-                }
-            } else {
-                toast({ title: "Permission Denied", description: "Please enable camera access in your settings.", variant: "destructive" });
+            if (image.webPath) {
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+                const file = new File([blob], `status-media.${image.format}`, { type: blob.type });
+                
+                setMediaFile(file);
+                setMediaPreview(image.webPath);
+                setMediaType('image');
+                setActiveUploaderTab('art');
+                setIsUploaderOpen(true);
+                setIsCreatorOpen(false);
             }
         } catch (e) {
             console.warn("APK Native Picker protocol encountered an interruption.", e);
-            mediaInputRef.current?.click(); // Fallback to standard input
+            mediaInputRef.current?.click();
         }
     } else {
         mediaInputRef.current?.click();

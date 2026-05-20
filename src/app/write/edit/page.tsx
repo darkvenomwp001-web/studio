@@ -272,7 +272,7 @@ function EditorContentInner() {
     };
   }, [queryStoryId, queryChapterId, currentUser, router, toast, authLoading]);
 
-  const handleSaveDraft = useCallback(async (showToast: boolean = true) => {
+  const handleSaveDraft = useCallback(async (showNotification: boolean = true) => {
     if (!storyDetails || !currentChapter || !currentUser || !editor) return;
     
     const content = editor.getHTML();
@@ -301,10 +301,10 @@ function EditorContentInner() {
     try {
         await updateDoc(storyDocRef, storyUpdateData);
         setAutoSaveStatus('Saved');
-        if (showToast) {
+        if (showNotification) {
             showIsland({
-              title: "Draft Synced",
-              description: `"${titleToSave}" has been saved to the archives.`,
+              title: "Draft saved",
+              description: `"${titleToSave}" is updated.`,
               type: 'success'
             });
         }
@@ -380,8 +380,8 @@ function EditorContentInner() {
             
             setCurrentChapter(prev => prev ? { ...prev, artworkUrl: data.secure_url } : null);
             showIsland({
-              title: "Artifact Uploaded",
-              description: "Chapter artwork has been synced.",
+              title: "Artwork updated",
+              description: "Chapter art is ready.",
               type: 'success'
             });
         }
@@ -450,8 +450,8 @@ function EditorContentInner() {
         }
 
         showIsland({
-          title: "Transmission Released",
-          description: `"${chapterTitle}" is now live for readers.`,
+          title: "Story published",
+          description: `"${chapterTitle}" is now live.`,
           type: 'success'
         });
         

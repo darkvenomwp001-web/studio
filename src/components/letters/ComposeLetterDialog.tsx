@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,6 +21,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function ComposeLetterDialog() {
   const { user, addNotification } = useAuth();
+  const { showIsland } = useDynamicIsland();
   const { toast } = useToast();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -143,7 +145,12 @@ export default function ComposeLetterDialog() {
                 });
             }
             setIsOpen(false);
-            toast({ title: "Letter Sent!", description: "Your message is on its way to the author." });
+            showIsland({
+              title: "Letter sent",
+              description: "Your message is on its way.",
+              type: 'success',
+              image: user.avatarUrl
+            });
         })
         .catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({

@@ -62,6 +62,7 @@ interface CommentProps {
 
 function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDelete }: CommentProps) {
   const { user: currentUser } = useAuth();
+  const { showIsland } = useDynamicIsland();
   const [showReplies, setShowReplies] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(comment.content);
@@ -103,7 +104,7 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
     onCommentUpdate(comment.id, editedContent.trim())
         .then(() => {
             setIsEditing(false);
-            toast({ title: "Comment updated" });
+            showIsland({ title: "Comment updated", type: 'success' });
         })
         .finally(() => setIsSavingEdit(false));
   };
@@ -237,7 +238,7 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
                 <AlertDialogAction 
                     onClick={() => {
                         onCommentDelete(comment.id)
-                            .then(() => toast({ title: "Comment deleted" }));
+                            .then(() => showIsland({ title: "Comment deleted", type: 'success' }));
                     }} 
                     className="bg-destructive hover:bg-destructive/90 rounded-full px-8"
                 >
@@ -372,8 +373,8 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
         setReplyingTo(null);
         setIsSpoiler(false);
         showIsland({
-          title: "Signal Received",
-          description: "Your comment has been posted to the archives.",
+          title: "Comment posted",
+          description: "Your thought is now in the archives.",
           type: 'success',
           image: currentUser.avatarUrl
         });
