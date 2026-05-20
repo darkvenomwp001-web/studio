@@ -42,6 +42,7 @@ import {
   increment,
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
@@ -113,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
+  const { showIsland } = useDynamicIsland();
 
   const handleAchievementUnlock = useCallback((newAchievements: Achievement[], oldAchievements: Achievement[]) => {
       if (newAchievements.length > oldAchievements.length) {
@@ -121,12 +123,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (typeof window !== 'undefined') {
               const hasSeenToast = sessionStorage.getItem(toastId);
               if (!hasSeenToast) {
-                toast({ title: "🏆 Achievement Unlocked!", description: latestAchievement.name });
+                showIsland({
+                  title: "Achievement Unlocked!",
+                  description: latestAchievement.name,
+                  type: 'success'
+                });
                 sessionStorage.setItem(toastId, 'true');
               }
           }
       }
-  }, [toast]);
+  }, [showIsland]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -209,9 +215,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setLoading(false);
           }
         });
+        
         const notifsQuery = query(collection(db, 'notifications'), where('userId', '==', firebaseUser.uid), orderBy('timestamp', 'desc'), limit(50));
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
-            setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType)));
+            const fetchedNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType));
+            
+            // Trigger Dynamic Island for newest unread notification
+            if (fetchedNotifs.length > 0) {
+              const latest = fetchedNotifs[0];
+              const cacheKey = `island_seen_${latest.id}`;
+              if (!latest.isRead && !sessionStorage.getItem(cacheKey)) {
+                showIsland({
+                  title: latest.actor.displayName || latest.actor.username,
+                  description: latest.message,
+                  type: 'notification',
+                  image: latest.actor.avatarUrl
+                });
+                sessionStorage.setItem(cacheKey, 'true');
+              }
+            }
+            
+            setNotifications(fetchedNotifs);
         }, async (error) => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'notifications', operation: 'list' }));
         });
@@ -228,7 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (unsubscribeUserDoc) unsubscribeUserDoc();
       if (unsubscribeNotifs) unsubscribeNotifs();
     };
-  }, [handleAchievementUnlock, toast]);
+  }, [handleAchievementUnlock, toast, showIsland]);
 
   useEffect(() => {
     if (loading) return;

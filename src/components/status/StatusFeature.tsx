@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import type { User, StatusUpdate, Song, Story, TextOverlayStyle } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, getDocs, limit, doc, getDoc } from 'firebase/firestore';
@@ -76,6 +77,7 @@ function StatusBubble({ user, onSelect, hasStatus, label }: { user: User, onSele
 
 export default function StatusFeature() {
   const { user, loading: authLoading } = useAuth();
+  const { showIsland } = useDynamicIsland();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
   const [groupedStatuses, setGroupedStatuses] = useState<Map<string, {user: User, statuses: StatusUpdate[]}>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
@@ -277,7 +279,14 @@ export default function StatusFeature() {
         }
 
         await addDoc(collection(db, 'statusUpdates'), statusData);
-        toast({ title: 'Status Published!' });
+        
+        showIsland({
+          title: "Status Transmitted",
+          description: "Your update is now visible in the community ring.",
+          type: 'success',
+          image: user.avatarUrl
+        });
+
         resetUploader();
         setIsUploaderOpen(false);
     } catch (error) {

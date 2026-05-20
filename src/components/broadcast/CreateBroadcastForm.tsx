@@ -2,6 +2,7 @@
 
 import { useState, useRef, ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,7 +12,7 @@ import {
   Loader2, 
   Send, 
   Radio, 
-  Image as ImageIcon, 
+  ImageIcon, 
   X, 
   Pin
 } from 'lucide-react';
@@ -32,6 +33,7 @@ const STATUSES = ['new', 'progress', 'live', 'fixed'];
 
 export default function CreateBroadcastForm() {
     const { user, addNotification } = useAuth();
+    const { showIsland } = useDynamicIsland();
     const { toast } = useToast();
     const [content, setContent] = useState('');
     const [category, setCategory] = useState<any>('feature');
@@ -120,7 +122,13 @@ export default function CreateBroadcastForm() {
                 console.warn("Broadcast notifications failed:", notifErr);
             }
 
-            toast({ title: "Transmission Successful!" });
+            showIsland({
+              title: "Signal Broadcasted",
+              description: "Official update has been synced across the node.",
+              type: 'success',
+              image: user.avatarUrl
+            });
+            
             setContent('');
             setImageFile(null);
             setImagePreview(null);

@@ -11,10 +11,13 @@ import PasswordSetupDialog from '@/components/auth/PasswordSetupDialog';
 import { ScrollToTop } from '@/components/layout/ScrollToTop';
 import { ThemeProvider } from '@/components/theme-provider';
 import { StoryPreviewProvider } from '@/context/StoryPreviewProvider';
+import { DynamicIslandProvider } from '@/context/DynamicIslandContext';
+import DynamicIsland from '@/components/layout/DynamicIsland';
 import StoryPreviewDrawer from '@/components/story/StoryPreviewDrawer';
 import FirebaseErrorListener from '@/components/FirebaseErrorListener';
 import AppearanceManager from '@/components/layout/AppearanceManager';
 import NativePermissionGuard from '@/components/layout/NativePermissionGuard';
+import { Loader2 } from 'lucide-react';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
@@ -39,28 +42,29 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-          <AuthProvider>
-            <AppearanceManager />
-            <NativePermissionGuard />
-            <SplashWrapper>
-                <StoryPreviewProvider>
-                  <FirebaseErrorListener />
-                  <ScrollToTop />
-                  <div className="relative flex min-h-screen flex-col overflow-x-hidden max-w-[100vw]">
-                    <Suspense fallback={<div className="flex justify-center items-center h-screen bg-background"><Loader2 className="animate-spin text-primary" /></div>}>
-                      {children}
-                    </Suspense>
-                  </div>
-                  <Toaster />
-                  <PasswordSetupDialog />
-                  <StoryPreviewDrawer />
-                </StoryPreviewProvider>
-            </SplashWrapper>
-          </AuthProvider>
+          <DynamicIslandProvider>
+            <AuthProvider>
+              <AppearanceManager />
+              <NativePermissionGuard />
+              <SplashWrapper>
+                  <StoryPreviewProvider>
+                    <FirebaseErrorListener />
+                    <ScrollToTop />
+                    <DynamicIsland />
+                    <div className="relative flex min-h-screen flex-col overflow-x-hidden max-w-[100vw]">
+                      <Suspense fallback={<div className="flex justify-center items-center h-screen bg-background"><Loader2 className="animate-spin text-primary" /></div>}>
+                        {children}
+                      </Suspense>
+                    </div>
+                    <Toaster />
+                    <PasswordSetupDialog />
+                    <StoryPreviewDrawer />
+                  </StoryPreviewProvider>
+              </SplashWrapper>
+            </AuthProvider>
+          </DynamicIslandProvider>
         </ThemeProvider>
       </body>
     </html>
   );
 }
-
-import { Loader2 } from 'lucide-react';

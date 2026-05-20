@@ -52,6 +52,7 @@ import {
 import { useSearchParams, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Story, Chapter } from '@/types';
 import { db } from '@/lib/firebase';
@@ -135,6 +136,7 @@ function EditorContentInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user: currentUser, addNotification, loading: authLoading } = useAuth();
+  const { showIsland } = useDynamicIsland();
   const { toast } = useToast();
 
   const queryStoryId = searchParams.get('storyId');
@@ -299,7 +301,13 @@ function EditorContentInner() {
     try {
         await updateDoc(storyDocRef, storyUpdateData);
         setAutoSaveStatus('Saved');
-        if (showToast) toast({ title: "Draft Saved!" });
+        if (showToast) {
+            showIsland({
+              title: "Draft Synced",
+              description: `"${titleToSave}" has been saved to the archives.`,
+              type: 'success'
+            });
+        }
     } catch (serverError: any) {
         const permissionError = new FirestorePermissionError({
           path: storyDocRef.path,
@@ -309,7 +317,7 @@ function EditorContentInner() {
         errorEmitter.emit('permission-error', permissionError);
         setAutoSaveStatus('Error');
     }
-  }, [storyDetails, currentChapter, currentUser, chapterTitle, editor, toast, chapterTags]);
+  }, [storyDetails, currentChapter, currentUser, chapterTitle, editor, toast, chapterTags, showIsland]);
 
   useEffect(() => {
     if (autoSaveStatus !== 'Typing' || !editor) return;
@@ -371,7 +379,11 @@ function EditorContentInner() {
             });
             
             setCurrentChapter(prev => prev ? { ...prev, artworkUrl: data.secure_url } : null);
-            toast({ title: "Chapter Artwork Updated!" });
+            showIsland({
+              title: "Artifact Uploaded",
+              description: "Chapter artwork has been synced.",
+              type: 'success'
+            });
         }
     } catch (error) {
         toast({ title: "Upload Failed", variant: "destructive" });
@@ -437,6 +449,12 @@ function EditorContentInner() {
             console.warn("Follower notifications failed:", notifErr);
         }
 
+        showIsland({
+          title: "Transmission Released",
+          description: `"${chapterTitle}" is now live for readers.`,
+          type: 'success'
+        });
+        
         router.push(`/write/edit-details?storyId=${storyDetails.id}`);
       })
       .catch(async (serverError) => {
@@ -451,7 +469,6 @@ function EditorContentInner() {
     
     setCurrentChapter(updatedChapterData);
     setAutoSaveStatus('Saved');
-    toast({ title: "Part Published!" });
   };
 
   const readingTimeMinutes = Math.max(1, Math.round(wordCount / 225));

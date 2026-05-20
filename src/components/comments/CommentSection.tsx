@@ -8,6 +8,7 @@ import { ThumbsUp, MessageSquare as MessageSquareIcon, Loader2, Edit3, Trash2, S
 import type { Comment as CommentType, Story } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -279,6 +280,7 @@ interface CommentSectionProps {
 
 export default function CommentSection({ storyId, chapterId, quote }: CommentSectionProps) {
   const { user: currentUser, loading: authLoading } = useAuth();
+  const { showIsland } = useDynamicIsland();
   const [newComment, setNewComment] = useState('');
   const [allComments, setAllComments] = useState<CommentType[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(true);
@@ -369,7 +371,12 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
         setNewComment('');
         setReplyingTo(null);
         setIsSpoiler(false);
-        toast({ title: "Comment posted!" });
+        showIsland({
+          title: "Signal Received",
+          description: "Your comment has been posted to the archives.",
+          type: 'success',
+          image: currentUser.avatarUrl
+        });
     })
     .catch((error) => {
         console.error("Comment submit error:", error);

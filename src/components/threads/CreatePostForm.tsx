@@ -1,8 +1,8 @@
-
 'use client';
 
 import { useState, useRef, ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +24,7 @@ const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 export default function CreatePostForm() {
     const { user } = useAuth();
+    const { showIsland } = useDynamicIsland();
     const { toast } = useToast();
     const [content, setContent] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,7 +144,12 @@ export default function CreatePostForm() {
                 setAttachedImagePreview(null);
                 setAttachedSong(null);
                 setLyricSnippet(null);
-                toast({ title: 'Post Published!' });
+                showIsland({
+                  title: "Transmission Success",
+                  description: "Your post is now live in the community feed.",
+                  type: 'success',
+                  image: user.avatarUrl
+                });
             })
             .catch(async (serverError) => {
                 const permissionError = new FirestorePermissionError({
