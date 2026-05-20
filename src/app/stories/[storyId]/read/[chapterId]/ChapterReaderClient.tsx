@@ -147,6 +147,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         TiptapHighlight.configure({ multicolor: true }),
         BubbleMenuExtension.configure({
             pluginKey: 'bubbleMenu',
+            tippyOptions: { duration: 100, animation: 'fade' },
         })
     ],
     content: '',
@@ -346,7 +347,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     try {
         await addDoc(collection(db, 'annotations'), annotationData);
         editor?.chain().focus().setHighlight({ color: selectedColor }).run();
-        toast({ title: "Highlight Captured" });
+        toast({ title: "Highlight archived" });
         setIsAnnotationDialogOpen(false);
     } catch (error) { toast({ title: "Capture Failed" }); } finally { setIsSavingAnnotation(false); }
   };
@@ -525,8 +526,12 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     </div>
                     {editor && (
                         <BubbleMenu editor={editor} className="flex items-center gap-1 p-1 bg-card/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-3xl">
-                            <Button variant="ghost" size="sm" onClick={() => handleAnnotationAction('highlight')} className="h-9 px-3 rounded-full font-bold text-[10px] uppercase tracking-widest"><Highlighter className="h-4 w-4 mr-2" /> Highlight</Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleAnnotationAction('comment')} className="h-9 px-3 rounded-full font-bold text-[10px] uppercase tracking-widest"><MessageSquare className="h-4 w-4 mr-2" /> Comment</Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleAnnotationAction('highlight')} className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all">
+                                <Highlighter className="h-5 w-5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleAnnotationAction('comment')} className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all">
+                                <MessageSquare className="h-5 w-5" />
+                            </Button>
                         </BubbleMenu>
                     )}
                     <EditorContent editor={editor} />
@@ -549,6 +554,60 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl" onClick={() => nextChapterId && router.push(`/stories/${storyId}/read/${nextChapterId}`)} disabled={!nextChapterId}><ArrowRight className="h-6 w-6" /></Button>
         </div>
       </footer>
+      
+      <Sheet open={isAnnotationDialogOpen} onOpenChange={setIsAnnotationDialogOpen}>
+          <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-[32px] border-none shadow-3xl bg-background/95 backdrop-blur-xl">
+              <div className="mx-auto w-12 h-1.5 rounded-full bg-muted/40 mb-6" />
+              <SheetHeader className="text-left mb-6">
+                  <SheetTitle className="font-headline text-2xl font-bold">Archive Highlight</SheetTitle>
+                  <SheetDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Save this moment to your private and community archive</SheetDescription>
+              </SheetHeader>
+              
+              <div className="space-y-6 pb-10">
+                  <div className="p-5 rounded-2xl bg-muted/10 border border-border/40 shadow-inner relative group">
+                      <Quote className="absolute top-4 right-4 h-8 w-8 text-primary/5 -scale-x-100" />
+                      <p className="italic text-sm md:text-base leading-relaxed text-foreground/90 font-serif">"{selectedText}"</p>
+                  </div>
+
+                  <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Archive Note</Label>
+                      <Textarea 
+                        value={annotationNote} 
+                        onChange={e => setAnnotationNote(e.target.value)} 
+                        placeholder="Why does this prose strike you? (Optional)" 
+                        className="bg-muted/20 border-none rounded-2xl text-sm p-4 min-h-[100px] shadow-inner"
+                      />
+                  </div>
+
+                  <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Highlight Color</Label>
+                      <div className="flex gap-3">
+                          {HIGHLIGHT_COLORS.map(color => (
+                              <button 
+                                key={color.value} 
+                                onClick={() => setSelectedColor(color.value)}
+                                className={cn(
+                                    "w-10 h-10 rounded-full border-2 transition-all duration-300 transform-gpu hover:scale-110",
+                                    selectedColor === color.value ? "border-primary scale-110 shadow-lg" : "border-transparent"
+                                )}
+                                style={{ backgroundColor: color.value }}
+                              />
+                          ))}
+                      </div>
+                  </div>
+
+                  <Button 
+                    onClick={saveAnnotation} 
+                    disabled={isSavingAnnotation} 
+                    className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95"
+                  >
+                      {isSavingAnnotation ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Sparkles className="h-5 w-5 mr-2" />}
+                      Capture Transmission
+                  </Button>
+              </div>
+          </SheetContent>
+      </Sheet>
+      
       <style dangerouslySetInnerHTML={{ __html: zenFocusStyles }} />
     </div>
     </TooltipProvider>
