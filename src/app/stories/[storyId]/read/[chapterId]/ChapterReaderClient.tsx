@@ -81,6 +81,7 @@ import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 type FontSize = 'sm' | 'base' | 'lg' | 'xl';
 type FontFamily = 'sans' | 'serif';
@@ -127,6 +128,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
+  const [layoutWidth, setLayoutWidth] = useState<'normal' | 'wide'>('normal');
   const [isNightPortalActive, setIsNightPortalActive] = useState(false);
   const [isZenFocus, setIsZenFocus] = useState(false);
   const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
