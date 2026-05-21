@@ -517,38 +517,38 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       <main className="pt-20 pb-24 min-h-screen">
         {isAccessGranted ? (
             <div className="relative" onClick={handleManuscriptClick}>
+                {editor && (
+                    <BubbleMenu 
+                        editor={editor} 
+                        tippyOptions={{ duration: 150, zIndex: 9999, appendTo: 'parent' }}
+                        className="flex items-center gap-0.5 p-1 bg-card/95 backdrop-blur-3xl border border-white/20 rounded-full shadow-2xl transform-gpu animate-in zoom-in-95 duration-200"
+                    >
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleAnnotationAction('highlight')} 
+                            className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-95"
+                            title="Highlight"
+                        >
+                            <Highlighter className="h-4 w-4" />
+                        </Button>
+                        <div className="w-px h-4 bg-border/40 mx-0.5" />
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleAnnotationAction('comment')} 
+                            className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-95"
+                            title="Discuss Selection"
+                        >
+                            <MessageSquare className="h-4 w-4" />
+                        </Button>
+                    </BubbleMenu>
+                )}
                 <article className={articleClasses}>
                     <div className="text-center mb-16 space-y-4 px-6 animate-in slide-in-from-top-4 duration-1000">
                         <Badge variant="outline" className="rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-[0.3em] bg-primary/5 text-primary border-primary/20">Part {currentChapter?.order}</Badge>
                         <h2 className="font-headline text-4xl md:text-7xl font-bold tracking-tight leading-none text-foreground">{currentChapter?.title}</h2>
                     </div>
-                    
-                    {editor && (
-                        <BubbleMenu 
-                            editor={editor} 
-                            tippyOptions={{ duration: 150, zIndex: 9999, appendTo: 'parent' }}
-                            className="flex items-center gap-1 p-1 bg-card/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-3xl transform-gpu animate-in zoom-in-95 duration-200"
-                        >
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleAnnotationAction('highlight')} 
-                                className="h-11 w-11 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-90"
-                                title="Highlight"
-                            >
-                                <Highlighter className="h-5 w-5" />
-                            </Button>
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleAnnotationAction('comment')} 
-                                className="h-11 w-11 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-90"
-                                title="Discuss Selection"
-                            >
-                                <MessageSquare className="h-5 w-5" />
-                            </Button>
-                        </BubbleMenu>
-                    )}
                     <EditorContent editor={editor} />
                 </article>
             </div>
