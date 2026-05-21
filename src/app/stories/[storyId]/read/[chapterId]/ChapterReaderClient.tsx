@@ -520,27 +520,28 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 {editor && (
                     <BubbleMenu 
                         editor={editor} 
-                        tippyOptions={{ duration: 150, zIndex: 9999, appendTo: 'parent' }}
-                        className="flex items-center gap-0.5 p-1 bg-card/95 backdrop-blur-3xl border border-white/20 rounded-full shadow-2xl transform-gpu animate-in zoom-in-95 duration-200"
+                        shouldShow={({ editor }) => !editor.selection.empty}
+                        tippyOptions={{ duration: 150, zIndex: 10000, appendTo: 'parent' }}
+                        className="flex items-center gap-1 p-1 bg-card/95 backdrop-blur-3xl border border-white/20 rounded-full shadow-2xl transform-gpu animate-in zoom-in-95 duration-200"
                     >
                         <Button 
                             variant="ghost" 
                             size="icon" 
                             onClick={() => handleAnnotationAction('highlight')} 
-                            className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-95"
+                            className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-95 flex items-center justify-center"
                             title="Highlight"
                         >
-                            <Highlighter className="h-4 w-4" />
+                            <Highlighter className="h-5 w-5" />
                         </Button>
-                        <div className="w-px h-4 bg-border/40 mx-0.5" />
+                        <div className="w-px h-5 bg-border/40 mx-0.5" />
                         <Button 
                             variant="ghost" 
                             size="icon" 
                             onClick={() => handleAnnotationAction('comment')} 
-                            className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-95"
+                            className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-95 flex items-center justify-center"
                             title="Discuss Selection"
                         >
-                            <MessageSquare className="h-4 w-4" />
+                            <MessageSquare className="h-5 w-5" />
                         </Button>
                     </BubbleMenu>
                 )}
