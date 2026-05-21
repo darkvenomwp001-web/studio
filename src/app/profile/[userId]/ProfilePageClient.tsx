@@ -39,7 +39,8 @@ import {
   Send,
   Edit,
   Save,
-  Plus
+  Plus,
+  ChevronRight
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -704,7 +705,13 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
           <TabsContent value="works" className="mt-8 space-y-12">
             {publishedWorks.length > 0 && (
               <div>
-                <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight"><BookOpen className="h-5 w-5 text-primary" /> Published Works</h2>
+                <Link href="/write" className="inline-block group">
+                  <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight group-hover:text-primary transition-colors cursor-pointer">
+                    <BookOpen className="h-5 w-5 text-primary" /> 
+                    Published Works
+                    <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all" />
+                  </h2>
+                </Link>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                     {publishedWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} /> ))}
                 </div>
