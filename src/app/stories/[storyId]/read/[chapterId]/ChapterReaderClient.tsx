@@ -155,7 +155,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
 
-  // Accurate View Counting Protocol
   useEffect(() => {
     if (!story?.id || !currentChapter?.id || !isAccessGranted) return;
 
@@ -520,7 +519,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 {editor && (
                     <BubbleMenu 
                         editor={editor} 
-                        shouldShow={({ editor }) => !editor.selection.empty}
+                        shouldShow={({ editor }) => editor ? !editor.state.selection.empty : false}
                         tippyOptions={{ duration: 150, zIndex: 10000, appendTo: 'parent' }}
                         className="flex items-center gap-1 p-1 bg-card/95 backdrop-blur-3xl border border-white/20 rounded-full shadow-2xl transform-gpu animate-in zoom-in-95 duration-200"
                     >
