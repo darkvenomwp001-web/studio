@@ -155,7 +155,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
 
-  // Accurate View Counting Protocol with Manipulation Restrictions
+  // Accurate View Counting Protocol
   useEffect(() => {
     if (!story?.id || !currentChapter?.id || !isAccessGranted) return;
 
@@ -317,8 +317,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     if (!text.trim()) return;
     setSelectedText(text);
     setAnnotationNote('');
-    if (type === 'highlight') setIsAnnotationDialogOpen(true);
-    else router.push(`/stories/${story?.id}/read/${currentChapter?.id}/comments?quote=${encodeURIComponent(text.trim())}`);
+    if (type === 'highlight') {
+        setIsAnnotationDialogOpen(true);
+    } else {
+        router.push(`/stories/${story?.id}/read/${currentChapter?.id}/comments?quote=${encodeURIComponent(text.trim())}`);
+    }
   }, [editor, story?.id, currentChapter?.id, router]);
 
   const saveAnnotation = async () => {
@@ -520,7 +523,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         <h2 className="font-headline text-4xl md:text-7xl font-bold tracking-tight leading-none text-foreground">{currentChapter?.title}</h2>
                     </div>
                     
-                    {/* RESTORED HIGH-FIDELITY SELECTION MENU */}
                     {editor && (
                         <BubbleMenu 
                             editor={editor} 
