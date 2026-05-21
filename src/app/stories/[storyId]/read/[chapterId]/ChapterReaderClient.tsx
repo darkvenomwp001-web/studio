@@ -62,6 +62,7 @@ import {
   Quote
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import type { Story, Chapter, Annotation } from '@/types'; 
 import { useToast } from '@/hooks/use-toast';
@@ -72,7 +73,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { ref, onValue } from 'firebase/database';
 import { doc, onSnapshot, updateDoc, Timestamp, addDoc, collection, serverTimestamp, increment } from 'firebase/firestore';
-import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import { EditorContent, useEditor, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
