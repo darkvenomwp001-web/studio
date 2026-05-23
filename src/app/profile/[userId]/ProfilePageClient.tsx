@@ -35,7 +35,8 @@ import {
   Quote,
   Heart,
   Edit2,
-  ArrowLeft
+  ArrowLeft,
+  Radio
 } from 'lucide-react';
 import NextImage from 'next/image';
 import Link from 'next/link';
@@ -118,8 +119,8 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
     return (
         <DialogContent className="sm:max-w-md rounded-[2.5rem] border-none shadow-3xl p-0 overflow-hidden bg-background">
             <DialogHeader className="p-6 bg-muted/30 border-b">
-                <DialogTitle className="text-xl font-headline font-bold">Share to Friends</DialogTitle>
-                <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Send this post to your moots</DialogDescription>
+                <DialogTitle className="text-xl font-headline font-bold">Share with Friends</DialogTitle>
+                <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Send this post to your close circle</DialogDescription>
             </DialogHeader>
             <div className="p-6">
                 <ScrollArea className="h-[300px]">
@@ -143,7 +144,7 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
                         </div>
                     ) : (
                         <div className="text-center py-20 text-muted-foreground italic text-xs">
-                            Follow friends who follow you back to share posts.
+                            Follow friends who follow you back to share.
                         </div>
                     )}
                 </ScrollArea>
@@ -515,39 +516,6 @@ function PhotoGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isO
     );
 }
 
-function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>, isPrivate?: boolean }) {
-  const editLink = `/write/edit-details?storyId=${story.id}`;
-  const viewLink = `/stories/${story.id}`;
-
-  return (
-    <div className="w-full group">
-       <Link href={isPrivate ? editLink : viewLink} passHref>
-        <div className={cn(
-            "aspect-[2/3] relative rounded-md overflow-hidden shadow-sm transition-all bg-muted cursor-pointer mb-2",
-             isPrivate && "opacity-70" 
-        )}>
-          <NextImage
-            src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
-            alt={story.title}
-            fill
-            className="object-cover transition-transform duration-700 ease-in-out group-hover:scale-105"
-            sizes="(max-width: 768px) 50vw, 200px"
-          />
-           {isPrivate && ( 
-            <Badge variant="outline" className="absolute top-2 right-2 text-[10px] bg-background/80 capitalize">{story.status === 'Draft' ? 'Draft' : story.visibility}</Badge>
-          )}
-        </div>
-      </Link>
-      <Link href={isPrivate ? editLink : viewLink} className="block">
-          <div className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
-            {story.title}
-          </div>
-      </Link>
-      <p className="text-[10px] text-muted-foreground truncate">{story.genre}</p>
-    </div>
-  );
-}
-
 function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
   const { user, addNotification } = useAuth();
   const { toast } = useToast();
@@ -649,27 +617,29 @@ function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwn
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-20">
+    <div className="max-w-2xl mx-auto space-y-8 pb-20">
       {isOwnProfile && (
-        <Card className="rounded-[1.5rem] border-none bg-muted/20">
-            <CardContent className="p-4 space-y-4">
+        <Card className="rounded-[2.5rem] border-none bg-card/60 backdrop-blur-md shadow-xl overflow-hidden">
+            <CardContent className="p-6 space-y-4">
               <div className="flex gap-4">
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-12 w-12 border-2 border-background shadow-md">
                     <AvatarImage src={user?.avatarUrl} />
                     <AvatarFallback>{user?.username?.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <Textarea
-                  value={newAnnouncement}
-                  onChange={(e) => setNewAnnouncement(e.target.value)}
-                  placeholder="Post an update..."
-                  className="bg-transparent border-0 focus-visible:ring-0 resize-none min-h-[80px]"
-                  disabled={isPosting}
-                />
+                <div className="flex-1">
+                  <Textarea
+                    value={newAnnouncement}
+                    onChange={(e) => setNewAnnouncement(e.target.value)}
+                    placeholder="Share an update with your readers..."
+                    className="bg-muted/20 border-0 focus-visible:ring-0 resize-none min-h-[100px] rounded-2xl p-4 text-base shadow-inner"
+                    disabled={isPosting}
+                  />
+                </div>
               </div>
-              <div className="flex justify-end">
-                <Button onClick={handlePostAnnouncement} disabled={isPosting || !newAnnouncement.trim()} size="sm" className="rounded-full px-6">
-                    {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                    Post
+              <div className="flex justify-end pt-2">
+                <Button onClick={handlePostAnnouncement} disabled={isPosting || !newAnnouncement.trim()} className="rounded-full px-8 h-11 font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                    {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
+                    Post Update
                 </Button>
               </div>
             </CardContent>
@@ -677,85 +647,159 @@ function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwn
       )}
 
       {isLoading ? (
-        <div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
+        <div className="text-center py-10"><Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" /></div>
       ) : announcements.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-6">
             {announcements.map(post => {
             const canManage = isAppOwner || (user && post.author.id === user.id);
             return (
-                <div key={post.id} className="group relative flex gap-4 p-4 border-b border-border/10 last:border-0 hover:bg-muted/10 transition-all rounded-2xl">
-                    <Link href={`/profile/${post.author.id}`}>
-                        <Avatar className="h-10 w-10">
-                            <AvatarImage src={post.author.avatarUrl} />
-                            <AvatarFallback>{post.author.username?.charAt(0).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                    </Link>
-                    <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2 truncate">
-                            <Link href={`/profile/${post.author.id}`} className="font-bold text-sm hover:underline truncate">@{post.author.username}</Link>
-                            {OWNER_HANDLES.includes(post.author.username) && <VerifiedBadge className="h-3 w-3" />}
-                            <span className="text-[10px] text-muted-foreground">&bull; {post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'now'}</span>
+                <Card key={post.id} className="group relative border-border/40 bg-card/40 backdrop-blur-sm rounded-[2.5rem] shadow-sm overflow-hidden transition-all hover:shadow-md">
+                    <CardHeader className="p-6 pb-2 flex flex-row items-center gap-4 space-y-0">
+                        <Link href={`/profile/${post.author.id}`}>
+                            <Avatar className="h-12 w-12 border-2 border-background shadow-md">
+                                <AvatarImage src={post.author.avatarUrl} />
+                                <AvatarFallback>{post.author.username?.charAt(0).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                        </Link>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 truncate">
+                              <Link href={`/profile/${post.author.id}`} className="font-bold text-sm hover:underline truncate">@{post.author.username}</Link>
+                              {OWNER_HANDLES.includes(post.author.username) && <VerifiedBadge className="h-3 w-3" />}
+                          </div>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                            {post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'now'}
+                          </p>
                         </div>
                         {canManage && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                                         <MoreHorizontal className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="rounded-xl">
-                                    <DropdownMenuItem onClick={() => { setEditingPost(post); setEditedContent(post.content); setIsEditDialogOpen(true); }}>Edit</DropdownMenuItem>
-                                    <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingPostId(post.id); setIsDeleteDialogOpen(true); }}>Delete</DropdownMenuItem>
+                                <DropdownMenuContent align="end" className="rounded-xl border-border/40 shadow-xl">
+                                    <DropdownMenuItem onClick={() => { setEditingPost(post); setEditedContent(post.content); setIsEditDialogOpen(true); }} className="gap-2">
+                                      <Edit2 className="h-4 w-4" /> Edit Update
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2" onClick={() => { setDeletingPostId(post.id); setIsDeleteDialogOpen(true); }}>
+                                      <Trash2 className="h-4 w-4" /> Delete Update
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}
-                    </div>
-                    <div className="whitespace-pre-line text-sm mt-1 leading-relaxed text-foreground/80">{post.content}</div>
-                    </div>
-                </div>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-2">
+                        <div className="whitespace-pre-line text-sm md:text-base leading-relaxed text-foreground/90 font-medium">
+                          {post.content}
+                        </div>
+                    </CardContent>
+                    <footer className="px-6 py-3 bg-muted/10 border-t border-border/10 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-primary/40">
+                        <Radio className="h-3 w-3" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Signal Transmitted</span>
+                      </div>
+                    </footer>
+                </Card>
             );
             })}
         </div>
       ) : !isOwnProfile && (
-        <div className="text-center py-12 text-muted-foreground italic">
-          No updates yet.
+        <div className="text-center py-24 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
+          No updates posted yet.
         </div>
       )}
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="rounded-3xl">
-          <DialogHeader>
-            <DialogTitle>Edit Post</DialogTitle>
+        <DialogContent className="rounded-[2.5rem] border-none shadow-3xl p-8">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-2xl font-headline font-bold">Edit Update</DialogTitle>
+            <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Modify your transmission</DialogDescription>
           </DialogHeader>
-          <Textarea value={editedContent} onChange={(e) => setEditedContent(e.target.value)} rows={5} className="bg-muted/20 border-none rounded-2xl" disabled={isUpdating} />
-          <DialogFooter>
-            <Button variant="ghost" className="rounded-full" onClick={() => setIsEditDialogOpen(false)} disabled={isUpdating}>Cancel</Button>
-            <Button className="rounded-full px-8" onClick={handleUpdateAnnouncement} disabled={isUpdating || !editedContent.trim()}>
-              {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save
+          <Textarea 
+            value={editedContent} 
+            onChange={(e) => setEditedContent(e.target.value)} 
+            rows={5} 
+            className="bg-muted/20 border-none rounded-2xl p-4 text-base shadow-inner resize-none" 
+            disabled={isUpdating} 
+          />
+          <DialogFooter className="mt-6 gap-2">
+            <Button variant="ghost" className="rounded-full font-bold uppercase text-[10px] tracking-widest" onClick={() => setIsEditDialogOpen(false)} disabled={isUpdating}>Cancel</Button>
+            <Button className="rounded-full px-10 shadow-lg shadow-primary/20 font-bold uppercase text-[10px] tracking-widest" onClick={handleUpdateAnnouncement} disabled={isUpdating || !editedContent.trim()}>
+              {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-3xl">
+        <AlertDialogContent className="rounded-[2.5rem] border-none shadow-3xl p-8">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this post?</AlertDialogTitle>
-            <AlertDialogDescription>This action is permanent.</AlertDialogDescription>
+            <AlertDialogTitle className="text-2xl font-headline font-bold">Delete this update?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-relaxed">This action is permanent and will remove the signal from your followers' feeds.</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full" disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteAnnouncement} className="bg-destructive hover:bg-destructive/90 rounded-full px-8" disabled={isDeleting}>
-              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Delete
+          <AlertDialogFooter className="mt-6">
+            <AlertDialogCancel className="rounded-full font-bold uppercase text-[10px] tracking-widest" disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAnnouncement} className="bg-destructive hover:bg-destructive/90 rounded-full px-10 shadow-lg shadow-destructive/20 font-bold uppercase text-[10px] tracking-widest" disabled={isDeleting}>
+              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Erase
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
   );
+}
+
+function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>, isPrivate?: boolean }) {
+  const editLink = `/write/edit-details?storyId=${story.id}`;
+  const viewLink = `/stories/${story.id}`;
+
+  return (
+    <div className="w-full group">
+       <Link href={isPrivate ? editLink : viewLink} passHref>
+        <div className={cn(
+            "aspect-[2/3] relative rounded-md overflow-hidden shadow-sm transition-all bg-muted cursor-pointer mb-2",
+             isPrivate && "opacity-70" 
+        )}>
+          <NextImage
+            src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
+            alt={story.title}
+            fill
+            className="object-cover transition-transform duration-700 ease-in-out group-hover:scale-105"
+            sizes="(max-width: 768px) 50vw, 200px"
+          />
+           {isPrivate && ( 
+            <Badge variant="outline" className="absolute top-2 right-2 text-[10px] bg-background/80 capitalize">{story.status === 'Draft' ? 'Draft' : story.visibility}</Badge>
+          )}
+        </div>
+      </Link>
+      <Link href={isPrivate ? editLink : viewLink} className="block">
+          <div className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
+            {story.title}
+          </div>
+      </Link>
+      <p className="text-[10px] text-muted-foreground truncate">{story.genre}</p>
+    </div>
+  );
+}
+
+function PhotoGalleryTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
+    const { user } = useAuth();
+    const isMoot = user && user.followingIds?.includes(profileUser.id) && profileUser.followingIds?.includes(user.id);
+    const canView = isOwnProfile || isMoot;
+
+    if (!canView) {
+        return (
+            <div className="text-center py-32 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40 max-w-2xl mx-auto">
+                <Lock className="h-16 w-16 text-muted-foreground/20 mx-auto mb-6" />
+                <h3 className="text-2xl font-headline font-bold mb-2 text-foreground">Restricted Gallery</h3>
+                <p className="text-sm px-10">This archive is only visible to mutual friends. Follow each other to unlock this vault.</p>
+            </div>
+        );
+    }
+
+    return <PhotoGallery profileUser={profileUser} isOwnProfile={isOwnProfile} />;
 }
 
 export default function ProfilePageClient({ userId }: { userId: string }) {
@@ -934,12 +978,12 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                   
                   {!isOwnProfile && (
                     <div className="flex flex-wrap gap-2 sm:gap-3 pt-3 sm:pt-4">
-                        <Button onClick={() => isFollowing ? unfollowUser(profileUser.id) : followUser(profileUser.id)} disabled={followActionLoading} variant={isFollowing ? "outline" : "default"} className="rounded-full px-4 sm:px-8 font-bold h-10 sm:h-11 text-xs sm:text-sm">
+                        <Button onClick={() => isFollowing ? unfollowUser(profileUser.id) : followUser(profileUser.id)} disabled={followActionLoading} variant={isFollowing ? "outline" : "default"} className="rounded-full px-4 sm:px-8 font-bold h-10 sm:h-11 text-xs sm:text-sm shadow-sm">
                             {followActionLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : isFollowing ? <UserX className="mr-1.5 h-4 w-4" /> : <UserPlus className="mr-1.5 h-4 w-4" />}
                             {isFollowing ? 'Unfollow' : 'Follow'}
                         </Button>
                         <Link href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`}>
-                            <Button variant="outline" className="rounded-full px-4 sm:px-8 gap-2 border-border/60 h-10 sm:h-11 text-xs sm:text-sm">
+                            <Button variant="outline" className="rounded-full px-4 sm:px-8 gap-2 border-border/60 h-10 sm:h-11 text-xs sm:text-sm shadow-sm">
                                 <MessageCircle className="h-4 w-4" /> Message
                             </Button>
                         </Link>
@@ -951,9 +995,9 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
 
       <main className="container mx-auto px-4 mt-10 md:mt-12 space-y-10">
         <Tabs defaultValue="works" className="w-full">
-          <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6 md:gap-10">
+          <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6 md:gap-10 overflow-x-auto no-scrollbar">
             <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Stories</TabsTrigger>
-            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Feed</TabsTrigger>
+            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">About Me</TabsTrigger>
             {showAnnouncementsTab && (
                 <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Updates</TabsTrigger>
             )}
@@ -982,7 +1026,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
             )}
 
             {publishedWorks.length === 0 && !isOwnProfile && (
-                 <div className="text-center py-32 text-muted-foreground border-2 border-dashed rounded-[3rem] border-border/40">
+                 <div className="text-center py-32 text-muted-foreground border-2 border-dashed rounded-[3rem] border-border/40 max-w-2xl mx-auto">
                     <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-20" />
                     <h3 className="text-lg font-bold text-foreground">Archive is Empty</h3>
                     <p className="text-sm">No public stories found.</p>
@@ -1064,13 +1108,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                 </TabsContent>
 
                 <TabsContent value="archive" className="animate-in fade-in duration-500">
-                    {(isOwnProfile || isMoot) ? (
-                        <PhotoGallery profileUser={profileUser} isOwnProfile={isOwnProfile} />
-                    ) : (
-                        <div className="text-center py-24 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
-                            This archive is for mutual friends only.
-                        </div>
-                    )}
+                    <PhotoGalleryTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
                 </TabsContent>
              </Tabs>
           </TabsContent>
@@ -1085,3 +1123,4 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     </div>
   );
 }
+
