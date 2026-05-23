@@ -24,6 +24,7 @@ import {
 } from 'firebase/firestore';
 import DashboardStoryCard from '@/components/shared/DashboardStoryCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 function DashboardContent() {
   const { user, loading: authLoading } = useAuth();
@@ -140,29 +141,26 @@ function DashboardContent() {
   }
 
   return (
-    <div className="space-y-10 pb-32 animate-in fade-in duration-700 px-4 md:px-0">
+    <div className="space-y-6 pb-32 animate-in fade-in duration-700 px-4 md:px-6 mt-6">
       
-      {/* Action Hub */}
-      <div className="flex flex-wrap items-center gap-4 mt-6">
-          <Button 
-            variant="outline" 
-            className="rounded-full gap-2 font-bold h-11 px-6 border-border/60 hover:bg-muted" 
-            onClick={() => toast({ title: "Wattpad Sync", description: "Feature currently being calibrated." })}
-          >
-              <RefreshCw className="h-4 w-4" />
-              Sync in Wattpad
-          </Button>
+      {/* Morphic Liquid Glass Header */}
+      <header className="flex flex-row items-center justify-between p-6 md:p-8 bg-card/30 backdrop-blur-2xl rounded-[2rem] md:rounded-[2.5rem] border border-white/10 shadow-2xl transform-gpu">
+          <div className="space-y-1">
+              <h1 className="text-2xl md:text-4xl font-headline font-bold tracking-tight">Writer Studio</h1>
+              <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Creative Workspace Node</p>
+          </div>
           <Link href="/write/edit-details" passHref>
-              <Button size="lg" className="rounded-full shadow-xl shadow-primary/20 gap-2 font-bold h-11 px-8">
+              <Button size="lg" className="rounded-full shadow-xl shadow-primary/20 gap-2 font-bold h-10 md:h-12 px-6 md:px-10 transition-all hover:scale-[1.02] active:scale-95">
                   <PlusCircle className="h-5 w-5" />
-                  New Story
+                  <span className="hidden sm:inline">New Story</span>
+                  <span className="sm:hidden">New</span>
               </Button>
           </Link>
-      </div>
+      </header>
       
       <Tabs defaultValue="published" className="w-full">
-        <div className="flex justify-center md:justify-start mb-8 border-b border-border/10 pb-4">
-            <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 shadow-inner w-full max-w-sm h-11">
+        <div className="flex justify-center md:justify-start mb-6 border-b border-border/10 pb-4">
+            <TabsList className="bg-muted/40 backdrop-blur-xl p-1 rounded-full border border-border/40 shadow-inner w-full max-w-sm h-11">
                 <TabsTrigger value="published" className="rounded-full font-bold text-xs flex-1 gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">
                     <Book className="h-4 w-4" /> Published 
                     <Badge variant="ghost" className="h-5 px-1.5 font-bold min-w-[20px]">{publishedStories.length}</Badge>
@@ -182,7 +180,7 @@ function DashboardContent() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-40 bg-card/20 rounded-[3rem] border-2 border-dashed border-border/40 max-w-2xl mx-auto flex flex-col items-center gap-4">
+            <div className="text-center py-40 bg-card/20 backdrop-blur-sm rounded-[3rem] border-2 border-dashed border-border/40 max-w-2xl mx-auto flex flex-col items-center gap-4">
                 <div className="p-5 rounded-full bg-muted/30">
                     <Book className="h-12 w-12 text-muted-foreground/30" />
                 </div>
@@ -205,7 +203,7 @@ function DashboardContent() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-40 bg-card/20 rounded-[3rem] border-2 border-dashed border-border/40 max-w-2xl mx-auto flex flex-col items-center gap-4">
+            <div className="text-center py-40 bg-card/20 backdrop-blur-sm rounded-[3rem] border-2 border-dashed border-border/40 max-w-2xl mx-auto flex flex-col items-center gap-4">
                 <div className="p-5 rounded-full bg-muted/30">
                     <Feather className="h-12 w-12 text-muted-foreground/30" />
                 </div>
@@ -233,3 +231,4 @@ export default function WriteDashboardPage() {
     </Suspense>
   );
 }
+
