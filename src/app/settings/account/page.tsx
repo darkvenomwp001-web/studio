@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -79,7 +80,7 @@ export default function AccountSettingsPage() {
     setIsPasswordUpdating(false);
   };
   
-  if (authLoadingGlobal && !user) {
+  if (authLoadingGlobal || !user) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -87,13 +88,6 @@ export default function AccountSettingsPage() {
     );
   }
 
-  if (!user && !authLoadingGlobal) {
-    router.push('/auth/signin');
-    return null;
-  }
-  
-  if (!user) return null;
-  
   const anySubmitting = isEmailUpdating || isPasswordUpdating || specificAuthLoading;
 
   return (

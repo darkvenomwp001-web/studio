@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -58,18 +59,13 @@ export default function SettingsHubPage() {
   const { user, loading, signOutFirebase } = useAuth();
   const router = useRouter();
   
-  if (loading && !user) {
+  if (loading || !user) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-12rem)] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Entering Settings...</p>
       </div>
     );
-  }
-
-  if (!user && !loading) {
-    router.push('/auth/signin');
-    return null;
   }
 
   return (

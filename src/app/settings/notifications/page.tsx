@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -18,7 +17,7 @@ export default function NotificationsSettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  if (loading && !user) {
+  if (loading || !user) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -26,11 +25,6 @@ export default function NotificationsSettingsPage() {
     );
   }
 
-  if (!user && !loading) {
-    router.push('/auth/signin');
-    return null;
-  }
-  
   const copyToClipboard = () => {
     if (fcmToken) {
       navigator.clipboard.writeText(fcmToken);
