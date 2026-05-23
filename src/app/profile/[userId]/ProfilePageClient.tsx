@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, ChangeEvent, useCallback, useMemo } from 'react';
+import { useEffect, useState, useRef, ChangeEvent, useCallback, useMemo, FormEvent } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -34,7 +34,8 @@ import {
   Edit3,
   Quote,
   Heart,
-  Edit2
+  Edit2,
+  ArrowLeft
 } from 'lucide-react';
 import NextImage from 'next/image';
 import Link from 'next/link';
@@ -229,6 +230,7 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
     };
 
     const imagesCount = post.images?.length || 0;
+    const hasMedia = imagesCount > 0 || !!post.imageUrl;
 
     return (
         <Card className="rounded-[2.5rem] overflow-hidden border-none shadow-lg bg-card/60 backdrop-blur-sm group">
@@ -261,55 +263,57 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
 
             <CardContent className="p-0 space-y-4">
                 {post.content && (
-                    <div className="px-6 pb-2">
-                        <p className="text-sm leading-relaxed text-foreground/80">{post.content}</p>
+                    <div className={cn("px-6 pb-2", !hasMedia && "pt-4")}>
+                        <p className={cn("text-sm leading-relaxed text-foreground/80", !hasMedia && "text-base font-medium")}>{post.content}</p>
                     </div>
                 )}
 
-                <div className="relative aspect-square w-full overflow-hidden bg-black" onDoubleClick={handleDoubleTap}>
-                    {imagesCount > 0 ? (
-                        <Carousel 
-                            setApi={setApi} 
-                            className="w-full h-full" 
-                            opts={{ align: 'start', loop: false }}
-                        >
-                            <CarouselContent className="flex h-full ml-0">
-                                {post.images!.map((img, idx) => (
-                                    <CarouselItem 
-                                        key={idx} 
-                                        className="h-full w-full pl-0 basis-full flex-shrink-0 min-w-0"
-                                    >
-                                        <div className="relative w-full h-full">
-                                            <NextImage src={img.url} alt="" fill className="object-cover" />
-                                            {img.caption && (
-                                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent text-white">
-                                                    <p className="text-sm font-medium drop-shadow-md">{img.caption}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </CarouselItem>
-                                ))}
-                            </CarouselContent>
-                            
-                            {imagesCount > 1 && (
-                                <div className="absolute top-4 right-4 z-30">
-                                    <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
-                                        {current}/{count}
-                                    </Badge>
-                                </div>
-                            )}
+                {hasMedia && (
+                    <div className="relative aspect-square w-full overflow-hidden bg-black" onDoubleClick={handleDoubleTap}>
+                        {imagesCount > 0 ? (
+                            <Carousel 
+                                setApi={setApi} 
+                                className="w-full h-full" 
+                                opts={{ align: 'start', loop: false }}
+                            >
+                                <CarouselContent className="flex h-full ml-0">
+                                    {post.images!.map((img, idx) => (
+                                        <CarouselItem 
+                                            key={idx} 
+                                            className="h-full w-full pl-0 basis-full flex-shrink-0 min-w-0"
+                                        >
+                                            <div className="relative w-full h-full">
+                                                <NextImage src={img.url} alt="" fill className="object-cover" />
+                                                {img.caption && (
+                                                    <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent text-white">
+                                                        <p className="text-sm font-medium drop-shadow-md">{img.caption}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </CarouselItem>
+                                    ))}
+                                </CarouselContent>
+                                
+                                {imagesCount > 1 && (
+                                    <div className="absolute top-4 right-4 z-30">
+                                        <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
+                                            {current}/{count}
+                                        </Badge>
+                                    </div>
+                                )}
 
-                            {imagesCount > 1 && (
-                                <>
-                                    <CarouselPrevious className="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-40" />
-                                    <CarouselNext className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-40" />
-                                </>
-                            )}
-                        </Carousel>
-                    ) : post.imageUrl && (
-                        <NextImage src={post.imageUrl} alt="Post" fill className="object-cover" />
-                    )}
-                </div>
+                                {imagesCount > 1 && (
+                                    <>
+                                        <CarouselPrevious className="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-40" />
+                                        <CarouselNext className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-40" />
+                                    </>
+                                )}
+                            </Carousel>
+                        ) : post.imageUrl && (
+                            <NextImage src={post.imageUrl} alt="Post" fill className="object-cover" />
+                        )}
+                    </div>
+                )}
             </CardContent>
 
             <CardFooter className="p-4 bg-transparent border-t border-border/10 flex items-center justify-start gap-1">
@@ -347,7 +351,7 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
                     <ShareToMootsDialog post={post} currentUser={user} />
                 </Dialog>
 
-                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all" onClick={() => toast({ title: "Reposted!" })}>
+                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all" onClick={toggleLike}>
                     <Repeat className="h-6 w-6" />
                 </Button>
             </CardFooter>
@@ -413,11 +417,13 @@ function PhotoGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isO
                 caption: img.caption.trim()
             })));
 
+            const postType = tempImages.length > 0 ? 'identity_visual' : 'studio_journal';
+
             const postData = {
                 author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
                 content: newEntryContent.trim(),
                 images: uploadedImages,
-                type: 'identity_visual',
+                type: postType,
                 timestamp: serverTimestamp(),
                 reactionsCount: 0,
                 commentsCount: 0,
@@ -947,7 +953,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
         <Tabs defaultValue="works" className="w-full">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6 md:gap-10">
             <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Stories</TabsTrigger>
-            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Social</TabsTrigger>
+            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Feed</TabsTrigger>
             {showAnnouncementsTab && (
                 <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Updates</TabsTrigger>
             )}
@@ -1079,4 +1085,3 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     </div>
   );
 }
-
