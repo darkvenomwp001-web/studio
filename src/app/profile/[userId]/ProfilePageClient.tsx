@@ -154,16 +154,20 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                     </div>
                 )}
 
-                <div className="relative aspect-square w-full overflow-hidden" onClick={() => handleDoubleTap(post.id)}>
+                <div className="relative aspect-square w-full overflow-hidden">
                     {imagesCount > 0 ? (
                         <Carousel setApi={setApi} className="w-full h-full" opts={{ align: 'start', loop: false }}>
                             <CarouselContent className="flex h-full ml-0">
                                 {post.images!.map((img, idx) => (
-                                    <CarouselItem key={idx} className="relative h-full w-full pl-0 basis-full flex-shrink-0 min-w-0">
-                                        <div className="relative w-full h-full">
+                                    <CarouselItem 
+                                        key={idx} 
+                                        className="relative h-full pl-0 basis-full flex-shrink-0 min-w-0"
+                                        onClick={() => handleDoubleTap(post.id)}
+                                    >
+                                        <div className="relative w-full h-full cursor-pointer">
                                             <NextImage src={img.url} alt="" fill className="object-cover" />
                                             {img.caption && (
-                                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent text-white">
+                                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent text-white pointer-events-none">
                                                     <p className="text-sm font-medium drop-shadow-md">{img.caption}</p>
                                                 </div>
                                             )}
@@ -172,14 +176,21 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                                 ))}
                             </CarouselContent>
                             {/* Photo Index Badge - Top Right */}
-                            <div className="absolute top-4 right-4 z-10">
-                                <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
-                                    {current}/{count}
-                                </Badge>
-                            </div>
+                            {imagesCount > 1 && (
+                                <div className="absolute top-4 right-4 z-10 pointer-events-none">
+                                    <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
+                                        {current}/{count}
+                                    </Badge>
+                                </div>
+                            )}
                         </Carousel>
                     ) : post.imageUrl && (
-                        <NextImage src={post.imageUrl} alt="Visual Post" fill className="object-cover" />
+                        <div 
+                            className="relative w-full h-full cursor-pointer"
+                            onClick={() => handleDoubleTap(post.id)}
+                        >
+                            <NextImage src={post.imageUrl} alt="Visual Post" fill className="object-cover" />
+                        </div>
                     )}
                 </div>
             </CardContent>
@@ -1011,7 +1022,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                         <span className="text-[10px] italic text-muted-foreground/40 px-1">No life nodes archived yet.</span>
                                     )}
                                 </div>
-                            </div>
+                            </CardContent>
                         </CardContent>
                     </Card>
                 </TabsContent>
