@@ -1,4 +1,3 @@
-
 {
   "firestore": {
     "collections": {
@@ -10,6 +9,7 @@
           "email": { "type": "string", "description": "User's email for authentication." },
           "avatarUrl": { "type": "string", "description": "URL for the user's profile picture." },
           "bio": { "type": "string", "description": "User's public biography." },
+          "authorBio": { "type": "string", "description": "Specialized bio for the Author Identity Hub." },
           "role": { "type": "string", "description": "Role of the user, e.g., 'reader' or 'writer'." },
           "followersCount": { "type": "number", "description": "Total number of followers." },
           "followingCount": { "type": "number", "description": "Total number of users they follow." },

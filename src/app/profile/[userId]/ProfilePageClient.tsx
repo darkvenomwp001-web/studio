@@ -29,7 +29,6 @@ import {
   Trophy,
   PenTool,
   Quote,
-  Music,
   ImagePlus,
   X,
   Send,
@@ -590,8 +589,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-20">
       {isOwnProfile && (
-        <form onSubmit={handlePostAnnouncement}>
-          <Card>
+        <Card>
             <CardContent className="p-4 space-y-4">
               <div className="flex gap-4">
                 <Avatar className="h-10 w-10">
@@ -607,14 +605,13 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
                 />
               </div>
               <div className="flex justify-end">
-                <Button disabled={isPosting || !newAnnouncement.trim()} size="sm">
+                <Button onClick={handlePostAnnouncement} disabled={isPosting || !newAnnouncement.trim()} size="sm">
                     {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                     Post Update
                 </Button>
               </div>
             </CardContent>
           </Card>
-        </form>
       )}
 
       {isLoading ? (
@@ -735,7 +732,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
       if (docSnap.exists()) {
         const u = { id: docSnap.id, ...docSnap.data() } as AppUser;
         setProfileUser(u);
-        setBioInput(u.bio || '');
+        setBioInput(u.authorBio || '');
       } else {
         setProfileUser(null);
       }
@@ -779,18 +776,18 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     if (!currentUser) return;
     setIsSavingBio(true);
     try {
-        await updateUserProfile({ bio: bioInput.trim() });
+        await updateUserProfile({ authorBio: bioInput.trim() });
         setIsEditingBio(false);
-        toast({ title: "Identity Bio Updated" });
+        toast({ title: "Author Identity Updated" });
     } catch (e) {
-        toast({ title: "Bio Update Failed", variant: "destructive" });
+        toast({ title: "Update Failed", variant: "destructive" });
     } finally {
         setIsSavingBio(false);
     }
   };
 
   const handleClearBio = () => {
-    if (confirm("Are you sure you want to clear your full bio?")) {
+    if (confirm("Are you sure you want to clear your full author identity bio?")) {
         setBioInput('');
     }
   };
@@ -964,20 +961,20 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                         <CardHeader className="p-8 border-b border-border/10 flex flex-row items-center justify-between">
                             <div>
                                 <CardTitle className="text-2xl font-headline font-bold text-foreground">About the Author</CardTitle>
-                                <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Identity Bio Archive</CardDescription>
+                                <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Identity Archival Hub</CardDescription>
                             </div>
                             {isOwnProfile && (
                                 <div className="flex gap-2">
                                     {!isEditingBio ? (
                                         <Button variant="ghost" size="sm" className="rounded-full gap-2 text-primary hover:bg-primary/5" onClick={() => setIsEditingBio(true)}>
-                                            <Edit className="h-4 w-4" /> Edit Information
+                                            <Edit className="h-4 w-4" /> Edit Identity
                                         </Button>
                                     ) : (
                                         <>
                                             <Button variant="ghost" size="sm" className="rounded-full text-destructive hover:bg-destructive/5" onClick={handleClearBio}>
                                                 <Trash2 className="h-4 w-4" /> Clear All
                                             </Button>
-                                            <Button variant="ghost" size="sm" className="rounded-full" onClick={() => { setIsEditingBio(false); setBioInput(profileUser.bio || ''); }}>
+                                            <Button variant="ghost" size="sm" className="rounded-full" onClick={() => { setIsEditingBio(false); setBioInput(profileUser.authorBio || ''); }}>
                                                 Cancel
                                             </Button>
                                         </>
@@ -991,26 +988,26 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                     <Textarea 
                                         value={bioInput}
                                         onChange={e => setBioInput(e.target.value)}
-                                        placeholder="What do you want your readers to know about you? Share your journey, inspirations, and personal notes..."
+                                        placeholder="What do you want your readers to know about you? This is your private author archival space..."
                                         className="min-h-[300px] text-lg leading-relaxed bg-muted/20 border-none shadow-inner rounded-3xl p-8 focus-visible:ring-primary/20"
                                         disabled={isSavingBio}
                                     />
                                     <Button 
                                         className="w-full h-16 rounded-full font-bold uppercase text-sm tracking-[0.2em] shadow-2xl shadow-primary/30 bg-primary hover:bg-primary/90 transition-all hover:scale-[1.01] active:scale-95" 
                                         onClick={handleSaveBio} 
-                                        disabled={isSavingBio || bioInput === (profileUser.bio || '')}
+                                        disabled={isSavingBio || bioInput === (profileUser.authorBio || '')}
                                     >
                                         {isSavingBio ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Save className="h-5 w-5 mr-2" />}
-                                        Save Bio Information
+                                        Save Identity Bio
                                     </Button>
                                 </div>
                             ) : (
                                 <div className="prose dark:prose-invert max-w-none">
                                     <p className="text-lg md:text-xl leading-relaxed text-foreground/80 whitespace-pre-line italic font-medium">
-                                        {profileUser.bio ? (
+                                        {profileUser.authorBio ? (
                                             <>
                                                 <Quote className="h-6 w-6 text-primary/20 -scale-x-100 inline mr-2 mb-1" />
-                                                {profileUser.bio}
+                                                {profileUser.authorBio}
                                             </>
                                         ) : "The author has not yet archived their identity bio."}
                                     </p>

@@ -24,6 +24,7 @@ export interface User {
   email?: string;
   emailVerified?: boolean;
   bio?: string;
+  authorBio?: string; // Dedicated field for the About Author hub
   avatarUrl?: string; 
   coverImageUrl?: string;
   displayName?: string;
