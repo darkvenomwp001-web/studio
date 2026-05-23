@@ -85,7 +85,7 @@ import VerifiedBadge from '@/components/icons/VerifiedBadge';
 import ReactionButton from '@/components/threads/ReactionButton';
 import ThreadPostComments from '@/components/threads/ThreadPostComments';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
+import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi } from '@/components/ui/carousel';
 
 const OWNER_HANDLES = ['arnv'];
 
@@ -154,14 +154,18 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                     </div>
                 )}
 
-                <div className="relative aspect-square w-full overflow-hidden">
+                <div className="relative aspect-square w-full overflow-hidden bg-black">
                     {imagesCount > 0 ? (
-                        <Carousel setApi={setApi} className="w-full h-full" opts={{ align: 'start', loop: false }}>
+                        <Carousel 
+                            setApi={setApi} 
+                            className="w-full h-full" 
+                            opts={{ align: 'start', loop: false, dragFree: false }}
+                        >
                             <CarouselContent className="flex h-full ml-0">
                                 {post.images!.map((img, idx) => (
                                     <CarouselItem 
                                         key={idx} 
-                                        className="h-full pl-0 basis-full flex-shrink-0 min-w-0"
+                                        className="h-full w-full pl-0 basis-full flex-shrink-0 min-w-0"
                                     >
                                         <div 
                                             className="relative w-full h-full cursor-pointer"
@@ -177,12 +181,18 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                                     </CarouselItem>
                                 ))}
                             </CarouselContent>
+                            
                             {imagesCount > 1 && (
-                                <div className="absolute top-4 right-4 z-10 pointer-events-none">
-                                    <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
-                                        {current}/{count}
-                                    </Badge>
-                                </div>
+                                <>
+                                    <div className="absolute top-4 right-4 z-10 pointer-events-none">
+                                        <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
+                                            {current}/{count}
+                                        </Badge>
+                                    </div>
+                                    {/* Navigation Zones for smooth swiping/tapping */}
+                                    <CarouselPrevious className="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-20" />
+                                    <CarouselNext className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-20" />
+                                </>
                             )}
                         </Carousel>
                     ) : post.imageUrl && (
