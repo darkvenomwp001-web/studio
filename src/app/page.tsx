@@ -158,7 +158,7 @@ export default function HomePage() {
   const TABS = [
     { value: 'for-you', label: 'For You', icon: <Sparkles className="h-4 w-4" /> },
     { value: 'annotations', label: 'Highlights', icon: <Quote className="h-4 w-4" /> },
-    { value: 'feed', label: 'Community', icon: <LayoutGrid className="h-4 w-4" /> },
+    { value: 'feed', label: 'Feed', icon: <LayoutGrid className="h-4 w-4" /> },
     { value: 'broadcast', label: 'Updates', icon: <Radio className="h-4 w-4" /> },
   ];
 
