@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, Suspense, useMemo } from 'react';
@@ -17,9 +16,6 @@ import {
     Star, 
     MessageSquare, 
     CheckCircle2, 
-    MoreHorizontal,
-    UserMinus,
-    UserCheck,
     Sparkles
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -57,7 +53,7 @@ function ConnectionCard({
                     </Avatar>
                     {isMoot && (
                         <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 shadow-sm border border-border/10">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                            <CheckCircle2 className="h-4 w-4 text-primary" />
                         </div>
                     )}
                 </Link>
@@ -78,7 +74,7 @@ function ConnectionCard({
                         variant="ghost" 
                         size="icon" 
                         className={cn(
-                            "rounded-full h-10 w-10 transition-all",
+                            "rounded-full h-10 w-10 transition-all active:scale-90",
                             isCloseFriend ? "bg-green-500/10 text-green-500 hover:bg-green-500/20" : "text-muted-foreground hover:bg-muted"
                         )}
                         onClick={(e) => { e.stopPropagation(); onToggleCloseFriend(targetUser.id); }}
@@ -89,7 +85,7 @@ function ConnectionCard({
                 )}
                 
                 <Link href={`/notifications?tab=messages&startConversationWith=${targetUser.id}`}>
-                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-muted-foreground hover:text-primary hover:bg-primary/5">
+                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-muted-foreground hover:text-primary hover:bg-primary/5 active:scale-90 transition-all">
                         <MessageSquare className="h-5 w-5" />
                     </Button>
                 </Link>
@@ -97,7 +93,7 @@ function ConnectionCard({
                 <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="rounded-full h-10 w-10 text-muted-foreground hover:bg-muted"
+                    className="rounded-full h-10 w-10 text-muted-foreground hover:bg-muted active:scale-90 transition-all"
                     onClick={() => router.push(`/profile/${targetUser.id}`)}
                 >
                     <ArrowLeft className="h-5 w-5 rotate-180" />
@@ -198,7 +194,7 @@ function ConnectionsContent() {
         return (
             <div className="flex flex-col justify-center items-center min-h-[calc(100vh-12rem)] gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Scanning Connections...</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Syncing Network Node...</p>
             </div>
         );
     }
@@ -216,14 +212,14 @@ function ConnectionsContent() {
                         <h1 className="text-3xl font-headline font-bold truncate tracking-tight">
                             {profileUser.displayName || profileUser.username}
                         </h1>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Creative Network Node</p>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Creative Signal Hub</p>
                     </div>
                 </div>
 
                 <div className="relative group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
                     <Input 
-                        placeholder="Filter by handle or name..." 
+                        placeholder="Search connections..." 
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         className="pl-12 h-14 rounded-[2rem] bg-muted/20 border-none shadow-inner text-base focus-visible:ring-primary/20"
@@ -261,7 +257,7 @@ function ConnectionsContent() {
                     ) : (
                         <div className="text-center py-32 text-muted-foreground bg-muted/5 rounded-[3rem] border-2 border-dashed border-border/40">
                             <Users className="mx-auto h-12 w-12 opacity-10 mb-4" />
-                            <p className="font-bold text-sm">No followers found.</p>
+                            <p className="font-bold text-sm">No followers yet.</p>
                         </div>
                     )}
                 </TabsContent>
@@ -302,15 +298,11 @@ function ConnectionsContent() {
                         <div className="text-center py-32 text-muted-foreground bg-muted/5 rounded-[3rem] border-2 border-dashed border-border/40">
                             <Sparkles className="mx-auto h-12 w-12 opacity-10 mb-4" />
                             <h3 className="font-bold text-foreground mb-1 text-lg">No mutual archives</h3>
-                            <p className="text-xs px-12 leading-relaxed">Follow readers who follow you back to establish mutual creative signals.</p>
+                            <p className="text-xs px-12 leading-relaxed">Mutual connections appear when two creators signal follow each other.</p>
                         </div>
                     )}
                 </TabsContent>
             </Tabs>
-
-            <footer className="pt-10 text-center">
-                <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-muted-foreground/30">Network Core & bull; DVHIDEOUT</p>
-            </footer>
         </div>
     );
 }
