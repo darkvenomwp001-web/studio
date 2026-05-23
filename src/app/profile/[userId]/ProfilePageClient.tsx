@@ -703,7 +703,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
 }
 
 export default function ProfilePageClient({ userId }: { userId: string }) {
-  const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading } = useAuth();
+  const { user: currentUser, loading: authLoading, followUser, unfollowUser, authLoading: followActionLoading, updateUserProfile } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -715,6 +715,11 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
 
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
   const [privateWorks, setPrivateWorks] = useState<Story[]>([]); 
+
+  // About Author Inline Editor States
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [bioInput, setBioInput] = useState('');
+  const [isSavingBio, setIsSavingBio] = useState(false);
 
   const isOwnProfile = currentUser?.id === userId;
 
@@ -730,6 +735,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
       if (docSnap.exists()) {
         const u = { id: docSnap.id, ...docSnap.data() } as AppUser;
         setProfileUser(u);
+        setBioInput(u.bio || '');
       } else {
         setProfileUser(null);
       }
@@ -768,6 +774,26 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
 
     return () => unsubStories();
   }, [profileUser, isOwnProfile]);
+
+  const handleSaveBio = async () => {
+    if (!currentUser) return;
+    setIsSavingBio(true);
+    try {
+        await updateUserProfile({ bio: bioInput.trim() });
+        setIsEditingBio(false);
+        toast({ title: "Identity Bio Updated" });
+    } catch (e) {
+        toast({ title: "Bio Update Failed", variant: "destructive" });
+    } finally {
+        setIsSavingBio(false);
+    }
+  };
+
+  const handleClearBio = () => {
+    if (confirm("Are you sure you want to clear your full bio?")) {
+        setBioInput('');
+    }
+  };
 
   if (authLoading || isLoadingData) {
     return (
@@ -847,11 +873,11 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold mb-2 sm:mb-3">
-                      <Link href={`/profile/${userId}/connections?tab=followers`} className="hover:text-primary transition-colors flex items-center gap-1 sm:gap-1.5">
+                      <Link href={`/profile/${userId}/connections?tab=followers`} className="hover:text-primary transition-colors flex items-center gap-1.5">
                         <span className="font-bold">{liveFollowersCount ?? '...'}</span> 
                         <span className="text-muted-foreground font-medium uppercase text-[8px] sm:text-[10px] tracking-widest">Followers</span>
                       </Link>
-                      <Link href={`/profile/${userId}/connections?tab=following`} className="hover:text-primary transition-colors flex items-center gap-1 sm:gap-1.5">
+                      <Link href={`/profile/${userId}/connections?tab=following`} className="hover:text-primary transition-colors flex items-center gap-1.5">
                         <span className="font-bold">{profileUser.followingCount || 0}</span>
                         <span className="text-muted-foreground font-medium uppercase text-[8px] sm:text-[10px] tracking-widest">Following</span>
                       </Link>
@@ -934,34 +960,64 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                 </div>
 
                 <TabsContent value="about" className="space-y-10 animate-in fade-in duration-500">
-                    <Card className="rounded-[2.5rem] border-primary/10 bg-card/40 backdrop-blur-xl shadow-2xl overflow-hidden relative group">
-                        <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
-                            <PenTool className="h-48 w-48 text-primary" />
-                        </div>
-                        <CardHeader className="p-8 pb-4">
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <CardTitle className="text-sm font-bold uppercase tracking-[0.3em] flex items-center gap-2 text-primary">
-                                        <PenTool className="h-4 w-4" /> Creative Pulse
-                                    </CardTitle>
-                                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Message from the Desk</CardDescription>
-                                </div>
-                                {isOwnProfile && (
-                                    <Link href="/settings/profile">
-                                        <Button variant="ghost" size="sm" className="rounded-full h-8 px-4 gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-primary/5 text-primary">
-                                            <Edit className="h-3 w-3" /> Refine Identity
+                    <Card className="rounded-[2.5rem] border-none bg-card/40 backdrop-blur-xl shadow-2xl overflow-hidden min-h-[400px]">
+                        <CardHeader className="p-8 border-b border-border/10 flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle className="text-2xl font-headline font-bold text-foreground">About the Author</CardTitle>
+                                <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Identity Bio Archive</CardDescription>
+                            </div>
+                            {isOwnProfile && (
+                                <div className="flex gap-2">
+                                    {!isEditingBio ? (
+                                        <Button variant="ghost" size="sm" className="rounded-full gap-2 text-primary hover:bg-primary/5" onClick={() => setIsEditingBio(true)}>
+                                            <Edit className="h-4 w-4" /> Edit Information
                                         </Button>
-                                    </Link>
-                                )}
-                            </div>
+                                    ) : (
+                                        <>
+                                            <Button variant="ghost" size="sm" className="rounded-full text-destructive hover:bg-destructive/5" onClick={handleClearBio}>
+                                                <Trash2 className="h-4 w-4" /> Clear All
+                                            </Button>
+                                            <Button variant="ghost" size="sm" className="rounded-full" onClick={() => { setIsEditingBio(false); setBioInput(profileUser.bio || ''); }}>
+                                                Cancel
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </CardHeader>
-                        <CardContent className="px-8 pb-8 space-y-8">
-                            <div className="text-base md:text-lg leading-relaxed text-foreground/80 font-medium whitespace-pre-line italic">
-                                <Quote className="h-5 w-5 text-primary/20 -scale-x-100 inline mr-2 mb-1" />
-                                {profileUser.bio || "This node has not emitted an identity signal yet."}
-                            </div>
+                        <CardContent className="p-8 space-y-8">
+                            {isEditingBio ? (
+                                <div className="space-y-6">
+                                    <Textarea 
+                                        value={bioInput}
+                                        onChange={e => setBioInput(e.target.value)}
+                                        placeholder="What do you want your readers to know about you? Share your journey, inspirations, and personal notes..."
+                                        className="min-h-[300px] text-lg leading-relaxed bg-muted/20 border-none shadow-inner rounded-3xl p-8 focus-visible:ring-primary/20"
+                                        disabled={isSavingBio}
+                                    />
+                                    <Button 
+                                        className="w-full h-16 rounded-full font-bold uppercase text-sm tracking-[0.2em] shadow-2xl shadow-primary/30 bg-primary hover:bg-primary/90 transition-all hover:scale-[1.01] active:scale-95" 
+                                        onClick={handleSaveBio} 
+                                        disabled={isSavingBio || bioInput === (profileUser.bio || '')}
+                                    >
+                                        {isSavingBio ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Save className="h-5 w-5 mr-2" />}
+                                        Save Bio Information
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="prose dark:prose-invert max-w-none">
+                                    <p className="text-lg md:text-xl leading-relaxed text-foreground/80 whitespace-pre-line italic font-medium">
+                                        {profileUser.bio ? (
+                                            <>
+                                                <Quote className="h-6 w-6 text-primary/20 -scale-x-100 inline mr-2 mb-1" />
+                                                {profileUser.bio}
+                                            </>
+                                        ) : "The author has not yet archived their identity bio."}
+                                    </p>
+                                </div>
+                            )}
 
-                            <div className="space-y-4">
+                            <div className="space-y-4 pt-8 border-t border-border/10">
                                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-1">
                                     <Tag className="h-3 w-3" /> Life Nodes (Favorites)
                                 </div>
@@ -978,8 +1034,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                             </div>
                         </CardContent>
                     </Card>
-                    
-                    {/* Spotify or Atmosphere Section could go here if needed */}
                 </TabsContent>
 
                 <TabsContent value="archive" className="animate-in fade-in duration-500">
