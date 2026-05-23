@@ -42,7 +42,9 @@ import {
   Repeat,
   Tag,
   Star,
-  Maximize2
+  Maximize2,
+  LayoutGrid,
+  FileText
 } from 'lucide-react';
 import NextImage from 'next/image';
 import Link from 'next/link';
@@ -98,7 +100,7 @@ const WRITING_STATUS_MAP: Record<WritingStatus, { label: string; icon: any; colo
     brainstorming: { label: 'Brainstorming Arc', icon: Headphones, color: 'text-cyan-500' },
 };
 
-function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
+function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
     const { user } = useAuth();
     const { toast } = useToast();
     const [posts, setPosts] = useState<ThreadPost[]>([]);
@@ -173,7 +175,7 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
             await addDoc(collection(db, 'feedPosts'), postData);
             setNewEntryContent('');
             setTempImages([]);
-            toast({ title: "Archived to Identity Feed" });
+            toast({ title: "Archived to Visual Feed" });
         } catch (error) {
             toast({ title: "Archive Failed", variant: "destructive" });
         } finally {
@@ -201,51 +203,6 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
 
     return (
         <div className="space-y-10 animate-in fade-in duration-700">
-            <Card className="rounded-[2.5rem] border-primary/10 bg-card/40 backdrop-blur-xl shadow-2xl overflow-hidden relative group">
-                <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
-                    <PenTool className="h-48 w-48 text-primary" />
-                </div>
-                <CardHeader className="p-8 pb-4">
-                    <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                            <CardTitle className="text-sm font-bold uppercase tracking-[0.3em] flex items-center gap-2 text-primary">
-                                <PenTool className="h-4 w-4" /> Creative Pulse
-                            </CardTitle>
-                            <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Message from the Desk</CardDescription>
-                        </div>
-                        {isOwnProfile && (
-                            <Link href="/settings/profile">
-                                <Button variant="ghost" size="sm" className="rounded-full h-8 px-4 gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-primary/5 text-primary">
-                                    <Edit className="h-3 w-3" /> Refine Identity
-                                </Button>
-                            </Link>
-                        )}
-                    </div>
-                </CardHeader>
-                <CardContent className="px-8 pb-8 space-y-8">
-                    <div className="text-base md:text-lg leading-relaxed text-foreground/80 font-medium whitespace-pre-line italic">
-                        <Quote className="h-5 w-5 text-primary/20 -scale-x-100 inline mr-2 mb-1" />
-                        {profileUser.bio || "This node has not emitted an identity signal yet."}
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-1">
-                            <Tag className="h-3 w-3" /> Life Nodes (Favorites)
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {profileUser.lifeTags?.map((tag, i) => (
-                                <Badge key={i} variant="outline" className="rounded-full px-4 h-8 bg-muted/20 border-primary/20 text-primary font-bold text-[10px] uppercase tracking-widest">
-                                    {tag}
-                                </Badge>
-                            ))}
-                            {(!profileUser.lifeTags || profileUser.lifeTags.length === 0) && (
-                                <span className="text-[10px] italic text-muted-foreground/40 px-1">No life nodes archived yet.</span>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
             {isOwnProfile && (
                 <Card className="rounded-[2.5rem] border-primary/5 bg-primary/5 shadow-inner">
                     <CardContent className="p-6 space-y-6">
@@ -520,7 +477,7 @@ function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id
           )}
         </div>
       </Link>
-      <Link href={isPrivate ? editLink : viewLink} passHref>
+      <Link href={isPrivate ? editLink : viewLink} className="block">
           <div className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
             {story.title}
           </div>
@@ -923,7 +880,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
         <Tabs defaultValue="works" className="w-full">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6 md:gap-10">
             <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Works</TabsTrigger>
-            <TabsTrigger value="about" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">About Author</TabsTrigger>
+            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Feed</TabsTrigger>
             {showAnnouncementsTab && (
                 <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Updates</TabsTrigger>
             )}
@@ -963,8 +920,72 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
             )}
           </TabsContent>
 
-          <TabsContent value="about" className="mt-8">
-            <AuthorIdentityHub profileUser={profileUser} isOwnProfile={isOwnProfile} />
+          <TabsContent value="feed" className="mt-8">
+             <Tabs defaultValue="about" className="w-full">
+                <div className="flex justify-center mb-8">
+                    <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm backdrop-blur-md">
+                        <TabsTrigger value="about" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+                            <PenTool className="h-4 w-4" /> About Author
+                        </TabsTrigger>
+                        <TabsTrigger value="archive" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+                            <LayoutGrid className="h-4 w-4" /> Visual Archive
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
+
+                <TabsContent value="about" className="space-y-10 animate-in fade-in duration-500">
+                    <Card className="rounded-[2.5rem] border-primary/10 bg-card/40 backdrop-blur-xl shadow-2xl overflow-hidden relative group">
+                        <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
+                            <PenTool className="h-48 w-48 text-primary" />
+                        </div>
+                        <CardHeader className="p-8 pb-4">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <CardTitle className="text-sm font-bold uppercase tracking-[0.3em] flex items-center gap-2 text-primary">
+                                        <PenTool className="h-4 w-4" /> Creative Pulse
+                                    </CardTitle>
+                                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Message from the Desk</CardDescription>
+                                </div>
+                                {isOwnProfile && (
+                                    <Link href="/settings/profile">
+                                        <Button variant="ghost" size="sm" className="rounded-full h-8 px-4 gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-primary/5 text-primary">
+                                            <Edit className="h-3 w-3" /> Refine Identity
+                                        </Button>
+                                    </Link>
+                                )}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="px-8 pb-8 space-y-8">
+                            <div className="text-base md:text-lg leading-relaxed text-foreground/80 font-medium whitespace-pre-line italic">
+                                <Quote className="h-5 w-5 text-primary/20 -scale-x-100 inline mr-2 mb-1" />
+                                {profileUser.bio || "This node has not emitted an identity signal yet."}
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-1">
+                                    <Tag className="h-3 w-3" /> Life Nodes (Favorites)
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {profileUser.lifeTags?.map((tag, i) => (
+                                        <Badge key={i} variant="outline" className="rounded-full px-4 h-8 bg-muted/20 border-primary/20 text-primary font-bold text-[10px] uppercase tracking-widest">
+                                            {tag}
+                                        </Badge>
+                                    ))}
+                                    {(!profileUser.lifeTags || profileUser.lifeTags.length === 0) && (
+                                        <span className="text-[10px] italic text-muted-foreground/40 px-1">No life nodes archived yet.</span>
+                                    )}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    
+                    {/* Spotify or Atmosphere Section could go here if needed */}
+                </TabsContent>
+
+                <TabsContent value="archive" className="animate-in fade-in duration-500">
+                    <VisualGallery profileUser={profileUser} isOwnProfile={isOwnProfile} />
+                </TabsContent>
+             </Tabs>
           </TabsContent>
 
           {showAnnouncementsTab && (
