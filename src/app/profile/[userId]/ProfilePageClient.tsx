@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, FormEvent, useRef, ChangeEvent, useCallback, useMemo } from 'react';
+import { useEffect, useState, useRef, ChangeEvent, useCallback, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -89,7 +89,8 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
         setIsLoading(true);
         const fetchMoots = async () => {
             try {
-                const followingBatch = currentUser.followingIds!.slice(0, 12);
+                // Fetch mutual followers (moots)
+                const followingBatch = currentUser.followingIds!.slice(0, 20);
                 const q = query(collection(db, 'users'), where('__name__', 'in', followingBatch));
                 const snap = await getDocs(q);
                 const mootsData: UserSummary[] = [];
@@ -101,7 +102,7 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
                 });
                 setMoots(mootsData);
             } catch (e) {
-                console.error("Connection fetch failure:", e);
+                console.error("Moot fetch failure:", e);
             } finally {
                 setIsLoading(false);
             }
@@ -110,14 +111,14 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
     }, [currentUser]);
 
     const handleShare = (username: string) => {
-        toast({ title: `Post sent to @${username}` });
+        toast({ title: `Shared with @${username}` });
     };
 
     return (
         <DialogContent className="sm:max-w-md rounded-[2.5rem] border-none shadow-3xl p-0 overflow-hidden bg-background">
             <DialogHeader className="p-6 bg-muted/30 border-b">
-                <DialogTitle className="text-xl font-headline font-bold">Share</DialogTitle>
-                <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Send to friends</DialogDescription>
+                <DialogTitle className="text-xl font-headline font-bold">Share to Friends</DialogTitle>
+                <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Send this post to your moots</DialogDescription>
             </DialogHeader>
             <div className="p-6">
                 <ScrollArea className="h-[300px]">
@@ -141,7 +142,7 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
                         </div>
                     ) : (
                         <div className="text-center py-20 text-muted-foreground italic text-xs">
-                            Follow friends to share posts with them.
+                            Follow friends who follow you back to share posts.
                         </div>
                     )}
                 </ScrollArea>
@@ -215,7 +216,7 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
                 }
             });
         } catch (e) {
-            console.error("Like failure:", e);
+            console.error("Reaction failure:", e);
         }
     };
 
@@ -246,7 +247,7 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
                 </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                             <MoreHorizontal className="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
@@ -318,13 +319,13 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
                     className={cn("rounded-full h-10 w-10 transition-all hover:scale-110 active:scale-90", isLiked ? "text-rose-500" : "text-foreground")}
                     onClick={toggleLike}
                 >
-                    <Heart className={cn("h-7 w-7", isLiked && "fill-current")} />
+                    <Heart className={cn("h-6 w-6", isLiked && "fill-current")} />
                 </Button>
                 
                 <Dialog>
                     <DialogTrigger asChild>
                         <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-primary transition-all">
-                            <MessageSquare className="h-7 w-7" />
+                            <MessageSquare className="h-6 w-6" />
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
@@ -340,14 +341,14 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
                 <Dialog>
                     <DialogTrigger asChild>
                         <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all -rotate-12">
-                            <Send className="h-7 w-7" />
+                            <Send className="h-6 w-6" />
                         </Button>
                     </DialogTrigger>
                     <ShareToMootsDialog post={post} currentUser={user} />
                 </Dialog>
 
                 <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all" onClick={() => toast({ title: "Reposted!" })}>
-                    <Repeat className="h-7 w-7" />
+                    <Repeat className="h-6 w-6" />
                 </Button>
             </CardFooter>
         </Card>
@@ -465,7 +466,7 @@ function PhotoGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isO
                                             </Button>
                                         </div>
                                         <Input 
-                                            placeholder="Say something about this..." 
+                                            placeholder="Add caption..." 
                                             value={img.caption} 
                                             onChange={e => {
                                                 const newImgs = [...tempImages];
@@ -500,7 +501,7 @@ function PhotoGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isO
                     posts.map(post => <VisualGalleryPost key={post.id} post={post} isOwnProfile={isOwnProfile} />)
                 ) : (
                     <div className="text-center py-24 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
-                        No photos shared yet.
+                        No photos posted yet.
                     </div>
                 )}
             </div>
@@ -654,7 +655,7 @@ function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwn
                 <Textarea
                   value={newAnnouncement}
                   onChange={(e) => setNewAnnouncement(e.target.value)}
-                  placeholder="Share an update..."
+                  placeholder="Post an update..."
                   className="bg-transparent border-0 focus-visible:ring-0 resize-none min-h-[80px]"
                   disabled={isPosting}
                 />
@@ -1078,3 +1079,4 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     </div>
   );
 }
+
