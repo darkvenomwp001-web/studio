@@ -8,15 +8,7 @@ import {
   Loader2, 
   Book, 
   Feather, 
-  TrendingUp, 
-  BarChart3, 
-  Sparkles, 
-  Layers,
-  History,
-  BookOpen,
-  Star,
-  Eye,
-  ChevronRight
+  RefreshCw
 } from 'lucide-react';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import type { Story } from '@/types';
@@ -32,8 +24,6 @@ import {
 } from 'firebase/firestore';
 import DashboardStoryCard from '@/components/shared/DashboardStoryCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
-import { cn, formatCompactNumber } from '@/lib/utils';
 
 function DashboardContent() {
   const { user, loading: authLoading } = useAuth();
@@ -122,14 +112,10 @@ function DashboardContent() {
   }, [user, authLoading, toast]);
 
 
-  const { publishedStories, draftStories, stats } = useMemo(() => {
+  const { publishedStories, draftStories } = useMemo(() => {
     const published = userStories.filter(s => s.status !== 'Draft' && s.visibility === 'Public');
     const drafts = userStories.filter(s => s.status === 'Draft' || s.visibility !== 'Public');
-    
-    const totalReads = userStories.reduce((acc, s) => acc + (s.views || 0), 0);
-    const totalVotes = userStories.reduce((acc, s) => acc + (s.chapters?.reduce((ca, c) => ca + (c.votes || 0), 0) || 0), 0);
-    
-    return { publishedStories: published, draftStories: drafts, stats: { totalReads, totalVotes } };
+    return { publishedStories: published, draftStories: drafts };
   }, [userStories]);
 
   if (authLoading || (isLoadingStories && user)) {
@@ -154,58 +140,24 @@ function DashboardContent() {
   }
 
   return (
-    <div className="space-y-10 pb-32 animate-in fade-in duration-700">
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-card/40 border border-border/40 shadow-xl p-8 md:p-12 mb-10 transform-gpu">
-        <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
-            <Sparkles className="h-48 w-48 text-primary" />
-        </div>
-        
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
-            <div className="space-y-2">
-                <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[0.3em]">
-                    <Layers className="h-3.5 w-3.5" />
-                    <span>Identity: {user.username}</span>
-                </div>
-                <h1 className="text-4xl md:text-6xl font-headline font-bold text-foreground tracking-tighter leading-none">Writer Studio</h1>
-                <p className="text-muted-foreground text-sm font-medium opacity-70">Manage your creative manuscripts and archival drafts.</p>
-            </div>
-            
-            <div className="flex flex-wrap gap-4 w-full md:w-auto">
-                <Link href="/write/edit-details" passHref className="flex-1 md:flex-none">
-                    <Button size="lg" className="w-full rounded-full shadow-2xl shadow-primary/30 gap-2 font-bold h-12 px-10 transition-all hover:scale-[1.03] active:scale-95">
-                        <PlusCircle className="h-5 w-5" />
-                        New Story
-                    </Button>
-                </Link>
-            </div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 pt-8 border-t border-border/10">
-            <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
-                    <BookOpen className="h-3 w-3" /> Total Works
-                </p>
-                <p className="text-2xl font-bold font-headline">{userStories.length}</p>
-            </div>
-            <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
-                    <Eye className="h-3 w-3" /> Total Reads
-                </p>
-                <p className="text-2xl font-bold font-headline">{formatCompactNumber(stats.totalReads)}</p>
-            </div>
-            <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
-                    <Star className="h-3 w-3" /> Total Votes
-                </p>
-                <p className="text-2xl font-bold font-headline">{formatCompactNumber(stats.totalVotes)}</p>
-            </div>
-            <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
-                    <History className="h-3 w-3" /> Archive Node
-                </p>
-                <p className="text-2xl font-bold font-headline">Active</p>
-            </div>
-        </div>
+    <div className="space-y-10 pb-32 animate-in fade-in duration-700 px-4 md:px-0">
+      
+      {/* Action Hub */}
+      <div className="flex flex-wrap items-center gap-4 mt-6">
+          <Button 
+            variant="outline" 
+            className="rounded-full gap-2 font-bold h-11 px-6 border-border/60 hover:bg-muted" 
+            onClick={() => toast({ title: "Wattpad Sync", description: "Feature currently being calibrated." })}
+          >
+              <RefreshCw className="h-4 w-4" />
+              Sync in Wattpad
+          </Button>
+          <Link href="/write/edit-details" passHref>
+              <Button size="lg" className="rounded-full shadow-xl shadow-primary/20 gap-2 font-bold h-11 px-8">
+                  <PlusCircle className="h-5 w-5" />
+                  New Story
+              </Button>
+          </Link>
       </div>
       
       <Tabs defaultValue="published" className="w-full">
@@ -232,7 +184,7 @@ function DashboardContent() {
           ) : (
             <div className="text-center py-40 bg-card/20 rounded-[3rem] border-2 border-dashed border-border/40 max-w-2xl mx-auto flex flex-col items-center gap-4">
                 <div className="p-5 rounded-full bg-muted/30">
-                    <BookOpen className="h-12 w-12 text-muted-foreground/30" />
+                    <Book className="h-12 w-12 text-muted-foreground/30" />
                 </div>
                 <div className="space-y-1">
                     <p className="text-lg font-bold text-foreground">Manuscript Node Offline</p>
@@ -255,7 +207,7 @@ function DashboardContent() {
           ) : (
             <div className="text-center py-40 bg-card/20 rounded-[3rem] border-2 border-dashed border-border/40 max-w-2xl mx-auto flex flex-col items-center gap-4">
                 <div className="p-5 rounded-full bg-muted/30">
-                    <History className="h-12 w-12 text-muted-foreground/30" />
+                    <Feather className="h-12 w-12 text-muted-foreground/30" />
                 </div>
                 <div className="space-y-1">
                     <p className="text-lg font-bold text-foreground">Archive is Clean</p>
