@@ -32,7 +32,8 @@ import {
   LayoutGrid,
   Edit3,
   Quote,
-  Heart
+  Heart,
+  Edit2
 } from 'lucide-react';
 import NextImage from 'next/image';
 import Link from 'next/link';
@@ -90,9 +91,16 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
                 const followingBatch = currentUser.followingIds!.slice(0, 12);
                 const q = query(collection(db, 'users'), where('__name__', 'in', followingBatch));
                 const snap = await getDocs(q);
-                setMoots(snap.docs.map(d => ({ id: d.id, ...d.data() } as UserSummary)));
+                const mootsData: UserSummary[] = [];
+                snap.docs.forEach(d => {
+                    const u = d.data() as AppUser;
+                    if (u.followingIds?.includes(currentUser.id)) {
+                        mootsData.push({ id: d.id, username: u.username, displayName: u.displayName, avatarUrl: u.avatarUrl });
+                    }
+                });
+                setMoots(mootsData);
             } catch (e) {
-                console.error("Moot fetch failure:", e);
+                console.error("Connection fetch failure:", e);
             } finally {
                 setIsLoading(false);
             }
@@ -108,7 +116,7 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
         <DialogContent className="sm:max-w-md rounded-[2.5rem] border-none shadow-3xl p-0 overflow-hidden bg-background">
             <DialogHeader className="p-6 bg-muted/30 border-b">
                 <DialogTitle className="text-xl font-headline font-bold">Share</DialogTitle>
-                <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Send to your friends</DialogDescription>
+                <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Send to friends</DialogDescription>
             </DialogHeader>
             <div className="p-6">
                 <ScrollArea className="h-[300px]">
@@ -132,7 +140,7 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
                         </div>
                     ) : (
                         <div className="text-center py-20 text-muted-foreground italic text-xs">
-                            Follow people to share posts with them.
+                            Follow friends to share posts with them.
                         </div>
                     )}
                 </ScrollArea>
@@ -144,13 +152,14 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
     );
 }
 
-function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: ThreadPost, isOwnProfile: boolean, handleDoubleTap: any }) {
+function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProfile: boolean }) {
     const { user } = useAuth();
     const { toast } = useToast();
     const [api, setApi] = useState<CarouselApi>();
     const [current, setCurrent] = useState(0);
     const [count, setCount] = useState(0);
     const [isLiked, setIsLiked] = useState(false);
+    const lastTap = useRef<number>(0);
 
     useEffect(() => {
         if (!api) return;
@@ -171,7 +180,7 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
 
     const toggleLike = async () => {
         if (!user) {
-            toast({ title: "Please sign in to like posts" });
+            toast({ title: "Please sign in to like" });
             return;
         }
         const postRef = doc(db, 'feedPosts', post.id);
@@ -205,8 +214,16 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
                 }
             });
         } catch (e) {
-            console.error("Like toggle failure:", e);
+            console.error("Like failure:", e);
         }
+    };
+
+    const handleDoubleTap = () => {
+        const now = Date.now();
+        if (now - lastTap.current < 300) {
+            if (!isLiked) toggleLike();
+        }
+        lastTap.current = now;
     };
 
     const imagesCount = post.images?.length || 0;
@@ -243,16 +260,16 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
             <CardContent className="p-0 space-y-4">
                 {post.content && (
                     <div className="px-6 pb-2">
-                        <p className="text-sm md:text-base leading-relaxed text-foreground/80">{post.content}</p>
+                        <p className="text-sm leading-relaxed text-foreground/80">{post.content}</p>
                     </div>
                 )}
 
-                <div className="relative aspect-square w-full overflow-hidden bg-black">
+                <div className="relative aspect-square w-full overflow-hidden bg-black" onDoubleClick={handleDoubleTap}>
                     {imagesCount > 0 ? (
                         <Carousel 
                             setApi={setApi} 
                             className="w-full h-full" 
-                            opts={{ align: 'start', loop: false, dragFree: true }}
+                            opts={{ align: 'start', loop: false }}
                         >
                             <CarouselContent className="flex h-full ml-0">
                                 {post.images!.map((img, idx) => (
@@ -260,13 +277,10 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
                                         key={idx} 
                                         className="h-full w-full pl-0 basis-full flex-shrink-0 min-w-0"
                                     >
-                                        <div 
-                                            className="relative w-full h-full cursor-pointer"
-                                            onClick={() => handleDoubleTap(post.id)}
-                                        >
+                                        <div className="relative w-full h-full">
                                             <NextImage src={img.url} alt="" fill className="object-cover" />
                                             {img.caption && (
-                                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent text-white pointer-events-none">
+                                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent text-white">
                                                     <p className="text-sm font-medium drop-shadow-md">{img.caption}</p>
                                                 </div>
                                             )}
@@ -276,7 +290,7 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
                             </CarouselContent>
                             
                             {imagesCount > 1 && (
-                                <div className="absolute top-4 right-4 z-30 pointer-events-none">
+                                <div className="absolute top-4 right-4 z-30">
                                     <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
                                         {current}/{count}
                                     </Badge>
@@ -291,56 +305,49 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
                             )}
                         </Carousel>
                     ) : post.imageUrl && (
-                        <div 
-                            className="relative w-full h-full cursor-pointer"
-                            onClick={() => handleDoubleTap(post.id)}
-                        >
-                            <NextImage src={post.imageUrl} alt="Post" fill className="object-cover" />
-                        </div>
+                        <NextImage src={post.imageUrl} alt="Post" fill className="object-cover" />
                     )}
                 </div>
             </CardContent>
 
             <CardFooter className="p-4 bg-transparent border-t border-border/10 flex items-center justify-start gap-1">
-                <div className="flex items-center gap-1">
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className={cn("rounded-full h-10 w-10 transition-all hover:scale-110 active:scale-90", isLiked ? "text-rose-500" : "text-foreground")}
-                        onClick={toggleLike}
-                    >
-                        <Heart className={cn("h-7 w-7", isLiked && "fill-current")} />
-                    </Button>
-                    
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-primary transition-all">
-                                <MessageCircle className="h-7 w-7" />
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
-                            <DialogHeader className="p-6 bg-muted/30 border-b">
-                                <DialogTitle className="text-xl font-headline font-bold">Comments</DialogTitle>
-                            </DialogHeader>
-                            <div className="p-6 h-[60vh]">
-                                <ThreadPostComments postId={post.id} />
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-                    
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all -rotate-12">
-                                <Send className="h-7 w-7" />
-                            </Button>
-                        </DialogTrigger>
-                        <ShareToMootsDialog post={post} currentUser={user} />
-                    </Dialog>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={cn("rounded-full h-10 w-10 transition-all hover:scale-110 active:scale-90", isLiked ? "text-rose-500" : "text-foreground")}
+                    onClick={toggleLike}
+                >
+                    <Heart className={cn("h-7 w-7", isLiked && "fill-current")} />
+                </Button>
+                
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-primary transition-all">
+                            <MessageSquare className="h-7 w-7" />
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
+                        <DialogHeader className="p-6 bg-muted/30 border-b">
+                            <DialogTitle className="text-xl font-headline font-bold">Comments</DialogTitle>
+                        </DialogHeader>
+                        <div className="p-6 h-[60vh]">
+                            <ThreadPostComments postId={post.id} />
+                        </div>
+                    </DialogContent>
+                </Dialog>
+                
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all -rotate-12">
+                            <Send className="h-7 w-7" />
+                        </Button>
+                    </DialogTrigger>
+                    <ShareToMootsDialog post={post} currentUser={user} />
+                </Dialog>
 
-                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all" onClick={() => toast({ title: "Reposted!" })}>
-                        <Repeat className="h-7 w-7" />
-                    </Button>
-                </div>
+                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all" onClick={() => toast({ title: "Reposted!" })}>
+                    <Repeat className="h-7 w-7" />
+                </Button>
             </CardFooter>
         </Card>
     );
@@ -356,7 +363,6 @@ function PhotoGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isO
     const [newEntryContent, setNewEntryContent] = useState('');
     const [tempImages, setTempImages] = useState<{ file: File, preview: string, caption: string }[]>([]);
     const imageInputRef = useRef<HTMLInputElement>(null);
-    const lastTap = useRef<{ [key: string]: number }>({});
 
     useEffect(() => {
         setIsLoading(true);
@@ -428,37 +434,6 @@ function PhotoGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isO
         }
     };
 
-    const handleDoubleTap = async (postId: string) => {
-        if (!user) return;
-        const now = Date.now();
-        if (now - (lastTap.current[postId] || 0) < 300) {
-            const postRef = doc(db, 'feedPosts', postId);
-            const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
-
-            runTransaction(db, async (transaction) => {
-                const reactionDoc = await transaction.get(reactionRef);
-                const postDoc = await transaction.get(postRef);
-
-                if (!postDoc.exists()) return;
-
-                if (!reactionDoc.exists()) {
-                    const reactionData = { 
-                        userId: user.id, 
-                        type: 'love',
-                        timestamp: serverTimestamp(),
-                        user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
-                    };
-                    transaction.set(reactionRef, reactionData, { merge: true });
-                    transaction.update(postRef, { 
-                        reactionsCount: increment(1),
-                        'reactionCounts.love': increment(1)
-                    });
-                }
-            }).then(() => toast({ title: "Liked!" }));
-        }
-        lastTap.current[postId] = now;
-    };
-
     return (
         <div className="space-y-10 animate-in fade-in duration-700">
             {isOwnProfile && (
@@ -472,7 +447,7 @@ function PhotoGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isO
                             <Textarea 
                                 value={newEntryContent}
                                 onChange={e => setNewEntryContent(e.target.value)}
-                                placeholder="What's on your mind?"
+                                placeholder="What's happening?"
                                 className="bg-background/40 border-none shadow-inner rounded-2xl resize-none min-h-[100px] text-base"
                                 disabled={isPosting}
                             />
@@ -489,7 +464,7 @@ function PhotoGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isO
                                             </Button>
                                         </div>
                                         <Input 
-                                            placeholder="Add caption..." 
+                                            placeholder="Say something about this..." 
                                             value={img.caption} 
                                             onChange={e => {
                                                 const newImgs = [...tempImages];
@@ -521,14 +496,7 @@ function PhotoGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isO
                 {isLoading ? (
                     <div className="text-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" /></div>
                 ) : posts.length > 0 ? (
-                    posts.map(post => (
-                        <VisualGalleryPost 
-                            key={post.id} 
-                            post={post} 
-                            isOwnProfile={isOwnProfile} 
-                            handleDoubleTap={handleDoubleTap} 
-                        />
-                    ))
+                    posts.map(post => <VisualGalleryPost key={post.id} post={post} isOwnProfile={isOwnProfile} />)
                 ) : (
                     <div className="text-center py-24 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
                         No photos shared yet.
@@ -685,7 +653,7 @@ function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwn
                 <Textarea
                   value={newAnnouncement}
                   onChange={(e) => setNewAnnouncement(e.target.value)}
-                  placeholder="Post an update..."
+                  placeholder="Share an update..."
                   className="bg-transparent border-0 focus-visible:ring-0 resize-none min-h-[80px]"
                   disabled={isPosting}
                 />
@@ -1037,7 +1005,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                 <div className="flex gap-2">
                                     {!isEditingBio ? (
                                         <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/5" onClick={() => setIsEditingBio(true)}>
-                                            <Edit3 className="h-5 w-5 text-primary" />
+                                            <Edit2 className="h-5 w-5 text-primary" />
                                         </Button>
                                     ) : (
                                         <div className="flex gap-1">
@@ -1058,7 +1026,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                     <Textarea 
                                         value={bioInput}
                                         onChange={e => setBioInput(e.target.value)}
-                                        placeholder="What do your readers want to know about you?"
+                                        placeholder="Tell your story here..."
                                         className="min-h-[300px] text-lg leading-relaxed bg-muted/20 border-none shadow-inner rounded-3xl p-8 focus-visible:ring-primary/20"
                                         disabled={isSavingBio}
                                     />
@@ -1068,7 +1036,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                         disabled={isSavingBio || bioInput === (profileUser.authorBio || '')}
                                     >
                                         {isSavingBio ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                                        Save Information
+                                        Save Info
                                     </Button>
                                 </div>
                             ) : (
@@ -1083,22 +1051,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                     </p>
                                 </div>
                             )}
-
-                            <div className="space-y-4 pt-8 border-t border-border/10">
-                                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-1">
-                                    <Tag className="h-3 w-3" /> Favorites
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {profileUser.lifeTags?.map((tag, i) => (
-                                        <Badge key={i} variant="outline" className="rounded-full px-4 h-8 bg-muted/20 border-primary/20 text-primary font-bold text-[10px] uppercase tracking-widest">
-                                            {tag}
-                                        </Badge>
-                                    ))}
-                                    {(!profileUser.lifeTags || profileUser.lifeTags.length === 0) && (
-                                        <span className="text-[10px] italic text-muted-foreground/40 px-1">No favorites listed.</span>
-                                    )}
-                                </div>
-                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -1108,7 +1060,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                         <PhotoGallery profileUser={profileUser} isOwnProfile={isOwnProfile} />
                     ) : (
                         <div className="text-center py-24 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
-                            This photo gallery is restricted to mutual friends only.
+                            This archive is for mutual friends only.
                         </div>
                     )}
                 </TabsContent>
