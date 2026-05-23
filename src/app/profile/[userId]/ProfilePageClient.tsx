@@ -66,7 +66,9 @@ import {
   limit,
   Timestamp,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  runTransaction,
+  increment
 } from 'firebase/firestore';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -83,7 +85,7 @@ import VerifiedBadge from '@/components/icons/VerifiedBadge';
 import ReactionButton from '@/components/threads/ReactionButton';
 import ThreadPostComments from '@/components/threads/ThreadPostComments';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
 
 const OWNER_HANDLES = ['arnv'];
 
@@ -109,9 +111,7 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
     const [newEntryContent, setNewEntryContent] = useState('');
     const [tempImages, setTempImages] = useState<{ file: File, preview: string, caption: string }[]>([]);
     const imageInputRef = useRef<HTMLInputElement>(null);
-
-    const [viewerOpen, setViewerOpen] = useState(false);
-    const [viewerImage, setViewerImage] = useState<{ url: string, caption?: string } | null>(null);
+    const lastTap = useRef<{ [key: string]: number }>({});
 
     useEffect(() => {
         setIsLoading(true);
@@ -168,7 +168,8 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
                 timestamp: serverTimestamp(),
                 reactionsCount: 0,
                 commentsCount: 0,
-                repostCount: 0
+                repostCount: 0,
+                reactionCounts: { love: 0 }
             };
 
             await addDoc(collection(db, 'feedPosts'), postData);
@@ -180,6 +181,34 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleDoubleTap = async (postId: string) => {
+        if (!user) return;
+        const now = Date.now();
+        if (now - (lastTap.current[postId] || 0) < 300) {
+            // Trigger Heart Like
+            const postRef = doc(db, 'feedPosts', postId);
+            const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
+
+            runTransaction(db, async (transaction) => {
+                const reactionDoc = await transaction.get(reactionRef);
+                if (!reactionDoc.exists()) {
+                    const reactionData = { 
+                        userId: user.id, 
+                        type: 'love',
+                        timestamp: serverTimestamp(),
+                        user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+                    };
+                    transaction.set(reactionRef, reactionData);
+                    transaction.update(postRef, { 
+                        reactionsCount: increment(1),
+                        'reactionCounts.love': increment(1)
+                    });
+                }
+            }).then(() => toast({ title: "Hearted!" }));
+        }
+        lastTap.current[postId] = now;
     };
 
     const downloadImage = async (url: string, name: string) => {
@@ -299,47 +328,28 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
                                     </div>
                                 )}
 
-                                {post.images && post.images.length > 0 ? (
-                                    <div className="relative">
-                                        <Carousel className="w-full">
-                                            <CarouselContent>
+                                <div className="relative aspect-square w-full" onClick={() => handleDoubleTap(post.id)}>
+                                    {post.images && post.images.length > 0 ? (
+                                        <Carousel className="w-full h-full">
+                                            <CarouselContent className="h-full">
                                                 {post.images.map((img, idx) => (
-                                                    <CarouselItem key={idx}>
-                                                        <div className="relative aspect-square w-full cursor-pointer group/img" onClick={() => { setViewerImage(img); setViewerOpen(true); }}>
-                                                            <NextImage src={img.url} alt="" fill className="object-cover transition-transform duration-700 group-hover/img:scale-105" />
+                                                    <CarouselItem key={idx} className="relative h-full">
+                                                        <div className="relative w-full h-full">
+                                                            <NextImage src={img.url} alt="" fill className="object-cover" />
                                                             {img.caption && (
                                                                 <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent text-white">
                                                                     <p className="text-sm font-medium drop-shadow-md">{img.caption}</p>
                                                                 </div>
                                                             )}
-                                                            <div className="absolute top-4 right-4 p-2 bg-black/20 backdrop-blur-md rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity">
-                                                                <Maximize2 className="h-5 w-5 text-white" />
-                                                            </div>
                                                         </div>
                                                     </CarouselItem>
                                                 ))}
                                             </CarouselContent>
-                                            {post.images.length > 1 && (
-                                                <>
-                                                    <CarouselPrevious className="left-4 bg-black/20 text-white border-none h-10 w-10" />
-                                                    <CarouselNext className="right-4 bg-black/20 text-white border-none h-10 w-10" />
-                                                </>
-                                            )}
                                         </Carousel>
-                                        {post.images.length > 1 && (
-                                            <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-xl px-3 py-1 rounded-full text-[9px] font-black text-white uppercase tracking-widest z-10">
-                                                Visual Archive: 1/{post.images.length}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : post.imageUrl && (
-                                    <div className="relative aspect-square w-full cursor-pointer group/img" onClick={() => { setViewerImage({ url: post.imageUrl! }); setViewerOpen(true); }}>
-                                        <NextImage src={post.imageUrl} alt="" fill className="object-cover transition-transform duration-700 group-hover/img:scale-105" />
-                                        <div className="absolute top-4 right-4 p-2 bg-black/20 backdrop-blur-md rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity">
-                                            <Maximize2 className="h-5 w-5 text-white" />
-                                        </div>
-                                    </div>
-                                )}
+                                    ) : post.imageUrl && (
+                                        <NextImage src={post.imageUrl} alt="Visual Post" fill className="object-cover" />
+                                    )}
+                                </div>
                             </CardContent>
 
                             <CardFooter className="p-4 bg-muted/10 border-t border-border/10 flex items-center justify-between">
@@ -363,10 +373,14 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
                                             </div>
                                         </DialogContent>
                                     </Dialog>
+                                    
+                                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent">
+                                        <Share2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
 
                                 <div className="flex items-center gap-1">
-                                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent" onClick={() => {}}>
+                                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent">
                                         <Repeat className="h-4 w-4" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => {
@@ -385,69 +399,6 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
                     </div>
                 )}
             </div>
-
-            <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-                <DialogContent className="max-w-screen-xl h-[95vh] p-0 border-none bg-black/95 backdrop-blur-3xl rounded-none shadow-none flex flex-col md:flex-row overflow-hidden">
-                    <div className="flex-1 relative bg-black flex items-center justify-center p-4">
-                        {viewerImage && (
-                            <div className="relative w-full h-full">
-                                <NextImage 
-                                    src={viewerImage.url} 
-                                    alt="Archive" 
-                                    fill 
-                                    className="object-contain animate-in fade-in zoom-in-95 duration-500" 
-                                />
-                            </div>
-                        )}
-                        <Button variant="ghost" size="icon" className="absolute top-6 left-6 text-white bg-white/10 rounded-full h-12 w-12" onClick={() => setViewerOpen(false)}>
-                            <X className="h-6 w-6" />
-                        </Button>
-                    </div>
-
-                    <div className="w-full md:w-[400px] bg-background border-l border-border/40 flex flex-col h-full">
-                        <div className="p-6 border-b flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Avatar className="h-10 w-10 border border-border/20">
-                                    <AvatarImage src={profileUser.avatarUrl} />
-                                    <AvatarFallback>OW</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <h4 className="font-bold text-sm">@{profileUser.username}</h4>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Identity Post</p>
-                                </div>
-                            </div>
-                            <Button variant="ghost" size="icon" className="rounded-full" onClick={() => viewerImage && downloadImage(viewerImage.url, 'Archive-Full.jpg')}>
-                                <Download className="h-5 w-5" />
-                            </Button>
-                        </div>
-
-                        <ScrollArea className="flex-1 p-6">
-                            <div className="space-y-8">
-                                {viewerImage?.caption && (
-                                    <div className="p-5 bg-muted/20 rounded-2xl border border-dashed border-border/40">
-                                        <p className="text-sm font-medium leading-relaxed italic text-foreground/80">
-                                            <Quote className="h-4 w-4 text-primary/20 inline mr-2 mb-1" />
-                                            {viewerImage.caption}
-                                        </p>
-                                    </div>
-                                )}
-                                <div className="space-y-4">
-                                    <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 ml-1">Community Discussion</h5>
-                                    <p className="text-xs italic text-center py-10 opacity-40">Contextual discussion available on post view.</p>
-                                </div>
-                            </div>
-                        </ScrollArea>
-
-                        <div className="p-6 border-t bg-muted/10 flex items-center justify-between">
-                            <div className="flex gap-2">
-                                <Button variant="ghost" size="sm" className="rounded-full h-10 w-10 text-rose-500 bg-rose-500/10"><Heart className="h-5 w-5 fill-current" /></Button>
-                                <Button variant="ghost" size="sm" className="rounded-full h-10 w-10 text-primary bg-primary/10"><MessageSquare className="h-5 w-5" /></Button>
-                            </div>
-                            <Button variant="ghost" size="sm" className="rounded-full h-10 w-10 text-accent bg-accent/10"><Share2 className="h-5 w-5" /></Button>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }
@@ -851,7 +802,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
               <div className="flex-1 min-w-0 pb-1 sm:pb-2 relative">
                   {isOwnProfile && (
                       <div className="absolute top-1 sm:top-2 right-0 z-20">
-                        <Link href="/settings">
+                        <Link href="/settings" passHref>
                             <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 bg-background/70 h-9 sm:h-10 px-3 sm:px-4">
                                 <Settings className="h-4 w-4" />
                                 <span className="hidden sm:inline">Settings</span>
@@ -888,7 +839,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                             {followActionLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : isFollowing ? <UserX className="mr-1.5 h-4 w-4" /> : <UserPlus className="mr-1.5 h-4 w-4" />}
                             {isFollowing ? 'Unfollow' : 'Follow'}
                         </Button>
-                        <Link href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`}>
+                        <Link href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`} passHref>
                             <Button variant="outline" className="rounded-full px-4 sm:px-8 gap-2 border-border/60 h-10 sm:h-11 text-xs sm:text-sm">
                                 <MessageSquare className="h-4 w-4" /> Message
                             </Button>
@@ -912,7 +863,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
           <TabsContent value="works" className="mt-8 space-y-12">
             {publishedWorks.length > 0 && (
               <div>
-                <Link href="/write" className="inline-block group">
+                <Link href="/write" className="inline-block group" passHref>
                   <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight group-hover:text-primary transition-colors cursor-pointer">
                     <BookOpen className="h-5 w-5 text-primary" /> 
                     Published Works
