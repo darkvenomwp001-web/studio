@@ -203,6 +203,10 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
         try {
             await runTransaction(db, async (transaction) => {
                 const reactionDoc = await transaction.get(reactionRef);
+                const postDoc = await transaction.get(postRef);
+
+                if (!postDoc.exists()) return;
+
                 if (reactionDoc.exists()) {
                     transaction.delete(reactionRef);
                     transaction.update(postRef, { 
@@ -216,7 +220,8 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
                         timestamp: serverTimestamp(),
                         user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
                     };
-                    transaction.set(reactionRef, reactionData);
+                    // Use merge: true to prevent "Document already exists" errors in case of race conditions
+                    transaction.set(reactionRef, reactionData, { merge: true });
                     transaction.update(postRef, { 
                         reactionsCount: increment(1),
                         'reactionCounts.love': increment(1)
@@ -460,6 +465,10 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
 
             runTransaction(db, async (transaction) => {
                 const reactionDoc = await transaction.get(reactionRef);
+                const postDoc = await transaction.get(postRef);
+
+                if (!postDoc.exists()) return;
+
                 if (!reactionDoc.exists()) {
                     const reactionData = { 
                         userId: user.id, 
@@ -467,7 +476,8 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
                         timestamp: serverTimestamp(),
                         user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
                     };
-                    transaction.set(reactionRef, reactionData);
+                    // Use merge: true for idempotent writes and to prevent "already exists" errors
+                    transaction.set(reactionRef, reactionData, { merge: true });
                     transaction.update(postRef, { 
                         reactionsCount: increment(1),
                         'reactionCounts.love': increment(1)
@@ -815,7 +825,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
   const [privateWorks, setPrivateWorks] = useState<Story[]>([]); 
 
-  // About Author Inline Editor States
+  // About Me Inline Editor States
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioInput, setBioInput] = useState('');
   const [isSavingBio, setIsSavingBio] = useState(false);
@@ -951,7 +961,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
               <div className="flex-1 min-w-0 pb-1 sm:pb-2 relative">
                   {isOwnProfile && (
                       <div className="absolute top-1 sm:top-2 right-0 z-20">
-                        <Link href="/settings" passHref>
+                        <Link href="/settings">
                             <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 bg-background/70 h-9 sm:h-10 px-3 sm:px-4">
                                 <Settings className="h-4 w-4" />
                                 <span className="hidden sm:inline">Settings</span>
@@ -988,7 +998,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                             {followActionLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : isFollowing ? <UserX className="mr-1.5 h-4 w-4" /> : <UserPlus className="mr-1.5 h-4 w-4" />}
                             {isFollowing ? 'Unfollow' : 'Follow'}
                         </Button>
-                        <Link href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`} passHref>
+                        <Link href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`}>
                             <Button variant="outline" className="rounded-full px-4 sm:px-8 gap-2 border-border/60 h-10 sm:h-11 text-xs sm:text-sm">
                                 <MessageSquare className="h-4 w-4" /> Message
                             </Button>
@@ -1145,4 +1155,3 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     </div>
   );
 }
-

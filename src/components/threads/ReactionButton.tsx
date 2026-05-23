@@ -161,7 +161,12 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
 
         runTransaction(db, async (transaction) => {
             const reactionDoc = await transaction.get(reactionRef);
-            
+            const postDoc = await transaction.get(postRef);
+
+            if (!postDoc.exists()) throw "Target document does not exist.";
+
+            const postData = postDoc.data();
+
             if (reactionDoc.exists()) {
                 const existingType = reactionDoc.data().type;
                 if (existingType === type) {
@@ -184,7 +189,8 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
                     timestamp: serverTimestamp(),
                     user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
                 };
-                transaction.set(reactionRef, reactionData);
+                // Use merge: true to prevent "Document already exists" errors during race conditions
+                transaction.set(reactionRef, reactionData, { merge: true });
                 transaction.update(postRef, { 
                     reactionsCount: increment(1),
                     [`reactionCounts.${type}`]: increment(1)
