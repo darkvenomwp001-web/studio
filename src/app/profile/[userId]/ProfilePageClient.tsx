@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, FormEvent, useRef, ChangeEvent } from 'react';
+import { useEffect, useState, FormEvent, useRef, ChangeEvent, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -70,7 +70,6 @@ import {
   runTransaction,
   increment
 } from 'firebase/firestore';
-import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -80,12 +79,11 @@ import { formatDistanceToNow } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import ProfilePhotoGrid from '@/components/profile/ProfilePhotoGrid';
 import VerifiedBadge from '@/components/icons/VerifiedBadge';
 import ReactionButton from '@/components/threads/ReactionButton';
 import ThreadPostComments from '@/components/threads/ThreadPostComments';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 
 const OWNER_HANDLES = ['arnv'];
 
@@ -100,6 +98,132 @@ const WRITING_STATUS_MAP: Record<WritingStatus, { label: string; icon: any; colo
     rewriting: { label: 'Rewriting Story', icon: Heart, color: 'text-rose-500' },
     brainstorming: { label: 'Brainstorming Arc', icon: Headphones, color: 'text-cyan-500' },
 };
+
+function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage }: { post: ThreadPost, isOwnProfile: boolean, handleDoubleTap: any, downloadImage: any }) {
+    const [api, setApi] = useState<CarouselApi>();
+    const [current, setCurrent] = useState(0);
+    const [count, setCount] = useState(0);
+
+    useEffect(() => {
+        if (!api) return;
+        setCount(api.scrollSnapList().length);
+        setCurrent(api.selectedScrollSnap() + 1);
+        api.on("select", () => {
+            setCurrent(api.selectedScrollSnap() + 1);
+        });
+    }, [api]);
+
+    const imagesCount = post.images?.length || 0;
+
+    return (
+        <Card className="rounded-[2.5rem] overflow-hidden border-none shadow-lg bg-card/60 backdrop-blur-sm group">
+            <CardHeader className="p-5 flex flex-row items-center justify-between space-y-0">
+                <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10 border border-border/20">
+                        <AvatarImage src={post.author.avatarUrl} />
+                        <AvatarFallback>OW</AvatarFallback>
+                    </Avatar>
+                    <div>
+                        <h4 className="font-bold text-sm">@{post.author.username}</h4>
+                        <p className="text-[9px] font-bold uppercase tracking-tighter text-muted-foreground/60">
+                            {post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'now'}
+                        </p>
+                    </div>
+                </div>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="rounded-xl">
+                        <DropdownMenuItem className="gap-2"><Share2 className="h-4 w-4" /> Share to Mutuals</DropdownMenuItem>
+                        {isOwnProfile && (
+                            <DropdownMenuItem className="text-destructive gap-2" onClick={() => deleteDoc(doc(db, 'feedPosts', post.id))}><Trash2 className="h-4 w-4" /> Delete Visual</DropdownMenuItem>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </CardHeader>
+
+            <CardContent className="p-0 space-y-4">
+                {post.content && (
+                    <div className="px-6 pb-2">
+                        <p className="text-sm md:text-base leading-relaxed text-foreground/80">{post.content}</p>
+                    </div>
+                )}
+
+                <div className="relative aspect-square w-full" onClick={() => handleDoubleTap(post.id)}>
+                    {imagesCount > 0 ? (
+                        <Carousel setApi={setApi} className="w-full h-full">
+                            <CarouselContent className="h-full ml-0">
+                                {post.images!.map((img, idx) => (
+                                    <CarouselItem key={idx} className="relative h-full pl-0 basis-full">
+                                        <div className="relative w-full h-full">
+                                            <NextImage src={img.url} alt="" fill className="object-cover" />
+                                            {img.caption && (
+                                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent text-white">
+                                                    <p className="text-sm font-medium drop-shadow-md">{img.caption}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </CarouselItem>
+                                ))}
+                            </CarouselContent>
+                            {/* Photo Index Badge */}
+                            <div className="absolute top-4 right-4 z-10">
+                                <Badge variant="secondary" className="bg-black/40 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
+                                    {current}/{count}
+                                </Badge>
+                            </div>
+                        </Carousel>
+                    ) : post.imageUrl && (
+                        <NextImage src={post.imageUrl} alt="Visual Post" fill className="object-cover" />
+                    )}
+                </div>
+            </CardContent>
+
+            <CardFooter className="p-4 bg-muted/10 border-t border-border/10 flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                    <ReactionButton postId={post.id} parentCollection="feedPosts" initialReactionsCount={post.reactionsCount || 0} reactionCounts={post.reactionCounts} />
+                    
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="rounded-full h-9 px-4 gap-2 font-bold text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary transition-all">
+                                <MessageSquare className="h-4 w-4" />
+                                <span>{post.commentsCount || 0}</span>
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
+                            <DialogHeader className="p-6 bg-muted/30 border-b">
+                                <DialogTitle className="text-xl font-headline font-bold">Thoughts & Echoes</DialogTitle>
+                                <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Community feedback on this visual node</DialogDescription>
+                            </DialogHeader>
+                            <div className="p-6 h-[60vh]">
+                                <ThreadPostComments postId={post.id} />
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                    
+                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent">
+                        <Share2 className="h-4 w-4" />
+                    </Button>
+                </div>
+
+                <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent">
+                        <Repeat className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => {
+                        const url = post.images?.[0]?.url || post.imageUrl;
+                        if(url) downloadImage(url, `D4RKV3NOM-${post.id}.jpg`);
+                    }}>
+                        <Download className="h-4 w-4" />
+                    </Button>
+                </div>
+            </CardFooter>
+        </Card>
+    );
+}
 
 function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
     const { user } = useAuth();
@@ -187,7 +311,6 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
         if (!user) return;
         const now = Date.now();
         if (now - (lastTap.current[postId] || 0) < 300) {
-            // Trigger Heart Like
             const postRef = doc(db, 'feedPosts', postId);
             const reactionRef = doc(db, 'feedPosts', postId, 'reactions', user.id);
 
@@ -292,106 +415,13 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
                     <div className="text-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" /></div>
                 ) : posts.length > 0 ? (
                     posts.map(post => (
-                        <Card key={post.id} className="rounded-[2.5rem] overflow-hidden border-none shadow-lg bg-card/60 backdrop-blur-sm group">
-                            <CardHeader className="p-5 flex flex-row items-center justify-between space-y-0">
-                                <div className="flex items-center gap-3">
-                                    <Avatar className="h-10 w-10 border border-border/20">
-                                        <AvatarImage src={post.author.avatarUrl} />
-                                        <AvatarFallback>OW</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <h4 className="font-bold text-sm">@{post.author.username}</h4>
-                                        <p className="text-[9px] font-bold uppercase tracking-tighter text-muted-foreground/60">
-                                            {post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'now'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="rounded-xl">
-                                        <DropdownMenuItem className="gap-2"><Share2 className="h-4 w-4" /> Share to Mutuals</DropdownMenuItem>
-                                        {isOwnProfile && (
-                                            <DropdownMenuItem className="text-destructive gap-2" onClick={() => deleteDoc(doc(db, 'feedPosts', post.id))}><Trash2 className="h-4 w-4" /> Delete Visual</DropdownMenuItem>
-                                        )}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </CardHeader>
-
-                            <CardContent className="p-0 space-y-4">
-                                {post.content && (
-                                    <div className="px-6 pb-2">
-                                        <p className="text-sm md:text-base leading-relaxed text-foreground/80">{post.content}</p>
-                                    </div>
-                                )}
-
-                                <div className="relative aspect-square w-full" onClick={() => handleDoubleTap(post.id)}>
-                                    {post.images && post.images.length > 0 ? (
-                                        <Carousel className="w-full h-full">
-                                            <CarouselContent className="h-full">
-                                                {post.images.map((img, idx) => (
-                                                    <CarouselItem key={idx} className="relative h-full">
-                                                        <div className="relative w-full h-full">
-                                                            <NextImage src={img.url} alt="" fill className="object-cover" />
-                                                            {img.caption && (
-                                                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent text-white">
-                                                                    <p className="text-sm font-medium drop-shadow-md">{img.caption}</p>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </CarouselItem>
-                                                ))}
-                                            </CarouselContent>
-                                        </Carousel>
-                                    ) : post.imageUrl && (
-                                        <NextImage src={post.imageUrl} alt="Visual Post" fill className="object-cover" />
-                                    )}
-                                </div>
-                            </CardContent>
-
-                            <CardFooter className="p-4 bg-muted/10 border-t border-border/10 flex items-center justify-between">
-                                <div className="flex items-center gap-1">
-                                    <ReactionButton postId={post.id} parentCollection="feedPosts" initialReactionsCount={post.reactionsCount || 0} reactionCounts={post.reactionCounts} />
-                                    
-                                    <Dialog>
-                                        <DialogTrigger asChild>
-                                            <Button variant="ghost" size="sm" className="rounded-full h-9 px-4 gap-2 font-bold text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary transition-all">
-                                                <MessageSquare className="h-4 w-4" />
-                                                <span>{post.commentsCount || 0}</span>
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
-                                            <DialogHeader className="p-6 bg-muted/30 border-b">
-                                                <DialogTitle className="text-xl font-headline font-bold">Thoughts & Echoes</DialogTitle>
-                                                <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Community feedback on this visual node</DialogDescription>
-                                            </DialogHeader>
-                                            <div className="p-6 h-[60vh]">
-                                                <ThreadPostComments postId={post.id} />
-                                            </div>
-                                        </DialogContent>
-                                    </Dialog>
-                                    
-                                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent">
-                                        <Share2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-
-                                <div className="flex items-center gap-1">
-                                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent">
-                                        <Repeat className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => {
-                                        const url = post.images?.[0]?.url || post.imageUrl;
-                                        if(url) downloadImage(url, `D4RKV3NOM-${post.id}.jpg`);
-                                    }}>
-                                        <Download className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </CardFooter>
-                        </Card>
+                        <VisualGalleryPost 
+                            key={post.id} 
+                            post={post} 
+                            isOwnProfile={isOwnProfile} 
+                            handleDoubleTap={handleDoubleTap} 
+                            downloadImage={downloadImage} 
+                        />
                     ))
                 ) : (
                     <div className="text-center py-24 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
