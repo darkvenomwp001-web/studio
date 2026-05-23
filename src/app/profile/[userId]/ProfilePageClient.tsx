@@ -161,10 +161,12 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                                 {post.images!.map((img, idx) => (
                                     <CarouselItem 
                                         key={idx} 
-                                        className="relative h-full pl-0 basis-full flex-shrink-0 min-w-0"
-                                        onClick={() => handleDoubleTap(post.id)}
+                                        className="h-full pl-0 basis-full flex-shrink-0 min-w-0"
                                     >
-                                        <div className="relative w-full h-full cursor-pointer">
+                                        <div 
+                                            className="relative w-full h-full cursor-pointer"
+                                            onClick={() => handleDoubleTap(post.id)}
+                                        >
                                             <NextImage src={img.url} alt="" fill className="object-cover" />
                                             {img.caption && (
                                                 <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent text-white pointer-events-none">
@@ -175,7 +177,6 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                                     </CarouselItem>
                                 ))}
                             </CarouselContent>
-                            {/* Photo Index Badge - Top Right */}
                             {imagesCount > 1 && (
                                 <div className="absolute top-4 right-4 z-10 pointer-events-none">
                                     <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
