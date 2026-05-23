@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview An AI agent for searching songs.
@@ -181,7 +180,7 @@ const mockSongs: Song[] = [
     },
      // Kendrick Lamar
     {
-        id: '6AI3ezQ4o3HUoP6Dhudph3',
+        id: 'kendrick_not_like_us_6AI3ezQ4o3',
         title: 'Not Like Us',
         artist: 'Kendrick Lamar',
         cover: 'https://i.scdn.co/image/ab67616d0000b2733ea79c1313835677a285098a',
