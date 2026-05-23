@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   Loader2, 
-  MessageSquare, 
+  MessageCircle, 
   UserPlus, 
   UserX, 
   Settings, 
@@ -82,7 +82,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import VerifiedBadge from '@/components/icons/VerifiedBadge';
-import ReactionButton from '@/components/threads/ReactionButton';
 import ThreadPostComments from '@/components/threads/ThreadPostComments';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi } from '@/components/ui/carousel';
@@ -101,10 +100,80 @@ const WRITING_STATUS_MAP: Record<WritingStatus, { label: string; icon: any; colo
     brainstorming: { label: 'Brainstorming Arc', icon: Headphones, color: 'text-cyan-500' },
 };
 
-function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage }: { post: ThreadPost, isOwnProfile: boolean, handleDoubleTap: any, downloadImage: any }) {
+function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUser: AppUser | null }) {
+    const [moots, setMoots] = useState<UserSummary[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (!currentUser?.followingIds || currentUser.followingIds.length === 0) return;
+        setIsLoading(true);
+        const fetchMoots = async () => {
+            try {
+                const followingBatch = currentUser.followingIds!.slice(0, 12);
+                const q = query(collection(db, 'users'), where('__name__', 'in', followingBatch));
+                const snap = await getDocs(q);
+                setMoots(snap.docs.map(d => ({ id: d.id, ...d.data() } as UserSummary)));
+            } catch (e) {
+                console.error("Moot fetch failure:", e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchMoots();
+    }, [currentUser]);
+
+    const handleShare = (username: string) => {
+        toast({ title: `Post sent to @${username}` });
+    };
+
+    return (
+        <DialogContent className="sm:max-w-md rounded-[2.5rem] border-none shadow-3xl p-0 overflow-hidden bg-background">
+            <DialogHeader className="p-6 bg-muted/30 border-b">
+                <DialogTitle className="text-xl font-headline font-bold">Share</DialogTitle>
+                <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Send to your friends</DialogDescription>
+            </DialogHeader>
+            <div className="p-6">
+                <ScrollArea className="h-[300px]">
+                    {isLoading ? (
+                        <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                    ) : moots.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-6">
+                            {moots.map((moot) => (
+                                <button 
+                                    key={moot.id} 
+                                    className="flex flex-col items-center gap-2 group transition-all"
+                                    onClick={() => handleShare(moot.username)}
+                                >
+                                    <Avatar className="h-16 w-16 border-2 border-background shadow-md group-hover:scale-105 group-active:scale-95 transition-transform">
+                                        <AvatarImage src={moot.avatarUrl} />
+                                        <AvatarFallback className="bg-muted text-primary font-bold">{moot.username.substring(0, 1).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-[10px] font-bold truncate w-full text-center">@{moot.username}</span>
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-20 text-muted-foreground italic text-xs">
+                            Follow authors to share posts with them.
+                        </div>
+                    )}
+                </ScrollArea>
+            </div>
+            <DialogFooter className="p-4 bg-muted/20 border-t">
+                <DialogClose asChild><Button variant="ghost" className="w-full rounded-full font-bold uppercase text-[10px] tracking-widest">Close</Button></DialogClose>
+            </DialogFooter>
+        </DialogContent>
+    );
+}
+
+function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: ThreadPost, isOwnProfile: boolean, handleDoubleTap: any }) {
+    const { user } = useAuth();
+    const { toast } = useToast();
     const [api, setApi] = useState<CarouselApi>();
     const [current, setCurrent] = useState(0);
     const [count, setCount] = useState(0);
+    const [isLiked, setIsLiked] = useState(false);
 
     useEffect(() => {
         if (!api) return;
@@ -115,6 +184,55 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
         });
     }, [api]);
 
+    useEffect(() => {
+        if (!user || !post.id) return;
+        const reactionRef = doc(db, 'feedPosts', post.id, 'reactions', user.id);
+        return onSnapshot(reactionRef, (docSnap) => {
+            setIsLiked(docSnap.exists());
+        });
+    }, [user, post.id]);
+
+    const toggleLike = async () => {
+        if (!user) {
+            toast({ title: "Please sign in to like posts" });
+            return;
+        }
+        const postRef = doc(db, 'feedPosts', post.id);
+        const reactionRef = doc(db, 'feedPosts', post.id, 'reactions', user.id);
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const reactionDoc = await transaction.get(reactionRef);
+                if (reactionDoc.exists()) {
+                    transaction.delete(reactionRef);
+                    transaction.update(postRef, { 
+                        reactionsCount: increment(-1),
+                        'reactionCounts.love': increment(-1)
+                    });
+                } else {
+                    const reactionData = { 
+                        userId: user.id, 
+                        type: 'love',
+                        timestamp: serverTimestamp(),
+                        user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+                    };
+                    transaction.set(reactionRef, reactionData);
+                    transaction.update(postRef, { 
+                        reactionsCount: increment(1),
+                        'reactionCounts.love': increment(1)
+                    });
+                }
+            });
+        } catch (e) {
+            console.error("Like toggle failure:", e);
+        }
+    };
+
+    const handleRepost = async () => {
+        if (!user) return;
+        toast({ title: "Reposted!" });
+    };
+
     const imagesCount = post.images?.length || 0;
 
     return (
@@ -123,7 +241,7 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                 <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10 border border-border/20">
                         <AvatarImage src={post.author.avatarUrl} />
-                        <AvatarFallback>OW</AvatarFallback>
+                        <AvatarFallback>{post.author.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
                     </Avatar>
                     <div>
                         <h4 className="font-bold text-sm">@{post.author.username}</h4>
@@ -139,9 +257,8 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="rounded-xl">
-                        <DropdownMenuItem className="gap-2"><Share2 className="h-4 w-4" /> Share to Mutuals</DropdownMenuItem>
                         {isOwnProfile && (
-                            <DropdownMenuItem className="text-destructive gap-2" onClick={() => deleteDoc(doc(db, 'feedPosts', post.id))}><Trash2 className="h-4 w-4" /> Delete Visual</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive gap-2" onClick={() => deleteDoc(doc(db, 'feedPosts', post.id))}><Trash2 className="h-4 w-4" /> Delete Post</DropdownMenuItem>
                         )}
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -183,13 +300,14 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                             </CarouselContent>
                             
                             {imagesCount > 1 && (
+                                <div className="absolute top-4 right-4 z-10 pointer-events-none">
+                                    <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
+                                        {current}/{count}
+                                    </Badge>
+                                </div>
+                            )}
+                            {imagesCount > 1 && (
                                 <>
-                                    <div className="absolute top-4 right-4 z-10 pointer-events-none">
-                                        <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
-                                            {current}/{count}
-                                        </Badge>
-                                    </div>
-                                    {/* Navigation Zones for smooth swiping/tapping */}
                                     <CarouselPrevious className="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-20" />
                                     <CarouselNext className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-20" />
                                 </>
@@ -200,27 +318,32 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                             className="relative w-full h-full cursor-pointer"
                             onClick={() => handleDoubleTap(post.id)}
                         >
-                            <NextImage src={post.imageUrl} alt="Visual Post" fill className="object-cover" />
+                            <NextImage src={post.imageUrl} alt="Post" fill className="object-cover" />
                         </div>
                     )}
                 </div>
             </CardContent>
 
-            <CardFooter className="p-4 bg-muted/10 border-t border-border/10 flex items-center justify-between">
+            <CardFooter className="p-4 bg-transparent border-t border-border/10 flex items-center justify-start gap-1">
                 <div className="flex items-center gap-1">
-                    <ReactionButton postId={post.id} parentCollection="feedPosts" initialReactionsCount={post.reactionsCount || 0} reactionCounts={post.reactionCounts} />
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className={cn("rounded-full h-10 w-10 transition-all hover:scale-110 active:scale-90", isLiked ? "text-rose-500" : "text-foreground")}
+                        onClick={toggleLike}
+                    >
+                        <Heart className={cn("h-7 w-7", isLiked && "fill-current")} />
+                    </Button>
                     
                     <Dialog>
                         <DialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="rounded-full h-9 px-4 gap-2 font-bold text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary transition-all">
-                                <MessageSquare className="h-4 w-4" />
-                                <span>{post.commentsCount || 0}</span>
+                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-primary transition-all">
+                                <MessageCircle className="h-7 w-7" />
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
                             <DialogHeader className="p-6 bg-muted/30 border-b">
-                                <DialogTitle className="text-xl font-headline font-bold">Thoughts & Echoes</DialogTitle>
-                                <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Community feedback on this visual node</DialogDescription>
+                                <DialogTitle className="text-xl font-headline font-bold">Thoughts</DialogTitle>
                             </DialogHeader>
                             <div className="p-6 h-[60vh]">
                                 <ThreadPostComments postId={post.id} />
@@ -228,20 +351,17 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                         </DialogContent>
                     </Dialog>
                     
-                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent">
-                        <Share2 className="h-4 w-4" />
-                    </Button>
-                </div>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all -rotate-12">
+                                <Send className="h-7 w-7" />
+                            </Button>
+                        </DialogTrigger>
+                        <ShareToMootsDialog post={post} currentUser={user} />
+                    </Dialog>
 
-                <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent">
-                        <Repeat className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => {
-                        const url = post.images?.[0]?.url || post.imageUrl;
-                        if(url) downloadImage(url, `D4RKV3NOM-${post.id}.jpg`);
-                    }}>
-                        <Download className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all" onClick={handleRepost}>
+                        <Repeat className="h-7 w-7" />
                     </Button>
                 </div>
             </CardFooter>
@@ -254,7 +374,7 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
     const { toast } = useToast();
     const [posts, setPosts] = useState<ThreadPost[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isPosting, setIsSubmitting] = useState(false);
+    const [isPosting, setIsPosting] = useState(false);
     
     const [newEntryContent, setNewEntryContent] = useState('');
     const [tempImages, setTempImages] = useState<{ file: File, preview: string, caption: string }[]>([]);
@@ -301,7 +421,7 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
 
     const handlePublishPost = async () => {
         if (!user || (!newEntryContent.trim() && tempImages.length === 0)) return;
-        setIsSubmitting(true);
+        setIsPosting(true);
         try {
             const uploadedImages = await Promise.all(tempImages.map(async (img) => ({
                 url: await uploadToCloudinary(img.file),
@@ -323,11 +443,11 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
             await addDoc(collection(db, 'feedPosts'), postData);
             setNewEntryContent('');
             setTempImages([]);
-            toast({ title: "Archived to Visual Feed" });
+            toast({ title: "Posted!" });
         } catch (error) {
-            toast({ title: "Archive Failed", variant: "destructive" });
+            toast({ title: "Post Failed", variant: "destructive" });
         } finally {
-            setIsSubmitting(false);
+            setIsPosting(false);
         }
     };
 
@@ -353,27 +473,9 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
                         'reactionCounts.love': increment(1)
                     });
                 }
-            }).then(() => toast({ title: "Hearted!" }));
+            }).then(() => toast({ title: "Liked!" }));
         }
         lastTap.current[postId] = now;
-    };
-
-    const downloadImage = async (url: string, name: string) => {
-        try {
-            const response = await fetch(url);
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = name || 'D4RKV3NOM-Archive.jpg';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
-            toast({ title: "Saved to Device" });
-        } catch (e) {
-            toast({ title: "Save Failed", variant: "destructive" });
-        }
     };
 
     return (
@@ -389,7 +491,7 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
                             <Textarea 
                                 value={newEntryContent}
                                 onChange={e => setNewEntryContent(e.target.value)}
-                                placeholder="What visual nodes are you archiving today?"
+                                placeholder="What's on your mind?"
                                 className="bg-background/40 border-none shadow-inner rounded-2xl resize-none min-h-[100px] text-base"
                                 disabled={isPosting}
                             />
@@ -427,7 +529,7 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
                             <input type="file" ref={imageInputRef} className="hidden" accept="image/*" multiple onChange={handleFileSelect} />
                             <Button onClick={handlePublishPost} disabled={isPosting || (!newEntryContent.trim() && tempImages.length === 0)} className="rounded-full px-10 h-11 font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
                                 {isPosting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                                Sync Archive
+                                Post
                             </Button>
                         </div>
                     </CardContent>
@@ -444,12 +546,11 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
                             post={post} 
                             isOwnProfile={isOwnProfile} 
                             handleDoubleTap={handleDoubleTap} 
-                            downloadImage={downloadImage} 
                         />
                     ))
                 ) : (
                     <div className="text-center py-24 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
-                        The visual archives for this creator are currently sealed.
+                        No photos shared yet.
                     </div>
                 )}
             </div>
@@ -472,9 +573,8 @@ function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id
             src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
             alt={story.title}
             fill
-            className="object-cover"
+            className="object-cover transition-transform duration-700 ease-in-out group-hover:scale-105"
             sizes="(max-width: 768px) 50vw, 200px"
-            data-ai-hint={story.dataAiHint || "book cover"}
           />
            {isPrivate && ( 
             <Badge variant="outline" className="absolute top-2 right-2 text-[10px] bg-background/80 capitalize">{story.status === 'Draft' ? 'Draft' : story.visibility}</Badge>
@@ -546,7 +646,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
     addDoc(collection(db, 'announcements'), announcementData)
         .then(async () => {
             setNewAnnouncement('');
-            toast({ title: 'Update posted!' });
+            toast({ title: 'Post updated!' });
             
             const followersQuery = query(collection(db, 'users'), where('followingIds', 'array-contains', user.id));
             const followersSnapshot = await getDocs(followersQuery);
@@ -569,7 +669,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
     const annoRef = doc(db, 'announcements', editingPost.id);
     updateDoc(annoRef, { content: editedContent, updatedAt: serverTimestamp() })
         .then(() => {
-            toast({ title: "Update saved!" });
+            toast({ title: "Updated!" });
             setIsEditDialogOpen(false);
             setEditingPost(null);
         })
@@ -582,7 +682,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
     const annoRef = doc(db, 'announcements', deletingPostId);
     deleteDoc(annoRef)
         .then(() => {
-            toast({ title: "Update deleted" });
+            toast({ title: "Deleted" });
             setIsDeleteDialogOpen(false);
         })
         .finally(() => {
@@ -594,7 +694,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-20">
       {isOwnProfile && (
-        <Card>
+        <Card className="rounded-[1.5rem] border-none bg-muted/20">
             <CardContent className="p-4 space-y-4">
               <div className="flex gap-4">
                 <Avatar className="h-10 w-10">
@@ -604,15 +704,15 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
                 <Textarea
                   value={newAnnouncement}
                   onChange={(e) => setNewAnnouncement(e.target.value)}
-                  placeholder="Share an update with your followers..."
-                  className="bg-muted/30 border-0 focus-visible:ring-0 resize-none min-h-[80px]"
+                  placeholder="Post an update..."
+                  className="bg-transparent border-0 focus-visible:ring-0 resize-none min-h-[80px]"
                   disabled={isPosting}
                 />
               </div>
               <div className="flex justify-end">
-                <Button onClick={handlePostAnnouncement} disabled={isPosting || !newAnnouncement.trim()} size="sm">
+                <Button onClick={handlePostAnnouncement} disabled={isPosting || !newAnnouncement.trim()} size="sm" className="rounded-full px-6">
                     {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                    Post Update
+                    Post
                 </Button>
               </div>
             </CardContent>
@@ -622,12 +722,11 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
       {isLoading ? (
         <div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
       ) : announcements.length > 0 ? (
-        announcements.map(post => {
-          const canManage = isAppOwner || (user && post.author.id === user.id);
-          return (
-            <Card key={post.id}>
-                <CardContent className="p-4">
-                <div className="flex gap-4">
+        <div className="space-y-4">
+            {announcements.map(post => {
+            const canManage = isAppOwner || (user && post.author.id === user.id);
+            return (
+                <div key={post.id} className="group relative flex gap-4 p-4 border-b border-border/10 last:border-0 hover:bg-muted/10 transition-all rounded-2xl">
                     <Link href={`/profile/${post.author.id}`}>
                         <Avatar className="h-10 w-10">
                             <AvatarImage src={post.author.avatarUrl} />
@@ -639,63 +738,61 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
                         <div className="flex items-center gap-2 truncate">
                             <Link href={`/profile/${post.author.id}`} className="font-bold text-sm hover:underline truncate">@{post.author.username}</Link>
                             {OWNER_HANDLES.includes(post.author.username) && <VerifiedBadge className="h-3 w-3" />}
+                            <span className="text-[10px] text-muted-foreground">&bull; {post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'now'}</span>
                         </div>
                         {canManage && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <MoreHorizontal className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
+                                <DropdownMenuContent align="end" className="rounded-xl">
                                     <DropdownMenuItem onClick={() => { setEditingPost(post); setEditedContent(post.content); setIsEditDialogOpen(true); }}>Edit</DropdownMenuItem>
                                     <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingPostId(post.id); setIsDeleteDialogOpen(true); }}>Delete</DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground -mt-0.5 mb-2">{post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'now'}</p>
-                    <div className="whitespace-pre-line text-sm">{post.content}</div>
+                    <div className="whitespace-pre-line text-sm mt-1 leading-relaxed text-foreground/80">{post.content}</div>
                     </div>
                 </div>
-                </CardContent>
-            </Card>
-          );
-        })
+            );
+            })}
+        </div>
       ) : !isOwnProfile && (
         <div className="text-center py-12 text-muted-foreground italic">
-          No updates posted yet.
+          No updates yet.
         </div>
       )}
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-3xl">
           <DialogHeader>
-            <DialogTitle>Edit Update</DialogTitle>
-            <DialogDescription>Update your announcement</DialogDescription>
+            <DialogTitle>Edit Post</DialogTitle>
           </DialogHeader>
-          <Textarea value={editedContent} onChange={(e) => setEditedContent(e.target.value)} rows={5} disabled={isUpdating} />
+          <Textarea value={editedContent} onChange={(e) => setEditedContent(e.target.value)} rows={5} className="bg-muted/20 border-none rounded-2xl" disabled={isUpdating} />
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)} disabled={isUpdating}>Cancel</Button>
-            <Button onClick={handleUpdateAnnouncement} disabled={isUpdating || !editedContent.trim()}>
+            <Button variant="ghost" className="rounded-full" onClick={() => setIsEditDialogOpen(false)} disabled={isUpdating}>Cancel</Button>
+            <Button className="rounded-full px-8" onClick={handleUpdateAnnouncement} disabled={isUpdating || !editedContent.trim()}>
               {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save Changes
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this update?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle>Delete this post?</AlertDialogTitle>
+            <AlertDialogDescription>This action is permanent.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteAnnouncement} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+            <AlertDialogCancel className="rounded-full" disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAnnouncement} className="bg-destructive hover:bg-destructive/90 rounded-full px-8" disabled={isDeleting}>
               {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Delete Update
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -783,18 +880,16 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     try {
         await updateUserProfile({ authorBio: bioInput.trim() });
         setIsEditingBio(false);
-        toast({ title: "Author Identity Updated" });
+        toast({ title: "Saved!" });
     } catch (e) {
-        toast({ title: "Update Failed", variant: "destructive" });
+        toast({ title: "Failed", variant: "destructive" });
     } finally {
         setIsSavingBio(false);
     }
   };
 
   const handleClearBio = () => {
-    if (confirm("Are you sure you want to clear your full author identity bio?")) {
-        setBioInput('');
-    }
+    setBioInput('');
   };
 
   if (authLoading || isLoadingData) {
@@ -828,7 +923,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
         {profileUser.coverImageUrl ? (
             <NextImage 
                 src={profileUser.coverImageUrl} 
-                alt="Profile Cover" 
+                alt="Cover" 
                 fill 
                 className="object-cover" 
                 priority
@@ -917,13 +1012,10 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
           <TabsContent value="works" className="mt-8 space-y-12">
             {publishedWorks.length > 0 && (
               <div>
-                <Link href="/write" className="inline-block group" passHref>
-                  <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight group-hover:text-primary transition-colors cursor-pointer">
+                <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight">
                     <BookOpen className="h-5 w-5 text-primary" /> 
                     Published Works
-                    <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all" />
-                  </h2>
-                </Link>
+                </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                     {publishedWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} /> ))}
                 </div>
@@ -943,7 +1035,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                  <div className="text-center py-32 text-muted-foreground border-2 border-dashed rounded-[3rem] border-border/40">
                     <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-20" />
                     <h3 className="text-lg font-bold text-foreground">Archive is Empty</h3>
-                    <p className="text-sm">This creator hasn't published any public manuscripts yet.</p>
+                    <p className="text-sm">No public works found.</p>
                 </div>
             )}
           </TabsContent>
@@ -953,10 +1045,10 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                 <div className="flex justify-center mb-8">
                     <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm backdrop-blur-md">
                         <TabsTrigger value="about" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
-                            <PenTool className="h-4 w-4" /> About Author
+                            <PenTool className="h-4 w-4" /> About Me
                         </TabsTrigger>
                         <TabsTrigger value="archive" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
-                            <LayoutGrid className="h-4 w-4" /> Visual Archive
+                            <LayoutGrid className="h-4 w-4" /> Photos
                         </TabsTrigger>
                     </TabsList>
                 </div>
@@ -965,24 +1057,23 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                     <Card className="rounded-[2.5rem] border-none bg-card/40 backdrop-blur-xl shadow-2xl overflow-hidden min-h-[400px]">
                         <CardHeader className="p-8 border-b border-border/10 flex flex-row items-center justify-between">
                             <div>
-                                <CardTitle className="text-2xl font-headline font-bold text-foreground">About the Author</CardTitle>
-                                <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Identity Archival Hub</CardDescription>
+                                <CardTitle className="text-2xl font-headline font-bold text-foreground">About Me</CardTitle>
                             </div>
                             {isOwnProfile && (
                                 <div className="flex gap-2">
                                     {!isEditingBio ? (
-                                        <Button variant="ghost" size="sm" className="rounded-full gap-2 text-primary hover:bg-primary/5" onClick={() => setIsEditingBio(true)}>
-                                            <Edit className="h-4 w-4" /> Edit Identity
+                                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/5" onClick={() => setIsEditingBio(true)}>
+                                            <Edit3 className="h-5 w-5 text-primary" />
                                         </Button>
                                     ) : (
-                                        <>
-                                            <Button variant="ghost" size="sm" className="rounded-full text-destructive hover:bg-destructive/5" onClick={handleClearBio}>
-                                                <Trash2 className="h-4 w-4" /> Clear All
+                                        <div className="flex gap-1">
+                                            <Button variant="ghost" size="icon" className="rounded-full text-destructive hover:bg-destructive/5" onClick={handleClearBio}>
+                                                <Trash2 className="h-5 w-5" />
                                             </Button>
-                                            <Button variant="ghost" size="sm" className="rounded-full" onClick={() => { setIsEditingBio(false); setBioInput(profileUser.authorBio || ''); }}>
-                                                Cancel
+                                            <Button variant="ghost" size="icon" className="rounded-full" onClick={() => { setIsEditingBio(false); setBioInput(profileUser.authorBio || ''); }}>
+                                                <X className="h-5 w-5" />
                                             </Button>
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             )}
@@ -993,17 +1084,17 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                     <Textarea 
                                         value={bioInput}
                                         onChange={e => setBioInput(e.target.value)}
-                                        placeholder="What do you want your readers to know about you? This is your private author archival space..."
+                                        placeholder="What do your readers want to know about you?"
                                         className="min-h-[300px] text-lg leading-relaxed bg-muted/20 border-none shadow-inner rounded-3xl p-8 focus-visible:ring-primary/20"
                                         disabled={isSavingBio}
                                     />
                                     <Button 
-                                        className="w-full h-16 rounded-full font-bold uppercase text-sm tracking-[0.2em] shadow-2xl shadow-primary/30 bg-primary hover:bg-primary/90 transition-all hover:scale-[1.01] active:scale-95" 
+                                        className="w-full h-12 rounded-full font-bold uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20" 
                                         onClick={handleSaveBio} 
                                         disabled={isSavingBio || bioInput === (profileUser.authorBio || '')}
                                     >
-                                        {isSavingBio ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Save className="h-5 w-5 mr-2" />}
-                                        Save Identity Bio
+                                        {isSavingBio ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                                        Save
                                     </Button>
                                 </div>
                             ) : (
@@ -1014,14 +1105,14 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                                 <Quote className="h-6 w-6 text-primary/20 -scale-x-100 inline mr-2 mb-1" />
                                                 {profileUser.authorBio}
                                             </>
-                                        ) : "The author has not yet archived their identity bio."}
+                                        ) : "No info shared yet."}
                                     </p>
                                 </div>
                             )}
 
                             <div className="space-y-4 pt-8 border-t border-border/10">
                                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-1">
-                                    <Tag className="h-3 w-3" /> Life Nodes (Favorites)
+                                    <Tag className="h-3 w-3" /> Favorites
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                     {profileUser.lifeTags?.map((tag, i) => (
@@ -1030,7 +1121,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                         </Badge>
                                     ))}
                                     {(!profileUser.lifeTags || profileUser.lifeTags.length === 0) && (
-                                        <span className="text-[10px] italic text-muted-foreground/40 px-1">No life nodes archived yet.</span>
+                                        <span className="text-[10px] italic text-muted-foreground/40 px-1">No favorites listed.</span>
                                     )}
                                 </div>
                             </div>
@@ -1054,3 +1145,4 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     </div>
   );
 }
+
