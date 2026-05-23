@@ -1022,7 +1022,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                         <span className="text-[10px] italic text-muted-foreground/40 px-1">No life nodes archived yet.</span>
                                     )}
                                 </div>
-                            </CardContent>
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
