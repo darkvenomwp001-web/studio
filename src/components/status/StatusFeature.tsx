@@ -5,11 +5,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import type { User, StatusUpdate, Song, Story, TextOverlayStyle } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, getDocs, limit, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestamp, orderBy, getDocs, limit, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, X, Type, Image as LucideImageIcon, Sparkles, Music, BarChart2, BookOpen, Send, ChevronRight, AlignLeft, AlignCenter, AlignRight, Palette, CheckCircle, MousePointer2 } from 'lucide-react';
+import { Loader2, Plus, X, Type, Image as LucideImageIcon, Sparkles, Music, BarChart2, BookOpen, Send, ChevronRight, AlignLeft, AlignCenter, AlignRight, Palette, CheckCircle, MousePointer2, Users, Star, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -24,6 +24,8 @@ import { getStatusCaptions } from '@/app/actions/aiActions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '../ui/label';
+import { Checkbox } from '../ui/checkbox';
+import { toggleCloseFriend } from '@/app/actions/userActions';
 
 // Native APK Bridge Imports
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -99,6 +101,11 @@ export default function StatusFeature() {
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [storySearchResults, setStorySearchResults] = useState<Story[]>([]);
   
+  // Close Friends Picker States
+  const [isCloseFriendsPickerOpen, setIsCloseFriendsPickerOpen] = useState(false);
+  const [followers, setFollowers] = useState<User[]>([]);
+  const [isLoadingFollowers, setIsLoadingFollowers] = useState(false);
+
   // High-Fidelity Text Layer States
   const [isDragging, setIsDragging] = useState(false);
   const [textPosition, setTextPosition] = useState({ x: 50, y: 50 });
@@ -117,7 +124,6 @@ export default function StatusFeature() {
   const [statusOrder, setStatusOrder] = useState<string[]>([]);
   
   const [activeUploaderTab, setActiveUploaderTab] = useState('text');
-  const [statusVisibility, setStatusVisibility] = useState<'public' | 'close-friends'>('public');
 
   const { toast } = useToast();
 
@@ -218,7 +224,7 @@ export default function StatusFeature() {
     });
   };
 
-  const handlePublishStatus = async () => {
+  const handlePublishStatus = async (visibility: 'public' | 'close-friends') => {
     if (!user) return;
     setIsSubmitting(true);
     
@@ -239,7 +245,7 @@ export default function StatusFeature() {
             status: 'published',
             expiresAt: expiryTime,
             isHidden: false,
-            visibility: statusVisibility,
+            visibility: visibility,
         };
 
         if (mediaUrl) {
@@ -387,6 +393,27 @@ export default function StatusFeature() {
     }
   };
 
+  const openCloseFriendsPicker = async () => {
+    if (!user) return;
+    setIsLoadingFollowers(true);
+    setIsCloseFriendsPickerOpen(true);
+    try {
+        const followersQuery = query(collection(db, 'users'), where('followingIds', 'array-contains', user.id));
+        const snap = await getDocs(followersQuery);
+        setFollowers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)));
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsLoadingFollowers(false);
+    }
+  };
+
+  const handleToggleCF = async (friendId: string) => {
+    if (!user) return;
+    const isAdding = !user.closeFriendIds?.includes(friendId);
+    await toggleCloseFriend(user.id, friendId, isAdding);
+  };
+
   return (
     <div className='py-4 -mx-4 px-4 overflow-hidden border-b border-border/40 bg-card/20 w-full max-w-full'>
       <ScrollArea className="w-full whitespace-nowrap scrollbar-none">
@@ -468,14 +495,14 @@ export default function StatusFeature() {
       </Dialog>
 
       <Dialog open={isUploaderOpen} onOpenChange={(o) => { setIsUploaderOpen(o); if(!o) resetUploader(); }}>
-          <DialogContent className="p-0 border-none sm:max-w-md flex flex-col rounded-[2.5rem] overflow-hidden shadow-3xl mx-auto w-[95vw] max-h-[95vh] animate-in slide-in-from-bottom-8 duration-700">
+          <DialogContent className="p-0 border-none sm:max-w-md flex flex-col rounded-[2.5rem] overflow-hidden shadow-3xl mx-auto w-[95vw] h-[90vh] md:h-[800px] animate-in slide-in-from-bottom-8 duration-700">
               <DialogHeader className="p-6 bg-muted/30 border-b flex-shrink-0">
                   <DialogTitle className="font-headline text-xl font-bold">Status Studio</DialogTitle>
                   <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Design your temporary update</DialogDescription>
               </DialogHeader>
               
               <div className={cn(
-                  "relative h-[420px] md:h-[500px] flex flex-col justify-center items-center text-white transition-all duration-700 transform-gpu overflow-hidden group/canvas",
+                  "relative flex-1 flex flex-col justify-center items-center text-white transition-all duration-700 transform-gpu overflow-hidden group/canvas",
                   activeUploaderTab === 'text' ? backgroundStyle : 'bg-black'
               )}>
                   <div className="absolute inset-0 bg-black/5 pointer-events-none" />
@@ -527,9 +554,6 @@ export default function StatusFeature() {
                                         borderRadius: textStyle.background !== 'none' ? '1rem' : '0',
                                     }}
                                 />
-                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover/canvas:opacity-40 transition-opacity">
-                                    <MousePointer2 className="h-4 w-4 text-white" />
-                                </div>
                             </div>
                         </div>
 
@@ -664,7 +688,7 @@ export default function StatusFeature() {
                           ) : (
                               <div className="space-y-6 h-full flex flex-col max-w-sm mx-auto w-full">
                                   <div className="text-center">
-                                    <h3 className="font-headline text-2xl font-bold mb-1">Share your manuscript</h3>
+                                    <h3 className="font-headline text-2xl font-bold mb-1">Share your story</h3>
                                     <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Only public works visible</p>
                                   </div>
                                   <ScrollArea className="flex-1 bg-white/5 rounded-[2rem] p-4 border border-white/10">
@@ -682,7 +706,7 @@ export default function StatusFeature() {
                                               </div>
                                           ))}
                                           {storySearchResults.length === 0 && (
-                                              <p className="text-center py-10 text-white/30 text-xs italic">No public manuscripts found.</p>
+                                              <p className="text-center py-10 text-white/30 text-xs italic">No public stories found.</p>
                                           )}
                                       </div>
                                   </ScrollArea>
@@ -692,103 +716,101 @@ export default function StatusFeature() {
                   )}
               </div>
 
-              <div className="flex-1 bg-background overflow-y-auto no-scrollbar">
-                  <div className="p-6 space-y-8">
-                    {(activeUploaderTab === 'text' || activeUploaderTab === 'art' || activeUploaderTab === 'music' || activeUploaderTab === 'story') && (
-                        <div className="space-y-6 animate-in slide-in-from-top-4 duration-500">
-                             <div className="flex items-center justify-between border-b pb-4 border-border/40">
-                                <div className="flex items-center gap-2">
-                                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                                        <Palette className="h-4 w-4" />
-                                    </div>
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Text Stylist</span>
-                                </div>
-                                <div className="flex gap-1">
-                                    {activeUploaderTab === 'text' && gradientBackgrounds.map(bg => (
-                                        <button key={bg} onClick={() => setBackgroundStyle(bg)} className={cn("w-5 h-5 rounded-full border-2 transition-all flex-shrink-0", backgroundStyle === bg ? "border-primary scale-110 shadow-md" : "border-transparent", bg)} />
-                                    ))}
-                                </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-3 gap-6">
-                                <div className="space-y-3">
-                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 opacity-60">Typography</Label>
-                                    <RadioGroup value={textStyle.font} onValueChange={(v: any) => setTextStyle({...textStyle, font: v})} className="flex gap-2">
-                                        <div className="flex-1">
-                                            <RadioGroupItem value="sans" id="font-sans" className="sr-only" />
-                                            <Label htmlFor="font-sans" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-xs font-bold", textStyle.font === 'sans' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>Abc</Label>
-                                        </div>
-                                        <div className="flex-1">
-                                            <RadioGroupItem value="serif" id="font-serif" className="sr-only" />
-                                            <Label htmlFor="font-serif" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer font-serif text-xs font-bold", textStyle.font === 'serif' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>Abc</Label>
-                                        </div>
-                                        <div className="flex-1">
-                                            <RadioGroupItem value="mono" id="font-mono" className="sr-only" />
-                                            <Label htmlFor="font-mono" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer font-mono text-xs font-bold", textStyle.font === 'mono' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>Abc</Label>
-                                        </div>
-                                    </RadioGroup>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 opacity-60">Alignment</Label>
-                                    <RadioGroup value={textStyle.alignment} onValueChange={(v: any) => setTextStyle({...textStyle, alignment: v})} className="flex gap-2">
-                                        <div className="flex-1">
-                                            <RadioGroupItem value="left" id="align-left" className="sr-only" />
-                                            <Label htmlFor="align-left" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer", textStyle.alignment === 'left' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}><AlignLeft className="h-4 w-4" /></Label>
-                                        </div>
-                                        <div className="flex-1">
-                                            <RadioGroupItem value="center" id="align-center" className="sr-only" />
-                                            <Label htmlFor="align-center" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer", textStyle.alignment === 'center' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}><AlignCenter className="h-4 w-4" /></Label>
-                                        </div>
-                                        <div className="flex-1">
-                                            <RadioGroupItem value="right" id="align-right" className="sr-only" />
-                                            <Label htmlFor="align-right" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer", textStyle.alignment === 'right' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}><AlignRight className="h-4 w-4" /></Label>
-                                        </div>
-                                    </RadioGroup>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 opacity-60">Highlight</Label>
-                                    <RadioGroup value={textStyle.background} onValueChange={(v: any) => setTextStyle({...textStyle, background: v})} className="flex gap-2">
-                                        <div className="flex-1">
-                                            <RadioGroupItem value="none" id="bg-none" className="sr-only" />
-                                            <Label htmlFor="bg-none" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-[8px] font-bold uppercase", textStyle.background === 'none' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>None</Label>
-                                        </div>
-                                        <div className="flex-1">
-                                            <RadioGroupItem value="translucent" id="bg-trans" className="sr-only" />
-                                            <Label htmlFor="bg-trans" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-[8px] font-bold uppercase", textStyle.background === 'translucent' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>Blur</Label>
-                                        </div>
-                                        <div className="flex-1">
-                                            <RadioGroupItem value="solid" id="bg-solid" className="sr-only" />
-                                            <Label htmlFor="bg-solid" className={cn("flex flex-col items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-[8px] font-bold uppercase", textStyle.background === 'solid' ? "bg-primary text-white border-primary shadow-lg" : "bg-muted/30 border-transparent")}>Solid</Label>
-                                        </div>
-                                    </RadioGroup>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="flex flex-col gap-6">
-                        <div className="flex items-center justify-between p-5 bg-muted/20 rounded-[1.5rem] border border-border/40">
-                             <div className="space-y-1">
-                                <Label htmlFor="cf-toggle" className="text-sm font-bold block cursor-pointer">Close Friends Only</Label>
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Share with selected circle</p>
-                            </div>
-                            <Switch id="cf-toggle" checked={statusVisibility === 'close-friends'} onCheckedChange={(c) => setStatusVisibility(c ? 'close-friends' : 'public')} className="data-[state=checked]:bg-green-500" />
-                        </div>
-                        
-                        <Button 
-                            onClick={handlePublishStatus} 
-                            disabled={isSubmitting || (activeUploaderTab === 'text' && !noteContent.trim()) || (activeUploaderTab === 'poll' && !pollQuestion.trim())} 
-                            className="rounded-full w-full h-16 shadow-2xl shadow-primary/30 font-bold uppercase tracking-widest text-sm bg-primary hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                            {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Send className="h-5 w-5 mr-2" />}
-                            Publish Transmission
-                        </Button>
-                    </div>
+              {/* Uploader Footer: Dual Option Posting */}
+              <div className="bg-muted/10 p-4 border-t border-border/40 flex flex-col gap-4">
+                  <div className="flex items-center justify-between gap-3">
+                      <Button 
+                          onClick={() => handlePublishStatus('public')}
+                          disabled={isSubmitting || (activeUploaderTab === 'text' && !noteContent.trim())}
+                          className="flex-1 rounded-2xl h-14 bg-background hover:bg-muted/50 border border-border/40 text-foreground font-bold uppercase tracking-widest text-xs gap-3 shadow-sm transition-all active:scale-95"
+                      >
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={user?.avatarUrl} />
+                          </Avatar>
+                          Your Status
+                      </Button>
+                      <Button 
+                          onClick={openCloseFriendsPicker}
+                          disabled={isSubmitting}
+                          className="flex-1 rounded-2xl h-14 bg-green-500 hover:bg-green-600 text-white font-bold uppercase tracking-widest text-xs gap-3 shadow-lg shadow-green-500/20 transition-all active:scale-95"
+                      >
+                          <div className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center">
+                            <Star className="h-3.5 w-3.5 fill-current" />
+                          </div>
+                          Close Friends
+                      </Button>
                   </div>
               </div>
           </DialogContent>
+      </Dialog>
+
+      {/* Close Friends Multi-Selection Box */}
+      <Dialog open={isCloseFriendsPickerOpen} onOpenChange={setIsCloseFriendsPickerOpen}>
+        <DialogContent className="sm:max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-3xl mx-auto w-[92vw]">
+          <DialogHeader className="p-6 bg-green-500/5 border-b border-green-500/10">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-green-500 text-white rounded-2xl shadow-lg">
+                <Star className="h-5 w-5 fill-current" />
+              </div>
+              <div>
+                <DialogTitle className="font-headline text-xl font-bold">Close Friends</DialogTitle>
+                <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Manage your inner circle</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <div className="p-6">
+            <ScrollArea className="h-64 pr-4 -mr-4">
+              {isLoadingFollowers ? (
+                <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-green-500" /></div>
+              ) : followers.length > 0 ? (
+                <div className="space-y-2">
+                  {followers.map(f => {
+                    const isSelected = user?.closeFriendIds?.includes(f.id);
+                    return (
+                      <div 
+                        key={f.id} 
+                        className="flex items-center gap-3 p-3 rounded-2xl hover:bg-muted/30 transition-all cursor-pointer group"
+                        onClick={() => handleToggleCF(f.id)}
+                      >
+                        <Checkbox 
+                          checked={isSelected} 
+                          onCheckedChange={() => handleToggleCF(f.id)}
+                          className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                        />
+                        <Avatar className="h-10 w-10 border shadow-sm">
+                          <AvatarImage src={f.avatarUrl} />
+                          <AvatarFallback>{f.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm truncate">@{f.username}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter truncate">{f.displayName}</p>
+                        </div>
+                        {isSelected && <Star className="h-3 w-3 text-green-500 fill-current animate-in zoom-in-50" />}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-20 text-muted-foreground italic text-xs">
+                  Follow people who follow you back to add them.
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+
+          <DialogFooter className="p-4 bg-muted/20 border-t">
+            <Button 
+                onClick={() => {
+                    setIsCloseFriendsPickerOpen(false);
+                    handlePublishStatus('close-friends');
+                }} 
+                className="w-full rounded-2xl h-14 bg-green-500 hover:bg-green-600 text-white font-bold uppercase tracking-widest text-sm shadow-xl shadow-green-500/20"
+            >
+                Post to Close Friends
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       <StatusViewer
