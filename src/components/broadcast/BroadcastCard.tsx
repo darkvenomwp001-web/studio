@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -19,7 +18,8 @@ import {
   Edit3,
   Loader2,
   Send,
-  X
+  X,
+  Save
 } from 'lucide-react';
 import { 
   DropdownMenu, 
@@ -232,7 +232,7 @@ export default function BroadcastCard({ broadcast, isOwner }: { broadcast: Broad
                     <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Transmission Feedback Channel</DialogDescription>
                 </DialogHeader>
                 <div className="p-6">
-                    <ThreadPostComments postId={broadcast.id} />
+                    <ThreadPostComments postId={broadcast.id} parentCollection="broadcasts" />
                 </div>
             </DialogContent>
 

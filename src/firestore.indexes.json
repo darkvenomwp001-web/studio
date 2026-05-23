@@ -84,7 +84,7 @@
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "isHidden", "order": "ASCENDING" },
-        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+        { "fieldPath": "expiresAt", "order": "DESCENDING" }
       ]
     },
     {
@@ -139,6 +139,14 @@
         }
       ]
     },
+     {
+      "collectionGroup": "feedPosts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "author.id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
     {
       "collectionGroup": "announcements",
       "queryScope": "COLLECTION",
@@ -164,18 +172,10 @@
       ]
     },
     {
-      "collectionGroup": "feedPosts",
+      "collectionGroup": "broadcasts",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "author.id", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "feedPosts",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "author.username", "order": "ASCENDING" },
+        { "fieldPath": "isPinned", "order": "DESCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     }

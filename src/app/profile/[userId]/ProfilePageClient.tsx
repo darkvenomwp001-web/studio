@@ -696,7 +696,6 @@ function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwn
                     <footer className="px-6 py-3 bg-muted/10 border-t border-border/10 flex items-center justify-between">
                       <div className="flex items-center gap-2 text-primary/40">
                         <Radio className="h-3 w-3" />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Signal Transmitted</span>
                       </div>
                     </footer>
                 </Card>
@@ -738,10 +737,10 @@ function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwn
             <AlertDialogTitle className="text-2xl font-headline font-bold">Delete this update?</AlertDialogTitle>
             <AlertDialogDescription className="text-sm leading-relaxed">This action is permanent and will remove the signal from your followers' feeds.</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="mt-6">
+          <AlertDialogFooter>
             <AlertDialogCancel className="rounded-full font-bold uppercase text-[10px] tracking-widest" disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteAnnouncement} className="bg-destructive hover:bg-destructive/90 rounded-full px-10 shadow-lg shadow-destructive/20 font-bold uppercase text-[10px] tracking-widest" disabled={isDeleting}>
-              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               Erase
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -997,7 +996,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
         <Tabs defaultValue="works" className="w-full">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6 md:gap-10 overflow-x-auto no-scrollbar">
             <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Stories</TabsTrigger>
-            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">About Me</TabsTrigger>
+            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Social</TabsTrigger>
             {showAnnouncementsTab && (
                 <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Updates</TabsTrigger>
             )}
@@ -1123,4 +1122,3 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     </div>
   );
 }
-

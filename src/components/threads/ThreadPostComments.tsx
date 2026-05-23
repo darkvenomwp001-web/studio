@@ -49,11 +49,12 @@ const OWNER_HANDLES = ['arnv'];
 interface ThreadCommentProps {
     comment: CommentType;
     postId: string;
+    parentCollection: string;
     onUpdate: (commentId: string, content: string) => Promise<void>;
     onDelete: (commentId: string) => Promise<void>;
 }
 
-function ThreadComment({ comment, postId, onUpdate, onDelete }: ThreadCommentProps) {
+function ThreadComment({ comment, postId, parentCollection, onUpdate, onDelete }: ThreadCommentProps) {
     const { user } = useAuth();
     const { toast } = useToast();
     const [isEditing, setIsEditing] = useState(false);
@@ -165,9 +166,10 @@ function ThreadComment({ comment, postId, onUpdate, onDelete }: ThreadCommentPro
 
 interface ThreadPostCommentsProps {
     postId: string;
+    parentCollection?: string;
 }
 
-export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) {
+export default function ThreadPostComments({ postId, parentCollection = 'feedPosts' }: ThreadPostCommentsProps) {
     const { user: currentUser, loading: authLoading } = useAuth();
     const [newComment, setNewComment] = useState('');
     const [comments, setComments] = useState<CommentType[]>([]);
@@ -182,7 +184,7 @@ export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) 
         }
         setIsLoadingComments(true);
         const commentsQuery = query(
-            collection(db, 'feedPosts', postId, 'comments'),
+            collection(db, parentCollection, postId, 'comments'),
             orderBy('timestamp', 'asc')
         );
 
@@ -198,7 +200,7 @@ export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) 
             }, 
             async (serverError) => {
                 const permissionError = new FirestorePermissionError({
-                    path: `feedPosts/${postId}/comments`,
+                    path: `${parentCollection}/${postId}/comments`,
                     operation: 'list',
                 } satisfies SecurityRuleContext);
                 errorEmitter.emit('permission-error', permissionError);
@@ -207,7 +209,7 @@ export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) 
         );
 
         return () => unsubscribe();
-    }, [postId, toast]);
+    }, [postId, parentCollection, toast]);
 
     const handleSubmitComment = async (e: FormEvent) => {
         e.preventDefault();
@@ -225,7 +227,7 @@ export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) 
             timestamp: serverTimestamp(),
         };
 
-        const postRef = doc(db, 'feedPosts', postId);
+        const postRef = doc(db, parentCollection, postId);
         const commentsRef = collection(postRef, 'comments');
         
         runTransaction(db, async (transaction) => {
@@ -243,7 +245,7 @@ export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) 
         })
         .catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({
-                path: `feedPosts/${postId}/comments`,
+                path: `${parentCollection}/${postId}/comments`,
                 operation: 'create',
                 requestResourceData: commentData,
             } satisfies SecurityRuleContext);
@@ -255,7 +257,7 @@ export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) 
     };
 
     const handleUpdateComment = async (commentId: string, content: string) => {
-        const commentRef = doc(db, 'feedPosts', postId, 'comments', commentId);
+        const commentRef = doc(db, parentCollection, postId, 'comments', commentId);
         updateDoc(commentRef, { content, updatedAt: serverTimestamp() })
             .catch(async (serverError) => {
                 const permissionError = new FirestorePermissionError({
@@ -268,8 +270,8 @@ export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) 
     };
 
     const handleDeleteComment = async (commentId: string) => {
-        const postRef = doc(db, 'feedPosts', postId);
-        const commentRef = doc(db, 'feedPosts', postId, 'comments', commentId);
+        const postRef = doc(db, parentCollection, postId);
+        const commentRef = doc(db, parentCollection, postId, 'comments', commentId);
 
         runTransaction(db, async (transaction) => {
             const postDoc = await transaction.get(postRef);
@@ -303,6 +305,7 @@ export default function ThreadPostComments({ postId }: ThreadPostCommentsProps) 
                                     key={comment.id} 
                                     comment={comment} 
                                     postId={postId}
+                                    parentCollection={parentCollection}
                                     onUpdate={handleUpdateComment}
                                     onDelete={handleDeleteComment}
                                 />
