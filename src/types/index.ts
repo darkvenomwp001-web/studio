@@ -44,6 +44,7 @@ export interface User {
   profileSongUrl?: string;
   profileSongNote?: string;
   writingStatus?: WritingStatus;
+  lifeTags?: string[]; // Added for Author favorites
   createdAt?: any;
   updatedAt?: any;
   dataAiHint?: string; 
@@ -288,6 +289,7 @@ export interface ThreadPost {
     storyTitle?: string;
     storyCoverUrl?: string;
     imageUrl?: string;
+    images?: { url: string; caption?: string }[]; // Added for multi-photo identity posts
     dataAiHint?: string;
     songUrl?: string;
     songLyricSnippet?: string;
@@ -298,7 +300,7 @@ export interface ThreadPost {
     repostCount?: number;
     isPinned?: boolean;
     isHidden?: boolean;
-    type: 'original' | 'repost';
+    type: 'original' | 'repost' | 'studio_journal' | 'identity_visual';
     originalPost?: {
       id: string;
       author: UserSummary;

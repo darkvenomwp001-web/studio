@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, FormEvent, useRef, ChangeEvent } from 'react';
@@ -18,7 +17,6 @@ import {
   Trash2, 
   Lock, 
   BookOpen,
-  Sparkles,
   PencilLine,
   Coffee,
   CloudRain,
@@ -29,22 +27,26 @@ import {
   Headphones,
   History,
   Trophy,
-  Calendar,
   PenTool,
   Quote,
   Music,
   ImagePlus,
-  FileText,
   X,
   Send,
   Edit,
   Save,
   Plus,
-  ChevronRight
+  ChevronRight,
+  Download,
+  Share2,
+  Repeat,
+  Tag,
+  Star,
+  Maximize2
 } from 'lucide-react';
-import Image from 'next/image';
-import Link from 'next/link';
-import type { Story, User as AppUser, Announcement, WritingStatus, ThreadPost } from '@/types';
+import NextImage from 'next/image';
+import Link from 'next/image';
+import type { Story, User as AppUser, Announcement, WritingStatus, ThreadPost, UserSummary } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -61,18 +63,26 @@ import {
   updateDoc,
   deleteDoc,
   limit,
-  Timestamp
+  Timestamp,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { formatDistanceToNow } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import ProfilePhotoGrid from '@/components/profile/ProfilePhotoGrid';
 import VerifiedBadge from '@/components/icons/VerifiedBadge';
+import ReactionButton from '@/components/threads/ReactionButton';
+import ThreadPostComments from '@/components/threads/ThreadPostComments';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 const OWNER_HANDLES = ['arnv'];
 
@@ -88,6 +98,422 @@ const WRITING_STATUS_MAP: Record<WritingStatus, { label: string; icon: any; colo
     brainstorming: { label: 'Brainstorming Arc', icon: Headphones, color: 'text-cyan-500' },
 };
 
+/**
+ * High-Fidelity Author Identity Hub
+ * Unified redesigned "About Author" tab
+ */
+function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [posts, setPosts] = useState<ThreadPost[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isPosting, setIsSubmitting] = useState(false);
+    
+    // Creator State
+    const [newEntryContent, setNewEntryContent] = useState('');
+    const [newLifeTags, setNewLifeTags] = useState<string[]>(profileUser.lifeTags || []);
+    const [tagInput, setTagInput] = useState("");
+    const [tempImages, setTempImages] = useState<{ file: File, preview: string, caption: string }[]>([]);
+    const imageInputRef = useRef<HTMLInputElement>(null);
+
+    // Full-Screen Viewer State
+    const [viewerOpen, setViewerOpen] = useState(false);
+    const [viewerImage, setViewerImage] = useState<{ url: string, caption?: string } | null>(null);
+
+    useEffect(() => {
+        setIsLoading(true);
+        const q = query(
+            collection(db, 'feedPosts'),
+            where('author.id', '==', profileUser.id),
+            where('type', 'in', ['studio_journal', 'identity_visual']),
+            orderBy('timestamp', 'desc')
+        );
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ThreadPost)));
+            setIsLoading(false);
+        });
+        return () => unsubscribe();
+    }, [profileUser.id]);
+
+    const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            const newTemps = files.map(file => ({
+                file,
+                preview: URL.createObjectURL(file),
+                caption: ''
+            }));
+            setTempImages(prev => [...prev, ...newTemps]);
+        }
+    };
+
+    const uploadToCloudinary = async (file: File): Promise<string> => {
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', uploadPreset!);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+        const data = await res.json();
+        return data.secure_url;
+    };
+
+    const handleSaveLifeTags = async () => {
+        if (!isOwnProfile || !user) return;
+        updateDoc(doc(db, 'users', user.id), { lifeTags: newLifeTags });
+    };
+
+    const handlePublishPost = async () => {
+        if (!user || (!newEntryContent.trim() && tempImages.length === 0)) return;
+        setIsSubmitting(true);
+        try {
+            const uploadedImages = await Promise.all(tempImages.map(async (img) => ({
+                url: await uploadToCloudinary(img.file),
+                caption: img.caption.trim()
+            })));
+
+            const postData = {
+                author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
+                content: newEntryContent.trim(),
+                images: uploadedImages,
+                type: 'identity_visual',
+                timestamp: serverTimestamp(),
+                reactionsCount: 0,
+                commentsCount: 0,
+                repostCount: 0
+            };
+
+            await addDoc(collection(db, 'feedPosts'), postData);
+            setNewEntryContent('');
+            setTempImages([]);
+            toast({ title: "Archived to Identity Feed" });
+        } catch (error) {
+            toast({ title: "Archive Failed", variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const downloadImage = async (url: string, name: string) => {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = name || 'D4RKV3NOM-Archive.jpg';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+            toast({ title: "Saved to Device" });
+        } catch (e) {
+            toast({ title: "Save Failed", variant: "destructive" });
+        }
+    };
+
+    return (
+        <div className="space-y-10 animate-in fade-in duration-700">
+            {/* Identity Manuscript Box */}
+            <Card className="rounded-[2.5rem] border-primary/10 bg-card/40 backdrop-blur-xl shadow-2xl overflow-hidden relative group">
+                <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
+                    <PenTool className="h-48 w-48 text-primary" />
+                </div>
+                <CardHeader className="p-8 pb-4">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <CardTitle className="text-sm font-bold uppercase tracking-[0.3em] flex items-center gap-2 text-primary">
+                                <PenTool className="h-4 w-4" /> Creative Pulse
+                            </CardTitle>
+                            <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Message from the Desk</CardDescription>
+                        </div>
+                        {isOwnProfile && (
+                            <Link href="/settings/profile">
+                                <Button variant="ghost" size="sm" className="rounded-full h-8 px-4 gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-primary/5 text-primary">
+                                    <Edit className="h-3 w-3" /> Refine Identity
+                                </Button>
+                            </Link>
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent className="px-8 pb-8 space-y-8">
+                    <p className="text-base md:text-lg leading-relaxed text-foreground/80 font-medium whitespace-pre-line italic">
+                        <Quote className="h-5 w-5 text-primary/20 -scale-x-100 inline mr-2 mb-1" />
+                        {profileUser.bio || "This node has not emitted an identity signal yet."}
+                    </p>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-1">
+                            <Tag className="h-3 w-3" /> Life Nodes (Favorites)
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {profileUser.lifeTags?.map((tag, i) => (
+                                <Badge key={i} variant="outline" className="rounded-full px-4 h-8 bg-muted/20 border-primary/20 text-primary font-bold text-[10px] uppercase tracking-widest">
+                                    {tag}
+                                </Badge>
+                            ))}
+                            {(!profileUser.lifeTags || profileUser.lifeTags.length === 0) && (
+                                <span className="text-[10px] italic text-muted-foreground/40 px-1">No life nodes archived yet.</span>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Identity Visual Creator */}
+            {isOwnProfile && (
+                <Card className="rounded-[2.5rem] border-primary/5 bg-primary/5 shadow-inner">
+                    <CardContent className="p-6 space-y-6">
+                        <div className="flex gap-4">
+                            <Avatar className="h-12 w-12 border-2 border-background">
+                                <AvatarImage src={user?.avatarUrl} />
+                                <AvatarFallback>ME</AvatarFallback>
+                            </Avatar>
+                            <Textarea 
+                                value={newEntryContent}
+                                onChange={e => setNewEntryContent(e.target.value)}
+                                placeholder="What visual nodes are you archiving today?"
+                                className="bg-background/40 border-none shadow-inner rounded-2xl resize-none min-h-[100px] text-base"
+                                disabled={isPosting}
+                            />
+                        </div>
+
+                        {tempImages.length > 0 && (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-in zoom-in-95 duration-500">
+                                {tempImages.map((img, i) => (
+                                    <div key={i} className="space-y-2 group relative">
+                                        <div className="relative aspect-square rounded-2xl overflow-hidden border border-border/40 shadow-lg">
+                                            <NextImage src={img.preview} alt="" fill className="object-cover" />
+                                            <Button variant="destructive" size="icon" className="absolute top-2 right-2 rounded-full h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setTempImages(prev => prev.filter((_, idx) => idx !== i))}>
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                        <Input 
+                                            placeholder="Add caption..." 
+                                            value={img.caption} 
+                                            onChange={e => {
+                                                const newImgs = [...tempImages];
+                                                newImgs[i].caption = e.target.value;
+                                                setTempImages(newImgs);
+                                            }}
+                                            className="h-8 rounded-xl text-[10px] font-bold uppercase tracking-tight bg-background/50"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="flex justify-between items-center pt-2">
+                            <Button variant="ghost" size="icon" className="rounded-full bg-background/50 h-11 w-11 shadow-sm text-primary hover:bg-primary/10" onClick={() => imageInputRef.current?.click()} disabled={isPosting}>
+                                <ImagePlus className="h-5 w-5" />
+                            </Button>
+                            <input type="file" ref={imageInputRef} className="hidden" accept="image/*" multiple onChange={handleFileSelect} />
+                            <Button onClick={handlePublishStatus} disabled={isPosting || (!newEntryContent.trim() && tempImages.length === 0)} className="rounded-full px-10 h-11 font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                                {isPosting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                                Sync Archive
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Visual Identity Feed (Instagram/Facebook Refined) */}
+            <div className="max-w-xl mx-auto space-y-10">
+                {isLoading ? (
+                    <div className="text-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" /></div>
+                ) : posts.length > 0 ? (
+                    posts.map(post => (
+                        <Card key={post.id} className="rounded-[2.5rem] overflow-hidden border-none shadow-lg bg-card/60 backdrop-blur-sm group">
+                            <CardHeader className="p-5 flex flex-row items-center justify-between space-y-0">
+                                <div className="flex items-center gap-3">
+                                    <Avatar className="h-10 w-10 border border-border/20">
+                                        <AvatarImage src={post.author.avatarUrl} />
+                                        <AvatarFallback>OW</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <h4 className="font-bold text-sm">@{post.author.username}</h4>
+                                        <p className="text-[9px] font-bold uppercase tracking-tighter text-muted-foreground/60">
+                                            {post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'now'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="rounded-xl">
+                                        <DropdownMenuItem className="gap-2"><Share2 className="h-4 w-4" /> Share to Mutuals</DropdownMenuItem>
+                                        {isOwnProfile && (
+                                            <DropdownMenuItem className="text-destructive gap-2" onClick={() => deleteDoc(doc(db, 'feedPosts', post.id))}><Trash2 className="h-4 w-4" /> Delete Visual</DropdownMenuItem>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </CardHeader>
+
+                            <CardContent className="p-0 space-y-4">
+                                {post.content && (
+                                    <div className="px-6 pb-2">
+                                        <p className="text-sm md:text-base leading-relaxed text-foreground/80">{post.content}</p>
+                                    </div>
+                                )}
+
+                                {post.images && post.images.length > 0 ? (
+                                    <div className="relative">
+                                        <Carousel className="w-full">
+                                            <CarouselContent>
+                                                {post.images.map((img, idx) => (
+                                                    <CarouselItem key={idx}>
+                                                        <div className="relative aspect-square w-full cursor-pointer group/img" onClick={() => { setViewerImage(img); setViewerOpen(true); }}>
+                                                            <NextImage src={img.url} alt="" fill className="object-cover transition-transform duration-700 group-hover/img:scale-105" />
+                                                            {img.caption && (
+                                                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent text-white">
+                                                                    <p className="text-sm font-medium drop-shadow-md">{img.caption}</p>
+                                                                </div>
+                                                            )}
+                                                            <div className="absolute top-4 right-4 p-2 bg-black/20 backdrop-blur-md rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity">
+                                                                <Maximize2 className="h-5 w-5 text-white" />
+                                                            </div>
+                                                        </div>
+                                                    </CarouselItem>
+                                                ))}
+                                            </CarouselContent>
+                                            {post.images.length > 1 && (
+                                                <>
+                                                    <CarouselPrevious className="left-4 bg-black/20 text-white border-none h-10 w-10" />
+                                                    <CarouselNext className="right-4 bg-black/20 text-white border-none h-10 w-10" />
+                                                </>
+                                            )}
+                                        </Carousel>
+                                        {post.images.length > 1 && (
+                                            <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-xl px-3 py-1 rounded-full text-[9px] font-black text-white uppercase tracking-widest z-10">
+                                                Visual Archive: 1/{post.images.length}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : post.imageUrl && (
+                                    <div className="relative aspect-square w-full cursor-pointer group/img" onClick={() => { setViewerImage({ url: post.imageUrl! }); setViewerOpen(true); }}>
+                                        <NextImage src={post.imageUrl} alt="" fill className="object-cover transition-transform duration-700 group-hover/img:scale-105" />
+                                        <div className="absolute top-4 right-4 p-2 bg-black/20 backdrop-blur-md rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity">
+                                            <Maximize2 className="h-5 w-5 text-white" />
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+
+                            <CardFooter className="p-4 bg-muted/10 border-t border-border/10 flex items-center justify-between">
+                                <div className="flex items-center gap-1">
+                                    <ReactionButton postId={post.id} parentCollection="feedPosts" initialReactionsCount={post.reactionsCount || 0} reactionCounts={post.reactionCounts} />
+                                    
+                                    <Dialog>
+                                        <DialogTrigger asChild>
+                                            <Button variant="ghost" size="sm" className="rounded-full h-9 px-4 gap-2 font-bold text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary transition-all">
+                                                <MessageSquare className="h-4 w-4" />
+                                                <span>{post.commentsCount || 0}</span>
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
+                                            <DialogHeader className="p-6 bg-muted/30 border-b">
+                                                <DialogTitle className="text-xl font-headline font-bold">Thoughts & Echoes</DialogTitle>
+                                                <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Community feedback on this visual node</DialogDescription>
+                                            </DialogHeader>
+                                            <div className="p-6 h-[60vh]">
+                                                <ThreadPostComments postId={post.id} />
+                                            </div>
+                                        </DialogContent>
+                                    </Dialog>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent" onClick={() => handleRepost()}>
+                                        <Repeat className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => {
+                                        const url = post.images?.[0]?.url || post.imageUrl;
+                                        if(url) downloadImage(url, `D4RKV3NOM-${post.id}.jpg`);
+                                    }}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </CardFooter>
+                        </Card>
+                    ))
+                ) : (
+                    <div className="text-center py-24 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
+                        The visual archives for this creator are currently sealed.
+                    </div>
+                )}
+            </div>
+
+            {/* Visual Archive Full-Screen Viewer */}
+            <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+                <DialogContent className="max-w-screen-xl h-[95vh] p-0 border-none bg-black/95 backdrop-blur-3xl rounded-none shadow-none flex flex-col md:flex-row overflow-hidden">
+                    <div className="flex-1 relative bg-black flex items-center justify-center p-4">
+                        {viewerImage && (
+                            <div className="relative w-full h-full">
+                                <NextImage 
+                                    src={viewerImage.url} 
+                                    alt="Archive" 
+                                    fill 
+                                    className="object-contain animate-in fade-in zoom-in-95 duration-500" 
+                                />
+                            </div>
+                        )}
+                        <Button variant="ghost" size="icon" className="absolute top-6 left-6 text-white bg-white/10 rounded-full h-12 w-12" onClick={() => setViewerOpen(false)}>
+                            <X className="h-6 w-6" />
+                        </Button>
+                    </div>
+
+                    <div className="w-full md:w-[400px] bg-background border-l border-border/40 flex flex-col h-full">
+                        <div className="p-6 border-b flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10 border border-border/20">
+                                    <AvatarImage src={profileUser.avatarUrl} />
+                                    <AvatarFallback>OW</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <h4 className="font-bold text-sm">@{profileUser.username}</h4>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Identity Post</p>
+                                </div>
+                            </div>
+                            <Button variant="ghost" size="icon" className="rounded-full" onClick={() => viewerImage && downloadImage(viewerImage.url, 'Archive-Full.jpg')}>
+                                <Download className="h-5 w-5" />
+                            </Button>
+                        </div>
+
+                        <ScrollArea className="flex-1 p-6">
+                            <div className="space-y-8">
+                                {viewerImage?.caption && (
+                                    <div className="p-5 bg-muted/20 rounded-2xl border border-dashed border-border/40">
+                                        <p className="text-sm font-medium leading-relaxed italic text-foreground/80">
+                                            <Quote className="h-4 w-4 text-primary/20 inline mr-2 mb-1" />
+                                            {viewerImage.caption}
+                                        </p>
+                                    </div>
+                                )}
+                                <div className="space-y-4">
+                                    <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 ml-1">Community Discussion</h5>
+                                    {/* Using a simplified discussion node in viewer */}
+                                    <p className="text-xs italic text-center py-10 opacity-40">Contextual discussion available on post view.</p>
+                                </div>
+                            </div>
+                        </ScrollArea>
+
+                        <div className="p-6 border-t bg-muted/10 flex items-center justify-between">
+                            <div className="flex gap-2">
+                                <Button variant="ghost" size="sm" className="rounded-full h-10 w-10 text-rose-500 bg-rose-500/10"><Heart className="h-5 w-5 fill-current" /></Button>
+                                <Button variant="ghost" size="sm" className="rounded-full h-10 w-10 text-primary bg-primary/10"><MessageSquare className="h-5 w-5" /></Button>
+                            </div>
+                            <Button variant="ghost" size="sm" className="rounded-full h-10 w-10 text-accent bg-accent/10"><Share2 className="h-5 w-5" /></Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
 function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id' | 'title' | 'coverImageUrl' | 'dataAiHint' | 'genre' | 'status' | 'visibility'>, isPrivate?: boolean }) {
   const editLink = `/write/edit-details?storyId=${story.id}`;
   const viewLink = `/stories/${story.id}`;
@@ -99,7 +525,7 @@ function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id
             "aspect-[2/3] relative rounded-md overflow-hidden shadow-sm transition-all bg-muted cursor-pointer mb-2",
              isPrivate && "opacity-70" 
         )}>
-          <Image
+          <NextImage
             src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
             alt={story.title}
             fill
@@ -120,161 +546,6 @@ function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id
       <p className="text-[10px] text-muted-foreground truncate">{story.genre}</p>
     </div>
   );
-}
-
-function StudioJournal({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
-    const { user } = useAuth();
-    const { toast } = useToast();
-    const [journalEntries, setJournalEntries] = useState<ThreadPost[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isPosting, setIsPosting] = useState(false);
-    const [newEntry, setNewEntry] = useState('');
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const imageInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        setIsLoading(true);
-        const q = query(
-            collection(db, 'feedPosts'),
-            where('author.id', '==', profileUser.id),
-            where('type', '==', 'studio_journal'),
-            orderBy('timestamp', 'desc')
-        );
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setJournalEntries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ThreadPost)));
-            setIsLoading(false);
-        });
-        return () => unsubscribe();
-    }, [profileUser.id]);
-
-    const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setImageFile(file);
-            const reader = new FileReader();
-            reader.onload = (event) => setImagePreview(event.target?.result as string);
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const uploadFile = async (file: File): Promise<string> => {
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', uploadPreset!);
-        const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
-        const data = await res.json();
-        return data.secure_url;
-    };
-
-    const handlePost = async () => {
-        if (!user || !newEntry.trim()) return;
-        setIsPosting(true);
-        try {
-            let imageUrl = '';
-            if (imageFile) {
-                imageUrl = await uploadFile(imageFile);
-            }
-            const postData = {
-                author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl },
-                content: newEntry.trim(),
-                imageUrl,
-                type: 'studio_journal',
-                timestamp: serverTimestamp(),
-                reactionsCount: 0,
-                commentsCount: 0
-            };
-            await addDoc(collection(db, 'feedPosts'), postData);
-            setNewEntry('');
-            setImageFile(null);
-            setImagePreview(null);
-            toast({ title: "Logged to Journal" });
-        } catch (error) {
-            toast({ title: "Log Failed", variant: "destructive" });
-        } finally {
-            setIsPosting(false);
-        }
-    };
-
-    const handleDelete = (id: string) => {
-        deleteDoc(doc(db, 'feedPosts', id)).then(() => toast({ title: "Entry Erased" }));
-    };
-
-    return (
-        <div className="space-y-6">
-            {isOwnProfile && (
-                <Card className="rounded-[2rem] border-primary/10 bg-primary/5 shadow-sm overflow-hidden">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
-                            <Plus className="h-4 w-4 text-primary" /> Daily Log Entry
-                        </CardTitle>
-                        <CardDescription className="text-[10px] uppercase font-bold tracking-tight">Record your creative pulse</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <Textarea 
-                            value={newEntry}
-                            onChange={e => setNewEntry(e.target.value)}
-                            placeholder="What's happening in the studio today?"
-                            className="bg-background/50 border-none shadow-inner rounded-2xl resize-none font-medium min-h-[100px]"
-                        />
-                        {imagePreview && (
-                            <div className="relative aspect-video rounded-2xl overflow-hidden border border-border/40 shadow-lg group">
-                                <Image src={imagePreview} alt="Preview" fill className="object-cover" />
-                                <Button variant="destructive" size="icon" className="absolute top-2 right-2 rounded-full h-8 w-8" onClick={() => { setImageFile(null); setImagePreview(null); }}>
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        )}
-                        <input type="file" ref={imageInputRef} className="hidden" accept="image/*" onChange={handleImageSelect} />
-                    </CardContent>
-                    <CardFooter className="bg-muted/20 p-4 border-t border-border/10 flex justify-between">
-                        <Button variant="ghost" size="icon" className="rounded-full bg-background/50 hover:bg-background shadow-sm" onClick={() => imageInputRef.current?.click()}>
-                            <ImagePlus className="h-4 w-4 text-primary" />
-                        </Button>
-                        <Button onClick={handlePost} disabled={isPosting || !newEntry.trim()} className="rounded-full px-6 font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">
-                            {isPosting ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Send className="h-3 w-3 mr-2" />}
-                            Sync Log
-                        </Button>
-                    </CardFooter>
-                </Card>
-            )}
-
-            <div className="space-y-4">
-                {isLoading ? (
-                    <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
-                ) : journalEntries.length > 0 ? (
-                    journalEntries.map(entry => (
-                        <Card key={entry.id} className="rounded-[2.5rem] border-none shadow-sm bg-muted/10 group">
-                            <CardContent className="p-6 space-y-4">
-                                <div className="flex justify-between items-start">
-                                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-primary/60 bg-primary/5 px-3 py-1 rounded-full border border-primary/10">
-                                        {entry.timestamp?.toDate ? formatDistanceToNow(entry.timestamp.toDate(), { addSuffix: true }) : 'now'}
-                                    </span>
-                                    {isOwnProfile && (
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDelete(entry.id)}>
-                                            <Trash2 className="h-4 w-4 text-destructive/60" />
-                                        </Button>
-                                    )}
-                                </div>
-                                <p className="text-sm md:text-base leading-relaxed text-foreground/80 whitespace-pre-line">{entry.content}</p>
-                                {entry.imageUrl && (
-                                    <div className="relative aspect-video rounded-2xl overflow-hidden border border-border/20 shadow-xl">
-                                        <Image src={entry.imageUrl} alt="Journal Photo" fill className="object-cover" />
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    ))
-                ) : !isOwnProfile && (
-                    <div className="text-center py-20 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
-                        The journal archives are empty.
-                    </div>
-                )}
-            </div>
-        </div>
-    );
 }
 
 function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
@@ -416,16 +687,16 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
             <Card key={post.id}>
                 <CardContent className="p-4">
                 <div className="flex gap-4">
-                    <Link href={`/profile/${post.author.id}`}>
+                    <NextImage href={`/profile/${post.author.id}`}>
                         <Avatar className="h-10 w-10">
                             <AvatarImage src={post.author.avatarUrl} />
                             <AvatarFallback>{post.author.username?.charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                    </Link>
+                    </NextImage>
                     <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2 truncate">
-                            <Link href={`/profile/${post.author.id}`} className="font-bold text-sm hover:underline truncate">@{post.author.username}</Link>
+                            <NextImage href={`/profile/${post.author.id}`} className="font-bold text-sm hover:underline truncate">@{post.author.username}</NextImage>
                             {OWNER_HANDLES.includes(post.author.username) && <VerifiedBadge className="h-3 w-3" />}
                         </div>
                         {canManage && (
@@ -607,7 +878,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
       {/* High-Fidelity Cover Photo Container */}
       <div className="relative w-full aspect-[21/9] md:aspect-[4/1] bg-muted overflow-hidden">
         {profileUser.coverImageUrl ? (
-            <Image 
+            <NextImage 
                 src={profileUser.coverImageUrl} 
                 alt="Profile Cover" 
                 fill 
@@ -639,12 +910,12 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                   {/* Settings Button - Positioned top-right relative to info container */}
                   {isOwnProfile && (
                       <div className="absolute top-1 sm:top-2 right-0 z-20">
-                        <Link href="/settings" passHref>
+                        <NextImage href="/settings" passHref>
                             <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 bg-background/70 h-9 sm:h-10 px-3 sm:px-4">
                                 <Settings className="h-4 w-4" />
                                 <span className="hidden sm:inline">Settings</span>
                             </Button>
-                        </Link>
+                        </NextImage>
                       </div>
                   )}
                   <div className="space-y-0.5 sm:space-y-1 mb-1 sm:mb-2 pr-10 sm:pr-0">
@@ -663,14 +934,14 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold mb-2 sm:mb-3">
-                      <Link href={`/profile/${userId}/connections?tab=followers`} className="hover:text-primary transition-colors flex items-center gap-1 sm:gap-1.5">
+                      <NextImage href={`/profile/${userId}/connections?tab=followers`} className="hover:text-primary transition-colors flex items-center gap-1 sm:gap-1.5">
                         <span className="font-bold">{liveFollowersCount ?? '...'}</span> 
                         <span className="text-muted-foreground font-medium uppercase text-[8px] sm:text-[10px] tracking-widest">Followers</span>
-                      </Link>
-                      <Link href={`/profile/${userId}/connections?tab=following`} className="hover:text-primary transition-colors flex items-center gap-1 sm:gap-1.5">
+                      </NextImage>
+                      <NextImage href={`/profile/${userId}/connections?tab=following`} className="hover:text-primary transition-colors flex items-center gap-1 sm:gap-1.5">
                         <span className="font-bold">{profileUser.followingCount || 0}</span>
                         <span className="text-muted-foreground font-medium uppercase text-[8px] sm:text-[10px] tracking-widest">Following</span>
-                      </Link>
+                      </NextImage>
                   </div>
 
                   {profileUser.bio && !isEditingBio && <p className="text-muted-foreground text-xs sm:text-sm max-w-2xl leading-relaxed line-clamp-2">{profileUser.bio}</p>}
@@ -681,11 +952,11 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                             {followActionLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : isFollowing ? <UserX className="mr-1.5 h-4 w-4" /> : <UserPlus className="mr-1.5 h-4 w-4" />}
                             {isFollowing ? 'Unfollow' : 'Follow'}
                         </Button>
-                        <Link href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`} passHref>
+                        <NextImage href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`} passHref>
                             <Button variant="outline" className="rounded-full px-4 sm:px-8 gap-2 border-border/60 h-10 sm:h-11 text-xs sm:text-sm">
                                 <MessageSquare className="h-4 w-4" /> Message
                             </Button>
-                        </Link>
+                        </NextImage>
                     </div>
                   )}
               </div>
@@ -696,7 +967,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
         <Tabs defaultValue="works" className="w-full">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6 md:gap-10">
             <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Works</TabsTrigger>
-            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Feed</TabsTrigger>
+            <TabsTrigger value="about" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">About Author</TabsTrigger>
             {showAnnouncementsTab && (
                 <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Updates</TabsTrigger>
             )}
@@ -705,13 +976,13 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
           <TabsContent value="works" className="mt-8 space-y-12">
             {publishedWorks.length > 0 && (
               <div>
-                <Link href="/write" className="inline-block group">
+                <NextImage href="/write" className="inline-block group">
                   <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight group-hover:text-primary transition-colors cursor-pointer">
                     <BookOpen className="h-5 w-5 text-primary" /> 
                     Published Works
                     <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all" />
                   </h2>
-                </Link>
+                </NextImage>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                     {publishedWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} /> ))}
                 </div>
@@ -736,134 +1007,8 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
             )}
           </TabsContent>
 
-          <TabsContent value="feed" className="mt-8">
-            <Tabs defaultValue="about" className="w-full">
-                <div className="flex justify-center mb-8">
-                    <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 h-10">
-                        <TabsTrigger value="about" className="rounded-full text-[10px] font-bold uppercase tracking-widest px-6 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm">About Author</TabsTrigger>
-                        <TabsTrigger value="gallery" className="rounded-full text-[10px] font-bold uppercase tracking-widest px-6 h-8 data-[state=active]:bg-background data-[state=active]:shadow-sm">Archive Feed</TabsTrigger>
-                    </TabsList>
-                </div>
-
-                <TabsContent value="about" className="space-y-8 animate-in fade-in duration-500">
-                    <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-                        <Card className="rounded-[2.5rem] border-none shadow-sm bg-muted/5 md:col-span-2">
-                            <CardHeader className="flex flex-row items-center justify-between">
-                                <div>
-                                    <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
-                                        <PenTool className="h-4 w-4 text-primary" /> Signal from the Desk
-                                    </CardTitle>
-                                    <CardDescription className="text-[10px] uppercase font-bold tracking-widest opacity-60">Verified Identity Node</CardDescription>
-                                </div>
-                                {isOwnProfile && (
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="h-8 px-3 gap-2 rounded-full font-bold text-[10px] uppercase tracking-widest text-primary hover:bg-primary/5"
-                                        onClick={() => setIsEditingBio(!isEditingBio)}
-                                    >
-                                        {isEditingBio ? <X className="h-3 w-3" /> : <Edit className="h-3 w-3" />}
-                                        {isEditingBio ? 'Discard' : 'Edit Identity'}
-                                    </Button>
-                                )}
-                            </CardHeader>
-                            <CardContent>
-                                {isEditingBio ? (
-                                    <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
-                                        <Textarea 
-                                            value={editedBio}
-                                            onChange={e => setEditedBio(e.target.value)}
-                                            placeholder="Update your full creative identity..."
-                                            className="min-h-[150px] bg-background border-none shadow-inner rounded-2xl resize-none text-base p-5 focus-visible:ring-primary/20"
-                                        />
-                                        <div className="flex justify-end">
-                                            <Button onClick={handleSaveBio} disabled={isSavingBio || editedBio === profileUser.bio} className="rounded-full px-8 h-10 font-bold uppercase text-[10px] tracking-widest">
-                                                {isSavingBio ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Save className="h-3 w-3 mr-2" />}
-                                                Sync Transmission
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <p className="text-sm md:text-base leading-relaxed text-foreground/80 whitespace-pre-line px-1">
-                                        {profileUser.bio || "This node has not emitted a clear identity signal yet."}
-                                    </p>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        <Card className="rounded-[2rem] border-none shadow-sm bg-muted/10">
-                            <CardHeader>
-                                <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
-                                    <History className="h-4 w-4 text-primary" /> Author Genesis
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex items-center justify-between py-2 border-b border-border/40">
-                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Node Access Since</span>
-                                    <span className="text-sm font-bold">{profileUser.createdAt ? formatDistanceToNow(profileUser.createdAt.toDate(), { addSuffix: true }) : 'Beginning of time'}</span>
-                                </div>
-                                <div className="flex items-center justify-between py-2">
-                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Identity Level</span>
-                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 gap-2 h-7 rounded-full font-bold">
-                                        <Trophy className="h-3 w-3" /> LVL {profileUser.level || 1}
-                                    </Badge>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="rounded-[2rem] border-none shadow-sm bg-muted/10">
-                            <CardHeader>
-                                <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
-                                    <PencilLine className="h-4 w-4 text-primary" /> Writing Rituals
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex items-center justify-between py-2 border-b border-border/40">
-                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Current Protocol</span>
-                                    <span className="text-xs font-bold uppercase tracking-widest">{writingStatus?.label || 'Deep Study'}</span>
-                                </div>
-                                <div className="flex items-center justify-between py-2">
-                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Manuscript Tally</span>
-                                    <span className="text-sm font-bold">{publishedWorks.length} Public Entries</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {profileUser.profileSongUrl && (
-                            <Card className="rounded-[2rem] border-none shadow-sm bg-muted/10 md:col-span-2 overflow-hidden">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
-                                        <Music className="h-4 w-4 text-primary" /> Atmospheric Frequency
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    <SpotifyPlayer trackUrl={profileUser.profileSongUrl} />
-                                    {profileUser.profileSongNote && (
-                                        <div className="p-6 bg-background/40 border-t border-border/20">
-                                            <p className="text-sm italic text-muted-foreground leading-relaxed">
-                                                <Quote className="h-3 w-3 inline mr-2 opacity-30" />
-                                                {profileUser.profileSongNote}
-                                            </p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        <div className="md:col-span-2 space-y-6">
-                            <div className="flex items-center gap-2 px-2">
-                                <div className="h-1 w-6 bg-primary rounded-full" />
-                                <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground/60">Studio Journal</h3>
-                            </div>
-                            <StudioJournal profileUser={profileUser} isOwnProfile={isOwnProfile} />
-                        </div>
-                    </div>
-                </TabsContent>
-
-                <TabsContent value="gallery" className="animate-in fade-in duration-500">
-                    <ProfilePhotoGrid userId={profileUser.id} isOwnProfile={isOwnProfile} />
-                </TabsContent>
-            </Tabs>
+          <TabsContent value="about" className="mt-8">
+            <AuthorIdentityHub profileUser={profileUser} isOwnProfile={isOwnProfile} />
           </TabsContent>
 
           {showAnnouncementsTab && (
