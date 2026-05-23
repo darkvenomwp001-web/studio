@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useCallback, ReactNode } from 'react';
+import { toast } from '@/hooks/use-toast';
 
 export type DynamicIslandType = 'notification' | 'success' | 'info' | 'error';
 
@@ -20,21 +21,25 @@ interface DynamicIslandContextType {
 
 const DynamicIslandContext = createContext<DynamicIslandContextType | undefined>(undefined);
 
+/**
+ * DynamicIslandProvider now bridges into the global Toast system.
+ * This ensures all popups use the unified high-fidelity Dynamic Island design.
+ */
 export function DynamicIslandProvider({ children }: { children: ReactNode }) {
-  const [activeMessage, setActiveMessage] = useState<DynamicIslandMessage | null>(null);
-
   const showIsland = useCallback((message: Omit<DynamicIslandMessage, 'id'>) => {
-    const id = Math.random().toString(36).substring(7);
-    setActiveMessage({ ...message, id });
-    
-    // Smooth auto-dismiss protocol
-    setTimeout(() => {
-      setActiveMessage(prev => prev?.id === id ? null : prev);
-    }, 4500);
+    toast({
+      title: message.title,
+      description: message.description,
+      // @ts-ignore - passing extra props to our enhanced Toaster
+      image: message.image,
+      icon: message.icon,
+      type: message.type,
+      variant: message.type === 'error' ? 'destructive' : 'default',
+    });
   }, []);
 
   return (
-    <DynamicIslandContext.Provider value={{ showIsland, activeMessage }}>
+    <DynamicIslandContext.Provider value={{ showIsland, activeMessage: null }}>
       {children}
     </DynamicIslandContext.Provider>
   );

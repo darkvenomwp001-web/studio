@@ -12,7 +12,6 @@ import { ScrollToTop } from '@/components/layout/ScrollToTop';
 import { ThemeProvider } from '@/components/theme-provider';
 import { StoryPreviewProvider } from '@/context/StoryPreviewProvider';
 import { DynamicIslandProvider } from '@/context/DynamicIslandContext';
-import DynamicIsland from '@/components/layout/DynamicIsland';
 import StoryPreviewDrawer from '@/components/story/StoryPreviewDrawer';
 import FirebaseErrorListener from '@/components/FirebaseErrorListener';
 import AppearanceManager from '@/components/layout/AppearanceManager';
@@ -50,7 +49,7 @@ export default function RootLayout({
                   <StoryPreviewProvider>
                     <FirebaseErrorListener />
                     <ScrollToTop />
-                    <DynamicIsland />
+                    {/* DynamicIsland component removed in favor of unified top-center Toaster */}
                     <div className="relative flex min-h-screen flex-col overflow-x-hidden max-w-[100vw]">
                       <Suspense fallback={<div className="flex justify-center items-center h-screen bg-background"><Loader2 className="animate-spin text-primary" /></div>}>
                         {children}
