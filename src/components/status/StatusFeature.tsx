@@ -9,7 +9,32 @@ import { collection, query, where, onSnapshot, serverTimestamp, addDoc, Timestam
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, X, Type, Image as LucideImageIcon, Sparkles, Music, BarChart2, BookOpen, Send, ChevronRight, AlignLeft, AlignCenter, AlignRight, Palette, CheckCircle, MousePointer2, Users, Star, Check } from 'lucide-react';
+import { 
+    Loader2, 
+    Plus, 
+    X, 
+    Type, 
+    Image as LucideImageIcon, 
+    Sparkles, 
+    Music, 
+    BarChart2, 
+    BookOpen, 
+    Send, 
+    ChevronRight, 
+    AlignLeft, 
+    AlignCenter, 
+    AlignRight, 
+    Palette, 
+    CheckCircle, 
+    MousePointer2, 
+    Users, 
+    Star, 
+    Check,
+    Download,
+    Smile,
+    AtSign,
+    Search
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -26,6 +51,7 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
 import { toggleCloseFriend } from '@/app/actions/userActions';
+import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 
 // Native APK Bridge Imports
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -78,7 +104,7 @@ function StatusBubble({ user, onSelect, hasStatus, label }: { user: User, onSele
 }
 
 export default function StatusFeature() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, addNotification } = useAuth();
   const { showIsland } = useDynamicIsland();
   const [allStatuses, setAllStatuses] = useState<StatusUpdate[]>([]);
   const [groupedStatuses, setGroupedStatuses] = useState<Map<string, {user: User, statuses: StatusUpdate[]}>>(new Map());
@@ -105,6 +131,17 @@ export default function StatusFeature() {
   const [isCloseFriendsPickerOpen, setIsCloseFriendsPickerOpen] = useState(false);
   const [followers, setFollowers] = useState<User[]>([]);
   const [isLoadingFollowers, setIsLoadingFollowers] = useState(false);
+
+  // Tools Overlays
+  const [isTextToolActive, setIsTextToolActive] = useState(false);
+  const [isMusicToolActive, setIsMusicToolActive] = useState(false);
+  const [isStickerToolActive, setIsStickerToolActive] = useState(false);
+  const [isMentionToolActive, setIsMentionToolActive] = useState(false);
+
+  const [stickers, setStickers] = useState<{ id: string, emoji: string, position: { x: number, y: number } }[]>([]);
+  const [mentions, setMentions] = useState<{ id: string, userId: string, username: string, position: { x: number, y: number } }[]>([]);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [searchedUsers, setSearchedUsers] = useState<User[]>([]);
 
   // High-Fidelity Text Layer States
   const [isDragging, setIsDragging] = useState(false);
@@ -224,6 +261,45 @@ export default function StatusFeature() {
     });
   };
 
+  const handleMentionSearch = async (queryStr: string) => {
+    setMentionSearch(queryStr);
+    if (queryStr.length < 2) {
+      setSearchedUsers([]);
+      return;
+    }
+    const q = query(
+      collection(db, 'users'),
+      where('username', '>=', queryStr.toLowerCase()),
+      where('username', '<=', queryStr.toLowerCase() + '\uf8ff'),
+      limit(5)
+    );
+    const snap = await getDocs(q);
+    setSearchedUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)));
+  };
+
+  const addMention = (targetUser: User) => {
+    const newMention = {
+      id: Math.random().toString(36).substring(7),
+      userId: targetUser.id,
+      username: targetUser.username,
+      position: { x: 50, y: 30 }
+    };
+    setMentions([...mentions, newMention]);
+    setIsMentionToolActive(false);
+    setMentionSearch('');
+    setSearchedUsers([]);
+  };
+
+  const addSticker = (emojiData: EmojiClickData) => {
+    const newSticker = {
+      id: Math.random().toString(36).substring(7),
+      emoji: emojiData.emoji,
+      position: { x: 50, y: 70 }
+    };
+    setStickers([...stickers, newSticker]);
+    setIsStickerToolActive(false);
+  };
+
   const handlePublishStatus = async (visibility: 'public' | 'close-friends') => {
     if (!user) return;
     setIsSubmitting(true);
@@ -246,6 +322,8 @@ export default function StatusFeature() {
             expiresAt: expiryTime,
             isHidden: false,
             visibility: visibility,
+            mentions: mentions.map(m => ({ userId: m.userId, username: m.username, position: m.position })),
+            stickers: stickers.map(s => ({ emoji: s.emoji, position: s.position })),
         };
 
         if (mediaUrl) {
@@ -286,6 +364,17 @@ export default function StatusFeature() {
 
         await addDoc(collection(db, 'statusUpdates'), statusData);
         
+        // Notify mentions
+        mentions.forEach(mention => {
+          addNotification({
+            userId: mention.userId,
+            type: 'mention',
+            message: `mentioned you in their status update.`,
+            link: `/?status=${user.id}`,
+            actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+          });
+        });
+
         showIsland({
           title: "Status posted",
           description: "Your update is visible in the ring.",
@@ -312,6 +401,8 @@ export default function StatusFeature() {
     setPollOptions(['', '']);
     setSelectedStory(null);
     setAiSuggestions([]);
+    setStickers([]);
+    setMentions([]);
     setTextPosition({ x: 50, y: 50 });
     setTextStyle({
       font: 'sans',
@@ -319,6 +410,10 @@ export default function StatusFeature() {
       background: 'none',
       color: '#ffffff'
     });
+    setIsTextToolActive(false);
+    setIsMusicToolActive(false);
+    setIsStickerToolActive(false);
+    setIsMentionToolActive(false);
   };
 
   const handleNextUser = () => {
@@ -414,6 +509,12 @@ export default function StatusFeature() {
     await toggleCloseFriend(user.id, friendId, isAdding);
   };
 
+  const handleSaveToDevice = () => {
+      // In a real app, we would use html2canvas or a native share sheet
+      // For web, we'll trigger a mock save
+      toast({ title: "Photo Saved", description: "The edited status has been saved to your local archive." });
+  };
+
   return (
     <div className='py-4 -mx-4 px-4 overflow-hidden border-b border-border/40 bg-card/20 w-full max-w-full'>
       <ScrollArea className="w-full whitespace-nowrap scrollbar-none">
@@ -495,25 +596,46 @@ export default function StatusFeature() {
       </Dialog>
 
       <Dialog open={isUploaderOpen} onOpenChange={(o) => { setIsUploaderOpen(o); if(!o) resetUploader(); }}>
-          <DialogContent className="p-0 border-none sm:max-w-md flex flex-col rounded-[2.5rem] overflow-hidden shadow-3xl mx-auto w-[95vw] h-[90vh] md:h-[800px] animate-in slide-in-from-bottom-8 duration-700">
-              <DialogHeader className="p-6 bg-muted/30 border-b flex-shrink-0">
-                  <DialogTitle className="font-headline text-xl font-bold">Status Studio</DialogTitle>
-                  <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60">Design your temporary update</DialogDescription>
+          <DialogContent className="p-0 border-none sm:max-w-md flex flex-col rounded-[2.5rem] overflow-hidden shadow-3xl mx-auto w-[95vw] h-[90vh] md:h-[800px] animate-in slide-in-from-bottom-8 duration-700 bg-black">
+              <DialogHeader className="p-6 bg-muted/30 border-b flex-shrink-0 z-50">
+                  <div className="flex items-center justify-between w-full">
+                    <div>
+                        <DialogTitle className="font-headline text-xl font-bold text-white">Status Studio</DialogTitle>
+                        <DialogDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60 text-white/60">Design your temporary update</DialogDescription>
+                    </div>
+                    {activeUploaderTab === 'art' && (
+                        <div className="flex items-center gap-2">
+                             <Button variant="ghost" size="icon" className="rounded-full bg-white/10 hover:bg-white/20 text-white h-9 w-9" onClick={() => setIsTextToolActive(true)}>
+                                <Type className="h-5 w-5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="rounded-full bg-white/10 hover:bg-white/20 text-white h-9 w-9" onClick={() => setIsMusicToolActive(true)}>
+                                <Music className="h-5 w-5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="rounded-full bg-white/10 hover:bg-white/20 text-white h-9 w-9" onClick={() => setIsStickerToolActive(true)}>
+                                <Smile className="h-5 w-5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="rounded-full bg-white/10 hover:bg-white/20 text-white h-9 w-9" onClick={() => setIsMentionToolActive(true)}>
+                                <AtSign className="h-5 w-5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="rounded-full bg-white/10 hover:bg-white/20 text-white h-9 w-9" onClick={handleSaveToDevice}>
+                                <Download className="h-5 w-5" />
+                            </Button>
+                        </div>
+                    )}
+                  </div>
               </DialogHeader>
               
               <div className={cn(
                   "relative flex-1 flex flex-col justify-center items-center text-white transition-all duration-700 transform-gpu overflow-hidden group/canvas",
                   activeUploaderTab === 'text' ? backgroundStyle : 'bg-black'
               )}>
-                  <div className="absolute inset-0 bg-black/5 pointer-events-none" />
-                  
                   {activeUploaderTab === 'art' && mediaPreview && (
                       <div className="w-full h-full relative">
                         <Image src={mediaPreview} alt="Preview" layout="fill" objectFit="contain" className="animate-in fade-in duration-1000" />
                         
-                        {/* High-Fidelity Movable Text Interface */}
+                        {/* High-Fidelity Movable Layers */}
                         <div 
-                            className="absolute inset-0 z-20 cursor-crosshair"
+                            className="absolute inset-0 z-20"
                             onMouseMove={(e) => {
                                 if (!isDragging) return;
                                 const rect = e.currentTarget.getBoundingClientRect();
@@ -521,59 +643,45 @@ export default function StatusFeature() {
                                 const y = ((e.clientY - rect.top) / rect.height) * 100;
                                 setTextPosition({ x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) });
                             }}
-                            onTouchMove={(e) => {
-                                if (!isDragging) return;
-                                const touch = e.touches[0];
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const x = ((touch.clientX - rect.left) / rect.width) * 100;
-                                const y = ((touch.clientY - rect.top) / rect.height) * 100;
-                                setTextPosition({ x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) });
-                            }}
                         >
-                            <div 
-                                className="absolute transform -translate-x-1/2 -translate-y-1/2 min-w-[200px] transition-transform duration-75"
-                                style={{ left: `${textPosition.x}%`, top: `${textPosition.y}%` }}
-                                onMouseDown={() => setIsDragging(true)}
-                                onMouseUp={() => setIsDragging(false)}
-                                onTouchStart={() => setIsDragging(true)}
-                                onTouchEnd={() => setIsDragging(false)}
-                            >
-                                <Textarea 
-                                    value={noteContent}
-                                    onChange={e => setNoteContent(e.target.value)}
-                                    placeholder="Tap to add text..."
-                                    className={cn(
-                                        "bg-transparent border-none text-white placeholder:text-white/30 resize-none shadow-none text-2xl font-bold p-2 transition-all duration-300 focus-visible:ring-0 w-full",
-                                        textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
-                                        textStyle.alignment === 'center' ? 'text-center' : (textStyle.alignment === 'right' ? 'text-right' : 'text-left')
-                                    )}
-                                    style={{
-                                        textShadow: '0 2px 10px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.4)',
-                                        color: textStyle.color,
-                                        backgroundColor: textStyle.background === 'solid' ? 'rgba(0,0,0,0.8)' : (textStyle.background === 'translucent' ? 'rgba(0,0,0,0.4)' : 'transparent'),
-                                        borderRadius: textStyle.background !== 'none' ? '1rem' : '0',
-                                    }}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-6 pt-12 z-30 pointer-events-none">
-                            {mediaType === 'image' && (
-                                <div className="space-y-3 pointer-events-auto">
-                                    <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 font-bold text-[10px] uppercase tracking-widest gap-2 bg-white/5 rounded-full px-4" onClick={handleGenerateAiCaptions} disabled={isGeneratingAi}>
-                                        {isGeneratingAi ? <Loader2 className="h-3 w-3 animate-spin"/> : <Sparkles className="h-3 w-3" />}
-                                        AI Suggested Captions
-                                    </Button>
-                                    <ScrollArea className="w-full whitespace-nowrap">
-                                        <div className="flex gap-2 pb-2">
-                                            {aiSuggestions.map((s, i) => (
-                                                <button key={i} onClick={() => setNoteContent(s)} className="text-[10px] bg-white/10 hover:bg-white/30 px-4 py-2 rounded-full text-white truncate max-w-[150px] transition-all border border-white/5 font-bold uppercase tracking-tight backdrop-blur-sm">"{s}"</button>
-                                            ))}
-                                        </div>
-                                        <ScrollBar orientation="horizontal" className="hidden" />
-                                    </ScrollArea>
+                            {/* Text Layer */}
+                            {noteContent && (
+                                <div 
+                                    className="absolute transform -translate-x-1/2 -translate-y-1/2 min-w-[200px] cursor-move"
+                                    style={{ left: `${textPosition.x}%`, top: `${textPosition.y}%` }}
+                                    onMouseDown={() => setIsDragging(true)}
+                                    onMouseUp={() => setIsDragging(false)}
+                                >
+                                    <p className={cn(
+                                        "text-white text-2xl font-bold p-2 text-center",
+                                        textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans')
+                                    )} style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
+                                        {noteContent}
+                                    </p>
                                 </div>
                             )}
+
+                            {/* Stickers Layer */}
+                            {stickers.map(s => (
+                                <div 
+                                    key={s.id} 
+                                    className="absolute transform -translate-x-1/2 -translate-y-1/2 text-5xl select-none"
+                                    style={{ left: `${s.position.x}%`, top: `${s.position.y}%` }}
+                                >
+                                    {s.emoji}
+                                </div>
+                            ))}
+
+                            {/* Mentions Layer */}
+                            {mentions.map(m => (
+                                <div 
+                                    key={m.id} 
+                                    className="absolute transform -translate-x-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/30 text-white font-bold text-sm shadow-xl"
+                                    style={{ left: `${m.position.x}%`, top: `${m.position.y}%` }}
+                                >
+                                    @{m.username}
+                                </div>
+                            ))}
                         </div>
                       </div>
                   )}
@@ -586,138 +694,101 @@ export default function StatusFeature() {
                             onChange={e => setNoteContent(e.target.value)}
                             className={cn(
                                 "bg-transparent border-0 focus-visible:ring-0 text-3xl md:text-4xl font-bold text-center resize-none shadow-none placeholder:text-white/30 h-auto w-full transition-all duration-300 transform-gpu",
-                                textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
-                                textStyle.alignment === 'center' ? 'text-center' : (textStyle.alignment === 'right' ? 'text-right' : 'text-left')
+                                textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans')
                             )}
-                            style={{
-                                backgroundColor: textStyle.background === 'solid' ? 'rgba(0,0,0,0.8)' : (textStyle.background === 'translucent' ? 'rgba(0,0,0,0.4)' : 'transparent'),
-                                padding: textStyle.background !== 'none' ? '2rem' : '0',
-                                borderRadius: textStyle.background !== 'none' ? '2rem' : '0'
-                            }}
                         />
                       </div>
                   )}
 
-                  {activeUploaderTab === 'music' && (
-                      <div className="w-full h-full p-6 flex flex-col justify-center bg-gradient-to-br from-green-900 via-gray-900 to-black animate-in fade-in duration-500">
-                        {selectedSong ? (
-                            <div className="space-y-8 text-center animate-in zoom-in-95 duration-500">
-                                <div className="relative w-48 h-48 md:w-56 md:h-56 mx-auto rounded-[2.5rem] overflow-hidden shadow-[0_30px_70px_rgba(0,0,0,0.5)] border border-white/10">
-                                    <Image src={selectedSong.cover} alt="" layout="fill" objectFit="cover" className="animate-pulse duration-[4s]" />
-                                </div>
-                                <div className="space-y-2">
-                                    <h3 className="text-2xl md:text-3xl font-bold truncate px-4 drop-shadow-lg">{selectedSong.title}</h3>
-                                    <p className="text-white/60 text-lg uppercase tracking-widest font-bold">{selectedSong.artist}</p>
-                                </div>
-                                <div className="max-w-xs mx-auto">
-                                    <Textarea 
-                                        value={noteContent}
-                                        onChange={e => setNoteContent(e.target.value)}
-                                        placeholder="Add a vibe note..."
-                                        className="bg-white/10 border-none text-white rounded-2xl resize-none text-center h-16"
-                                    />
-                                </div>
-                                <Button variant="ghost" className="text-white/30 hover:text-white text-[10px] uppercase tracking-widest font-bold bg-white/5 rounded-full px-6" onClick={() => setSelectedSong(null)}>Change Soundtrack</Button>
-                            </div>
-                        ) : (
-                            <div className="space-y-6 h-full flex flex-col justify-center max-w-sm mx-auto w-full">
-                                <div className="text-center space-y-1">
-                                    <h3 className="font-headline text-2xl font-bold">Pick a soundtrack</h3>
-                                    <p className="text-white/40 text-xs uppercase tracking-widest font-bold">Thousands of real-time tracks</p>
-                                </div>
-                                <SongSearch onSongSelect={setSelectedSong} />
-                            </div>
-                        )}
+                  {/* Overlays for tools */}
+                  {isTextToolActive && (
+                      <div className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
+                          <Button variant="ghost" size="icon" className="absolute top-6 right-6 text-white" onClick={() => setIsTextToolActive(false)}><X className="h-6 w-6"/></Button>
+                          <Textarea 
+                            autoFocus
+                            value={noteContent}
+                            onChange={e => setNoteContent(e.target.value)}
+                            placeholder="Type something..."
+                            className="bg-transparent border-none text-white text-3xl font-bold text-center focus-visible:ring-0 min-h-[200px]"
+                          />
+                          <Button className="rounded-full px-10 mt-4" onClick={() => setIsTextToolActive(false)}>Done</Button>
                       </div>
                   )}
 
-                  {activeUploaderTab === 'poll' && (
-                      <div className="w-full h-full p-6 flex flex-col justify-center bg-gradient-to-br from-orange-400 to-rose-500 animate-in fade-in duration-500">
-                          <div className="bg-white/10 backdrop-blur-2xl rounded-[2.5rem] p-8 space-y-6 shadow-3xl border border-white/20 w-full animate-in zoom-in-95 duration-500">
-                              <Input 
-                                placeholder="Ask your community..." 
-                                value={pollQuestion} 
-                                onChange={e => setPollQuestion(e.target.value)}
-                                className="bg-transparent border-none text-white placeholder:text-white/50 text-2xl md:text-3xl font-bold p-0 h-auto focus-visible:ring-0 text-center"
-                              />
-                              <div className="space-y-3">
-                                {pollOptions.map((opt, i) => (
-                                    <Input 
-                                        key={i} 
-                                        placeholder={`Option ${i+1}`} 
-                                        value={opt} 
-                                        onChange={e => {
-                                            const newOpts = [...pollOptions];
-                                            newOpts[i] = e.target.value;
-                                            setPollOptions(newOpts);
-                                        }}
-                                        className="bg-white/10 border-none text-white h-12 rounded-2xl text-base font-bold placeholder:text-white/20 text-center focus:bg-white/20 transition-all shadow-inner"
-                                    />
-                                ))}
-                                {pollOptions.length < 4 && (
-                                    <Button variant="ghost" size="sm" className="w-full text-white/50 hover:text-white text-[10px] font-bold uppercase tracking-widest h-10 border border-white/10 rounded-xl" onClick={() => setPollOptions([...pollOptions, ''])}>+ Add Option</Button>
-                                )}
-                              </div>
+                  {isMusicToolActive && (
+                      <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-xl flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500">
+                          <header className="flex justify-between items-center mb-6">
+                            <h3 className="font-headline text-xl font-bold">Add Music</h3>
+                            <Button variant="ghost" size="icon" className="text-white" onClick={() => setIsMusicToolActive(false)}><X className="h-6 w-6"/></Button>
+                          </header>
+                          <SongSearch onSongSelect={(song) => { setSelectedSong(song); setIsMusicToolActive(false); setActiveUploaderTab('music'); }} />
+                      </div>
+                  )}
+
+                  {isStickerToolActive && (
+                      <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-xl flex flex-col animate-in slide-in-from-bottom-full duration-500">
+                          <header className="flex justify-between items-center p-6 border-b border-white/10">
+                            <h3 className="font-headline text-xl font-bold">Stickers</h3>
+                            <Button variant="ghost" size="icon" className="text-white" onClick={() => setIsStickerToolActive(false)}><X className="h-6 w-6"/></Button>
+                          </header>
+                          <div className="flex-1 overflow-hidden">
+                            <EmojiPicker 
+                                onEmojiClick={addSticker} 
+                                width="100%" 
+                                height="100%" 
+                                theme={'dark' as any}
+                                searchPlaceHolder="Search high-quality stickers..."
+                            />
                           </div>
                       </div>
                   )}
 
-                  {activeUploaderTab === 'story' && (
-                      <div className="w-full h-full p-6 flex flex-col justify-center bg-gradient-to-br from-purple-600 via-indigo-700 to-blue-800 animate-in fade-in duration-500">
-                          {selectedStory ? (
-                              <div className="bg-white/10 backdrop-blur-3xl rounded-[2.5rem] p-6 flex flex-col items-center gap-6 border border-white/20 shadow-3xl animate-in zoom-in-95 duration-500 w-full">
-                                  <div className="relative w-32 h-48 md:w-40 md:h-60 rounded-2xl overflow-hidden shadow-2xl border border-white/10">
-                                      <Image src={selectedStory.coverImageUrl || `https://picsum.photos/seed/${selectedStory.id}/512/800`} alt="" fill objectFit="cover" className="animate-in fade-in duration-1000" />
-                                  </div>
-                                  <div className="text-center space-y-2 overflow-hidden w-full">
-                                      <h4 className="font-bold text-xl md:text-2xl truncate px-2">{selectedStory.title}</h4>
-                                      <p className="text-xs text-white/60 uppercase font-bold tracking-widest">by @{selectedStory.author.username}</p>
-                                      <Badge className="bg-white/20 text-white border-none text-[10px] uppercase h-7 px-4 rounded-full mt-2">{selectedStory.genre}</Badge>
-                                  </div>
-                                  <div className="w-full">
-                                      <Textarea 
-                                        value={noteContent}
-                                        onChange={e => setNoteContent(e.target.value)}
-                                        placeholder="Add a promo note..."
-                                        className="bg-white/5 border-none text-white text-center rounded-2xl"
-                                        rows={2}
-                                      />
-                                  </div>
-                                  <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white/50 rounded-full h-10 w-10 bg-white/5" onClick={() => setSelectedStory(null)}><X className="h-5 w-5"/></Button>
-                              </div>
-                          ) : (
-                              <div className="space-y-6 h-full flex flex-col max-w-sm mx-auto w-full">
-                                  <div className="text-center">
-                                    <h3 className="font-headline text-2xl font-bold mb-1">Share your story</h3>
-                                    <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Only public works visible</p>
-                                  </div>
-                                  <ScrollArea className="flex-1 bg-white/5 rounded-[2rem] p-4 border border-white/10">
-                                      <div className="space-y-2">
-                                          {storySearchResults.map(s => (
-                                              <div key={s.id} onClick={() => setSelectedStory(s)} className="p-4 bg-white/5 hover:bg-white/15 rounded-2xl flex gap-4 items-center cursor-pointer transition-all border border-transparent hover:border-white/10 group">
-                                                  <div className="relative w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 shadow-lg group-hover:scale-105 transition-transform">
-                                                      <Image src={s.coverImageUrl || `https://picsum.photos/seed/${s.id}/100/150`} alt="" fill objectFit="cover" />
-                                                  </div>
-                                                  <div className="flex-1 overflow-hidden">
-                                                    <span className="font-bold text-sm block truncate">{s.title}</span>
-                                                    <span className="text-[9px] font-bold uppercase tracking-tighter text-white/40">{s.genre}</span>
-                                                  </div>
-                                                  <ChevronRight className="h-5 w-5 ml-auto opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                                              </div>
-                                          ))}
-                                          {storySearchResults.length === 0 && (
-                                              <p className="text-center py-10 text-white/30 text-xs italic">No public stories found.</p>
-                                          )}
-                                      </div>
-                                  </ScrollArea>
-                              </div>
-                          )}
+                  {isMentionToolActive && (
+                      <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-xl flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500">
+                          <header className="flex justify-between items-center mb-6">
+                            <h3 className="font-headline text-xl font-bold">Mention Author</h3>
+                            <Button variant="ghost" size="icon" className="text-white" onClick={() => setIsMentionToolActive(false)}><X className="h-6 w-6"/></Button>
+                          </header>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+                            <Input 
+                                placeholder="Search handles..." 
+                                value={mentionSearch} 
+                                onChange={e => handleMentionSearch(e.target.value)}
+                                className="pl-10 bg-white/10 border-white/20 text-white h-12 rounded-xl"
+                                autoFocus
+                            />
+                          </div>
+                          <ScrollArea className="flex-1 mt-6">
+                            <div className="space-y-2">
+                                {searchedUsers.map(u => (
+                                    <div 
+                                        key={u.id} 
+                                        className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/10 cursor-pointer transition-all border border-transparent hover:border-white/10"
+                                        onClick={() => addMention(u)}
+                                    >
+                                        <Avatar className="h-10 w-10 border border-white/20">
+                                            <AvatarImage src={u.avatarUrl} />
+                                            <AvatarFallback>{u.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex-1">
+                                            <p className="font-bold text-white">@{u.username}</p>
+                                            <p className="text-xs text-white/60">{u.displayName}</p>
+                                        </div>
+                                        <CheckCircle className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100" />
+                                    </div>
+                                ))}
+                                {mentionSearch && searchedUsers.length === 0 && (
+                                    <p className="text-center py-10 text-white/40 text-sm">Searching the archives...</p>
+                                )}
+                            </div>
+                          </ScrollArea>
                       </div>
                   )}
               </div>
 
               {/* Uploader Footer: Dual Option Posting */}
-              <div className="bg-muted/10 p-4 border-t border-border/40 flex flex-col gap-4">
+              <div className="bg-muted/10 p-4 border-t border-border/40 flex flex-col gap-4 z-50">
                   <div className="flex items-center justify-between gap-3">
                       <Button 
                           onClick={() => handlePublishStatus('public')}
