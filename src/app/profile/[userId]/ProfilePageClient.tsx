@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, ChangeEvent, useCallback, useMemo, FormEvent } from 'react';
@@ -71,7 +72,7 @@ import { Label } from '@/components/ui/label';
 import { formatDistanceToNow } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import VerifiedBadge from '@/components/icons/VerifiedBadge';
 import ThreadPostComments from '@/components/threads/ThreadPostComments';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -163,6 +164,8 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
     const [current, setCurrent] = useState(0);
     const [count, setCount] = useState(0);
     const [isLiked, setIsLiked] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const lastTap = useRef<number>(0);
 
     useEffect(() => {
@@ -230,6 +233,25 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
         lastTap.current = now;
     };
 
+    const handleDeletePost = () => {
+        if (!user) return;
+        setIsDeleting(true);
+        const postRef = doc(db, 'feedPosts', post.id);
+        deleteDoc(postRef)
+            .then(() => {
+                toast({ title: "Post removed from gallery" });
+                setIsDeleteDialogOpen(false);
+            })
+            .catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: postRef.path,
+                    operation: 'delete',
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+            })
+            .finally(() => setIsDeleting(false));
+    };
+
     const imagesCount = post.images?.length || 0;
     const hasMedia = imagesCount > 0 || !!post.imageUrl;
 
@@ -256,7 +278,12 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="rounded-xl">
                         {isOwnProfile && (
-                            <DropdownMenuItem className="text-destructive gap-2" onClick={() => deleteDoc(doc(db, 'feedPosts', post.id))}><Trash2 className="h-4 w-4" /> Delete Post</DropdownMenuItem>
+                            <DropdownMenuItem 
+                                className="text-destructive gap-2" 
+                                onSelect={(e) => { e.preventDefault(); setIsDeleteDialogOpen(true); }}
+                            >
+                                <Trash2 className="h-4 w-4" /> Delete Post
+                            </DropdownMenuItem>
                         )}
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -356,6 +383,22 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
                     <Repeat className="h-6 w-6" />
                 </Button>
             </CardFooter>
+
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent className="rounded-3xl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-2xl font-headline font-bold">Erase this post?</AlertDialogTitle>
+                        <AlertDialogDescription>This action is permanent and will remove the photo from your public gallery.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="rounded-full font-bold">Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeletePost} className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold" disabled={isDeleting}>
+                            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                            Delete Permanently
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Card>
     );
 }
@@ -468,7 +511,12 @@ function PhotoGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isO
                                     <div key={i} className="space-y-2 group relative">
                                         <div className="relative aspect-square rounded-2xl overflow-hidden border border-border/40 shadow-lg">
                                             <NextImage src={img.preview} alt="" fill className="object-cover" />
-                                            <Button variant="destructive" size="icon" className="absolute top-2 right-2 rounded-full h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setTempImages(prev => prev.filter((_, idx) => idx !== i))}>
+                                            <Button 
+                                                variant="destructive" 
+                                                size="icon" 
+                                                className="absolute top-2 right-2 rounded-full h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" 
+                                                onClick={() => setTempImages(prev => prev.filter((_, idx) => idx !== i))}
+                                            >
                                                 <X className="h-4 w-4" />
                                             </Button>
                                         </div>
@@ -609,6 +657,13 @@ function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwn
         .then(() => {
             toast({ title: "Deleted" });
             setIsDeleteDialogOpen(false);
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: annoRef.path,
+                operation: 'delete',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
         })
         .finally(() => {
             setIsDeleting(false);
