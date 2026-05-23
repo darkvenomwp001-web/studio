@@ -45,7 +45,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import NextImage from 'next/image';
-import Link from 'next/image';
+import Link from 'next/link';
 import type { Story, User as AppUser, Announcement, WritingStatus, ThreadPost, UserSummary } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -98,10 +98,6 @@ const WRITING_STATUS_MAP: Record<WritingStatus, { label: string; icon: any; colo
     brainstorming: { label: 'Brainstorming Arc', icon: Headphones, color: 'text-cyan-500' },
 };
 
-/**
- * High-Fidelity Author Identity Hub
- * Unified redesigned "About Author" tab
- */
 function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
     const { user } = useAuth();
     const { toast } = useToast();
@@ -109,14 +105,10 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
     const [isLoading, setIsLoading] = useState(true);
     const [isPosting, setIsSubmitting] = useState(false);
     
-    // Creator State
     const [newEntryContent, setNewEntryContent] = useState('');
-    const [newLifeTags, setNewLifeTags] = useState<string[]>(profileUser.lifeTags || []);
-    const [tagInput, setTagInput] = useState("");
     const [tempImages, setTempImages] = useState<{ file: File, preview: string, caption: string }[]>([]);
     const imageInputRef = useRef<HTMLInputElement>(null);
 
-    // Full-Screen Viewer State
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerImage, setViewerImage] = useState<{ url: string, caption?: string } | null>(null);
 
@@ -156,11 +148,6 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
         const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
         const data = await res.json();
         return data.secure_url;
-    };
-
-    const handleSaveLifeTags = async () => {
-        if (!isOwnProfile || !user) return;
-        updateDoc(doc(db, 'users', user.id), { lifeTags: newLifeTags });
     };
 
     const handlePublishPost = async () => {
@@ -214,7 +201,6 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
 
     return (
         <div className="space-y-10 animate-in fade-in duration-700">
-            {/* Identity Manuscript Box */}
             <Card className="rounded-[2.5rem] border-primary/10 bg-card/40 backdrop-blur-xl shadow-2xl overflow-hidden relative group">
                 <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
                     <PenTool className="h-48 w-48 text-primary" />
@@ -237,10 +223,10 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
                     </div>
                 </CardHeader>
                 <CardContent className="px-8 pb-8 space-y-8">
-                    <p className="text-base md:text-lg leading-relaxed text-foreground/80 font-medium whitespace-pre-line italic">
+                    <div className="text-base md:text-lg leading-relaxed text-foreground/80 font-medium whitespace-pre-line italic">
                         <Quote className="h-5 w-5 text-primary/20 -scale-x-100 inline mr-2 mb-1" />
                         {profileUser.bio || "This node has not emitted an identity signal yet."}
-                    </p>
+                    </div>
 
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-1">
@@ -260,7 +246,6 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
                 </CardContent>
             </Card>
 
-            {/* Identity Visual Creator */}
             {isOwnProfile && (
                 <Card className="rounded-[2.5rem] border-primary/5 bg-primary/5 shadow-inner">
                     <CardContent className="p-6 space-y-6">
@@ -308,7 +293,7 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
                                 <ImagePlus className="h-5 w-5" />
                             </Button>
                             <input type="file" ref={imageInputRef} className="hidden" accept="image/*" multiple onChange={handleFileSelect} />
-                            <Button onClick={handlePublishStatus} disabled={isPosting || (!newEntryContent.trim() && tempImages.length === 0)} className="rounded-full px-10 h-11 font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                            <Button onClick={handlePublishPost} disabled={isPosting || (!newEntryContent.trim() && tempImages.length === 0)} className="rounded-full px-10 h-11 font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
                                 {isPosting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
                                 Sync Archive
                             </Button>
@@ -317,7 +302,6 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
                 </Card>
             )}
 
-            {/* Visual Identity Feed (Instagram/Facebook Refined) */}
             <div className="max-w-xl mx-auto space-y-10">
                 {isLoading ? (
                     <div className="text-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" /></div>
@@ -426,7 +410,7 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
                                 </div>
 
                                 <div className="flex items-center gap-1">
-                                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent" onClick={() => handleRepost()}>
+                                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-accent" onClick={() => {}}>
                                         <Repeat className="h-4 w-4" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => {
@@ -446,7 +430,6 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
                 )}
             </div>
 
-            {/* Visual Archive Full-Screen Viewer */}
             <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
                 <DialogContent className="max-w-screen-xl h-[95vh] p-0 border-none bg-black/95 backdrop-blur-3xl rounded-none shadow-none flex flex-col md:flex-row overflow-hidden">
                     <div className="flex-1 relative bg-black flex items-center justify-center p-4">
@@ -494,7 +477,6 @@ function AuthorIdentityHub({ profileUser, isOwnProfile }: { profileUser: AppUser
                                 )}
                                 <div className="space-y-4">
                                     <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 ml-1">Community Discussion</h5>
-                                    {/* Using a simplified discussion node in viewer */}
                                     <p className="text-xs italic text-center py-10 opacity-40">Contextual discussion available on post view.</p>
                                 </div>
                             </div>
@@ -539,9 +521,9 @@ function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id
         </div>
       </Link>
       <Link href={isPrivate ? editLink : viewLink} passHref>
-          <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
+          <div className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
             {story.title}
-          </p>
+          </div>
       </Link>
       <p className="text-[10px] text-muted-foreground truncate">{story.genre}</p>
     </div>
@@ -687,16 +669,16 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
             <Card key={post.id}>
                 <CardContent className="p-4">
                 <div className="flex gap-4">
-                    <NextImage href={`/profile/${post.author.id}`}>
+                    <Link href={`/profile/${post.author.id}`}>
                         <Avatar className="h-10 w-10">
                             <AvatarImage src={post.author.avatarUrl} />
                             <AvatarFallback>{post.author.username?.charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                    </NextImage>
+                    </Link>
                     <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2 truncate">
-                            <NextImage href={`/profile/${post.author.id}`} className="font-bold text-sm hover:underline truncate">@{post.author.username}</NextImage>
+                            <Link href={`/profile/${post.author.id}`} className="font-bold text-sm hover:underline truncate">@{post.author.username}</Link>
                             {OWNER_HANDLES.includes(post.author.username) && <VerifiedBadge className="h-3 w-3" />}
                         </div>
                         {canManage && (
@@ -714,7 +696,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
                         )}
                     </div>
                     <p className="text-[10px] text-muted-foreground -mt-0.5 mb-2">{post.timestamp?.toDate ? formatDistanceToNow(post.timestamp.toDate(), { addSuffix: true }) : 'now'}</p>
-                    <p className="whitespace-pre-line text-sm">{post.content}</p>
+                    <div className="whitespace-pre-line text-sm">{post.content}</div>
                     </div>
                 </div>
                 </CardContent>
@@ -773,14 +755,9 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [liveFollowersCount, setLiveFollowersCount] = useState<number | null>(null);
   const [announcementCount, setAnnouncementCount] = useState(0);
-  const defaultTab = searchParams.get('tab') || 'works';
 
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
   const [privateWorks, setPrivateWorks] = useState<Story[]>([]); 
-
-  const [isEditingBio, setIsEditingBio] = useState(false);
-  const [editedBio, setEditedBio] = useState('');
-  const [isSavingBio, setIsSavingBio] = useState(false);
 
   const isOwnProfile = currentUser?.id === userId;
 
@@ -796,7 +773,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
       if (docSnap.exists()) {
         const u = { id: docSnap.id, ...docSnap.data() } as AppUser;
         setProfileUser(u);
-        setEditedBio(u.bio || '');
       } else {
         setProfileUser(null);
       }
@@ -836,18 +812,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
     return () => unsubStories();
   }, [profileUser, isOwnProfile]);
 
-  const handleSaveBio = async () => {
-    if (!profileUser || !isOwnProfile) return;
-    setIsSavingBio(true);
-    const userRef = doc(db, 'users', profileUser.id);
-    updateDoc(userRef, { bio: editedBio, updatedAt: serverTimestamp() })
-        .then(() => {
-            toast({ title: "Bio Transmission Successful" });
-            setIsEditingBio(false);
-        })
-        .finally(() => setIsSavingBio(false));
-  };
-
   if (authLoading || isLoadingData) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
@@ -875,7 +839,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
 
   return (
     <div className="pb-20 animate-in fade-in duration-500">
-      {/* High-Fidelity Cover Photo Container */}
       <div className="relative w-full aspect-[21/9] md:aspect-[4/1] bg-muted overflow-hidden">
         {profileUser.coverImageUrl ? (
             <NextImage 
@@ -890,7 +853,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
         )}
       </div>
 
-      {/* Forced flex-row alignment for Mobile & Desktop - Scaling optimized for "Phone Size Layout" */}
       <div className="container mx-auto px-4 -mt-14 sm:-mt-20 md:-mt-24 relative z-10">
           <div className="flex flex-row items-end gap-3 sm:gap-6 md:gap-8">
               <div className="relative group flex-shrink-0">
@@ -907,15 +869,14 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
               </div>
               
               <div className="flex-1 min-w-0 pb-1 sm:pb-2 relative">
-                  {/* Settings Button - Positioned top-right relative to info container */}
                   {isOwnProfile && (
                       <div className="absolute top-1 sm:top-2 right-0 z-20">
-                        <NextImage href="/settings" passHref>
+                        <Link href="/settings">
                             <Button variant="outline" size="sm" className="rounded-full shadow-lg gap-2 border-border/60 bg-background/70 h-9 sm:h-10 px-3 sm:px-4">
                                 <Settings className="h-4 w-4" />
                                 <span className="hidden sm:inline">Settings</span>
                             </Button>
-                        </NextImage>
+                        </Link>
                       </div>
                   )}
                   <div className="space-y-0.5 sm:space-y-1 mb-1 sm:mb-2 pr-10 sm:pr-0">
@@ -925,26 +886,21 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                       </h1>
                       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                         <p className="text-muted-foreground text-xs sm:text-sm font-medium">@{profileUser.username}</p>
-                        {writingStatus && (
-                             <p className={cn("text-[8px] sm:text-[10px] font-black uppercase tracking-widest", writingStatus.color)}>
-                                {writingStatus.label}
-                             </p>
-                        )}
                       </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold mb-2 sm:mb-3">
-                      <NextImage href={`/profile/${userId}/connections?tab=followers`} className="hover:text-primary transition-colors flex items-center gap-1 sm:gap-1.5">
+                      <Link href={`/profile/${userId}/connections?tab=followers`} className="hover:text-primary transition-colors flex items-center gap-1 sm:gap-1.5">
                         <span className="font-bold">{liveFollowersCount ?? '...'}</span> 
                         <span className="text-muted-foreground font-medium uppercase text-[8px] sm:text-[10px] tracking-widest">Followers</span>
-                      </NextImage>
-                      <NextImage href={`/profile/${userId}/connections?tab=following`} className="hover:text-primary transition-colors flex items-center gap-1 sm:gap-1.5">
+                      </Link>
+                      <Link href={`/profile/${userId}/connections?tab=following`} className="hover:text-primary transition-colors flex items-center gap-1 sm:gap-1.5">
                         <span className="font-bold">{profileUser.followingCount || 0}</span>
                         <span className="text-muted-foreground font-medium uppercase text-[8px] sm:text-[10px] tracking-widest">Following</span>
-                      </NextImage>
+                      </Link>
                   </div>
 
-                  {profileUser.bio && !isEditingBio && <p className="text-muted-foreground text-xs sm:text-sm max-w-2xl leading-relaxed line-clamp-2">{profileUser.bio}</p>}
+                  {profileUser.bio && <p className="text-muted-foreground text-xs sm:text-sm max-w-2xl leading-relaxed line-clamp-2">{profileUser.bio}</p>}
                   
                   {!isOwnProfile && (
                     <div className="flex flex-wrap gap-2 sm:gap-3 pt-3 sm:pt-4">
@@ -952,11 +908,11 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                             {followActionLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : isFollowing ? <UserX className="mr-1.5 h-4 w-4" /> : <UserPlus className="mr-1.5 h-4 w-4" />}
                             {isFollowing ? 'Unfollow' : 'Follow'}
                         </Button>
-                        <NextImage href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`} passHref>
+                        <Link href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`}>
                             <Button variant="outline" className="rounded-full px-4 sm:px-8 gap-2 border-border/60 h-10 sm:h-11 text-xs sm:text-sm">
                                 <MessageSquare className="h-4 w-4" /> Message
                             </Button>
-                        </NextImage>
+                        </Link>
                     </div>
                   )}
               </div>
@@ -976,13 +932,13 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
           <TabsContent value="works" className="mt-8 space-y-12">
             {publishedWorks.length > 0 && (
               <div>
-                <NextImage href="/write" className="inline-block group">
+                <Link href="/write" className="inline-block group">
                   <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight group-hover:text-primary transition-colors cursor-pointer">
                     <BookOpen className="h-5 w-5 text-primary" /> 
                     Published Works
                     <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all" />
                   </h2>
-                </NextImage>
+                </Link>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                     {publishedWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} /> ))}
                 </div>
