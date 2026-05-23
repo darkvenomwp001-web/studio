@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, FormEvent, useRef, ChangeEvent, useCallback } from 'react';
+import { useEffect, useState, FormEvent, useRef, ChangeEvent, useCallback, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,7 +28,6 @@ import {
   History,
   Trophy,
   PenTool,
-  Quote,
   ImagePlus,
   X,
   Send,
@@ -45,7 +44,8 @@ import {
   LayoutGrid,
   FileText,
   AtSign,
-  Edit3
+  Edit3,
+  Quote
 } from 'lucide-react';
 import NextImage from 'next/image';
 import Link from 'next/link';
@@ -87,18 +87,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi } from '@/components/ui/carousel';
 
 const OWNER_HANDLES = ['arnv'];
-
-const WRITING_STATUS_MAP: Record<WritingStatus, { label: string; icon: any; color: string }> = {
-    none: { label: '', icon: null, color: '' },
-    writing: { label: 'Currently Writing', icon: PencilLine, color: 'text-primary' },
-    break: { label: 'Taking a Short Break', icon: Coffee, color: 'text-orange-400' },
-    hiatus: { label: 'On Hiatus', icon: CloudRain, color: 'text-blue-400' },
-    update: { label: 'Preparing Big Update', icon: Zap, color: 'text-yellow-500' },
-    burnout: { label: 'Burned Out', icon: Moon, color: 'text-purple-400' },
-    school: { label: 'Busy With School', icon: GraduationCap, color: 'text-emerald-500' },
-    rewriting: { label: 'Rewriting Story', icon: Heart, color: 'text-rose-500' },
-    brainstorming: { label: 'Brainstorming Arc', icon: Headphones, color: 'text-cyan-500' },
-};
 
 function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUser: AppUser | null }) {
     const [moots, setMoots] = useState<UserSummary[]>([]);
@@ -220,7 +208,6 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
                         timestamp: serverTimestamp(),
                         user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
                     };
-                    // Use merge: true to prevent "Document already exists" errors in case of race conditions
                     transaction.set(reactionRef, reactionData, { merge: true });
                     transaction.update(postRef, { 
                         reactionsCount: increment(1),
@@ -281,7 +268,7 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
                         <Carousel 
                             setApi={setApi} 
                             className="w-full h-full" 
-                            opts={{ align: 'start', loop: false, dragFree: false }}
+                            opts={{ align: 'start', loop: false, dragFree: true }}
                         >
                             <CarouselContent className="flex h-full ml-0">
                                 {post.images!.map((img, idx) => (
@@ -305,16 +292,17 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
                             </CarouselContent>
                             
                             {imagesCount > 1 && (
-                                <div className="absolute top-4 right-4 z-10 pointer-events-none">
+                                <div className="absolute top-4 right-4 z-30 pointer-events-none">
                                     <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
                                         {current}/{count}
                                     </Badge>
                                 </div>
                             )}
+
                             {imagesCount > 1 && (
                                 <>
-                                    <CarouselPrevious className="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-20" />
-                                    <CarouselNext className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-20" />
+                                    <CarouselPrevious className="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-40" />
+                                    <CarouselNext className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 transition-opacity bg-black/50 border-none text-white h-10 w-10 z-40" />
                                 </>
                             )}
                         </Carousel>
@@ -476,7 +464,6 @@ function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, is
                         timestamp: serverTimestamp(),
                         user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
                     };
-                    // Use merge: true for idempotent writes and to prevent "already exists" errors
                     transaction.set(reactionRef, reactionData, { merge: true });
                     transaction.update(postRef, { 
                         reactionsCount: increment(1),
@@ -825,7 +812,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
   const [publishedWorks, setPublishedWorks] = useState<Story[]>([]);
   const [privateWorks, setPrivateWorks] = useState<Story[]>([]); 
 
-  // About Me Inline Editor States
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioInput, setBioInput] = useState('');
   const [isSavingBio, setIsSavingBio] = useState(false);
@@ -921,11 +907,11 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
   }
 
   const isFollowing = currentUser?.followingIds?.includes(profileUser.id) || false;
+  const isFollower = profileUser?.followingIds?.includes(currentUser?.id || '') || false;
+  const isMoot = isFollowing && isFollower;
+  
   const displayName = profileUser.displayName || profileUser.username;
   const showAnnouncementsTab = isOwnProfile || announcementCount > 0;
-  const writingStatus = profileUser.writingStatus && profileUser.writingStatus !== 'none' 
-    ? WRITING_STATUS_MAP[profileUser.writingStatus] 
-    : null;
 
   return (
     <div className="pb-20 animate-in fade-in duration-500">
@@ -950,12 +936,6 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                       <AvatarImage src={profileUser.avatarUrl} />
                       <AvatarFallback className="text-2xl sm:text-3xl md:text-4xl bg-muted text-primary">{displayName.substring(0, 1).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                  {writingStatus && (
-                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-background border shadow-xl px-2 py-1 sm:px-3 sm:py-1.5 rounded-full flex items-center gap-1.5 sm:gap-2 whitespace-nowrap z-10">
-                        <writingStatus.icon className={cn("h-3 w-3 sm:h-4 sm:w-4", writingStatus.color)} />
-                        <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-foreground/80">{writingStatus.label}</span>
-                      </div>
-                  )}
               </div>
               
               <div className="flex-1 min-w-0 pb-1 sm:pb-2 relative">
@@ -1140,7 +1120,13 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                 </TabsContent>
 
                 <TabsContent value="archive" className="animate-in fade-in duration-500">
-                    <VisualGallery profileUser={profileUser} isOwnProfile={isOwnProfile} />
+                    {(isOwnProfile || isMoot) ? (
+                        <VisualGallery profileUser={profileUser} isOwnProfile={isOwnProfile} />
+                    ) : (
+                        <div className="text-center py-24 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
+                            This photo archive is restricted to mutual connections (moots) only.
+                        </div>
+                    )}
                 </TabsContent>
              </Tabs>
           </TabsContent>
