@@ -43,7 +43,9 @@ import {
   Star,
   Maximize2,
   LayoutGrid,
-  FileText
+  FileText,
+  AtSign,
+  Edit3
 } from 'lucide-react';
 import NextImage from 'next/image';
 import Link from 'next/link';
@@ -152,12 +154,12 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                     </div>
                 )}
 
-                <div className="relative aspect-square w-full" onClick={() => handleDoubleTap(post.id)}>
+                <div className="relative aspect-square w-full overflow-hidden" onClick={() => handleDoubleTap(post.id)}>
                     {imagesCount > 0 ? (
-                        <Carousel setApi={setApi} className="w-full h-full">
-                            <CarouselContent className="h-full ml-0">
+                        <Carousel setApi={setApi} className="w-full h-full" opts={{ align: 'start', loop: false }}>
+                            <CarouselContent className="flex h-full ml-0">
                                 {post.images!.map((img, idx) => (
-                                    <CarouselItem key={idx} className="relative h-full pl-0 basis-full">
+                                    <CarouselItem key={idx} className="relative h-full w-full pl-0 basis-full flex-shrink-0 min-w-0">
                                         <div className="relative w-full h-full">
                                             <NextImage src={img.url} alt="" fill className="object-cover" />
                                             {img.caption && (
@@ -169,9 +171,9 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap, downloadImage 
                                     </CarouselItem>
                                 ))}
                             </CarouselContent>
-                            {/* Photo Index Badge */}
+                            {/* Photo Index Badge - Top Right */}
                             <div className="absolute top-4 right-4 z-10">
-                                <Badge variant="secondary" className="bg-black/40 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
+                                <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-none rounded-full px-2.5 h-6 font-bold text-[10px] shadow-lg">
                                     {current}/{count}
                                 </Badge>
                             </div>
