@@ -18,38 +18,25 @@ import {
   Lock, 
   BookOpen,
   PencilLine,
-  Coffee,
-  CloudRain,
-  Zap,
-  Moon,
-  GraduationCap,
-  Heart,
-  Headphones,
-  History,
-  Trophy,
   PenTool,
   ImagePlus,
   X,
   Send,
-  Edit,
   Save,
   Plus,
   ChevronRight,
-  Download,
   Share2,
   Repeat,
   Tag,
   Star,
-  Maximize2,
   LayoutGrid,
-  FileText,
-  AtSign,
   Edit3,
-  Quote
+  Quote,
+  Heart
 } from 'lucide-react';
 import NextImage from 'next/image';
 import Link from 'next/link';
-import type { Story, User as AppUser, Announcement, WritingStatus, ThreadPost, UserSummary } from '@/types';
+import type { Story, User as AppUser, Announcement, ThreadPost, UserSummary } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -72,19 +59,21 @@ import {
   runTransaction,
   increment
 } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatDistanceToNow } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import VerifiedBadge from '@/components/icons/VerifiedBadge';
 import ThreadPostComments from '@/components/threads/ThreadPostComments';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi } from '@/components/ui/carousel';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const OWNER_HANDLES = ['arnv'];
 
@@ -143,7 +132,7 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
                         </div>
                     ) : (
                         <div className="text-center py-20 text-muted-foreground italic text-xs">
-                            Follow authors to share posts with them.
+                            Follow people to share posts with them.
                         </div>
                     )}
                 </ScrollArea>
@@ -218,11 +207,6 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
         } catch (e) {
             console.error("Like toggle failure:", e);
         }
-    };
-
-    const handleRepost = async () => {
-        if (!user) return;
-        toast({ title: "Reposted!" });
     };
 
     const imagesCount = post.images?.length || 0;
@@ -336,7 +320,7 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
                         </DialogTrigger>
                         <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
                             <DialogHeader className="p-6 bg-muted/30 border-b">
-                                <DialogTitle className="text-xl font-headline font-bold">Thoughts</DialogTitle>
+                                <DialogTitle className="text-xl font-headline font-bold">Comments</DialogTitle>
                             </DialogHeader>
                             <div className="p-6 h-[60vh]">
                                 <ThreadPostComments postId={post.id} />
@@ -353,7 +337,7 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
                         <ShareToMootsDialog post={post} currentUser={user} />
                     </Dialog>
 
-                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all" onClick={handleRepost}>
+                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all" onClick={() => toast({ title: "Reposted!" })}>
                         <Repeat className="h-7 w-7" />
                     </Button>
                 </div>
@@ -362,7 +346,7 @@ function VisualGalleryPost({ post, isOwnProfile, handleDoubleTap }: { post: Thre
     );
 }
 
-function VisualGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
+function PhotoGallery({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
     const { user } = useAuth();
     const { toast } = useToast();
     const [posts, setPosts] = useState<ThreadPost[]>([]);
@@ -588,7 +572,7 @@ function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id
   );
 }
 
-function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
+function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwnProfile: boolean }) {
   const { user, addNotification } = useAuth();
   const { toast } = useToast();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -643,7 +627,7 @@ function AnnouncementsTab({ profileUser, isOwnProfile }: { profileUser: AppUser,
     addDoc(collection(db, 'announcements'), announcementData)
         .then(async () => {
             setNewAnnouncement('');
-            toast({ title: 'Post updated!' });
+            toast({ title: 'Posted!' });
             
             const followersQuery = query(collection(db, 'users'), where('followingIds', 'array-contains', user.id));
             const followersSnapshot = await getDocs(followersQuery);
@@ -980,7 +964,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                         </Button>
                         <Link href={`/notifications?tab=messages&startConversationWith=${profileUser.id}`}>
                             <Button variant="outline" className="rounded-full px-4 sm:px-8 gap-2 border-border/60 h-10 sm:h-11 text-xs sm:text-sm">
-                                <MessageSquare className="h-4 w-4" /> Message
+                                <MessageCircle className="h-4 w-4" /> Message
                             </Button>
                         </Link>
                     </div>
@@ -992,8 +976,8 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
       <main className="container mx-auto px-4 mt-10 md:mt-12 space-y-10">
         <Tabs defaultValue="works" className="w-full">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6 md:gap-10">
-            <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Works</TabsTrigger>
-            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Feed</TabsTrigger>
+            <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Stories</TabsTrigger>
+            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Social</TabsTrigger>
             {showAnnouncementsTab && (
                 <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Updates</TabsTrigger>
             )}
@@ -1004,7 +988,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
               <div>
                 <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight">
                     <BookOpen className="h-5 w-5 text-primary" /> 
-                    Published Works
+                    Published Stories
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                     {publishedWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} /> ))}
@@ -1014,7 +998,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
             
             {isOwnProfile && privateWorks.length > 0 && (
               <div>
-                <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight"><Lock className="h-5 w-5 text-muted-foreground" /> Private Archives</h2>
+                <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight"><Lock className="h-5 w-5 text-muted-foreground" /> Private Drafts</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                     {privateWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} isPrivate /> ))}
                 </div>
@@ -1025,7 +1009,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                  <div className="text-center py-32 text-muted-foreground border-2 border-dashed rounded-[3rem] border-border/40">
                     <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-20" />
                     <h3 className="text-lg font-bold text-foreground">Archive is Empty</h3>
-                    <p className="text-sm">No public works found.</p>
+                    <p className="text-sm">No public stories found.</p>
                 </div>
             )}
           </TabsContent>
@@ -1084,7 +1068,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                         disabled={isSavingBio || bioInput === (profileUser.authorBio || '')}
                                     >
                                         {isSavingBio ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                                        Save
+                                        Save Information
                                     </Button>
                                 </div>
                             ) : (
@@ -1095,7 +1079,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                                                 <Quote className="h-6 w-6 text-primary/20 -scale-x-100 inline mr-2 mb-1" />
                                                 {profileUser.authorBio}
                                             </>
-                                        ) : "No info shared yet."}
+                                        ) : "No information shared yet."}
                                     </p>
                                 </div>
                             )}
@@ -1121,10 +1105,10 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
 
                 <TabsContent value="archive" className="animate-in fade-in duration-500">
                     {(isOwnProfile || isMoot) ? (
-                        <VisualGallery profileUser={profileUser} isOwnProfile={isOwnProfile} />
+                        <PhotoGallery profileUser={profileUser} isOwnProfile={isOwnProfile} />
                     ) : (
                         <div className="text-center py-24 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40">
-                            This photo archive is restricted to mutual connections (moots) only.
+                            This photo gallery is restricted to mutual friends only.
                         </div>
                     )}
                 </TabsContent>
@@ -1133,7 +1117,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
 
           {showAnnouncementsTab && (
             <TabsContent value="announcements" className="mt-8">
-                <AnnouncementsTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
+                <UpdatesTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
             </TabsContent>
           )}
         </Tabs>

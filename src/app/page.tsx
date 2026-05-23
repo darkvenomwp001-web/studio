@@ -76,7 +76,6 @@ function ForYouTabContent() {
     };
   }, []);
 
-  // Verification Protocol: Verify reading list existence to hide deleted manuscripts
   useEffect(() => {
     if (!user?.readingList || user.readingList.length === 0) {
         setActiveReadingList([]);
@@ -88,16 +87,13 @@ function ForYouTabContent() {
         const storiesRef = collection(db, 'stories');
         
         try {
-            // Check existence for up to 30 items for the home carousel
             const q = query(storiesRef, where(documentId(), 'in', ids.slice(0, 30)));
             const snap = await getDocs(q);
             const existingIds = new Set(snap.docs.map(d => d.id));
-            
-            // Only show stories that definitely exist
             const filtered = user.readingList!.filter(s => existingIds.has(s.id));
             setActiveReadingList(filtered);
         } catch (err) {
-            console.error("Home feed reading list sync error:", err);
+            console.error("Home feed error:", err);
         }
     };
 
@@ -162,8 +158,8 @@ export default function HomePage() {
   const TABS = [
     { value: 'for-you', label: 'For You', icon: <Sparkles className="h-4 w-4" /> },
     { value: 'annotations', label: 'Highlights', icon: <Quote className="h-4 w-4" /> },
-    { value: 'feed', label: 'Feed', icon: <LayoutGrid className="h-4 w-4" /> },
-    { value: 'broadcast', label: 'Broadcast', icon: <Radio className="h-4 w-4" /> },
+    { value: 'feed', label: 'Community', icon: <LayoutGrid className="h-4 w-4" /> },
+    { value: 'broadcast', label: 'Updates', icon: <Radio className="h-4 w-4" /> },
   ];
 
   return (
