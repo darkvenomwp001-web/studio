@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -36,8 +35,10 @@ service cloud.firestore {
                     && !request.resource.data.keys().hasAny(['isVerified', 'isBanned', 'role'])
                     || isAppOwner();
 
+      // Fix: Allow signed-in users to increment/decrement followersCount on others' profiles for following logic
       allow update: if isAppOwner()
-                    || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified', 'role']));
+                    || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified', 'role']))
+                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount']));
 
       allow delete: if isAppOwner() && request.auth.uid != userId;
     }
@@ -92,8 +93,8 @@ service cloud.firestore {
     match /comments/{commentId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.auth.uid == resource.data.user.id || isAppOwner());
-      allow delete: if isSignedIn() && (request.auth.uid == resource.data.user.id || isAppOwner());
+      allow update: if isSignedIn() && (isOwner(resource.data.user.id) || isAppOwner());
+      allow delete: if isSignedIn() && (isOwner(resource.data.user.id) || isAppOwner());
     }
     
     // Notifications Collection
@@ -124,11 +125,23 @@ service cloud.firestore {
 
     // Status Updates
     match /statusUpdates/{statusId} {
+      // Fix: Respect 'close-friends' visibility and ensure privacy
       allow read: if isAppOwner() 
-                    || (isSignedIn() && resource.data.authorId == request.auth.uid)
-                    || (resource.data.status == 'published' && resource.data.isHidden == false);
+                    || (isSignedIn() && isOwner(resource.data.authorId))
+                    || (
+                         resource.data.status == 'published' 
+                         && resource.data.isHidden == false
+                         && (
+                           resource.data.visibility == 'public'
+                           || (
+                                resource.data.visibility == 'close-friends' 
+                                && isSignedIn() 
+                                && request.auth.uid in get(/databases/$(database)/documents/users/$(resource.data.authorId)).data.closeFriendIds
+                              )
+                         )
+                       );
       
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.authorId;
+      allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
       allow update, delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId));
     }
 
@@ -152,7 +165,7 @@ service cloud.firestore {
       allow read: if resource.data.visibility == 'public' 
                     || (isSignedIn() && (isOwner(resource.data.userId) || isAppOwner()));
       
-      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAppOwner());
+      allow create: if isSignedIn() && (isOwner(request.resource.data.userId) || isAppOwner());
       
       allow update: if isSignedIn() && (
         isOwner(resource.data.userId) || 
@@ -165,7 +178,7 @@ service cloud.firestore {
       match /comments/{commentId} {
         allow read: if true;
         allow create: if isSignedIn();
-        allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.user.id || isAppOwner());
+        allow update, delete: if isSignedIn() && (isOwner(resource.data.user.id) || isAppOwner());
       }
       
       match /reactions/{userId} {
@@ -178,15 +191,15 @@ service cloud.firestore {
     match /announcements/{announcementId} {
       allow read: if true;
       allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
-      allow update: if isSignedIn() && (isOwner(request.resource.data.author.id) || isAppOwner()) 
+      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner()) 
                     && request.resource.data.author.id == resource.data.author.id;
-      allow delete: if isSignedIn() && (isOwner(request.resource.data.author.id) || isAppOwner());
+      allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner());
     }
 
     // Community Feed Posts
     match /feedPosts/{postId} {
       allow read: if true;
-      allow create: if isSignedIn() && request.resource.data.author.id == request.auth.uid;
+      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
       
       allow update: if isSignedIn() && (
         isAppOwner() || 
@@ -204,7 +217,7 @@ service cloud.firestore {
       
       match /reactions/{userId} {
         allow read: if true;
-        allow create, update, delete: if isSignedIn() && (isOwner(userId) || isAppOwner());
+        allow create, delete, update: if isSignedIn() && (isOwner(userId) || isAppOwner());
       }
     }
     
