@@ -71,7 +71,8 @@ import {
   FileText,
   Highlighter,
   Quote,
-  ShieldCheck
+  ShieldCheck,
+  Eye
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -89,6 +90,7 @@ import { EditorContent, useEditor, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TiptapUnderline from '@tiptap/extension-underline'
 import TiptapHighlight from '@tiptap/extension-highlight'
+import CharacterCount from '@tiptap/extension-character-count'
 import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
@@ -159,6 +161,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         StarterKit, 
         TiptapUnderline, 
         TiptapHighlight.configure({ multicolor: true }),
+        CharacterCount,
     ],
     content: '',
     editable: false,
@@ -615,6 +618,21 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     <div className="text-center mb-16 space-y-4 px-6 animate-in slide-in-from-top-4 duration-1000">
                         <Badge variant="outline" className="rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-[0.3em] bg-primary/5 text-primary border-primary/20">Part {currentChapter?.order}</Badge>
                         <h2 className="font-headline text-4xl md:text-7xl font-bold tracking-tight leading-none text-foreground">{currentChapter?.title}</h2>
+                        
+                        <div className="flex items-center justify-center gap-6 mt-4 text-[10px] md:text-xs font-bold uppercase tracking-widest text-muted-foreground/60 animate-in fade-in slide-in-from-top-2 duration-1000 delay-300">
+                            <div className="flex items-center gap-2">
+                                <Eye className="h-3.5 w-3.5 text-primary/40" />
+                                <span>{formatCompactNumber(currentChapter?.views || 0)} Reads</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <ThumbsUp className="h-3.5 w-3.5 text-primary/40" />
+                                <span>{formatCompactNumber(currentChapter?.votes || 0)} Votes</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Timer className="h-3.5 w-3.5 text-primary/40" />
+                                <span>{Math.max(1, Math.round((editor?.storage.characterCount.words() || 0) / 225))} MIN</span>
+                            </div>
+                        </div>
                     </div>
                     <EditorContent editor={editor} />
                 </article>
