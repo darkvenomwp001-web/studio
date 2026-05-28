@@ -23,6 +23,17 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -59,7 +70,8 @@ import {
   RotateCcw,
   FileText,
   Highlighter,
-  Quote
+  Quote,
+  ShieldCheck
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -116,6 +128,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [accessReason, setAccessReason] = useState<'locked' | 'scheduled' | 'exclusive' | 'none'>('none');
   const [isVoting, setIsVoting] = useState(false);
   const [activeReaders, setActiveReaders] = useState(1);
+
+  // Disclaimer Protocol State
+  const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
 
   // Annotation/Highlight States
   const [isAnnotationDialogOpen, setIsAnnotationDialogOpen] = useState(false);
@@ -258,6 +273,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       if (docSnap.exists()) {
         const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
         setStory(storyData);
+        
+        // Disclaimer Protocol Check
+        const disclaimerKey = `disclaimer-seen-${storyId}`;
+        if (storyData.disclaimer && !sessionStorage.getItem(disclaimerKey)) {
+            setIsDisclaimerOpen(true);
+        }
+
         const chapterData = storyData.chapters?.find(c => c.id === chapterId);
         if (chapterData) {
           setCurrentChapter(chapterData);
@@ -290,6 +312,17 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     });
     return () => unsubscribeStory();
   }, [storyId, chapterId, currentUser?.id, router, toast, authLoading]);
+
+  const handleAcceptDisclaimer = () => {
+      const disclaimerKey = `disclaimer-seen-${storyId}`;
+      sessionStorage.setItem(disclaimerKey, 'true');
+      setIsDisclaimerOpen(false);
+      showIsland({ 
+          title: "Disclaimer accepted", 
+          description: "Entry to manuscript granted.", 
+          type: 'success' 
+      });
+  };
 
   const handleVoteClick = async () => {
     if (!currentUser || !story || !currentChapter || isVoting) return;
@@ -436,11 +469,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 </RadioGroup>
                             </div>
                             <div className="space-y-4 pt-2">
-                                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20">
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/40">
                                     <div className="flex items-center gap-3"><Label htmlFor="zen-focus" className="text-xs font-bold uppercase tracking-tight">Zen Focus</Label></div>
                                     <Switch id="zen-focus" checked={isZenFocus} onCheckedChange={setIsZenFocus} />
                                 </div>
-                                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/20">
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/40">
                                     <div className="flex items-center gap-3"><Label htmlFor="night-portal" className="text-xs font-bold uppercase tracking-tight">Night Portal</Label></div>
                                     <Switch id="night-portal" checked={isNightPortalActive} onCheckedChange={setIsNightPortalActive} />
                                 </div>
@@ -514,6 +547,40 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       </Sheet>
 
       <main className="pt-20 pb-24 min-h-screen">
+        {/* Mandatory Disclaimer Protocol */}
+        <AlertDialog open={isDisclaimerOpen} onOpenChange={setIsDisclaimerOpen}>
+            <AlertDialogContent className="max-w-xl rounded-[32px] border-none shadow-3xl p-0 overflow-hidden bg-background/95 backdrop-blur-xl">
+                <AlertDialogHeader className="p-8 bg-muted/30 border-b">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-primary/10 rounded-2xl">
+                            <ShieldCheck className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                            <AlertDialogTitle className="font-headline text-2xl font-bold">Manuscript Entry</AlertDialogTitle>
+                            <AlertDialogDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Important Author Disclaimer</AlertDialogDescription>
+                        </div>
+                    </div>
+                </AlertDialogHeader>
+                <div className="p-8">
+                    <ScrollArea className="h-[40vh] pr-4 -mr-4">
+                        <div className="prose dark:prose-invert prose-sm max-w-none">
+                            <p className="whitespace-pre-line text-foreground/80 leading-relaxed italic font-medium">
+                                {story.disclaimer}
+                            </p>
+                        </div>
+                    </ScrollArea>
+                </div>
+                <AlertDialogFooter className="p-6 bg-muted/20 border-t flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    <Button 
+                        onClick={handleAcceptDisclaimer}
+                        className="w-full sm:w-auto rounded-full px-10 h-12 bg-primary hover:bg-primary/90 text-white font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95"
+                    >
+                        I Read and Understand
+                    </Button>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
         {isAccessGranted ? (
             <div className="relative" onClick={handleManuscriptClick}>
                 {editor && (
