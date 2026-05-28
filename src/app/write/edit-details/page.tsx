@@ -642,12 +642,12 @@ function StoryDetailsInner() {
 
           <TabsContent value="chapters" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-3xl border-none shadow-xl overflow-hidden bg-card/50 backdrop-blur-sm">
-                  <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20">
-                      <div>
+                  <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b bg-muted/20 gap-4">
+                      <div className="min-w-0">
                           <CardTitle className="font-headline text-xl">Manuscript Map</CardTitle>
-                          <CardDescription>{story.chapters.length} Parts total & bull; Reorder and Schedule</CardDescription>
+                          <CardDescription className="truncate">{story.chapters.length} Parts total & bull; Reorder and Schedule</CardDescription>
                       </div>
-                      <Button onClick={handleAddChapter} className="rounded-full shadow-lg shadow-primary/20 gap-2">
+                      <Button onClick={handleAddChapter} className="rounded-full shadow-lg shadow-primary/20 gap-2 w-full sm:w-auto">
                           <Plus className="h-4 w-4" />
                           New Part
                       </Button>
@@ -656,9 +656,9 @@ function StoryDetailsInner() {
                       {story.chapters.length > 0 ? (
                         <div className="divide-y divide-border/40">
                             {story.chapters.sort((a,b) => a.order - b.order).map((ch, index) => (
-                                <div key={ch.id} className="p-5 flex items-center justify-between hover:bg-primary/5 transition-colors group">
-                                    <div className="flex items-center gap-4 min-w-0">
-                                        <div className="flex flex-col gap-1">
+                                <div key={ch.id} className="p-3 sm:p-5 flex items-center justify-between hover:bg-primary/5 transition-colors group gap-2">
+                                    <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+                                        <div className="flex flex-col gap-0.5 sm:gap-1">
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
@@ -668,7 +668,7 @@ function StoryDetailsInner() {
                                             >
                                                 <ChevronUp className="h-3 w-3" />
                                             </Button>
-                                            <div className="h-10 w-10 rounded-2xl bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors">
+                                            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl sm:rounded-2xl bg-muted flex items-center justify-center text-xs sm:text-sm font-bold text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors">
                                                 {index + 1}
                                             </div>
                                             <Button 
@@ -681,20 +681,20 @@ function StoryDetailsInner() {
                                                 <ChevronDown className="h-3 w-3" />
                                             </Button>
                                         </div>
-                                        <div className="truncate">
-                                            <h4 className="font-bold text-sm truncate flex items-center gap-2">
+                                        <div className="truncate flex-1">
+                                            <h4 className="font-bold text-xs sm:text-sm truncate flex items-center gap-2">
                                                 {ch.title}
                                                 {ch.accessType === 'exclusive' && <Lock className="h-3 w-3 text-yellow-500" />}
                                                 {ch.scheduledAt && <Calendar className="h-3 w-3 text-primary" />}
                                             </h4>
                                             
-                                            <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground mt-1">
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground mt-1">
                                                 <span className={cn(
                                                     ch.status === 'Published' ? "text-green-600" : "text-yellow-600"
                                                 )}>{ch.status}</span>
                                                 
                                                 {ch.status === 'Published' && (
-                                                    <div className="flex items-center gap-3 ml-3 pl-3 border-l border-border/40">
+                                                    <div className="flex items-center gap-3">
                                                         <span className="flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> {formatCompactNumber(ch.views || 0)}</span>
                                                         <span className="flex items-center gap-1"><Star className="h-2.5 w-2.5" /> {formatCompactNumber(ch.votes || 0)}</span>
                                                         <span className="flex items-center gap-1"><MessageSquare className="h-2.5 w-2.5" /> {formatCompactNumber(ch.commentsCount || 0)}</span>
@@ -716,14 +716,14 @@ function StoryDetailsInner() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                                         <Link href={`/write/edit?storyId=${story.id}&chapterId=${ch.id}`} passHref>
-                                            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary" title="Edit Content"><Edit className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 rounded-full hover:bg-primary/10 hover:text-primary" title="Edit Content"><Edit className="h-4 w-4" /></Button>
                                         </Link>
                                         
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted"><EllipsisVertical className="h-4 w-4" /></Button>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 rounded-full hover:bg-muted"><EllipsisVertical className="h-4 w-4" /></Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="w-48 rounded-xl">
                                                 <Dialog>
