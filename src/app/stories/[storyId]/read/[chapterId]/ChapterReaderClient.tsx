@@ -173,16 +173,43 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
 
+  // STRICT VIEW COUNT PROTOCOL (24-Hour Throttling)
   useEffect(() => {
     if (!story?.id || !currentChapter?.id || !isAccessGranted) return;
 
-    const viewToken = `view_${story.id}_${currentChapter.id}`;
-    const hasViewed = sessionStorage.getItem(viewToken);
+    const now = Date.now();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    const viewToken = `view_v2_${story.id}_${currentChapter.id}`;
+    const lastViewedTime = localStorage.getItem(viewToken);
 
-    if (!hasViewed) {
+    let shouldTally = false;
+    if (!lastViewedTime) {
+        shouldTally = true;
+    } else {
+        const timeDiff = now - parseInt(lastViewedTime, 10);
+        if (timeDiff > twentyFourHours) {
+            shouldTally = true;
+        }
+    }
+
+    if (shouldTally) {
         const storyRef = doc(db, 'stories', story.id);
-        updateDoc(storyRef, { views: increment(1) })
-        .then(() => { sessionStorage.setItem(viewToken, 'true'); })
+        
+        // Tallies both overall manuscript and individual chapter metrics
+        const updatedChapters = story.chapters.map(ch => {
+            if (ch.id === currentChapter.id) {
+                return { ...ch, views: (ch.views || 0) + 1 };
+            }
+            return ch;
+        });
+
+        updateDoc(storyRef, { 
+            views: increment(1),
+            chapters: updatedChapters 
+        })
+        .then(() => { 
+            localStorage.setItem(viewToken, now.toString()); 
+        })
         .catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({
                 path: storyRef.path,
@@ -208,6 +235,21 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const sortedChapters = useMemo(() => {
+      if (!story) return [];
+      return [...story.chapters].sort((a,b)=>a.order-b.order);
+  }, [story]);
+
+  const nextChapterId = useMemo(() => {
+      if (!currentChapter) return null;
+      return sortedChapters.find(c => c.order > (currentChapter.order || 0))?.id;
+  }, [sortedChapters, currentChapter]);
+
+  const prevChapterId = useMemo(() => {
+      if (!currentChapter) return null;
+      return [...sortedChapters].reverse().find(c => c.order < (currentChapter.order || 0))?.id;
+  }, [sortedChapters, currentChapter]);
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.targetTouches[0].clientX;
     touchStartY.current = e.targetTouches[0].clientY;
@@ -232,9 +274,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             }
         }
     } else if (currentUser.readerSettings.navigationStyle === 'vertical') {
-        const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 100;
+        const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 150;
+        const isAtTop = window.scrollY <= 100;
+
         if (isAtBottom && diffY > threshold && nextChapterId) {
              router.push(`/stories/${storyId}/read/${nextChapterId}`);
+        } else if (isAtTop && diffY < -threshold && prevChapterId) {
+             router.push(`/stories/${storyId}/read/${prevChapterId}`);
         }
     }
   };
@@ -419,11 +465,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   if (isLoading || !editor) return <div className="flex justify-center items-center h-screen bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (!story || !currentChapter) return null;
-
-  const isInLibrary = currentUser?.readingList?.some(item => item.id === story.id);
-  const sortedChapters = [...story.chapters].sort((a,b)=>a.order-b.order);
-  const nextChapterId = sortedChapters.find(c => c.order > (currentChapter?.order || 0))?.id;
-  const prevChapterId = [...sortedChapters].reverse().find(c => c.order < (currentChapter?.order || 0))?.id;
 
   return (
     <TooltipProvider delayDuration={300}>
