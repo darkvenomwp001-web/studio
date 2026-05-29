@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -19,30 +20,24 @@ import {
     Type, 
     Image as LucideImageIcon, 
     Music, 
-    BarChart2, 
-    BookOpen, 
-    Send, 
-    Palette, 
-    CheckCircle, 
-    Download, 
     Smile, 
     AtSign, 
     Search,
     Loader2,
     Star,
-    Camera,
     ChevronLeft,
     Check,
-    Plus
+    Plus,
+    Camera,
+    GalleryHorizontal,
+    Share,
+    SendHorizonal
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import SongSearch from '@/components/status/SongSearch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Checkbox } from '@/components/ui/checkbox';
 import { toggleCloseFriend } from '@/app/actions/userActions';
 
 const gradientBackgrounds = [
@@ -60,7 +55,6 @@ export default function CreateStatusPage() {
     const { toast } = useToast();
     const router = useRouter();
 
-    const [activeTab, setActiveTab] = useState('text');
     const [mediaFile, setMediaFile] = useState<File | null>(null);
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
     const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
@@ -69,10 +63,6 @@ export default function CreateStatusPage() {
     const [noteContent, setNoteContent] = useState('');
     const [backgroundStyle, setBackgroundStyle] = useState<string>(gradientBackgrounds[0]);
     const [selectedSong, setSelectedSong] = useState<Song | null>(null);
-    const [pollQuestion, setPollQuestion] = useState('');
-    const [pollOptions, setPollOptions] = useState(['', '']);
-    const [selectedStory, setSelectedStory] = useState<Story | null>(null);
-    const [storySearchResults, setStorySearchResults] = useState<Story[]>([]);
     
     // Tool States
     const [isTextToolActive, setIsTextToolActive] = useState(false);
@@ -88,8 +78,8 @@ export default function CreateStatusPage() {
     const [followers, setFollowers] = useState<User[]>([]);
     const [isLoadingFollowers, setIsLoadingFollowers] = useState(false);
 
-    const [isDragging, setIsDragging] = useState(false);
-    const [textPosition, setTextPosition] = useState({ x: 50, y: 50 });
+    const [isDragging, setIsDragging] = useState<{ type: 'text' | 'sticker' | 'mention', id?: string } | null>(null);
+    const [textPosition, setTextPosition] = useState({ x: 50, y: 40 });
     const [textStyle, setTextStyle] = useState<TextOverlayStyle>({
         font: 'sans',
         alignment: 'center',
@@ -99,12 +89,6 @@ export default function CreateStatusPage() {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    useEffect(() => {
-        if (activeTab === 'story') {
-            searchMyStories();
-        }
-    }, [activeTab]);
-
     const handleMediaSelect = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
@@ -113,20 +97,7 @@ export default function CreateStatusPage() {
             const reader = new FileReader();
             reader.onload = (event) => setMediaPreview(event.target?.result as string);
             reader.readAsDataURL(file);
-            setActiveTab('art');
         }
-    };
-
-    const searchMyStories = async () => {
-        if (!user) return;
-        const q = query(
-            collection(db, 'stories'), 
-            where('author.id', '==', user.id),
-            where('visibility', '==', 'Public'),
-            limit(10)
-        );
-        const snap = await getDocs(q);
-        setStorySearchResults(snap.docs.map(d => ({ id: d.id, ...d.data() } as Story)));
     };
 
     const handleMentionSearch = async (queryStr: string) => {
@@ -223,32 +194,15 @@ export default function CreateStatusPage() {
                     statusData.textOverlayStyle = textStyle;
                     statusData.textOverlayPosition = textPosition;
                 }
-            } else if (activeTab === 'text') {
-                statusData.note = noteContent.trim();
+            } else {
+                statusData.note = noteContent.trim() || 'Visual status';
                 statusData.backgroundStyle = backgroundStyle;
                 statusData.textOverlayStyle = textStyle;
                 statusData.textOverlayPosition = textPosition;
-            } else if (activeTab === 'music' && selectedSong) {
+            }
+
+            if (selectedSong) {
                 statusData.spotifyUrl = `https://open.spotify.com/track/${selectedSong.id}`;
-                if (noteContent.trim()) {
-                    statusData.textOverlay = noteContent.trim();
-                    statusData.textOverlayStyle = textStyle;
-                    statusData.textOverlayPosition = textPosition;
-                }
-            } else if (activeTab === 'poll' && pollQuestion.trim()) {
-                statusData.poll = {
-                    question: pollQuestion.trim(),
-                    options: pollOptions.filter(o => o.trim()).map((o, i) => ({ id: `opt${i}`, text: o.trim(), votes: [] })),
-                    createdAt: serverTimestamp(),
-                    authorId: user.id,
-                };
-            } else if (activeTab === 'story' && selectedStory) {
-                statusData.sharedStoryId = selectedStory.id;
-                if (noteContent.trim()) {
-                    statusData.textOverlay = noteContent.trim();
-                    statusData.textOverlayStyle = textStyle;
-                    statusData.textOverlayPosition = textPosition;
-                }
             }
 
             await addDoc(collection(db, 'statusUpdates'), statusData);
@@ -287,322 +241,409 @@ export default function CreateStatusPage() {
         }
     };
 
+    const handleCanvasDrag = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!isDragging) return;
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        let clientX, clientY;
+        
+        if ('touches' in e) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = (e as React.MouseEvent).clientX;
+            clientY = (e as React.MouseEvent).clientY;
+        }
+
+        const x = ((clientX - rect.left) / rect.width) * 100;
+        const y = ((clientY - rect.top) / rect.height) * 100;
+        const boundedX = Math.max(10, Math.min(90, x));
+        const boundedY = Math.max(10, Math.min(90, y));
+
+        if (isDragging.type === 'text') {
+            setTextPosition({ x: boundedX, y: boundedY });
+        } else if (isDragging.type === 'sticker') {
+            setStickers(prev => prev.map(s => s.id === isDragging.id ? { ...s, position: { x: boundedX, y: boundedY } } : s));
+        } else if (isDragging.type === 'mention') {
+            setMentions(prev => prev.map(m => m.id === isDragging.id ? { ...m, position: { x: boundedX, y: boundedY } } : m));
+        }
+    };
+
     return (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col overflow-hidden animate-in fade-in duration-700">
-            {/* Immersive Header Toolbar */}
+        <div className="fixed inset-0 z-50 bg-black flex flex-col overflow-hidden animate-in fade-in duration-700 font-sans">
+            {/* Immersive Background / Canvas */}
+            <div 
+                className={cn(
+                    "absolute inset-0 transition-all duration-700 transform-gpu overflow-hidden",
+                    mediaPreview ? 'bg-black' : backgroundStyle
+                )}
+                onMouseMove={handleCanvasDrag}
+                onMouseUp={() => setIsDragging(null)}
+                onTouchMove={(e) => {
+                    if (isDragging && e.cancelable) e.preventDefault();
+                    handleCanvasDrag(e);
+                }}
+                onTouchEnd={() => setIsDragging(null)}
+            >
+                {mediaPreview && (
+                    <Image 
+                        src={mediaPreview} 
+                        alt="Canvas" 
+                        layout="fill" 
+                        objectFit="cover" 
+                        className="pointer-events-none select-none" 
+                    />
+                )}
+
+                {/* Movable Layers */}
+                <div className="absolute inset-0 pointer-events-none">
+                    {noteContent && (
+                        <div 
+                            className="absolute transform -translate-x-1/2 -translate-y-1/2 min-w-[200px] cursor-grab active:cursor-grabbing pointer-events-auto group/text"
+                            style={{ left: `${textPosition.x}%`, top: `${textPosition.y}%` }}
+                            onMouseDown={() => setIsDragging({ type: 'text' })}
+                            onTouchStart={() => setIsDragging({ type: 'text' })}
+                        >
+                            <div className="relative">
+                                <p 
+                                    className={cn(
+                                        "text-white text-3xl font-bold p-4 text-center leading-tight",
+                                        textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
+                                        textStyle.background === 'solid' ? 'bg-black px-6 py-2 rounded-xl' : (textStyle.background === 'translucent' ? 'bg-black/40 backdrop-blur-md px-6 py-2 rounded-xl' : '')
+                                    )} 
+                                    style={{ 
+                                        textShadow: textStyle.background === 'none' ? '0 2px 10px rgba(0,0,0,0.8)' : 'none',
+                                        color: textStyle.color 
+                                    }}
+                                    onClick={() => setIsTextToolActive(true)}
+                                >
+                                    {noteContent}
+                                </p>
+                                <button 
+                                    className="absolute -top-3 -right-3 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover/text:opacity-100 transition-opacity shadow-lg border border-white/10"
+                                    onClick={(e) => { e.stopPropagation(); setNoteContent(''); }}
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {stickers.map(s => (
+                        <div 
+                            key={s.id} 
+                            className="absolute transform -translate-x-1/2 -translate-y-1/2 text-7xl select-none pointer-events-auto cursor-grab active:cursor-grabbing group/sticker"
+                            style={{ left: `${s.position.x}%`, top: `${s.position.y}%` }}
+                            onMouseDown={() => setIsDragging({ type: 'sticker', id: s.id })}
+                            onTouchStart={() => setIsDragging({ type: 'sticker', id: s.id })}
+                        >
+                             <div className="relative">
+                                {s.emoji}
+                                <button 
+                                    className="absolute -top-2 -right-2 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover/sticker:opacity-100 transition-opacity shadow-lg border border-white/10"
+                                    onClick={(e) => { e.stopPropagation(); setStickers(prev => prev.filter(st => st.id !== s.id)); }}
+                                >
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+
+                    {mentions.map(m => (
+                        <div 
+                            key={m.id} 
+                            className="absolute transform -translate-x-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-xl px-5 py-2.5 rounded-full border border-white/30 text-white font-black text-lg shadow-2xl pointer-events-auto cursor-grab active:cursor-grabbing group/mention"
+                            style={{ left: `${m.position.x}%`, top: `${m.position.y}%` }}
+                            onMouseDown={() => setIsDragging({ type: 'mention', id: m.id })}
+                            onTouchStart={() => setIsDragging({ type: 'mention', id: m.id })}
+                        >
+                            <div className="relative">
+                                @{m.username}
+                                <button 
+                                    className="absolute -top-3 -right-3 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover/mention:opacity-100 transition-opacity shadow-lg border border-white/10"
+                                    onClick={(e) => { e.stopPropagation(); setMentions(prev => prev.filter(mt => mt.id !== m.id)); }}
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Top Toolbar Navigation */}
             <header className="absolute top-0 left-0 right-0 z-[100] p-6 flex items-center justify-between pointer-events-none">
                 <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="rounded-full bg-black/40 backdrop-blur-md text-white pointer-events-auto h-12 w-12"
+                    className="rounded-full bg-black/30 backdrop-blur-md text-white pointer-events-auto h-12 w-12 hover:bg-black/50 border border-white/10 transition-all"
                     onClick={() => router.back()}
                 >
-                    <ChevronLeft className="h-6 w-6" />
+                    <X className="h-6 w-6" />
                 </Button>
 
-                <div className="flex items-center gap-3 pointer-events-auto">
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className={cn("rounded-full h-11 w-11 backdrop-blur-md transition-all", isTextToolActive ? "bg-white text-black" : "bg-black/40 text-white")}
+                {/* Vertical Toolbar - Inspired by Reference */}
+                <div className="flex flex-col gap-4 pointer-events-auto bg-black/20 backdrop-blur-2xl p-2 rounded-[2rem] border border-white/10 shadow-2xl mt-20">
+                    <button 
+                        className={cn(
+                            "flex flex-col items-center justify-center gap-1 w-16 h-20 rounded-3xl transition-all active:scale-95 group",
+                            isTextToolActive ? "bg-white text-black" : "text-white hover:bg-white/10"
+                        )}
                         onClick={() => setIsTextToolActive(true)}
                     >
-                        <Type className="h-5 w-5" />
-                    </Button>
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="rounded-full h-11 w-11 bg-black/40 backdrop-blur-md text-white"
-                        onClick={() => setIsMusicToolActive(true)}
-                    >
-                        <Music className="h-5 w-5" />
-                    </Button>
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="rounded-full h-11 w-11 bg-black/40 backdrop-blur-md text-white"
+                        <Type className="h-7 w-7" />
+                        <span className="text-[10px] font-black uppercase tracking-tighter opacity-80">Text</span>
+                    </button>
+                    <button 
+                        className="flex flex-col items-center justify-center gap-1 w-16 h-20 text-white rounded-3xl transition-all active:scale-95 hover:bg-white/10 group"
                         onClick={() => setIsStickerToolActive(true)}
                     >
-                        <Smile className="h-5 w-5" />
-                    </Button>
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="rounded-full h-11 w-11 bg-black/40 backdrop-blur-md text-white"
+                        <Smile className="h-7 w-7" />
+                        <span className="text-[10px] font-black uppercase tracking-tighter opacity-80">Emojis</span>
+                    </button>
+                    <button 
+                        className="flex flex-col items-center justify-center gap-1 w-16 h-20 text-white rounded-3xl transition-all active:scale-95 hover:bg-white/10 group"
+                        onClick={() => setIsMusicToolActive(true)}
+                    >
+                        <Music className="h-7 w-7" />
+                        <span className="text-[10px] font-black uppercase tracking-tighter opacity-80">Music</span>
+                    </button>
+                    <button 
+                        className="flex flex-col items-center justify-center gap-1 w-16 h-20 text-white rounded-3xl transition-all active:scale-95 hover:bg-white/10 group"
                         onClick={() => setIsMentionToolActive(true)}
                     >
-                        <AtSign className="h-5 w-5" />
-                    </Button>
+                        <AtSign className="h-7 w-7" />
+                        <span className="text-[10px] font-black uppercase tracking-tighter opacity-80">Link</span>
+                    </button>
+                    {!mediaPreview && (
+                        <div className="flex flex-col gap-2 p-1 border-t border-white/10 pt-4">
+                            {gradientBackgrounds.slice(0, 3).map((bg, i) => (
+                                <button 
+                                    key={i} 
+                                    onClick={() => setBackgroundStyle(bg)}
+                                    className={cn("w-10 h-10 rounded-full border-2 transition-all", backgroundStyle === bg ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-60')}
+                                    style={{ background: bg.split(' ')[1] }}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             </header>
 
-            {/* Editing Canvas */}
-            <div className={cn(
-                "relative flex-1 flex flex-col justify-center items-center transition-all duration-700 transform-gpu overflow-hidden",
-                activeTab === 'text' ? backgroundStyle : 'bg-black'
-            )}
-            onMouseMove={(e) => {
-                if (!isDragging) return;
-                const rect = e.currentTarget.getBoundingClientRect();
-                const x = ((e.clientX - rect.left) / rect.width) * 100;
-                const y = ((e.clientY - rect.top) / rect.height) * 100;
-                setTextPosition({ x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) });
-            }}
-            onMouseUp={() => setIsDragging(false)}
-            onMouseLeave={() => setIsDragging(false)}
-            onTouchMove={(e) => {
-                if (!isDragging) return;
-                if (e.cancelable) e.preventDefault();
-                const rect = e.currentTarget.getBoundingClientRect();
-                const touch = e.touches[0];
-                const x = ((touch.clientX - rect.left) / rect.width) * 100;
-                const y = ((touch.clientY - rect.top) / rect.height) * 100;
-                setTextPosition({ x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) });
-            }}
-            onTouchEnd={() => setIsDragging(false)}
-            >
-                {activeTab === 'art' && mediaPreview && (
-                    <Image src={mediaPreview} alt="Canvas" layout="fill" objectFit="contain" className="pointer-events-none" />
-                )}
-
-                {activeTab === 'text' && !noteContent && (
+            {/* Bottom Actions Hub */}
+            <footer className="absolute bottom-0 left-0 right-0 p-8 z-[100] flex items-center justify-between pointer-events-none">
+                <div className="flex items-center gap-4 pointer-events-auto">
                     <button 
-                        className="text-white/20 text-3xl font-bold hover:text-white/40 transition-colors"
-                        onClick={() => setIsTextToolActive(true)}
+                        className="w-14 h-14 rounded-full bg-black/40 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90 shadow-2xl"
+                        onClick={() => mediaInputRef.current?.click()}
                     >
-                        Tap to add text
+                        <LucideImageIcon className="h-6 w-6" />
                     </button>
-                )}
+                    <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaSelect} />
+                    
+                    <button 
+                        className="w-14 h-14 rounded-full bg-black/40 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90 shadow-2xl"
+                        onClick={() => toast({ title: "Camera activation initiated..." })}
+                    >
+                        <Camera className="h-6 w-6" />
+                    </button>
+                </div>
 
-                {/* Movable Layers */}
-                {(activeTab === 'art' || activeTab === 'music' || activeTab === 'story' || activeTab === 'text') && (
-                    <div className="absolute inset-0 pointer-events-none">
-                        {noteContent && (
-                            <div 
-                                className="absolute transform -translate-x-1/2 -translate-y-1/2 min-w-[200px] cursor-move pointer-events-auto group/text"
-                                style={{ left: `${textPosition.x}%`, top: `${textPosition.y}%` }}
-                                onMouseDown={() => setIsDragging(true)}
-                                onTouchStart={() => setIsDragging(true)}
-                            >
-                                <div className="relative">
-                                    <p 
-                                        className={cn(
-                                            "text-white text-2xl font-bold p-3 text-center",
-                                            textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans')
-                                        )} 
-                                        style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}
-                                        onClick={() => setIsTextToolActive(true)}
-                                    >
-                                        {noteContent}
-                                    </p>
-                                    <button 
-                                        className="absolute -top-2 -right-2 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover/text:opacity-100 transition-opacity shadow-lg border border-white/10"
-                                        onClick={(e) => { e.stopPropagation(); setNoteContent(''); }}
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </div>
-                            </div>
+                <div className="flex items-center gap-3 pointer-events-auto">
+                     <Button 
+                        onClick={openCloseFriendsPicker}
+                        className="h-14 rounded-full px-6 bg-black/40 backdrop-blur-xl border border-white/10 text-white font-bold text-xs uppercase tracking-widest gap-2 shadow-2xl"
+                    >
+                        <Star className="h-4 w-4 text-green-500 fill-current" />
+                        Close Circle
+                    </Button>
+
+                    <Button 
+                        onClick={() => handlePublish('public')}
+                        disabled={isSubmitting}
+                        className="h-14 min-w-[140px] rounded-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-[0.2em] text-xs gap-3 shadow-[0_15px_40px_rgba(var(--primary),0.4)] transition-all active:scale-95"
+                    >
+                        {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : (
+                            <>
+                                Share
+                                <SendHorizonal className="h-4 w-4" />
+                            </>
                         )}
-
-                        {stickers.map(s => (
-                            <div 
-                                key={s.id} 
-                                className="absolute transform -translate-x-1/2 -translate-y-1/2 text-6xl select-none pointer-events-auto cursor-move"
-                                style={{ left: `${s.position.x}%`, top: `${s.position.y}%` }}
-                            >
-                                {s.emoji}
-                            </div>
-                        ))}
-
-                        {mentions.map(m => (
-                            <div 
-                                key={m.id} 
-                                className="absolute transform -translate-x-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/30 text-white font-bold text-base shadow-2xl pointer-events-auto cursor-move"
-                                style={{ left: `${m.position.x}%`, top: `${m.position.y}%` }}
-                            >
-                                @{m.username}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Sub-tools Popups */}
-                {isTextToolActive && (
-                    <div className="absolute inset-0 z-[200] bg-black/60 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
-                        <Button variant="ghost" size="icon" className="absolute top-8 right-8 text-white h-12 w-12" onClick={() => setIsTextToolActive(false)}><X className="h-8 w-8"/></Button>
-                        <div className="w-full max-w-lg space-y-8 text-center">
-                             <div className="flex justify-center gap-3 mb-6">
-                                {['sans', 'serif', 'mono'].map(f => (
-                                    <Button 
-                                        key={f} 
-                                        variant="outline" 
-                                        size="sm" 
-                                        className={cn("rounded-full px-4 h-9 font-bold uppercase text-[10px] tracking-widest", textStyle.font === f ? "bg-white text-black" : "bg-black/40 text-white border-white/20")}
-                                        onClick={() => setTextStyle({...textStyle, font: f as any})}
-                                    >
-                                        {f}
-                                    </Button>
-                                ))}
-                            </div>
-                            <Textarea 
-                                autoFocus
-                                value={noteContent}
-                                onChange={e => setNoteContent(e.target.value)}
-                                placeholder="Type something..."
-                                className={cn(
-                                    "bg-transparent border-none text-white text-4xl md:text-5xl font-bold text-center focus-visible:ring-0 min-h-[200px] shadow-none",
-                                    textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans')
-                                )}
-                            />
-                            <Button className="rounded-full px-12 h-12 font-bold uppercase text-xs tracking-widest shadow-xl" onClick={() => setIsTextToolActive(false)}>Done</Button>
-                        </div>
-                    </div>
-                )}
-
-                {isMusicToolActive && (
-                    <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-3xl flex flex-col p-8 animate-in slide-in-from-bottom-full duration-500">
-                        <header className="flex justify-between items-center mb-8">
-                            <div>
-                                <h3 className="text-2xl font-headline font-bold text-white">Atmospheric Pulse</h3>
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Add a high-fidelity soundtrack</p>
-                            </div>
-                            <Button variant="ghost" size="icon" className="text-white h-12 w-12 bg-white/10 rounded-full" onClick={() => setIsMusicToolActive(false)}><X className="h-6 w-6"/></Button>
-                        </header>
-                        <SongSearch onSongSelect={(song) => { setSelectedSong(song); setIsMusicToolActive(false); setActiveTab('music'); }} />
-                    </div>
-                )}
-
-                {isStickerToolActive && (
-                    <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-3xl flex flex-col animate-in slide-in-from-bottom-full duration-500">
-                        <header className="flex justify-between items-center p-8 border-b border-white/10">
-                            <div>
-                                <h3 className="text-2xl font-headline font-bold text-white">Stickers</h3>
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Visual Signal Enhancement</p>
-                            </div>
-                            <Button variant="ghost" size="icon" className="text-white h-12 w-12 bg-white/10 rounded-full" onClick={() => setIsStickerToolActive(false)}><X className="h-6 w-6"/></Button>
-                        </header>
-                        <div className="flex-1 overflow-hidden">
-                            <EmojiPicker 
-                                onEmojiClick={addSticker} 
-                                width="100%" 
-                                height="100%" 
-                                theme={'dark' as any}
-                                searchPlaceHolder="Search stickers..."
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {isMentionToolActive && (
-                    <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-3xl flex flex-col p-8 animate-in slide-in-from-bottom-full duration-500">
-                        <header className="flex justify-between items-center mb-8">
-                            <div>
-                                <h3 className="text-2xl font-headline font-bold text-white">Signal Author</h3>
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Mention a node in your network</p>
-                            </div>
-                            <Button variant="ghost" size="icon" className="text-white h-12 w-12 bg-white/10 rounded-full" onClick={() => setIsMentionToolActive(false)}><X className="h-6 w-6"/></Button>
-                        </header>
-                        <div className="relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/40" />
-                            <Input 
-                                placeholder="Search handles..." 
-                                value={mentionSearch} 
-                                onChange={e => handleMentionSearch(e.target.value)}
-                                className="pl-12 bg-white/10 border-white/20 text-white h-14 rounded-2xl text-lg focus-visible:ring-primary/40"
-                                autoFocus
-                            />
-                        </div>
-                        <ScrollArea className="flex-1 mt-8">
-                            <div className="space-y-3">
-                                {searchedUsers.map(u => (
-                                    <div 
-                                        key={u.id} 
-                                        className="flex items-center gap-4 p-4 rounded-3xl hover:bg-white/10 cursor-pointer transition-all border border-transparent hover:border-white/10 group"
-                                        onClick={() => addMention(u)}
-                                    >
-                                        <Avatar className="h-12 w-12 border border-white/20 group-hover:scale-105 transition-transform">
-                                            <AvatarImage src={u.avatarUrl} />
-                                            <AvatarFallback>{u.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1">
-                                            <p className="font-bold text-white text-lg">@{u.username}</p>
-                                            <p className="text-xs text-white/60">{u.displayName}</p>
-                                        </div>
-                                        <CheckCircle className="h-6 w-6 text-primary opacity-0 group-hover:opacity-100" />
-                                    </div>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    </div>
-                )}
-            </div>
-
-            {/* Immersive Footer Navigation */}
-            <footer className="bg-black/60 backdrop-blur-3xl p-6 border-t border-white/10 z-[100]">
-                <div className="max-w-xl mx-auto flex flex-col gap-6">
-                    <div className="flex items-center justify-center gap-3 overflow-x-auto no-scrollbar py-2">
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="rounded-full bg-white/10 text-white h-11 w-11"
-                            onClick={() => mediaInputRef.current?.click()}
-                        >
-                            <LucideImageIcon className="h-5 w-5" />
-                        </Button>
-                        <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaSelect} />
-                        
-                        {gradientBackgrounds.map((bg, idx) => (
-                            <button 
-                                key={idx} 
-                                onClick={() => { setBackgroundStyle(bg); setActiveTab('text'); }}
-                                className={cn(
-                                    "h-8 w-8 rounded-full border-2 transition-all flex-shrink-0",
-                                    backgroundStyle === bg ? "border-white scale-110 shadow-lg" : "border-transparent opacity-60 hover:opacity-100"
-                                )}
-                                style={{ background: bg.split(' ')[1] }}
-                            />
-                        ))}
-                    </div>
-
-                    <div className="flex gap-3">
-                        <Button 
-                            onClick={() => handlePublish('public')}
-                            disabled={isSubmitting || (activeTab === 'text' && !noteContent.trim())}
-                            className="flex-1 h-14 rounded-3xl bg-white hover:bg-white/90 text-black font-black uppercase tracking-widest text-[10px] gap-3 shadow-2xl transition-all active:scale-95"
-                        >
-                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                            Public Feed
-                        </Button>
-                        <Button 
-                            onClick={openCloseFriendsPicker}
-                            disabled={isSubmitting}
-                            className="flex-1 h-14 rounded-3xl bg-green-500 hover:bg-green-600 text-white font-black uppercase tracking-widest text-[10px] gap-3 shadow-2xl shadow-green-500/30 transition-all active:scale-95"
-                        >
-                            <Star className="h-4 w-4 fill-current" />
-                            Close Friends
-                        </Button>
-                    </div>
+                    </Button>
                 </div>
             </footer>
 
+            {/* SUB-TOOL OVERLAYS (Liquid Glass Style) */}
+            
+            {/* Text Editor Overlay */}
+            {isTextToolActive && (
+                <div className="absolute inset-0 z-[200] bg-black/70 backdrop-blur-3xl flex flex-col items-center justify-center p-8 animate-in fade-in duration-300">
+                    <Button variant="ghost" size="icon" className="absolute top-10 right-10 text-white h-14 w-14 bg-white/10 rounded-full" onClick={() => setIsTextToolActive(false)}><X className="h-8 w-8"/></Button>
+                    <div className="w-full max-w-2xl space-y-12 text-center">
+                        <div className="flex justify-center items-center gap-3">
+                            {['sans', 'serif', 'mono'].map(f => (
+                                <button 
+                                    key={f} 
+                                    className={cn(
+                                        "px-5 py-2 rounded-full font-black uppercase text-[10px] tracking-widest transition-all",
+                                        textStyle.font === f ? "bg-white text-black shadow-xl" : "bg-white/10 text-white border border-white/10"
+                                    )}
+                                    onClick={() => setTextStyle({...textStyle, font: f as any})}
+                                >
+                                    {f}
+                                </button>
+                            ))}
+                            <Separator orientation="vertical" className="h-6 bg-white/20 mx-2" />
+                            <button 
+                                className={cn(
+                                    "w-9 h-9 rounded-lg flex items-center justify-center border transition-all",
+                                    textStyle.background !== 'none' ? "bg-white text-black" : "bg-transparent border-white/20 text-white"
+                                )}
+                                onClick={() => setTextStyle({...textStyle, background: textStyle.background === 'none' ? 'translucent' : (textStyle.background === 'translucent' ? 'solid' : 'none')})}
+                            >
+                                <Palette className="h-4 w-4" />
+                            </button>
+                        </div>
+                        
+                        <Textarea 
+                            autoFocus
+                            value={noteContent}
+                            onChange={e => setNoteContent(e.target.value)}
+                            placeholder="Push your signal..."
+                            className={cn(
+                                "bg-transparent border-none text-white text-5xl md:text-7xl font-black text-center focus-visible:ring-0 min-h-[300px] shadow-none resize-none p-0",
+                                textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
+                                textStyle.background === 'solid' ? 'bg-black px-10 py-6 rounded-[3rem]' : (textStyle.background === 'translucent' ? 'bg-black/40 backdrop-blur-xl px-10 py-6 rounded-[3rem]' : '')
+                            )}
+                            style={{ color: textStyle.color }}
+                        />
+                        
+                        <div className="flex justify-center gap-3">
+                            {['#ffffff', '#000000', '#3b82f6', '#ef4444', '#10b981', '#f59e0b'].map(c => (
+                                <button 
+                                    key={c} 
+                                    className={cn("w-10 h-10 rounded-full border-4 shadow-lg transition-transform hover:scale-110", textStyle.color === c ? 'border-white scale-125' : 'border-transparent')}
+                                    style={{ backgroundColor: c }}
+                                    onClick={() => setTextStyle({...textStyle, color: c})}
+                                />
+                            ))}
+                        </div>
+
+                        <Button className="rounded-full px-16 h-16 font-black uppercase text-sm tracking-[0.2em] shadow-2xl bg-white text-black hover:bg-white/90" onClick={() => setIsTextToolActive(false)}>Done</Button>
+                    </div>
+                </div>
+            )}
+
+            {/* Music Picker Overlay */}
+            {isMusicToolActive && (
+                <div className="absolute inset-0 z-[200] bg-black/90 backdrop-blur-3xl flex flex-col p-10 animate-in slide-in-from-bottom-full duration-500">
+                    <header className="flex justify-between items-center mb-10">
+                        <div>
+                            <h3 className="text-4xl font-headline font-bold text-white">Archives Audio</h3>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1">High-Fidelity Soundtrack Hub</p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="text-white h-14 w-14 bg-white/10 rounded-full hover:bg-white/20 transition-all" onClick={() => setIsMusicToolActive(false)}><X className="h-8 w-8"/></Button>
+                    </header>
+                    <SongSearch onSongSelect={(song) => { setSelectedSong(song); setIsMusicToolActive(false); }} />
+                    {selectedSong && (
+                        <div className="mt-8 p-6 bg-white/5 rounded-[2.5rem] border border-white/10 flex items-center gap-4 animate-in zoom-in-95">
+                            <Avatar className="h-16 w-16 rounded-2xl">
+                                <AvatarImage src={selectedSong.cover} />
+                            </Avatar>
+                            <div className="flex-1">
+                                <p className="font-bold text-white text-lg">{selectedSong.title}</p>
+                                <p className="text-sm text-white/50">{selectedSong.artist}</p>
+                            </div>
+                            <Button variant="ghost" size="icon" className="text-white/40 hover:text-red-500" onClick={() => setSelectedSong(null)}><X className="h-5 w-5"/></Button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Sticker Picker Overlay */}
+            {isStickerToolActive && (
+                <div className="absolute inset-0 z-[200] bg-black/90 backdrop-blur-3xl flex flex-col animate-in slide-in-from-bottom-full duration-500">
+                    <header className="flex justify-between items-center p-10 border-b border-white/10">
+                        <div>
+                            <h3 className="text-4xl font-headline font-bold text-white">Visual Signals</h3>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1">Draggable Archival Nodes</p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="text-white h-14 w-14 bg-white/10 rounded-full hover:bg-white/20 transition-all" onClick={() => setIsStickerToolActive(false)}><X className="h-8 w-8"/></Button>
+                    </header>
+                    <div className="flex-1 overflow-hidden">
+                        <EmojiPicker 
+                            onEmojiClick={addSticker} 
+                            width="100%" 
+                            height="100%" 
+                            theme={'dark' as any}
+                            searchPlaceHolder="Search visual codes..."
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* Mention Hub Overlay */}
+            {isMentionToolActive && (
+                <div className="absolute inset-0 z-[200] bg-black/90 backdrop-blur-3xl flex flex-col p-10 animate-in slide-in-from-bottom-full duration-500">
+                    <header className="flex justify-between items-center mb-10">
+                        <div>
+                            <h3 className="text-4xl font-headline font-bold text-white">Archive Ping</h3>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1">Signal another creator node</p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="text-white h-14 w-14 bg-white/10 rounded-full hover:bg-white/20 transition-all" onClick={() => setIsMentionToolActive(false)}><X className="h-8 w-8"/></Button>
+                    </header>
+                    <div className="relative">
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-6 w-6 text-white/40" />
+                        <Input 
+                            placeholder="Scan handles..." 
+                            value={mentionSearch} 
+                            onChange={e => handleMentionSearch(e.target.value)}
+                            className="pl-16 h-20 rounded-[2rem] bg-white/10 border-white/20 text-white text-2xl font-bold focus-visible:ring-primary/40 shadow-inner"
+                            autoFocus
+                        />
+                    </div>
+                    <ScrollArea className="flex-1 mt-10">
+                        <div className="space-y-4">
+                            {searchedUsers.map(u => (
+                                <div 
+                                    key={u.id} 
+                                    className="flex items-center gap-6 p-6 rounded-[2.5rem] bg-white/5 border border-transparent hover:border-primary/40 hover:bg-white/10 cursor-pointer transition-all group"
+                                    onClick={() => addMention(u)}
+                                >
+                                    <Avatar className="h-16 w-16 border-2 border-white/10 group-hover:scale-105 transition-transform">
+                                        <AvatarImage src={u.avatarUrl} />
+                                        <AvatarFallback>{u.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-black text-white text-2xl truncate">@{u.username}</p>
+                                        <p className="text-xs text-white/40 font-bold uppercase tracking-widest truncate">{u.displayName}</p>
+                                    </div>
+                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Plus className="h-6 w-6 text-primary" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                </div>
+            )}
+
             {/* Close Friends Tagger Overlay */}
             {isCloseFriendsPickerOpen && (
-                <div className="absolute inset-0 z-[300] bg-black/95 backdrop-blur-3xl p-8 flex flex-col animate-in fade-in zoom-in-95 duration-500">
-                    <header className="flex justify-between items-center mb-8 border-b border-white/10 pb-6">
+                <div className="absolute inset-0 z-[300] bg-black/95 backdrop-blur-3xl p-10 flex flex-col animate-in fade-in zoom-in-95 duration-500">
+                    <header className="flex justify-between items-center mb-10 border-b border-white/10 pb-8">
                         <div>
-                            <h3 className="text-3xl font-headline font-bold text-white flex items-center gap-3">
-                                <Star className="h-8 w-8 text-green-500 fill-current" />
+                            <h3 className="text-5xl font-headline font-bold text-white flex items-center gap-4">
+                                <Star className="h-12 w-12 text-green-500 fill-current" />
                                 Inner Circle
                             </h3>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1">Select archival nodes for private sharing</p>
+                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/40 mt-2">Grant private archival access</p>
                         </div>
-                        <Button variant="ghost" size="icon" className="text-white h-12 w-12 bg-white/10 rounded-full" onClick={() => setIsCloseFriendsPickerOpen(false)}><X className="h-6 w-6"/></Button>
+                        <Button variant="ghost" size="icon" className="text-white h-14 w-14 bg-white/10 rounded-full hover:bg-white/20 transition-all" onClick={() => setIsCloseFriendsPickerOpen(false)}><X className="h-8 w-8"/></Button>
                     </header>
 
                     <ScrollArea className="flex-1">
                         {isLoadingFollowers ? (
-                            <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-green-500" /></div>
+                            <div className="flex justify-center py-20"><Loader2 className="h-12 w-12 animate-spin text-green-500" /></div>
                         ) : followers.length > 0 ? (
                             <div className="space-y-4">
                                 {followers.map(f => {
@@ -610,39 +651,44 @@ export default function CreateStatusPage() {
                                     return (
                                         <div 
                                             key={f.id} 
-                                            className="flex items-center gap-4 p-4 rounded-[2.5rem] bg-white/5 border border-white/5 hover:border-green-500/40 transition-all cursor-pointer group"
+                                            className="flex items-center gap-6 p-6 rounded-[3rem] bg-white/5 border border-white/5 hover:border-green-500/40 transition-all cursor-pointer group"
                                             onClick={() => handleToggleCF(f.id)}
                                         >
-                                            <Avatar className="h-14 w-14 border border-white/10 group-hover:scale-105 transition-transform">
+                                            <Avatar className="h-16 w-16 border-2 border-white/10 group-hover:scale-105 transition-transform">
                                                 <AvatarImage src={f.avatarUrl} />
                                                 <AvatarFallback>{f.username.substring(0,1).toUpperCase()}</AvatarFallback>
                                             </Avatar>
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-white text-lg">@{f.username}</p>
-                                                <p className="text-xs text-white/40 font-medium uppercase tracking-tighter truncate">{f.displayName}</p>
+                                                <p className="font-black text-white text-2xl truncate">@{f.username}</p>
+                                                <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest truncate">{f.displayName}</p>
                                             </div>
-                                            {isSelected && <Check className="h-6 w-6 text-green-500" />}
+                                            <div className={cn(
+                                                "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
+                                                isSelected ? "bg-green-500 border-green-500 text-white" : "border-white/20 text-transparent"
+                                            )}>
+                                                <Check className="h-6 w-6" />
+                                            </div>
                                         </div>
                                     );
                                 })}
                             </div>
                         ) : (
-                            <div className="text-center py-32 text-white/20 italic bg-white/5 rounded-[3rem] border-2 border-dashed border-white/10">
-                                <Users className="h-12 w-12 mx-auto mb-4" />
-                                <p className="text-sm px-12 leading-relaxed">Archival network requires mutual signal following to establish private connections.</p>
+                            <div className="text-center py-32 text-white/20 italic bg-white/5 rounded-[40px] border-2 border-dashed border-white/10">
+                                <Users className="h-16 w-16 mx-auto mb-6" />
+                                <p className="text-lg px-12 leading-relaxed">Network protocol requires mutual signal following to establish a private circle.</p>
                             </div>
                         )}
                     </ScrollArea>
 
-                    <div className="pt-8 border-t border-white/10">
+                    <div className="pt-10 border-t border-white/10">
                         <Button 
                             onClick={() => {
                                 setIsCloseFriendsPickerOpen(false);
                                 handlePublish('close-friends');
                             }} 
-                            className="w-full rounded-[2.5rem] h-16 bg-green-500 hover:bg-green-600 text-white font-black uppercase tracking-[0.2em] text-xs shadow-3xl shadow-green-500/40"
+                            className="w-full rounded-[3rem] h-20 bg-green-500 hover:bg-green-600 text-white font-black uppercase tracking-[0.3em] text-sm shadow-[0_20px_50px_rgba(34,197,94,0.3)] transition-all active:scale-95"
                         >
-                            Confirm & Transmit Signal
+                            Sync Circle Signal
                         </Button>
                     </div>
                 </div>
