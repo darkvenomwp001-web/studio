@@ -348,42 +348,60 @@ export default function CreateStatusPage() {
                 const y = ((e.clientY - rect.top) / rect.height) * 100;
                 setTextPosition({ x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) });
             }}
+            onMouseUp={() => setIsDragging(false)}
+            onMouseLeave={() => setIsDragging(false)}
+            onTouchMove={(e) => {
+                if (!isDragging) return;
+                if (e.cancelable) e.preventDefault();
+                const rect = e.currentTarget.getBoundingClientRect();
+                const touch = e.touches[0];
+                const x = ((touch.clientX - rect.left) / rect.width) * 100;
+                const y = ((touch.clientY - rect.top) / rect.height) * 100;
+                setTextPosition({ x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) });
+            }}
+            onTouchEnd={() => setIsDragging(false)}
             >
                 {activeTab === 'art' && mediaPreview && (
                     <Image src={mediaPreview} alt="Canvas" layout="fill" objectFit="contain" className="pointer-events-none" />
                 )}
 
-                {activeTab === 'text' && (
-                    <div className="w-full max-w-lg px-8 text-center">
-                        <Textarea 
-                            autoFocus
-                            value={noteContent}
-                            onChange={e => setNoteContent(e.target.value)}
-                            placeholder="Type something archive-worthy..."
-                            className={cn(
-                                "bg-transparent border-none text-white text-4xl md:text-5xl font-bold text-center focus-visible:ring-0 resize-none min-h-[200px] shadow-none placeholder:text-white/20",
-                                textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans')
-                            )}
-                        />
-                    </div>
+                {activeTab === 'text' && !noteContent && (
+                    <button 
+                        className="text-white/20 text-3xl font-bold hover:text-white/40 transition-colors"
+                        onClick={() => setIsTextToolActive(true)}
+                    >
+                        Tap to add text
+                    </button>
                 )}
 
                 {/* Movable Layers */}
-                {(activeTab === 'art' || activeTab === 'music' || activeTab === 'story') && (
+                {(activeTab === 'art' || activeTab === 'music' || activeTab === 'story' || activeTab === 'text') && (
                     <div className="absolute inset-0 pointer-events-none">
                         {noteContent && (
                             <div 
-                                className="absolute transform -translate-x-1/2 -translate-y-1/2 min-w-[200px] cursor-move pointer-events-auto"
+                                className="absolute transform -translate-x-1/2 -translate-y-1/2 min-w-[200px] cursor-move pointer-events-auto group/text"
                                 style={{ left: `${textPosition.x}%`, top: `${textPosition.y}%` }}
                                 onMouseDown={() => setIsDragging(true)}
-                                onMouseUp={() => setIsDragging(false)}
+                                onTouchStart={() => setIsDragging(true)}
                             >
-                                <p className={cn(
-                                    "text-white text-2xl font-bold p-3 text-center",
-                                    textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans')
-                                )} style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
-                                    {noteContent}
-                                </p>
+                                <div className="relative">
+                                    <p 
+                                        className={cn(
+                                            "text-white text-2xl font-bold p-3 text-center",
+                                            textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans')
+                                        )} 
+                                        style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}
+                                        onClick={() => setIsTextToolActive(true)}
+                                    >
+                                        {noteContent}
+                                    </p>
+                                    <button 
+                                        className="absolute -top-2 -right-2 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover/text:opacity-100 transition-opacity shadow-lg border border-white/10"
+                                        onClick={(e) => { e.stopPropagation(); setNoteContent(''); }}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </div>
                             </div>
                         )}
 
