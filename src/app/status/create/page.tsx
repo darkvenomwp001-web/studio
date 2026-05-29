@@ -374,11 +374,10 @@ export default function CreateStatusPage() {
             {/* Top Toolbar Navigation */}
             <header className="absolute top-0 left-0 right-0 z-[100] p-4 flex items-center justify-between pointer-events-none">
                 <div className="pointer-events-auto">
-                    <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-black/20 rounded-full" onClick={() => router.back()}><ChevronLeft className="h-6 w-6"/></Button>
                 </div>
 
                 {/* Vertical Toolbar */}
-                <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] border border-white/10 shadow-2xl mt-16">
+                <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] mt-16">
                     <button 
                         className={cn(
                             "flex flex-col items-center justify-center gap-0.5 w-12 h-14 rounded-2xl transition-all active:scale-95 group",
@@ -411,7 +410,7 @@ export default function CreateStatusPage() {
                         <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Link</span>
                     </button>
                     {!mediaPreview && (
-                        <div className="flex flex-col gap-1.5 p-1 border-t border-white/10 pt-2 mt-1">
+                        <div className="flex flex-col gap-1.5 p-1 pt-2 mt-1">
                             {gradientBackgrounds.slice(0, 3).map((bg, i) => (
                                 <button 
                                     key={i} 
@@ -429,7 +428,7 @@ export default function CreateStatusPage() {
             <footer className="absolute bottom-0 left-0 right-0 p-6 z-[100] flex items-center justify-between pointer-events-none">
                 <div className="flex items-center gap-2 pointer-events-auto">
                     <button 
-                        className="w-11 h-11 rounded-full bg-black/20 border border-white/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90 shadow-2xl"
+                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
                         onClick={() => mediaInputRef.current?.click()}
                     >
                         <LucideImageIcon className="h-5 w-5" />
@@ -437,7 +436,7 @@ export default function CreateStatusPage() {
                     <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaSelect} />
                     
                     <button 
-                        className="w-11 h-11 rounded-full bg-black/20 border border-white/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90 shadow-2xl"
+                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
                         onClick={() => toast({ title: "Camera protocol engaged" })}
                     >
                         <Camera className="h-5 w-5" />
@@ -447,7 +446,7 @@ export default function CreateStatusPage() {
                 <div className="flex items-center gap-2 pointer-events-auto">
                      <Button 
                         onClick={openCloseFriendsPicker}
-                        className="h-11 rounded-full px-4 bg-black/20 border border-white/10 text-white font-bold text-[10px] uppercase tracking-widest gap-2 shadow-2xl"
+                        className="h-11 rounded-full px-4 bg-black/20 text-white font-bold text-[10px] uppercase tracking-widest gap-2"
                     >
                         <Star className="h-3.5 w-3.5 text-green-500 fill-current" />
                         Circles
