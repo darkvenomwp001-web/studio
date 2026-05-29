@@ -237,7 +237,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   const sortedChapters = useMemo(() => {
       if (!story) return [];
-      return [...story.chapters].sort((a,b)=>a.order-b.order);
+      return [...story.chapters].sort((a,b)=>a.order - b.order);
   }, [story]);
 
   const nextChapterId = useMemo(() => {
@@ -465,6 +465,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   if (isLoading || !editor) return <div className="flex justify-center items-center h-screen bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (!story || !currentChapter) return null;
+
+  const isInLibrary = currentUser?.readingList?.some(item => item.id === story.id);
 
   return (
     <TooltipProvider delayDuration={300}>
