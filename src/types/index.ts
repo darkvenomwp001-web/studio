@@ -258,13 +258,6 @@ export interface GlobalChatMessage {
     timestamp: any; 
 }
 
-export interface GlobalChatMessage {
-    id: string;
-    author: UserSummary;
-    content: string;
-    timestamp: any; 
-}
-
 export interface Poll {
     id: string;
     authorId: string;
@@ -372,6 +365,8 @@ export interface StatusUpdate {
     status: 'published' | 'draft';
     visibility: 'public' | 'close-friends';
     isHidden?: boolean;
+    stickers?: { emoji: string, position: { x: number, y: number } }[];
+    mentions?: { userId: string, username: string, position: { x: number, y: number } }[];
 }
 
 export interface Song {

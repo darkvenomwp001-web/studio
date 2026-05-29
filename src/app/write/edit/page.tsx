@@ -476,13 +476,9 @@ function EditorContentInner() {
   const articleClasses = cn(
       "prose dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20",
       isZenFocus && "zen-focus-enabled",
-      {
-        'prose-sm': fontSize === 'sm', 'prose-base': fontSize === 'base', 'prose-lg': fontSize === 'lg', 'prose-xl': fontSize === 'xl',
-        'font-body': fontFamily === 'sans', 'font-serif': fontFamily === 'serif',
-        'leading-tight': lineHeight === 'tight', 'leading-normal': lineHeight === 'normal', 'leading-loose': lineHeight === 'loose',
-        'max-w-3xl mx-auto': layoutWidth === 'normal', 'max-w-5xl mx-auto': layoutWidth === 'wide',
-      }
   );
+
+  const isInLibrary = currentUser?.readingList?.some(item => item.id === storyDetails.id);
 
   const zenFocusStyles = `
     .zen-mode .ProseMirror p {
