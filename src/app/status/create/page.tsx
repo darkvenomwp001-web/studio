@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { 
     X, 
     Type, 
@@ -29,8 +30,7 @@ import {
     Check,
     Plus,
     Camera,
-    GalleryHorizontal,
-    Share,
+    Palette,
     SendHorizonal
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -273,7 +273,7 @@ export default function CreateStatusPage() {
             {/* Immersive Background / Canvas */}
             <div 
                 className={cn(
-                    "absolute inset-0 transition-all duration-700 transform-gpu overflow-hidden",
+                    "absolute inset-0 transition-all duration-700 transform-gpu overflow-hidden flex items-center justify-center",
                     mediaPreview ? 'bg-black' : backgroundStyle
                 )}
                 onMouseMove={handleCanvasDrag}
@@ -284,89 +284,91 @@ export default function CreateStatusPage() {
                 }}
                 onTouchEnd={() => setIsDragging(null)}
             >
-                {mediaPreview && (
-                    <Image 
-                        src={mediaPreview} 
-                        alt="Canvas" 
-                        layout="fill" 
-                        objectFit="cover" 
-                        className="pointer-events-none select-none" 
-                    />
-                )}
-
-                {/* Movable Layers */}
-                <div className="absolute inset-0 pointer-events-none">
-                    {noteContent && (
-                        <div 
-                            className="absolute transform -translate-x-1/2 -translate-y-1/2 min-w-[200px] cursor-grab active:cursor-grabbing pointer-events-auto group/text"
-                            style={{ left: `${textPosition.x}%`, top: `${textPosition.y}%` }}
-                            onMouseDown={() => setIsDragging({ type: 'text' })}
-                            onTouchStart={() => setIsDragging({ type: 'text' })}
-                        >
-                            <div className="relative">
-                                <p 
-                                    className={cn(
-                                        "text-white text-3xl font-bold p-4 text-center leading-tight",
-                                        textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
-                                        textStyle.background === 'solid' ? 'bg-black px-6 py-2 rounded-xl' : (textStyle.background === 'translucent' ? 'bg-black/40 backdrop-blur-md px-6 py-2 rounded-xl' : '')
-                                    )} 
-                                    style={{ 
-                                        textShadow: textStyle.background === 'none' ? '0 2px 10px rgba(0,0,0,0.8)' : 'none',
-                                        color: textStyle.color 
-                                    }}
-                                    onClick={() => setIsTextToolActive(true)}
-                                >
-                                    {noteContent}
-                                </p>
-                                <button 
-                                    className="absolute -top-3 -right-3 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover/text:opacity-100 transition-opacity shadow-lg border border-white/10"
-                                    onClick={(e) => { e.stopPropagation(); setNoteContent(''); }}
-                                >
-                                    <X className="h-4 w-4" />
-                                </button>
-                            </div>
-                        </div>
+                <div className="relative aspect-[9/16] h-full max-h-screen max-w-full overflow-hidden shadow-2xl">
+                    {mediaPreview && (
+                        <Image 
+                            src={mediaPreview} 
+                            alt="Canvas" 
+                            layout="fill" 
+                            objectFit="cover" 
+                            className="pointer-events-none select-none" 
+                        />
                     )}
 
-                    {stickers.map(s => (
-                        <div 
-                            key={s.id} 
-                            className="absolute transform -translate-x-1/2 -translate-y-1/2 text-7xl select-none pointer-events-auto cursor-grab active:cursor-grabbing group/sticker"
-                            style={{ left: `${s.position.x}%`, top: `${s.position.y}%` }}
-                            onMouseDown={() => setIsDragging({ type: 'sticker', id: s.id })}
-                            onTouchStart={() => setIsDragging({ type: 'sticker', id: s.id })}
-                        >
-                             <div className="relative">
-                                {s.emoji}
-                                <button 
-                                    className="absolute -top-2 -right-2 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover/sticker:opacity-100 transition-opacity shadow-lg border border-white/10"
-                                    onClick={(e) => { e.stopPropagation(); setStickers(prev => prev.filter(st => st.id !== s.id)); }}
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
+                    {/* Movable Layers */}
+                    <div className="absolute inset-0 pointer-events-none">
+                        {noteContent && (
+                            <div 
+                                className="absolute transform -translate-x-1/2 -translate-y-1/2 min-w-[200px] cursor-grab active:cursor-grabbing pointer-events-auto group/text"
+                                style={{ left: `${textPosition.x}%`, top: `${textPosition.y}%` }}
+                                onMouseDown={() => setIsDragging({ type: 'text' })}
+                                onTouchStart={() => setIsDragging({ type: 'text' })}
+                            >
+                                <div className="relative">
+                                    <p 
+                                        className={cn(
+                                            "text-white text-3xl font-bold p-4 text-center leading-tight",
+                                            textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
+                                            textStyle.background === 'solid' ? 'bg-black px-6 py-2 rounded-xl' : (textStyle.background === 'translucent' ? 'bg-black/40 backdrop-blur-md px-6 py-2 rounded-xl' : '')
+                                        )} 
+                                        style={{ 
+                                            textShadow: textStyle.background === 'none' ? '0 2px 10px rgba(0,0,0,0.8)' : 'none',
+                                            color: textStyle.color 
+                                        }}
+                                        onClick={() => setIsTextToolActive(true)}
+                                    >
+                                        {noteContent}
+                                    </p>
+                                    <button 
+                                        className="absolute -top-3 -right-3 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover/text:opacity-100 transition-opacity shadow-lg border border-white/10"
+                                        onClick={(e) => { e.stopPropagation(); setNoteContent(''); }}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        )}
 
-                    {mentions.map(m => (
-                        <div 
-                            key={m.id} 
-                            className="absolute transform -translate-x-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-xl px-5 py-2.5 rounded-full border border-white/30 text-white font-black text-lg shadow-2xl pointer-events-auto cursor-grab active:cursor-grabbing group/mention"
-                            style={{ left: `${m.position.x}%`, top: `${m.position.y}%` }}
-                            onMouseDown={() => setIsDragging({ type: 'mention', id: m.id })}
-                            onTouchStart={() => setIsDragging({ type: 'mention', id: m.id })}
-                        >
-                            <div className="relative">
-                                @{m.username}
-                                <button 
-                                    className="absolute -top-3 -right-3 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover/mention:opacity-100 transition-opacity shadow-lg border border-white/10"
-                                    onClick={(e) => { e.stopPropagation(); setMentions(prev => prev.filter(mt => mt.id !== m.id)); }}
-                                >
-                                    <X className="h-4 w-4" />
-                                </button>
+                        {stickers.map(s => (
+                            <div 
+                                key={s.id} 
+                                className="absolute transform -translate-x-1/2 -translate-y-1/2 text-7xl select-none pointer-events-auto cursor-grab active:cursor-grabbing group/sticker"
+                                style={{ left: `${s.position.x}%`, top: `${s.position.y}%` }}
+                                onMouseDown={() => setIsDragging({ type: 'sticker', id: s.id })}
+                                onTouchStart={() => setIsDragging({ type: 'sticker', id: s.id })}
+                            >
+                                <div className="relative">
+                                    {s.emoji}
+                                    <button 
+                                        className="absolute -top-2 -right-2 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover/sticker:opacity-100 transition-opacity shadow-lg border border-white/10"
+                                        onClick={(e) => { e.stopPropagation(); setStickers(prev => prev.filter(st => st.id !== s.id)); }}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+
+                        {mentions.map(m => (
+                            <div 
+                                key={m.id} 
+                                className="absolute transform -translate-x-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-xl px-5 py-2.5 rounded-full border border-white/30 text-white font-black text-lg shadow-2xl pointer-events-auto cursor-grab active:cursor-grabbing group/mention"
+                                style={{ left: `${m.position.x}%`, top: `${m.position.y}%` }}
+                                onMouseDown={() => setIsDragging({ type: 'mention', id: m.id })}
+                                onTouchStart={() => setIsDragging({ type: 'mention', id: m.id })}
+                            >
+                                <div className="relative">
+                                    @{m.username}
+                                    <button 
+                                        className="absolute -top-3 -right-3 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover/mention:opacity-100 transition-opacity shadow-lg border border-white/10"
+                                        onClick={(e) => { e.stopPropagation(); setMentions(prev => prev.filter(mt => mt.id !== m.id)); }}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -381,7 +383,7 @@ export default function CreateStatusPage() {
                     <X className="h-6 w-6" />
                 </Button>
 
-                {/* Vertical Toolbar - Inspired by Reference */}
+                {/* Vertical Toolbar */}
                 <div className="flex flex-col gap-4 pointer-events-auto bg-black/20 backdrop-blur-2xl p-2 rounded-[2rem] border border-white/10 shadow-2xl mt-20">
                     <button 
                         className={cn(
@@ -472,7 +474,7 @@ export default function CreateStatusPage() {
                 </div>
             </footer>
 
-            {/* SUB-TOOL OVERLAYS (Liquid Glass Style) */}
+            {/* SUB-TOOL OVERLAYS */}
             
             {/* Text Editor Overlay */}
             {isTextToolActive && (
@@ -696,3 +698,4 @@ export default function CreateStatusPage() {
         </div>
     );
 }
+
