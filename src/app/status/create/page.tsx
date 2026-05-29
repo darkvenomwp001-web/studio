@@ -32,7 +32,8 @@ import {
     Star,
     Camera,
     ChevronLeft,
-    Check
+    Check,
+    Plus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -165,6 +166,15 @@ export default function CreateStatusPage() {
         };
         setStickers([...stickers, newSticker]);
         setIsStickerToolActive(false);
+    };
+
+    const handleToggleCF = async (friendId: string) => {
+        if (!user) return;
+        const isAdding = !user.closeFriendIds?.includes(friendId);
+        const result = await toggleCloseFriend(user.id, friendId, isAdding);
+        if (result.success) {
+            toast({ title: isAdding ? "Added to Close Friends" : "Removed from list" });
+        }
     };
 
     const uploadFileToCloudinary = async (file: File): Promise<string> => {
