@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -149,6 +148,40 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
       padding: currentStatus.textOverlayStyle?.background !== 'none' ? '0.25rem 0.5rem' : '0',
       borderRadius: currentStatus.textOverlayStyle?.background !== 'none' ? '0.375rem' : '0'
     };
+
+    const renderCollage = () => {
+        if (!currentStatus.images || currentStatus.images.length === 0) return null;
+        
+        const gridStyles: Record<string, string> = {
+            'single': 'grid-cols-1 h-full',
+            '2-v': 'grid-cols-2 h-full',
+            '2-h': 'grid-rows-2 h-full',
+            '3-t': 'grid-cols-2 grid-rows-2 h-full',
+            '4-g': 'grid-cols-2 grid-rows-2 h-full'
+        };
+
+        const layout = currentStatus.collageLayout || 'single';
+
+        return (
+            <div className={cn("grid w-full h-full gap-0.5 bg-black", gridStyles[layout])}>
+                {currentStatus.images.map((img, i) => (
+                    <div 
+                        key={i} 
+                        className={cn(
+                            "relative overflow-hidden bg-zinc-900",
+                            layout === '3-t' && i === 0 && 'col-span-2 row-span-1',
+                            layout === 'single' && 'h-full'
+                        )}
+                        style={layout === 'single' && currentStatus.mediaTransform ? {
+                            transform: `translate(${currentStatus.mediaTransform.x}px, ${currentStatus.mediaTransform.y}px) scale(${currentStatus.mediaTransform.scale}) rotate(${currentStatus.mediaTransform.rotation}deg)`
+                        } : {}}
+                    >
+                        <NextImage src={img.url} alt="" fill className="object-cover" />
+                    </div>
+                ))}
+            </div>
+        );
+    };
     
 
     return (
@@ -204,7 +237,9 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                 </div>
 
                 <div className="relative flex-1 flex items-center justify-center overflow-hidden" onClick={togglePause}>
-                    {currentStatus.mediaUrl ? (
+                    {currentStatus.images && currentStatus.images.length > 0 ? (
+                        renderCollage()
+                    ) : currentStatus.mediaUrl ? (
                          currentStatus.mediaType === 'video' ? (
                             <video 
                                 key={currentStatus.id}
@@ -217,7 +252,14 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                                 className="w-full h-full object-contain" 
                             />
                         ) : (
-                            <NextImage src={currentStatus.mediaUrl!} alt="Status Update" fill className="object-contain" />
+                            <div 
+                                className="relative w-full h-full"
+                                style={currentStatus.mediaTransform ? {
+                                    transform: `translate(${currentStatus.mediaTransform.x}px, ${currentStatus.mediaTransform.y}px) scale(${currentStatus.mediaTransform.scale}) rotate(${currentStatus.mediaTransform.rotation}deg)`
+                                } : {}}
+                            >
+                                <NextImage src={currentStatus.mediaUrl!} alt="Status Update" fill className="object-contain" />
+                            </div>
                         )
                     ) : isNoteStatus ? (
                          <div className={cn("absolute inset-0 flex items-center justify-center p-8", currentStatus.backgroundStyle || "bg-card")}>

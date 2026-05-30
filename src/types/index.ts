@@ -347,6 +347,8 @@ export interface StatusUpdate {
     authorInfo: UserSummary;
     mediaUrl?: string;
     mediaType?: 'image' | 'video';
+    images?: { url: string; mediaType: 'image' | 'video' }[];
+    collageLayout?: 'single' | '2-v' | '2-h' | '3-t' | '4-g';
     textOverlay?: string;
     textOverlayStyle?: TextOverlayStyle;
     textOverlayPosition?: { x: number; y: number };
@@ -368,6 +370,7 @@ export interface StatusUpdate {
     isHidden?: boolean;
     stickers?: { emoji: string, position: { x: number, y: number } }[];
     mentions?: { userId: string, username: string, position: { x: number, y: number } }[];
+    mediaTransform?: { scale: number; rotation: number; x: number; y: number };
 }
 
 export interface Song {

@@ -33,7 +33,8 @@ import {
     Wand2,
     Crop,
     RotateCw,
-    Maximize2
+    Maximize2,
+    LayoutGrid
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -51,15 +52,17 @@ const gradientBackgrounds = [
   'bg-gradient-to-br from-sky-400 to-sky-200',
 ];
 
+type CollageLayout = 'single' | '2-v' | '2-h' | '3-t' | '4-g';
+
 export default function CreateStatusPage() {
     const { user, addNotification } = useAuth();
     const { showIsland } = useDynamicIsland();
     const { toast } = useToast();
     const router = useRouter();
 
-    const [mediaFile, setMediaFile] = useState<File | null>(null);
-    const [mediaPreview, setMediaPreview] = useState<string | null>(null);
-    const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
+    const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+    const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
+    const [collageLayout, setCollageLayout] = useState<CollageLayout>('single');
     const mediaInputRef = useRef<HTMLInputElement>(null);
     
     const [noteContent, setNoteContent] = useState('');
@@ -71,9 +74,10 @@ export default function CreateStatusPage() {
     const [isStickerToolActive, setIsStickerToolActive] = useState(false);
     const [isMentionToolActive, setIsMentionToolActive] = useState(false);
     const [isTransformHubOpen, setIsTransformHubOpen] = useState(false);
+    const [isLayoutToolActive, setIsLayoutToolActive] = useState(false);
     const [isCloseFriendsPickerOpen, setIsCloseFriendsPickerOpen] = useState(false);
 
-    // Transformation States
+    // Transformation States (Applicable to Single mode primarily)
     const [mediaTransform, setMediaTransform] = useState({ scale: 1, rotation: 0, x: 0, y: 0 });
     const [textTransform, setTextTransform] = useState({ scale: 1, rotation: 0 });
     const [stickers, setStickers] = useState<{ id: string, emoji: string, position: { x: number, y: number }, scale: number, rotation: number }[]>([]);
@@ -129,14 +133,26 @@ export default function CreateStatusPage() {
     }, [selectedSong]);
 
     const handleMediaSelect = (e: ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setMediaFile(file);
-            setMediaType(file.type.startsWith('video/') ? 'video' : 'image');
+        if (e.target.files && e.target.files.length > 0) {
+            const files = Array.from(e.target.files);
+            setMediaFiles(files);
+            
+            const newPreviews: string[] = [];
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    newPreviews.push(event.target?.result as string);
+                    if (newPreviews.length === files.length) {
+                        setMediaPreviews(newPreviews);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+
+            if (files.length > 1 && collageLayout === 'single') {
+                setCollageLayout('2-v');
+            }
             setMediaTransform({ scale: 1, rotation: 0, x: 0, y: 0 });
-            const reader = new FileReader();
-            reader.onload = (event) => setMediaPreview(event.target?.result as string);
-            reader.readAsDataURL(file);
         }
     };
 
@@ -198,7 +214,7 @@ export default function CreateStatusPage() {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('upload_preset', uploadPreset!);
-        const resourceType = mediaType === 'video' ? 'video' : 'image';
+        const resourceType = file.type.startsWith('video/') ? 'video' : 'image';
         const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, {
             method: 'POST',
             body: formData,
@@ -211,10 +227,10 @@ export default function CreateStatusPage() {
         if (!user) return;
         setIsSubmitting(true);
         try {
-            let mediaUrl = '';
-            if (mediaFile) {
-                mediaUrl = await uploadFileToCloudinary(mediaFile);
-            }
+            const uploadedImages = await Promise.all(mediaFiles.map(async (file) => ({
+                url: await uploadFileToCloudinary(file),
+                mediaType: file.type.startsWith('video/') ? 'video' : 'image' as any
+            })));
 
             const expiryTime = Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000);
             const statusData: any = {
@@ -228,12 +244,16 @@ export default function CreateStatusPage() {
                 visibility: visibility,
                 mentions: mentions.map(m => ({ userId: m.userId, username: m.username, position: m.position, scale: m.scale, rotation: m.rotation })),
                 stickers: stickers.map(s => ({ emoji: s.emoji, position: s.position, scale: s.scale, rotation: s.rotation })),
-                mediaTransform,
+                collageLayout,
             };
 
-            if (mediaUrl) {
-                statusData.mediaUrl = mediaUrl;
-                statusData.mediaType = mediaType;
+            if (uploadedImages.length > 0) {
+                statusData.images = uploadedImages;
+                if (uploadedImages.length === 1) {
+                    statusData.mediaUrl = uploadedImages[0].url;
+                    statusData.mediaType = uploadedImages[0].mediaType;
+                    statusData.mediaTransform = mediaTransform;
+                }
                 if (noteContent.trim()) {
                     statusData.textOverlay = noteContent.trim();
                     statusData.textOverlayStyle = textStyle;
@@ -241,7 +261,7 @@ export default function CreateStatusPage() {
                     statusData.textOverlayTransform = textTransform;
                 }
             } else {
-                statusData.note = noteContent.trim() || 'Visual status';
+                statusData.note = noteContent.trim() || 'Digital Signal';
                 statusData.backgroundStyle = backgroundStyle;
                 statusData.textOverlayStyle = textStyle;
                 statusData.textOverlayPosition = textPosition;
@@ -315,7 +335,7 @@ export default function CreateStatusPage() {
                     scale: Math.max(0.5, Math.min(4, m.scale * scaleDelta)),
                     rotation: m.rotation + rotationDelta 
                 } : m));
-            } else if (mediaPreview) {
+            } else if (mediaPreviews.length === 1) {
                 setMediaTransform(prev => ({
                     ...prev,
                     scale: Math.max(0.1, Math.min(5, prev.scale * scaleDelta)),
@@ -350,17 +370,49 @@ export default function CreateStatusPage() {
             setStickers(prev => prev.map(s => s.id === isDragging.id ? { ...s, position: { x: boundedX, y: boundedY } } : s));
         } else if (isDragging.type === 'mention') {
             setMentions(prev => prev.map(m => m.id === isDragging.id ? { ...m, position: { x: boundedX, y: boundedY } } : m));
-        } else if (isDragging.type === 'media') {
+        } else if (isDragging.type === 'media' && collageLayout === 'single') {
             setMediaTransform(prev => ({ ...prev, x: clientX - rect.left - rect.width/2, y: clientY - rect.top - rect.height/2 }));
         }
+    };
+
+    const renderCollage = () => {
+        if (mediaPreviews.length === 0) return null;
+
+        const gridStyles: Record<CollageLayout, string> = {
+            'single': 'grid-cols-1 h-full',
+            '2-v': 'grid-cols-2 h-full',
+            '2-h': 'grid-rows-2 h-full',
+            '3-t': 'grid-cols-2 grid-rows-2 h-full',
+            '4-g': 'grid-cols-2 grid-rows-2 h-full'
+        };
+
+        return (
+            <div className={cn("grid w-full h-full gap-0.5 bg-black transform-gpu", gridStyles[collageLayout])}>
+                {mediaPreviews.slice(0, collageLayout === 'single' ? 1 : (collageLayout === '4-g' ? 4 : 3)).map((src, i) => (
+                    <div 
+                        key={i} 
+                        className={cn(
+                            "relative overflow-hidden bg-zinc-900",
+                            collageLayout === '3-t' && i === 0 && 'col-span-2 row-span-1',
+                            collageLayout === 'single' && 'h-full'
+                        )}
+                        style={collageLayout === 'single' ? {
+                            transform: `translate(${mediaTransform.x}px, ${mediaTransform.y}px) scale(${mediaTransform.scale}) rotate(${mediaTransform.rotation}deg)`
+                        } : {}}
+                    >
+                        <Image src={src} alt="" fill className="object-cover pointer-events-none" />
+                    </div>
+                ))}
+            </div>
+        );
     };
 
     return (
         <div className="fixed inset-0 z-[1000] bg-black flex flex-col overflow-hidden animate-in fade-in duration-700 font-sans">
             <div 
                 className={cn(
-                    "absolute inset-0 transition-all duration-700 transform-gpu overflow-hidden flex items-center justify-center backdrop-blur-none",
-                    mediaPreview ? 'bg-black' : backgroundStyle
+                    "absolute inset-0 transition-all duration-700 transform-gpu overflow-hidden flex items-center justify-center",
+                    mediaPreviews.length > 0 ? 'bg-black' : backgroundStyle
                 )}
                 onMouseMove={handleCanvasDrag}
                 onMouseUp={() => { setIsDragging(null); setInitialDist(null); setInitialAngle(null); }}
@@ -371,7 +423,7 @@ export default function CreateStatusPage() {
                 onTouchEnd={() => { setIsDragging(null); setInitialDist(null); setInitialAngle(null); }}
             >
                 <div 
-                    className="relative aspect-[9/16] h-full max-h-screen max-w-full overflow-hidden shadow-2xl transform-gpu"
+                    className="relative aspect-[9/16] h-full max-h-screen max-w-full overflow-hidden shadow-2xl transform-gpu bg-zinc-950"
                     onMouseDown={() => !isDragging && setIsDragging({ type: 'media' })}
                     onTouchStart={(e) => {
                         if (e.touches.length === 2) {
@@ -382,22 +434,7 @@ export default function CreateStatusPage() {
                         }
                     }}
                 >
-                    {mediaPreview && (
-                        <div 
-                            className="absolute inset-0 transform-gpu"
-                            style={{ 
-                                transform: `translate(${mediaTransform.x}px, ${mediaTransform.y}px) scale(${mediaTransform.scale}) rotate(${mediaTransform.rotation}deg)` 
-                            }}
-                        >
-                            <Image 
-                                src={mediaPreview} 
-                                alt="Canvas" 
-                                layout="fill" 
-                                objectFit="contain" 
-                                className="pointer-events-none select-none" 
-                            />
-                        </div>
-                    )}
+                    {renderCollage()}
 
                     <div className="absolute inset-0 pointer-events-none">
                         {noteContent && (
@@ -419,22 +456,20 @@ export default function CreateStatusPage() {
                                     }
                                 }}
                             >
-                                <div className="relative">
-                                    <p 
-                                        className={cn(
-                                            "text-white text-2xl font-bold p-3 text-center leading-tight transition-transform",
-                                            textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
-                                            textStyle.background === 'solid' ? 'bg-black px-4 py-2 rounded-xl' : (textStyle.background === 'translucent' ? 'bg-black/60 px-4 py-2 rounded-xl' : '')
-                                        )} 
-                                        style={{ 
-                                            textShadow: textStyle.background === 'none' ? '0 2px 10px rgba(0,0,0,0.8)' : 'none',
-                                            color: textStyle.color 
-                                        }}
-                                        onClick={() => setIsTextToolActive(true)}
-                                    >
-                                        {noteContent}
-                                    </p>
-                                </div>
+                                <p 
+                                    className={cn(
+                                        "text-white text-2xl font-bold p-3 text-center leading-tight transition-transform",
+                                        textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
+                                        textStyle.background === 'solid' ? 'bg-black px-4 py-2 rounded-xl' : (textStyle.background === 'translucent' ? 'bg-black/60 px-4 py-2 rounded-xl' : '')
+                                    )} 
+                                    style={{ 
+                                        textShadow: textStyle.background === 'none' ? '0 2px 10px rgba(0,0,0,0.8)' : 'none',
+                                        color: textStyle.color 
+                                    }}
+                                    onClick={() => setIsTextToolActive(true)}
+                                >
+                                    {noteContent}
+                                </p>
                             </div>
                         )}
 
@@ -505,10 +540,10 @@ export default function CreateStatusPage() {
                 </div>
             </div>
 
-            <div className="absolute top-0 left-0 right-0 z-[100] p-4 flex items-center justify-between pointer-events-none backdrop-blur-none">
+            <div className="absolute top-0 left-0 right-0 z-[100] p-4 flex items-center justify-between pointer-events-none">
                 <div />
 
-                <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] mt-16 backdrop-blur-none">
+                <div className="flex flex-col gap-2 pointer-events-auto bg-black/40 p-1.5 rounded-[1.5rem] mt-16 backdrop-blur-none">
                     <button 
                         className={cn(
                             "flex flex-col items-center justify-center gap-0.5 w-12 h-14 rounded-2xl transition-all active:scale-95 group",
@@ -546,6 +581,37 @@ export default function CreateStatusPage() {
                     <button 
                         className={cn(
                             "flex flex-col items-center justify-center gap-0.5 w-12 h-14 rounded-2xl transition-all active:scale-95 hover:bg-white/10 group",
+                            isLayoutToolActive ? "text-primary bg-white/10" : "text-white"
+                        )}
+                        onClick={() => setIsLayoutToolActive(!isLayoutToolActive)}
+                    >
+                        <LayoutGrid className="h-5 w-5" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Layout</span>
+                    </button>
+
+                    {isLayoutToolActive && (
+                        <div className="flex flex-col gap-2 animate-in slide-in-from-right-4 duration-300">
+                             {([
+                                 {id: 'single', icon: Maximize2},
+                                 {id: '2-v', icon: Columns},
+                                 {id: '2-h', icon: Rows},
+                                 {id: '3-t', icon: Layout},
+                                 {id: '4-g', icon: Grid}
+                             ] as any).map(l => (
+                                <button 
+                                    key={l.id}
+                                    className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-all", collageLayout === l.id ? 'bg-primary text-white' : 'bg-white/5 text-white/40')}
+                                    onClick={() => setCollageLayout(l.id)}
+                                >
+                                    <l.icon className="h-4 w-4" />
+                                </button>
+                             ))}
+                        </div>
+                    )}
+
+                    <button 
+                        className={cn(
+                            "flex flex-col items-center justify-center gap-0.5 w-12 h-14 rounded-2xl transition-all active:scale-95 hover:bg-white/10 group",
                             isTransformHubOpen ? "text-primary bg-white/10" : "text-white"
                         )}
                         onClick={() => setIsTransformHubOpen(!isTransformHubOpen)}
@@ -554,7 +620,7 @@ export default function CreateStatusPage() {
                         <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Magic</span>
                     </button>
 
-                    {isTransformHubOpen && (
+                    {isTransformHubOpen && collageLayout === 'single' && (
                         <div className="flex flex-col gap-2 animate-in slide-in-from-right-4 duration-300">
                              <button 
                                 className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
@@ -570,17 +636,10 @@ export default function CreateStatusPage() {
                                 <RotateCw className="h-4 w-4" />
                                 <span className="text-[7px] font-black uppercase tracking-tighter opacity-80">Rotate</span>
                             </button>
-                            <button 
-                                className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
-                                onClick={() => toast({ title: "Smart crop engaged" })}
-                            >
-                                <Crop className="h-4 w-4" />
-                                <span className="text-[7px] font-black uppercase tracking-tighter opacity-80">Crop</span>
-                            </button>
                         </div>
                     )}
 
-                    {!mediaPreview && (
+                    {mediaPreviews.length === 0 && (
                         <div className="flex flex-col gap-1.5 p-1 pt-2 mt-1">
                             {gradientBackgrounds.slice(0, 3).map((bg, i) => (
                                 <button 
@@ -595,18 +654,18 @@ export default function CreateStatusPage() {
                 </div>
             </div>
 
-            <div className="absolute bottom-0 left-0 right-0 p-6 z-[100] flex items-center justify-between pointer-events-none backdrop-blur-none">
+            <div className="absolute bottom-0 left-0 right-0 p-6 z-[100] flex items-center justify-between pointer-events-none">
                 <div className="flex items-center gap-2 pointer-events-auto">
                     <button 
-                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
+                        className="w-11 h-11 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
                         onClick={() => mediaInputRef.current?.click()}
                     >
                         <LucideImageIcon className="h-5 w-5" />
                     </button>
-                    <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaSelect} />
+                    <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" multiple onChange={handleMediaSelect} />
                     
                     <button 
-                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
+                        className="w-11 h-11 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
                         onClick={() => toast({ title: "Camera protocol engaged" })}
                     >
                         <Camera className="h-5 w-5" />
@@ -616,7 +675,7 @@ export default function CreateStatusPage() {
                 <div className="flex items-center gap-2 pointer-events-auto">
                      <Button 
                         onClick={openCloseFriendsPicker}
-                        className="h-11 rounded-full px-4 bg-black/20 text-white font-bold text-[10px] uppercase tracking-widest gap-2"
+                        className="h-11 rounded-full px-4 bg-black/40 text-white font-bold text-[10px] uppercase tracking-widest gap-2"
                     >
                         <Star className="h-3.5 w-3.5 text-green-500 fill-current" />
                         Circles
@@ -844,3 +903,9 @@ export default function CreateStatusPage() {
         </div>
     );
 }
+
+// Sub-icons for layouts
+function Columns(props: any) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M12 3v18" /></svg>; }
+function Rows(props: any) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 12h18" /></svg>; }
+function Grid(props: any) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M12 3v18" /><path d="M3 12h18" /></svg>; }
+function Layout(props: any) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 12h18" /><path d="M12 12v9" /></svg>; }
