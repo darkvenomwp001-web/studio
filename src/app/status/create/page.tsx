@@ -229,7 +229,7 @@ export default function CreateStatusPage() {
         try {
             const uploadedImages = await Promise.all(mediaFiles.map(async (file) => ({
                 url: await uploadFileToCloudinary(file),
-                mediaType: file.type.startsWith('video/') ? 'video' : 'image' as any
+                mediaType: (file.type.startsWith('video/') ? 'video' : 'image') as any
             })));
 
             const expiryTime = Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000);
@@ -591,21 +591,36 @@ export default function CreateStatusPage() {
 
                     {isLayoutToolActive && (
                         <div className="flex flex-col gap-2 animate-in slide-in-from-right-4 duration-300">
-                             {([
-                                 {id: 'single', icon: Maximize2},
-                                 {id: '2-v', icon: Columns},
-                                 {id: '2-h', icon: Rows},
-                                 {id: '3-t', icon: Layout},
-                                 {id: '4-g', icon: Grid}
-                             ] as any).map(l => (
-                                <button 
-                                    key={l.id}
-                                    className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-all", collageLayout === l.id ? 'bg-primary text-white' : 'bg-white/5 text-white/40')}
-                                    onClick={() => setCollageLayout(l.id)}
-                                >
-                                    <l.icon className="h-4 w-4" />
-                                </button>
-                             ))}
+                             <button 
+                                className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-all", collageLayout === 'single' ? 'bg-primary text-white' : 'bg-white/5 text-white/40')}
+                                onClick={() => setCollageLayout('single')}
+                            >
+                                <Maximize2 className="h-4 w-4" />
+                            </button>
+                             <button 
+                                className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-all", collageLayout === '2-v' ? 'bg-primary text-white' : 'bg-white/5 text-white/40')}
+                                onClick={() => setCollageLayout('2-v')}
+                            >
+                                <div className="flex gap-0.5 w-4 h-4"><div className="w-1/2 h-full bg-current" /><div className="w-1/2 h-full bg-current opacity-40" /></div>
+                            </button>
+                             <button 
+                                className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-all", collageLayout === '2-h' ? 'bg-primary text-white' : 'bg-white/5 text-white/40')}
+                                onClick={() => setCollageLayout('2-h')}
+                            >
+                                <div className="flex flex-col gap-0.5 w-4 h-4"><div className="h-1/2 w-full bg-current" /><div className="h-1/2 w-full bg-current opacity-40" /></div>
+                            </button>
+                             <button 
+                                className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-all", collageLayout === '3-t' ? 'bg-primary text-white' : 'bg-white/5 text-white/40')}
+                                onClick={() => setCollageLayout('3-t')}
+                            >
+                                <div className="grid grid-cols-2 grid-rows-2 gap-0.5 w-4 h-4"><div className="col-span-2 bg-current" /><div className="bg-current opacity-40" /><div className="bg-current opacity-40" /></div>
+                            </button>
+                             <button 
+                                className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-all", collageLayout === '4-g' ? 'bg-primary text-white' : 'bg-white/5 text-white/40')}
+                                onClick={() => setCollageLayout('4-g')}
+                            >
+                                <LayoutGrid className="h-4 w-4" />
+                            </button>
                         </div>
                     )}
 
@@ -904,8 +919,3 @@ export default function CreateStatusPage() {
     );
 }
 
-// Sub-icons for layouts
-function Columns(props: any) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M12 3v18" /></svg>; }
-function Rows(props: any) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 12h18" /></svg>; }
-function Grid(props: any) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M12 3v18" /><path d="M3 12h18" /></svg>; }
-function Layout(props: any) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 12h18" /><path d="M12 12v9" /></svg>; }

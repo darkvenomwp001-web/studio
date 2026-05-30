@@ -371,6 +371,9 @@ export interface StatusUpdate {
     stickers?: { emoji: string, position: { x: number, y: number } }[];
     mentions?: { userId: string, username: string, position: { x: number, y: number } }[];
     mediaTransform?: { scale: number; rotation: number; x: number; y: number };
+    reactionsCount?: number;
+    reactionCounts?: Record<string, number>;
+    repostsCount?: number;
 }
 
 export interface Song {
