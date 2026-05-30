@@ -20,7 +20,7 @@ import { useRouter } from 'next/navigation';
 const OWNER_HANDLES = ['arnv'];
 
 export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userStatuses, onNext, onPrev }: { isOpen: boolean, onOpenChange: (open: boolean) => void, selectedUser: User | null, userStatuses: StatusUpdate[], onNext: () => void, onPrev: () => void }) {
-    const { user } = useAuth();
+    const { user, addNotification } = useAuth();
     const router = useRouter();
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
     const [animationKey, setAnimationKey] = useState(0);
@@ -86,7 +86,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         };
     }, [isOpen, currentStatusIndex, selectedUser, userStatuses, isPaused, currentStatus]);
 
-    // Handle background audio playback
     useEffect(() => {
       if (bgAudioRef.current) {
         if (currentStatus?.songUrl && !isPaused && isOpen) {
@@ -150,7 +149,18 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                 });
             }
         })
-        .then(() => toast({ title: "Signal updated" }))
+        .then(async () => {
+            if (user.id !== currentStatus.authorId) {
+                await addNotification({
+                    userId: currentStatus.authorId,
+                    type: 'user_update',
+                    message: `liked your signal.`,
+                    link: `/?status=${currentStatus.authorId}`,
+                    actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+                });
+            }
+            toast({ title: "Signal updated" });
+        })
         .finally(() => setIsLiking(false));
     };
 
@@ -189,10 +199,19 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
 
             await addDoc(collection(db, 'statusUpdates'), repostData);
             
-            // Increment repost count on original
             await updateDoc(doc(db, 'statusUpdates', currentStatus.id), {
                 repostsCount: (currentStatus.repostsCount || 0) + 1
             });
+
+            if (user.id !== currentStatus.authorId) {
+                await addNotification({
+                    userId: currentStatus.authorId,
+                    type: 'user_update',
+                    message: `reposted your signal to their archive.`,
+                    link: `/?status=${user.id}`,
+                    actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+                });
+            }
 
             toast({ title: "Reposted to your signal" });
             onOpenChange(false);
@@ -350,7 +369,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     <DialogDescription>A temporary status update from {selectedUser.username}.</DialogDescription>
                 </DialogHeader>
                 
-                {/* Background Audio Node */}
                 {currentStatus.songUrl && (
                   <audio 
                     ref={bgAudioRef} 
@@ -361,7 +379,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                   />
                 )}
 
-                {/* Header Controls - Blurry gradient removed */}
                 <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-6 flex flex-col gap-2 pointer-events-none">
                     <div className="flex items-center justify-between pointer-events-auto">
                         <div className="flex items-center gap-2">
@@ -398,7 +415,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     )}
                 </div>
 
-                {/* Progress bars */}
                 <div className="absolute top-2 left-2 right-2 flex gap-1 z-30">
                     {userStatuses.map((status, index) => (
                         <div key={index} className="h-0.5 flex-1 bg-white/30 rounded-full overflow-hidden">
@@ -418,7 +434,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     ))}
                 </div>
 
-                {/* Content Area */}
                 <div className="relative flex-1 flex items-center justify-center overflow-hidden transform-gpu" onClick={togglePause}>
                     {currentStatus.images && currentStatus.images.length > 0 ? (
                         renderCollage()
@@ -470,11 +485,9 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     )}
                 </div>
                 
-                {/* Navigation Hotspots */}
                 <button onClick={(e) => { e.stopPropagation(); handlePrev(); }} className="absolute left-0 top-1/4 bottom-1/4 w-1/4 z-10 cursor-pointer outline-none"></button>
                 <button onClick={(e) => { e.stopPropagation(); handleNext(); }} className="absolute right-0 top-1/4 bottom-1/4 w-1/4 z-10 cursor-pointer outline-none"></button>
 
-                {/* Interaction Footer */}
                 <div className="absolute bottom-0 left-0 right-0 z-30 p-4 pt-10 flex flex-col gap-4 bg-gradient-to-t from-black/80 to-transparent backdrop-blur-none">
                     <div className="flex items-center gap-3">
                         <form onSubmit={handleSendMessage} className="flex-1 relative group">
@@ -512,7 +525,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                             </Button>
                         </div>
                     </div>
-                    {/* Safe area padding for mobile */}
                     <div className="h-2" />
                 </div>
             </DialogContent>

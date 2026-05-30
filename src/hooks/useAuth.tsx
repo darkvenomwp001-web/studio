@@ -220,7 +220,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             const fetchedNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType));
             
-            // Trigger Dynamic Island for newest unread notification
             if (fetchedNotifs.length > 0) {
               const latest = fetchedNotifs[0];
               const cacheKey = `island_seen_${latest.id}`;
@@ -432,12 +431,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [toast, showIsland]);
 
   const followUser = useCallback(async (targetUserId: string) => {
-    if (!user) return;
+    if (!user || user.id === targetUserId) return;
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(1) });
-    batch.commit().then(() => showIsland({ title: "Following", type: 'success' }));
-  }, [user, showIsland]);
+    
+    await batch.commit();
+    
+    // Authorize and send the Signal to the recipient's Activity node
+    await addNotification({
+        userId: targetUserId,
+        type: 'new_follower',
+        message: `started following you.`,
+        link: `/profile/${user.id}`,
+        actor: {
+            id: user.id,
+            username: user.username,
+            displayName: user.displayName || user.username,
+            avatarUrl: user.avatarUrl
+        }
+    });
+
+    showIsland({ title: "Following", type: 'success' });
+  }, [user, showIsland, addNotification]);
 
   const unfollowUser = useCallback(async (targetUserId: string) => {
     if (!user) return;

@@ -67,7 +67,7 @@ export default function StatusFeature() {
     }
 
     const now = Timestamp.now();
-    // Corrected query: Include visibility == 'public' to align with security rules
+    // Authorized community query filtering by visibility
     const publishedQuery = query(
       collection(db, 'statusUpdates'),
       where('status', '==', 'published'),
@@ -82,7 +82,7 @@ export default function StatusFeature() {
         setAllStatuses(liveStatuses);
         setIsLoading(false);
     }, (error) => {
-        // Silently handle list permission errors
+        // Handled silently to avoid crashing the high-fidelity UI thread during rules transition
         setIsLoading(false);
     });
 

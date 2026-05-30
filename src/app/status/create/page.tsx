@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -78,7 +77,7 @@ export default function CreateStatusPage() {
     const [isLayoutToolActive, setIsLayoutToolActive] = useState(false);
     const [isCloseFriendsPickerOpen, setIsCloseFriendsPickerOpen] = useState(false);
 
-    // Transformation States (Applicable to Single mode primarily)
+    // Transformation States
     const [mediaTransform, setMediaTransform] = useState({ scale: 1, rotation: 0, x: 0, y: 0 });
     const [textTransform, setTextTransform] = useState({ scale: 1, rotation: 0 });
     const [stickers, setStickers] = useState<{ id: string, emoji: string, position: { x: number, y: number }, scale: number, rotation: number }[]>([]);

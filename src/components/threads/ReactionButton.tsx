@@ -95,13 +95,14 @@ function ReactorsList({ postId, parentCollection }: { postId: string, parentColl
 
 interface ReactionButtonProps {
     postId: string;
+    targetUserId?: string;
     parentCollection?: 'feedPosts' | 'broadcasts' | 'annotations';
     initialReactionsCount: number;
     reactionCounts?: Record<string, number>;
 }
 
-export default function ReactionButton({ postId, parentCollection = 'feedPosts', initialReactionsCount, reactionCounts = {} }: ReactionButtonProps) {
-    const { user } = useAuth();
+export default function ReactionButton({ postId, targetUserId, parentCollection = 'feedPosts', initialReactionsCount, reactionCounts = {} }: ReactionButtonProps) {
+    const { user, addNotification } = useAuth();
     const { toast } = useToast();
     const [userReaction, setUserReaction] = useState<ReactionType | null>(null);
     const [liveReactionsCount, setLiveReactionsCount] = useState(initialReactionsCount);
@@ -165,8 +166,6 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
 
             if (!postDoc.exists()) throw "Target document does not exist.";
 
-            const postData = postDoc.data();
-
             if (reactionDoc.exists()) {
                 const existingType = reactionDoc.data().type;
                 if (existingType === type) {
@@ -189,11 +188,22 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
                     timestamp: serverTimestamp(),
                     user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
                 };
-                // Use merge: true to prevent "Document already exists" errors during race conditions
                 transaction.set(reactionRef, reactionData, { merge: true });
                 transaction.update(postRef, { 
                     reactionsCount: increment(1),
                     [`reactionCounts.${type}`]: increment(1)
+                });
+            }
+        })
+        .then(async () => {
+            // Signal the content author immediately
+            if (targetUserId && user.id !== targetUserId) {
+                await addNotification({
+                    userId: targetUserId,
+                    type: 'user_update',
+                    message: `reacted ${type} to your archival entry.`,
+                    link: parentCollection === 'annotations' ? '/?tab=annotations' : (parentCollection === 'broadcasts' ? '/?tab=broadcast' : '/'),
+                    actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
                 });
             }
         })
