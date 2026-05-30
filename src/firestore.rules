@@ -36,9 +36,10 @@ service cloud.firestore {
                     || isAppOwner();
 
       // Allow signed-in users to update followersCount and follow/unfollow nodes
+      // and Close Friends lists for high-fidelity privacy circles.
       allow update: if isAppOwner()
                     || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified', 'role']))
-                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['followersCount', 'followingIds']));
+                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['followersCount', 'followingIds', 'closeFriendIds']));
 
       allow delete: if isAppOwner() && request.auth.uid != userId;
     }
@@ -58,6 +59,10 @@ service cloud.firestore {
                     );
 
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.author.id || isAppOwner());
+      
+      match /chapters/{chapterId} {
+          allow read, write: if true;
+      }
     }
 
     // Carousel Collection
@@ -95,7 +100,15 @@ service cloud.firestore {
     // Notifications Collection
     match /notifications/{notificationId} {
       allow read, list, update, delete: if isSignedIn() && isOwner(resource.data.userId);
-      allow create: if isSignedIn();
+      
+      // Critical Permission Hub: Allow signals for follows, likes, and story publications
+      allow create: if isSignedIn() && (
+        request.resource.data.type in [
+          'new_follower', 'new_chapter', 'story_update', 'comment_reply', 
+          'mention', 'announcement', 'new_letter', 'letter_response', 
+          'author_announcement', 'app_update', 'reaction', 'repost', 'new_post'
+        ]
+      );
     }
 
     // Conversations & Messages
@@ -142,7 +155,13 @@ service cloud.firestore {
       );
       
       allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
-      allow update, delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId)) || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostsCount']));
+      
+      // Allow metadata updates for community signals (likes/reposts)
+      allow update: if isAppOwner() 
+                    || (isSignedIn() && isOwner(resource.data.authorId)) 
+                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostsCount']));
+      
+      allow delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId));
 
       match /reactions/{userId} {
         allow read: if true;
@@ -209,7 +228,7 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         isAppOwner() || 
         isOwner(resource.data.author.id) || 
-        request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount'])
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount', 'commentsCount'])
       );
                       
       allow delete: if isAppOwner() || isOwner(resource.data.author.id);
