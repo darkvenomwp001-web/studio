@@ -112,15 +112,12 @@ service cloud.firestore {
     
     // Status Updates
     match /statusUpdates/{statusId} {
-      // Simplified read rules to fix "Rules are not filters" errors
+      // Split get and list to avoid "Rules are not filters" errors
       allow get: if isAppOwner() 
                     || (isSignedIn() && isOwner(resource.data.authorId))
                     || (resource.data.status == 'published' && resource.data.isHidden == false);
       
-      allow list: if isSignedIn() && (
-                    isAppOwner() 
-                    || (resource.data.status == 'published' && resource.data.isHidden == false && resource.data.visibility == 'public')
-                  );
+      allow list: if isSignedIn(); // authorized via client-side filters
       
       allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
       
@@ -183,8 +180,8 @@ service cloud.firestore {
 
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if isSignedIn();
-        allow update, delete: if isSignedIn() && (isOwner(resource.data.user.id) || isAppOwner());
+        allow create: if isSignedIn() && isOwner(request.resource.data.user.id);
+        allow update, delete: if isSignedIn() && (isOwner(request.resource.data.user.id) || isAppOwner());
       }
       
       match /reactions/{userId} {

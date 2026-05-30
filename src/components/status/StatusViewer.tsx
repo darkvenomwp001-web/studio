@@ -379,15 +379,16 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                   />
                 )}
 
+                {/* Refined Header - No blury lines, sharp identity nodes */}
                 <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-6 flex flex-col gap-2 pointer-events-none">
                     <div className="flex items-center justify-between pointer-events-auto">
                         <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8 border border-white/20">
+                            <Avatar className="h-8 w-8 border border-white/20 shadow-sm">
                                 <AvatarImage src={selectedUser.avatarUrl} />
-                                <AvatarFallback>{selectedUser.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
+                                <AvatarFallback className="bg-muted text-primary font-bold text-[10px]">{selectedUser.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
                             </Avatar>
-                            <span className="text-white text-sm font-bold shadow-sm">{selectedUser.displayName || selectedUser.username}</span>
-                            <span className="text-white/60 text-[10px] font-bold uppercase tracking-tight">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                            <span className="text-white text-sm font-bold drop-shadow-md">{selectedUser.displayName || selectedUser.username}</span>
+                            <span className="text-white/60 text-[10px] font-bold uppercase tracking-tight drop-shadow-md">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                         </div>
                         <div className="flex items-center gap-1">
                             {isOwner && (
@@ -407,7 +408,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     </div>
                     {currentStatus.songUrl && (
                       <div className="flex items-center gap-1.5 px-1 animate-in slide-in-from-left-2 duration-700">
-                        <div className="bg-primary/20 backdrop-blur-md px-2 py-0.5 rounded-full border border-primary/20 flex items-center gap-1.5 pointer-events-auto">
+                        <div className="bg-primary/30 backdrop-blur-md px-2 py-0.5 rounded-full border border-primary/20 flex items-center gap-1.5 pointer-events-auto">
                           <Music className={cn("h-2.5 w-2.5 text-primary", !isPaused && !isMuted && "animate-pulse")} />
                           <span className="text-[8px] font-black uppercase tracking-widest text-primary">Now Playing</span>
                         </div>

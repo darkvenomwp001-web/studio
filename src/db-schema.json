@@ -1,4 +1,3 @@
-
 {
   "firestore": {
     "collections": {
@@ -14,18 +13,11 @@
           "followersCount": { "type": "number", "description": "Total number of followers." },
           "followingCount": { "type": "number", "description": "Total number of users they follow." },
           "followingIds": { "type": "array", "description": "An array of user IDs that this user follows." },
-          "fcmTokens": { "type": "array", "description": "Array of Firebase Cloud Messaging tokens for push notifications." },
           "readingList": { "type": "array", "description": "Array of story objects the user has saved." },
-          "readChapters": { "type": "array", "description": "Array of chapter IDs the user has read." },
-          "shelves": { "type": "array", "description": "Array of custom bookshelves." },
-          "level": { "type": "number", "description": "User's current level based on XP." },
-          "xp": { "type": "number", "description": "User's experience points, earned through engagement." },
           "achievements": { "type": "array", "description": "Array of achievement objects the user has unlocked." },
           "createdAt": { "type": "timestamp", "description": "When the user account was created." },
           "updatedAt": { "type": "timestamp", "description": "When the user profile was last updated." },
-          "isAnonymous": { "type": "boolean", "description": "Flag for guest users." },
-          "isBanned": { "type": "boolean", "description": "Flag for banned users." },
-          "isVerified": { "type": "boolean", "description": "Flag for verified users." }
+          "isAnonymous": { "type": "boolean", "description": "Flag for guest users." }
         }
       },
       "stories": {
@@ -35,191 +27,61 @@
           "title": { "type": "string", "description": "Title of the story." },
           "summary": { "type": "string", "description": "A short description or blurb for the story." },
           "genre": { "type": "string", "description": "The primary genre of the story." },
-          "tags": { "type": "array", "description": "An array of string tags for discoverability." },
           "status": { "type": "string", "description": "Current status: 'Draft', 'Ongoing', 'Completed'." },
           "visibility": { "type": "string", "description": "Access level: 'Public', 'Unlisted', 'Private'." },
           "coverImageUrl": { "type": "string", "description": "URL for the story's cover image." },
-          "collaboratorIds": { "type": "array", "description": "Array of user IDs who can edit the story." },
-          "lastUpdated": { "type": "timestamp", "description": "Timestamp of the last update to the story or its chapters." },
-          "views": { "type": "number", "description": "Total number of times the story has been viewed." }
+          "lastUpdated": { "type": "timestamp", "description": "Timestamp of the last update." },
+          "views": { "type": "number", "description": "Total views." }
         },
         "subcollections": {
           "chapters": {
-            "description": "Individual chapters for each story. Stored as a map on the story document.",
+            "description": "Individual chapters for each story.",
             "fields": {
-              "id": { "type": "string", "description": "Unique ID for the chapter." },
-              "title": { "type": "string", "description": "Title of the chapter." },
-              "content": { "type": "string", "description": "The main text content of the chapter." },
-              "order": { "type": "number", "description": "The numerical order of the chapter in the story." },
-              "status": { "type": "string", "description": "'Published' or 'Draft'." },
-              "accessType": { "type": "string", "description": "'public' or 'premium'." },
-              "allowedUsers": { "type": "array", "description": "List of users with access to premium chapters." },
-              "votes": { "type": "number", "description": "Number of votes for the chapter." }
+              "id": { "type": "string", "description": "Unique ID." },
+              "title": { "type": "string", "description": "Title." },
+              "content": { "type": "string", "description": "Text content." },
+              "order": { "type": "number", "description": "Numerical order." },
+              "status": { "type": "string", "description": "'Published' or 'Draft'." }
             }
           }
-        }
-      },
-      "comments": {
-        "description": "Stores all comments made on chapters.",
-        "fields": {
-          "user": { "type": "map", "description": "Summary object of the commenter.", "reference": "users" },
-          "storyId": { "type": "string", "description": "ID of the story being commented on.", "reference": "stories" },
-          "chapterId": { "type": "string", "description": "ID of the chapter being commented on." },
-          "content": { "type": "string", "description": "The text of the comment." },
-          "parentId": { "type": "string", "description": "ID of the parent comment if it's a reply.", "reference": "comments" },
-          "timestamp": { "type": "timestamp", "description": "When the comment was posted." }
-        }
-      },
-      "notifications": {
-        "description": "Stores notifications for users.",
-        "fields": {
-          "userId": { "type": "string", "description": "The user who receives the notification.", "reference": "users" },
-          "actor": { "type": "map", "description": "User who triggered the notification.", "reference": "users" },
-          "type": { "type": "string", "description": "Type of notification, e.g., 'new_follower', 'new_chapter'." },
-          "message": { "type": "string", "description": "The notification text." },
-          "link": { "type": "string", "description": "URL to navigate to on click." },
-          "isRead": { "type": "boolean", "description": "Whether the user has read the notification." },
-          "timestamp": { "type": "timestamp", "description": "When the notification was created." }
-        }
-      },
-      "conversations": {
-        "description": "Represents a direct message thread between two or more users.",
-        "fields": {
-          "participantIds": { "type": "array", "description": "Array of user IDs in the conversation.", "reference": "users" },
-          "participantInfo": { "type": "map", "description": "Map of user summaries for participants." },
-          "lastMessage": { "type": "map", "description": "A copy of the most recent message for previews." },
-          "updatedAt": { "type": "timestamp", "description": "Timestamp of the last message." }
-        },
-        "subcollections": {
-          "messages": {
-            "description": "Individual messages within a conversation.",
-            "fields": {
-              "senderId": { "type": "string", "description": "The ID of the user who sent the message.", "reference": "users" },
-              "content": { "type": "string", "description": "The text content of the message." },
-              "timestamp": { "type": "timestamp", "description": "When the message was sent." }
-            }
-          }
-        }
-      },
-      "globalChatMessages": {
-        "description": "Stores all messages for the public real-time chat room.",
-        "fields": {
-          "author": { "type": "map", "description": "Summary object of the message author." },
-          "content": { "type": "string", "description": "Text content of the message." },
-          "timestamp": { "type": "timestamp", "description": "When the message was sent." }
         }
       },
       "statusUpdates": {
-        "description": "Temporary, 24-hour status updates from users.",
+        "description": "Temporary 24-hour status updates.",
         "fields": {
-          "authorId": { "type": "string", "description": "ID of the status author.", "reference": "users" },
-          "mediaUrl": { "type": "string", "description": "URL of the image or video for the status." },
+          "authorId": { "type": "string", "description": "Author ID." },
           "status": { "type": "string", "description": "'published' or 'draft'." },
-          "createdAt": { "type": "timestamp", "description": "When the status was created." },
-          "expiresAt": { "type": "timestamp", "description": "When the status will automatically expire." },
-          "isHidden": { "type": "boolean", "description": "True if the user hid the status." }
+          "visibility": { "type": "string", "description": "'public' or 'close-friends'." },
+          "createdAt": { "type": "timestamp", "description": "Creation time." },
+          "expiresAt": { "type": "timestamp", "description": "Expiration time." }
         }
       },
-      "prompts": {
-        "description": "Community-submitted writing prompts.",
+      "broadcasts": {
+        "description": "Official transmissions from the platform owner.",
         "fields": {
-          "author": { "type": "map", "description": "Summary object of the prompt's author.", "reference": "users" },
-          "title": { "type": "string", "description": "Title of the prompt." },
-          "prompt": { "type": "string", "description": "The main text of the writing prompt." },
-          "genre": { "type": "string", "description": "The genre suggestion for the prompt." },
-          "isArchived": { "type": "boolean", "description": "True if the prompt has been archived by the author." },
-          "createdAt": { "type": "timestamp", "description": "When the prompt was created." }
+          "author": { "type": "map", "description": "Owner summary." },
+          "content": { "type": "string", "description": "Message content." },
+          "category": { "type": "string", "description": "Log category." },
+          "timestamp": { "type": "timestamp", "description": "Transmission time." }
         }
       },
-      "letters": {
-        "description": "Private or public letters sent from readers to authors about specific chapters.",
+      "featuredCarousel": {
+        "description": "Slides for the homepage featured stories hub.",
         "fields": {
-          "authorId": { "type": "string", "description": "The story author receiving the letter.", "reference": "users" },
-          "reader": { "type": "map", "description": "The user who sent the letter.", "reference": "users" },
-          "storyId": { "type": "string", "description": "The story the letter is about.", "reference": "stories" },
-          "chapterId": { "type": "string", "description": "The chapter the letter is about." },
-          "content": { "type": "string", "description": "The body of the letter." },
-          "visibility": { "type": "string", "description": "'public' or 'private'." },
-          "isPinned": { "type": "boolean", "description": "If the author has pinned the letter to the story page." },
-          "isReadByAuthor": { "type": "boolean", "description": "If the author has opened/read the letter." },
-          "authorResponse": { "type": "string", "description": "An optional response from the author." },
-          "timestamp": { "type": "timestamp", "description": "When the letter was sent." }
+          "title": { "type": "string", "description": "Slide title." },
+          "imageUrl": { "type": "string", "description": "Background image." },
+          "ctaLink": { "type": "string", "description": "Target destination." },
+          "isActive": { "type": "boolean", "description": "Live status." }
         }
       },
-      "annotations": {
-        "description": "Stores user highlights and notes on story content.",
+      "notifications": {
+        "description": "User activity alerts.",
         "fields": {
-          "userId": { "type": "string", "description": "The user who created the annotation.", "reference": "users" },
-          "storyId": { "type": "string", "description": "ID of the story being annotated.", "reference": "stories" },
-          "chapterId": { "type": "string", "description": "ID of the chapter being annotated." },
-          "highlightedText": { "type": "string", "description": "The text that was highlighted by the user." },
-          "highlightColor": { "type": "string", "description": "The color used for the highlight (e.g., hex code)." },
-          "note": { "type": "string", "description": "A private note or comment from the user about the highlight." },
-          "timestamp": { "type": "timestamp", "description": "When the annotation was created." }
+          "userId": { "type": "string", "description": "Recipient ID." },
+          "actor": { "type": "map", "description": "Trigger user summary." },
+          "type": { "type": "string", "description": "Alert type." },
+          "isRead": { "type": "boolean", "description": "Read status." }
         }
-      },
-      "feedPosts": {
-        "description": "Posts that appear on the main feed, created by users.",
-        "fields": {
-          "author": { "type": "map", "description": "Summary object of the post author." },
-          "content": { "type": "string", "description": "Text content of the post." },
-          "imageUrl": { "type": "string", "description": "URL of an image attached to the post." },
-          "storyId": { "type": "string", "description": "ID of a story attached to the post.", "reference": "stories" },
-          "songUrl": { "type": "string", "description": "URL of a song attached to the post." },
-          "songLyricSnippet": { "type": "string", "description": "A snippet of lyrics from the attached song." },
-          "reactionsCount": { "type": "number", "description": "Total number of reactions." },
-          "commentsCount": { "type": "number", "description": "Total number of comments." },
-          "timestamp": { "type": "timestamp", "description": "When the post was created." }
-        },
-        "subcollections": {
-            "comments": {
-                "description": "Comments on a feed post.",
-                "fields": {
-                    "user": { "type": "map", "description": "Summary object of the commenter." },
-                    "content": { "type": "string", "description": "The text of the comment." },
-                    "timestamp": { "type": "timestamp", "description": "When the comment was posted." }
-                }
-            },
-            "reactions": {
-                "description": "Reactions to a feed post. The document ID is the user ID.",
-                "fields": {
-                    "type": { "type": "string", "description": "The type of reaction (e.g., love)." },
-                    "userId": { "type": "string", "description": "The ID of the user who reacted." },
-                    "timestamp": { "type": "timestamp", "description": "When the reaction was made." },
-                    "user": { "type": "map", "description": "Summary object of the user who reacted." }
-                }
-            }
-        }
-      },
-      "announcements": {
-        "description": "Author announcements to their followers.",
-        "fields": {
-          "author": { "type": "map", "description": "Summary object of the announcement author." },
-          "content": { "type": "string", "description": "Text content of the announcement." },
-          "timestamp": { "type": "timestamp", "description": "When the announcement was posted." }
-        }
-      },
-      "questions": {
-          "description": "Questions asked by readers to authors.",
-          "fields": {
-              "asker": { "type": "map", "description": "Summary object of the user who asked." },
-              "authorId": { "type": "string", "description": "ID of the author the question is for.", "reference": "users" },
-              "questionText": { "type": "string", "description": "The text of the question." },
-              "status": { "type": "string", "description": "'unanswered' or 'answered'." },
-              "createdAt": { "type": "timestamp", "description": "When the question was asked." },
-              "answerText": { "type": "string", "description": "The author's answer." },
-              "answeredAt": { "type": "timestamp", "description": "When the question was answered." },
-              "answerer": { "type": "map", "description": "Summary object of the user who answered." }
-          }
-      },
-      "polls": {
-          "description": "Polls created by authors.",
-          "fields": {
-              "authorId": { "type": "string", "description": "ID of the author who created the poll.", "reference": "users" },
-              "question": { "type": "string", "description": "The poll question." },
-              "options": { "type": "array", "description": "Array of poll options with their vote counts." },
-              "createdAt": { "type": "timestamp", "description": "When the poll was created." }
-          }
       }
     }
   }

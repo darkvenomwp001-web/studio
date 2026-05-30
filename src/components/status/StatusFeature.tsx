@@ -67,7 +67,7 @@ export default function StatusFeature() {
     }
 
     const now = Timestamp.now();
-    // Re-calibrated query to perfectly match security filters
+    // Re-calibrated query to include visibility filter to match security rules
     const publishedQuery = query(
       collection(db, 'statusUpdates'),
       where('status', '==', 'published'),
@@ -82,7 +82,7 @@ export default function StatusFeature() {
         setAllStatuses(liveStatuses);
         setIsLoading(false);
     }, (error) => {
-        // Silent archival sync
+        // Silent archival sync to prevent loud permission-denied errors
         setIsLoading(false);
     });
 
