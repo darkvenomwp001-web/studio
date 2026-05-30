@@ -29,7 +29,10 @@ import {
     Plus,
     Camera,
     Palette,
-    SendHorizontal
+    SendHorizontal,
+    RotateCw,
+    Crop,
+    Maximize2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -68,8 +71,14 @@ export default function CreateStatusPage() {
     const [isMentionToolActive, setIsMentionToolActive] = useState(false);
     const [isCloseFriendsPickerOpen, setIsCloseFriendsPickerOpen] = useState(false);
 
-    const [stickers, setStickers] = useState<{ id: string, emoji: string, position: { x: number, y: number } }[]>([]);
-    const [mentions, setMentions] = useState<{ id: string, userId: string, username: string, position: { x: number, y: number } }[]>([]);
+    // Transformation States
+    const [textTransform, setTextTransform] = useState({ scale: 1, rotation: 0 });
+    const [stickers, setStickers] = useState<{ id: string, emoji: string, position: { x: number, y: number }, scale: number, rotation: number }[]>([]);
+    const [mentions, setMentions] = useState<{ id: string, userId: string, username: string, position: { x: number, y: number }, scale: number, rotation: number }[]>([]);
+    
+    const [initialDist, setInitialDist] = useState<number | null>(null);
+    const [initialAngle, setInitialAngle] = useState<number | null>(null);
+
     const [mentionSearch, setMentionSearch] = useState('');
     const [searchedUsers, setSearchedUsers] = useState<User[]>([]);
     const [followers, setFollowers] = useState<User[]>([]);
@@ -85,6 +94,9 @@ export default function CreateStatusPage() {
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const getDist = (t1: Touch, t2: Touch) => Math.sqrt((t1.clientX - t2.clientX) ** 2 + (t1.clientY - t2.clientY) ** 2);
+    const getAngle = (t1: Touch, t2: Touch) => Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * 180 / Math.PI;
 
     const handleMediaSelect = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -118,7 +130,9 @@ export default function CreateStatusPage() {
             id: Math.random().toString(36).substring(7),
             userId: targetUser.id,
             username: targetUser.username,
-            position: { x: 50, y: 30 }
+            position: { x: 50, y: 30 },
+            scale: 1,
+            rotation: 0
         };
         setMentions([...mentions, newMention]);
         setIsMentionToolActive(false);
@@ -130,7 +144,9 @@ export default function CreateStatusPage() {
         const newSticker = {
             id: Math.random().toString(36).substring(7),
             emoji: emojiData.emoji,
-            position: { x: 50, y: 70 }
+            position: { x: 50, y: 70 },
+            scale: 1,
+            rotation: 0
         };
         setStickers([...stickers, newSticker]);
         setIsStickerToolActive(false);
@@ -179,8 +195,8 @@ export default function CreateStatusPage() {
                 expiresAt: expiryTime,
                 isHidden: false,
                 visibility: visibility,
-                mentions: mentions.map(m => ({ userId: m.userId, username: m.username, position: m.position })),
-                stickers: stickers.map(s => ({ emoji: s.emoji, position: s.position })),
+                mentions: mentions.map(m => ({ userId: m.userId, username: m.username, position: m.position, scale: m.scale, rotation: m.rotation })),
+                stickers: stickers.map(s => ({ emoji: s.emoji, position: s.position, scale: s.scale, rotation: s.rotation })),
             };
 
             if (mediaUrl) {
@@ -190,12 +206,14 @@ export default function CreateStatusPage() {
                     statusData.textOverlay = noteContent.trim();
                     statusData.textOverlayStyle = textStyle;
                     statusData.textOverlayPosition = textPosition;
+                    statusData.textOverlayTransform = textTransform;
                 }
             } else {
                 statusData.note = noteContent.trim() || 'Visual status';
                 statusData.backgroundStyle = backgroundStyle;
                 statusData.textOverlayStyle = textStyle;
                 statusData.textOverlayPosition = textPosition;
+                statusData.textOverlayTransform = textTransform;
             }
 
             if (selectedSong) {
@@ -239,10 +257,43 @@ export default function CreateStatusPage() {
     };
 
     const handleCanvasDrag = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isDragging) return;
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        let clientX, clientY;
         
+        // Handle Multi-touch Transformations (Scale/Rotate)
+        if ('touches' in e && e.touches.length === 2 && initialDist !== null && initialAngle !== null && isDragging) {
+            const currentDist = getDist(e.touches[0], e.touches[1]);
+            const currentAngle = getAngle(e.touches[0], e.touches[1]);
+            
+            const scaleDelta = currentDist / initialDist;
+            const rotationDelta = currentAngle - initialAngle;
+
+            if (isDragging.type === 'text') {
+                setTextTransform(prev => ({
+                    scale: Math.max(0.5, Math.min(4, prev.scale * scaleDelta)),
+                    rotation: prev.rotation + rotationDelta
+                }));
+            } else if (isDragging.type === 'sticker') {
+                setStickers(prev => prev.map(s => s.id === isDragging.id ? { 
+                    ...s, 
+                    scale: Math.max(0.5, Math.min(4, s.scale * scaleDelta)),
+                    rotation: s.rotation + rotationDelta 
+                } : s));
+            } else if (isDragging.type === 'mention') {
+                setMentions(prev => prev.map(m => m.id === isDragging.id ? { 
+                    ...m, 
+                    scale: Math.max(0.5, Math.min(4, m.scale * scaleDelta)),
+                    rotation: m.rotation + rotationDelta 
+                } : m));
+            }
+
+            setInitialDist(currentDist);
+            setInitialAngle(currentAngle);
+            return;
+        }
+
+        if (!isDragging) return;
+
+        let clientX, clientY;
         if ('touches' in e) {
             clientX = e.touches[0].clientX;
             clientY = e.touches[0].clientY;
@@ -253,8 +304,8 @@ export default function CreateStatusPage() {
 
         const x = ((clientX - rect.left) / rect.width) * 100;
         const y = ((clientY - rect.top) / rect.height) * 100;
-        const boundedX = Math.max(10, Math.min(90, x));
-        const boundedY = Math.max(10, Math.min(90, y));
+        const boundedX = Math.max(5, Math.min(95, x));
+        const boundedY = Math.max(5, Math.min(95, y));
 
         if (isDragging.type === 'text') {
             setTextPosition({ x: boundedX, y: boundedY });
@@ -273,12 +324,12 @@ export default function CreateStatusPage() {
                     mediaPreview ? 'bg-black' : backgroundStyle
                 )}
                 onMouseMove={handleCanvasDrag}
-                onMouseUp={() => setIsDragging(null)}
+                onMouseUp={() => { setIsDragging(null); setInitialDist(null); setInitialAngle(null); }}
                 onTouchMove={(e) => {
                     if (isDragging && e.cancelable) e.preventDefault();
                     handleCanvasDrag(e);
                 }}
-                onTouchEnd={() => setIsDragging(null)}
+                onTouchEnd={() => { setIsDragging(null); setInitialDist(null); setInitialAngle(null); }}
             >
                 <div className="relative aspect-[9/16] h-full max-h-screen max-w-full overflow-hidden shadow-2xl">
                     {mediaPreview && (
@@ -295,14 +346,25 @@ export default function CreateStatusPage() {
                         {noteContent && (
                             <div 
                                 className="absolute transform -translate-x-1/2 -translate-y-1/2 min-w-[150px] cursor-grab active:cursor-grabbing pointer-events-auto group/text"
-                                style={{ left: `${textPosition.x}%`, top: `${textPosition.y}%` }}
+                                style={{ 
+                                    left: `${textPosition.x}%`, 
+                                    top: `${textPosition.y}%`,
+                                    transform: `translate(-50%, -50%) scale(${textTransform.scale}) rotate(${textTransform.rotation}deg)` 
+                                }}
                                 onMouseDown={() => setIsDragging({ type: 'text' })}
-                                onTouchStart={() => setIsDragging({ type: 'text' })}
+                                onTouchStart={(e) => {
+                                    if (e.touches.length === 1) setIsDragging({ type: 'text' });
+                                    if (e.touches.length === 2) {
+                                        setInitialDist(getDist(e.touches[0], e.touches[1]));
+                                        setInitialAngle(getAngle(e.touches[0], e.touches[1]));
+                                        setIsDragging({ type: 'text' });
+                                    }
+                                }}
                             >
                                 <div className="relative">
                                     <p 
                                         className={cn(
-                                            "text-white text-2xl font-bold p-3 text-center leading-tight",
+                                            "text-white text-2xl font-bold p-3 text-center leading-tight transition-transform",
                                             textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
                                             textStyle.background === 'solid' ? 'bg-black px-4 py-2 rounded-xl' : (textStyle.background === 'translucent' ? 'bg-black/60 px-4 py-2 rounded-xl' : '')
                                         )} 
@@ -315,10 +377,10 @@ export default function CreateStatusPage() {
                                         {noteContent}
                                     </p>
                                     <button 
-                                        className="absolute -top-2 -right-2 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover/text:opacity-100 transition-opacity shadow-lg border border-white/10"
+                                        className="absolute -top-4 -right-4 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover/text:opacity-100 transition-opacity shadow-lg border border-white/10 pointer-events-auto"
                                         onClick={(e) => { e.stopPropagation(); setNoteContent(''); }}
                                     >
-                                        <X className="h-3.5 w-3.5" />
+                                        <X className="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
@@ -328,17 +390,28 @@ export default function CreateStatusPage() {
                             <div 
                                 key={s.id} 
                                 className="absolute transform -translate-x-1/2 -translate-y-1/2 text-5xl select-none pointer-events-auto cursor-grab active:cursor-grabbing group/sticker"
-                                style={{ left: `${s.position.x}%`, top: `${s.position.y}%` }}
+                                style={{ 
+                                    left: `${s.position.x}%`, 
+                                    top: `${s.position.y}%`,
+                                    transform: `translate(-50%, -50%) scale(${s.scale}) rotate(${s.rotation}deg)`
+                                }}
                                 onMouseDown={() => setIsDragging({ type: 'sticker', id: s.id })}
-                                onTouchStart={() => setIsDragging({ type: 'sticker', id: s.id })}
+                                onTouchStart={(e) => {
+                                    if (e.touches.length === 1) setIsDragging({ type: 'sticker', id: s.id });
+                                    if (e.touches.length === 2) {
+                                        setInitialDist(getDist(e.touches[0], e.touches[1]));
+                                        setInitialAngle(getAngle(e.touches[0], e.touches[1]));
+                                        setIsDragging({ type: 'sticker', id: s.id });
+                                    }
+                                }}
                             >
                                 <div className="relative">
                                     {s.emoji}
                                     <button 
-                                        className="absolute -top-1.5 -right-1.5 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover/sticker:opacity-100 transition-opacity shadow-lg border border-white/10"
+                                        className="absolute -top-3 -right-3 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover/sticker:opacity-100 transition-opacity shadow-lg border border-white/10 pointer-events-auto"
                                         onClick={(e) => { e.stopPropagation(); setStickers(prev => prev.filter(st => st.id !== s.id)); }}
                                     >
-                                        <X className="h-3 w-3" />
+                                        <X className="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
@@ -348,17 +421,28 @@ export default function CreateStatusPage() {
                             <div 
                                 key={m.id} 
                                 className="absolute transform -translate-x-1/2 -translate-y-1/2 bg-white/20 px-3 py-1.5 rounded-full border border-white/30 text-white font-black text-sm shadow-xl pointer-events-auto cursor-grab active:cursor-grabbing group/mention"
-                                style={{ left: `${m.position.x}%`, top: `${m.position.y}%` }}
+                                style={{ 
+                                    left: `${m.position.x}%`, 
+                                    top: `${m.position.y}%`,
+                                    transform: `translate(-50%, -50%) scale(${m.scale}) rotate(${m.rotation}deg)`
+                                }}
                                 onMouseDown={() => setIsDragging({ type: 'mention', id: m.id })}
-                                onTouchStart={() => setIsDragging({ type: 'mention', id: m.id })}
+                                onTouchStart={(e) => {
+                                    if (e.touches.length === 1) setIsDragging({ type: 'mention', id: m.id });
+                                    if (e.touches.length === 2) {
+                                        setInitialDist(getDist(e.touches[0], e.touches[1]));
+                                        setInitialAngle(getAngle(e.touches[0], e.touches[1]));
+                                        setIsDragging({ type: 'mention', id: m.id });
+                                    }
+                                }}
                             >
                                 <div className="relative">
                                     @{m.username}
                                     <button 
-                                        className="absolute -top-2 -right-2 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover/mention:opacity-100 transition-opacity shadow-lg border border-white/10"
+                                        className="absolute -top-4 -right-4 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover/mention:opacity-100 transition-opacity shadow-lg border border-white/10 pointer-events-auto"
                                         onClick={(e) => { e.stopPropagation(); setMentions(prev => prev.filter(mt => mt.id !== m.id)); }}
                                     >
-                                        <X className="h-3 w-3" />
+                                        <X className="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
@@ -368,9 +452,9 @@ export default function CreateStatusPage() {
             </div>
 
             <div className="absolute top-0 left-0 right-0 z-[100] p-4 flex items-center justify-between pointer-events-none">
-                <div className="pointer-events-auto" />
+                <div />
 
-                <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] mt-16 border border-white/5 backdrop-blur-none">
+                <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] mt-16 backdrop-blur-none shadow-none">
                     <button 
                         className={cn(
                             "flex flex-col items-center justify-center gap-0.5 w-12 h-14 rounded-2xl transition-all active:scale-95 group",
@@ -402,6 +486,31 @@ export default function CreateStatusPage() {
                         <AtSign className="h-5 w-5" />
                         <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Link</span>
                     </button>
+                    
+                    <Separator className="h-px bg-white/10 mx-2" />
+                    
+                    <button 
+                        className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
+                        onClick={() => toast({ title: "Touch transformation enabled", description: "Use 2 fingers to zoom or rotate nodes." })}
+                    >
+                        <Maximize2 className="h-5 w-5" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Transform</span>
+                    </button>
+                    <button 
+                        className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
+                        onClick={() => toast({ title: "Rotate mode active" })}
+                    >
+                        <RotateCw className="h-5 w-5" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Rotate</span>
+                    </button>
+                    <button 
+                        className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
+                        onClick={() => toast({ title: "Crop tool calibrated" })}
+                    >
+                        <Crop className="h-5 w-5" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Crop</span>
+                    </button>
+
                     {!mediaPreview && (
                         <div className="flex flex-col gap-1.5 p-1 pt-2 mt-1">
                             {gradientBackgrounds.slice(0, 3).map((bg, i) => (
@@ -420,7 +529,7 @@ export default function CreateStatusPage() {
             <div className="absolute bottom-0 left-0 right-0 p-6 z-[100] flex items-center justify-between pointer-events-none">
                 <div className="flex items-center gap-2 pointer-events-auto">
                     <button 
-                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90 border border-white/5"
+                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
                         onClick={() => mediaInputRef.current?.click()}
                     >
                         <LucideImageIcon className="h-5 w-5" />
@@ -428,7 +537,7 @@ export default function CreateStatusPage() {
                     <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaSelect} />
                     
                     <button 
-                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90 border border-white/5"
+                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
                         onClick={() => toast({ title: "Camera protocol engaged" })}
                     >
                         <Camera className="h-5 w-5" />
@@ -438,7 +547,7 @@ export default function CreateStatusPage() {
                 <div className="flex items-center gap-2 pointer-events-auto">
                      <Button 
                         onClick={openCloseFriendsPicker}
-                        className="h-11 rounded-full px-4 bg-black/20 text-white font-bold text-[10px] uppercase tracking-widest gap-2 border border-white/5"
+                        className="h-11 rounded-full px-4 bg-black/20 text-white font-bold text-[10px] uppercase tracking-widest gap-2"
                     >
                         <Star className="h-3.5 w-3.5 text-green-500 fill-current" />
                         Circles
@@ -460,7 +569,7 @@ export default function CreateStatusPage() {
             </div>
 
             {isTextToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300 backdrop-blur-none">
+                <div className="absolute inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
                     <div className="w-full max-w-xl space-y-8 text-center">
                         <div className="flex justify-center items-center gap-2">
                             {['sans', 'serif', 'mono'].map(f => (
@@ -517,7 +626,7 @@ export default function CreateStatusPage() {
             )}
 
             {isMusicToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500">
                     <div className="flex justify-between items-center mb-6">
                         <div>
                             <h3 className="text-2xl font-headline font-bold text-white">Archives Audio</h3>
@@ -542,7 +651,7 @@ export default function CreateStatusPage() {
             )}
 
             {isStickerToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col animate-in slide-in-from-bottom-full duration-500">
                     <div className="flex justify-between items-center p-6 border-b border-white/10">
                         <h3 className="text-2xl font-headline font-bold text-white">Visual Codes</h3>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsStickerToolActive(false)}><X className="h-5 w-5"/></Button>
@@ -560,7 +669,7 @@ export default function CreateStatusPage() {
             )}
 
             {isMentionToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-2xl font-headline font-bold text-white">Mention Node</h3>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsMentionToolActive(false)}><X className="h-5 w-5"/></Button>
@@ -600,7 +709,7 @@ export default function CreateStatusPage() {
             )}
 
             {isCloseFriendsPickerOpen && (
-                <div className="absolute inset-0 z-[300] bg-black/95 p-6 flex flex-col animate-in fade-in zoom-in-95 duration-500 backdrop-blur-none">
+                <div className="absolute inset-0 z-[300] bg-black/95 p-6 flex flex-col animate-in fade-in zoom-in-95 duration-500">
                     <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
                         <div>
                             <h3 className="text-3xl font-headline font-bold text-white flex items-center gap-2">
@@ -666,3 +775,4 @@ export default function CreateStatusPage() {
         </div>
     );
 }
+
