@@ -354,6 +354,7 @@ export interface StatusUpdate {
     noteStyle?: { font: 'sans' | 'serif' | 'mono', alignment: 'left' | 'center' | 'right' };
     backgroundStyle?: string;
     spotifyUrl?: string;
+    songUrl?: string; // New generic field for all music APIs
     songLyricSnippet?: string;
     dynamicBgColor?: string;
     vibeTags?: string[];
@@ -374,6 +375,8 @@ export interface Song {
     title: string;
     artist: string;
     cover: string;
+    previewUrl?: string;
+    source?: 'spotify' | 'itunes';
     lyrics: {
         time: number;
         text: string;

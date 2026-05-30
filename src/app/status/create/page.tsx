@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { 
     X, 
     Type, 
@@ -222,7 +221,12 @@ export default function CreateStatusPage() {
             }
 
             if (selectedSong) {
-                statusData.spotifyUrl = `https://open.spotify.com/track/${selectedSong.id}`;
+                // If it's from our new iTunes source, it has a previewUrl
+                if (selectedSong.source === 'itunes') {
+                    statusData.songUrl = selectedSong.previewUrl;
+                } else {
+                    statusData.spotifyUrl = `https://open.spotify.com/track/${selectedSong.id}`;
+                }
             }
 
             await addDoc(collection(db, 'statusUpdates'), statusData);
@@ -325,7 +329,6 @@ export default function CreateStatusPage() {
         } else if (isDragging.type === 'mention') {
             setMentions(prev => prev.map(m => m.id === isDragging.id ? { ...m, position: { x: boundedX, y: boundedY } } : m));
         } else if (isDragging.type === 'media') {
-            // Simplified drag for media
             setMediaTransform(prev => ({ ...prev, x: clientX - rect.left - rect.width/2, y: clientY - rect.top - rect.height/2 }));
         }
     };
@@ -821,4 +824,3 @@ export default function CreateStatusPage() {
         </div>
     );
 }
-
