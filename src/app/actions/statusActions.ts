@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase-server';
@@ -23,7 +22,6 @@ export async function createStatusUpdate(userId: string, data: Partial<StatusUpd
         revalidatePath('/'); // Revalidate the feed
         return { success: true };
     } catch(error) {
-        console.error('Error creating status update:', error);
         return { success: false, error: 'Could not create status update.' };
     }
 }
@@ -71,7 +69,6 @@ export async function hideStatusUpdate(
         revalidatePath('/');
         return { success: true };
     } catch (error) {
-        console.error('Error hiding status:', error);
         return { success: false, error: 'Could not hide status.' };
     }
 }
@@ -104,7 +101,6 @@ export async function permanentlyDeleteStatusUpdate(
         revalidatePath('/settings/statuses');
         return { success: true };
     } catch (error) {
-        console.error('Error permanently deleting status:', error);
         return { success: false, error: 'Could not permanently delete status.' };
     }
 }

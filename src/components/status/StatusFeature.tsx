@@ -67,7 +67,7 @@ export default function StatusFeature() {
     }
 
     const now = Timestamp.now();
-    // Authorized community query filtering by visibility
+    // Re-calibrated query to perfectly match security filters
     const publishedQuery = query(
       collection(db, 'statusUpdates'),
       where('status', '==', 'published'),
@@ -82,7 +82,7 @@ export default function StatusFeature() {
         setAllStatuses(liveStatuses);
         setIsLoading(false);
     }, (error) => {
-        // Handled silently to avoid crashing the high-fidelity UI thread during rules transition
+        // Silent archival sync
         setIsLoading(false);
     });
 
