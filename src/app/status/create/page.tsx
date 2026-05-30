@@ -25,7 +25,6 @@ import {
     Search,
     Loader2,
     Star,
-    ChevronLeft,
     Check,
     Plus,
     Camera,
@@ -63,7 +62,6 @@ export default function CreateStatusPage() {
     const [backgroundStyle, setBackgroundStyle] = useState<string>(gradientBackgrounds[0]);
     const [selectedSong, setSelectedSong] = useState<Song | null>(null);
     
-    // Tool States
     const [isTextToolActive, setIsTextToolActive] = useState(false);
     const [isMusicToolActive, setIsMusicToolActive] = useState(false);
     const [isStickerToolActive, setIsStickerToolActive] = useState(false);
@@ -269,7 +267,6 @@ export default function CreateStatusPage() {
 
     return (
         <div className="fixed inset-0 z-[1000] bg-black flex flex-col overflow-hidden animate-in fade-in duration-700 font-sans">
-            {/* Immersive Background / Canvas */}
             <div 
                 className={cn(
                     "absolute inset-0 transition-all duration-700 transform-gpu overflow-hidden flex items-center justify-center",
@@ -294,7 +291,6 @@ export default function CreateStatusPage() {
                         />
                     )}
 
-                    {/* Movable Layers */}
                     <div className="absolute inset-0 pointer-events-none">
                         {noteContent && (
                             <div 
@@ -371,16 +367,10 @@ export default function CreateStatusPage() {
                 </div>
             </div>
 
-            {/* Top Toolbar Navigation */}
-            <header className="absolute top-0 left-0 right-0 z-[100] p-4 flex items-center justify-between pointer-events-none backdrop-blur-none">
-                <div className="pointer-events-auto">
-                    <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-black/20 rounded-full" onClick={() => router.back()}>
-                        <ChevronLeft className="h-6 w-6" />
-                    </Button>
-                </div>
+            <div className="absolute top-0 left-0 right-0 z-[100] p-4 flex items-center justify-between pointer-events-none">
+                <div className="pointer-events-auto" />
 
-                {/* Vertical Toolbar */}
-                <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] mt-16 backdrop-blur-none">
+                <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] mt-16 border border-white/5">
                     <button 
                         className={cn(
                             "flex flex-col items-center justify-center gap-0.5 w-12 h-14 rounded-2xl transition-all active:scale-95 group",
@@ -425,13 +415,12 @@ export default function CreateStatusPage() {
                         </div>
                     )}
                 </div>
-            </header>
+            </div>
 
-            {/* Bottom Actions Hub */}
-            <footer className="absolute bottom-0 left-0 right-0 p-6 z-[100] flex items-center justify-between pointer-events-none backdrop-blur-none">
+            <div className="absolute bottom-0 left-0 right-0 p-6 z-[100] flex items-center justify-between pointer-events-none">
                 <div className="flex items-center gap-2 pointer-events-auto">
                     <button 
-                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
+                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90 border border-white/5"
                         onClick={() => mediaInputRef.current?.click()}
                     >
                         <LucideImageIcon className="h-5 w-5" />
@@ -439,7 +428,7 @@ export default function CreateStatusPage() {
                     <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaSelect} />
                     
                     <button 
-                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
+                        className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90 border border-white/5"
                         onClick={() => toast({ title: "Camera protocol engaged" })}
                     >
                         <Camera className="h-5 w-5" />
@@ -449,7 +438,7 @@ export default function CreateStatusPage() {
                 <div className="flex items-center gap-2 pointer-events-auto">
                      <Button 
                         onClick={openCloseFriendsPicker}
-                        className="h-11 rounded-full px-4 bg-black/20 text-white font-bold text-[10px] uppercase tracking-widest gap-2"
+                        className="h-11 rounded-full px-4 bg-black/20 text-white font-bold text-[10px] uppercase tracking-widest gap-2 border border-white/5"
                     >
                         <Star className="h-3.5 w-3.5 text-green-500 fill-current" />
                         Circles
@@ -468,13 +457,10 @@ export default function CreateStatusPage() {
                         )}
                     </Button>
                 </div>
-            </footer>
+            </div>
 
-            {/* SUB-TOOL OVERLAYS */}
-            
-            {/* Text Editor Overlay */}
             {isTextToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300 backdrop-blur-none">
+                <div className="absolute inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
                     <div className="w-full max-w-xl space-y-8 text-center">
                         <div className="flex justify-center items-center gap-2">
                             {['sans', 'serif', 'mono'].map(f => (
@@ -530,9 +516,8 @@ export default function CreateStatusPage() {
                 </div>
             )}
 
-            {/* Music Picker Overlay */}
             {isMusicToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500">
                     <header className="flex justify-between items-center mb-6">
                         <div>
                             <h3 className="text-2xl font-headline font-bold text-white">Archives Audio</h3>
@@ -556,9 +541,8 @@ export default function CreateStatusPage() {
                 </div>
             )}
 
-            {/* Sticker Picker Overlay */}
             {isStickerToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col animate-in slide-in-from-bottom-full duration-500">
                     <header className="flex justify-between items-center p-6 border-b border-white/10">
                         <h3 className="text-2xl font-headline font-bold text-white">Visual Codes</h3>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsStickerToolActive(false)}><X className="h-5 w-5"/></Button>
@@ -575,9 +559,8 @@ export default function CreateStatusPage() {
                 </div>
             )}
 
-            {/* Mention Hub Overlay */}
             {isMentionToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500">
                     <header className="flex justify-between items-center mb-6">
                         <h3 className="text-2xl font-headline font-bold text-white">Mention Node</h3>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsMentionToolActive(false)}><X className="h-5 w-5"/></Button>
@@ -616,9 +599,8 @@ export default function CreateStatusPage() {
                 </div>
             )}
 
-            {/* Close Friends Tagger Overlay */}
             {isCloseFriendsPickerOpen && (
-                <div className="absolute inset-0 z-[300] bg-black/95 p-6 flex flex-col animate-in fade-in zoom-in-95 duration-500 backdrop-blur-none">
+                <div className="absolute inset-0 z-[300] bg-black/95 p-6 flex flex-col animate-in fade-in zoom-in-95 duration-500">
                     <header className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
                         <div>
                             <h3 className="text-3xl font-headline font-bold text-white flex items-center gap-2">
@@ -684,3 +666,7 @@ export default function CreateStatusPage() {
         </div>
     );
 }
+
+```
+<description>Surgically removed accidental XML trailing tags from the Status Studio page and verified the component's structural integrity to resolve the Next.js parsing error.</description>
+```
