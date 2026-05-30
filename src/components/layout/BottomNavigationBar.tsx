@@ -10,13 +10,13 @@ const navItems = [
   { href: '/', label: 'Home', icon: Home, requiresAuth: false, countKey: null },
   { href: '/library', label: 'Library', icon: Library, requiresAuth: true, countKey: null },
   { href: '/search', label: 'Search', icon: Search, requiresAuth: false, countKey: null },
-  { href: '/letters', label: 'Mailbox', icon: Mailbox, requiresAuth: true, countKey: null },
+  { href: '/letters', label: 'Mailbox', icon: Mailbox, requiresAuth: true, countKey: 'letters' },
   { href: '/notifications', label: 'Inbox', icon: Bell, requiresAuth: true, countKey: 'notifications' },
 ];
 
 export default function BottomNavigationBar() {
   const pathname = usePathname();
-  const { user, notifications } = useAuth();
+  const { user, notifications, unreadLettersCount, unreadConversationsCount } = useAuth();
 
   const unreadNotificationsCount = user ? notifications.filter(n => !n.isRead).length : 0;
 
@@ -34,9 +34,12 @@ export default function BottomNavigationBar() {
 
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           const Icon = item.icon;
+          
           let count = 0;
           if (item.countKey === 'notifications') {
-            count = unreadNotificationsCount;
+            count = unreadNotificationsCount + unreadConversationsCount;
+          } else if (item.countKey === 'letters') {
+            count = unreadLettersCount;
           }
 
           return (
@@ -47,11 +50,13 @@ export default function BottomNavigationBar() {
               )}>
                 <Icon className={cn("h-5 w-5")} />
                 <span className="text-[10px] font-bold uppercase tracking-tighter leading-none">{item.label}</span>
+                
                 {count > 0 && (
-                  <div className="absolute top-2 right-1/2 translate-x-4 min-w-[14px] h-3.5 bg-destructive text-destructive-foreground text-[8px] font-black rounded-full flex items-center justify-center shadow-sm ring-1 ring-background">
-                    {count > 9 ? '9+' : count}
+                  <div className="absolute top-1 right-1/2 translate-x-4 min-w-[18px] h-[18px] bg-red-600 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-lg ring-2 ring-background animate-in zoom-in duration-300 transform-gpu">
+                    {count > 99 ? '99+' : count}
                   </div>
                 )}
+
                 {isActive && (
                   <div className="absolute bottom-1 w-1 h-1 bg-primary rounded-full animate-in fade-in zoom-in duration-300" />
                 )}

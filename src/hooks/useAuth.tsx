@@ -64,6 +64,8 @@ interface AuthContextType {
   loading: boolean;
   authLoading: boolean;
   notifications: NotificationType[];
+  unreadLettersCount: number;
+  unreadConversationsCount: number;
   requiresPasswordSetup: boolean;
   notificationPermission: NotificationPermission;
   fcmToken: string | null;
@@ -108,6 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
+  const [unreadLettersCount, setUnreadLettersCount] = useState(0);
+  const [unreadConversationsCount, setUnreadConversationsCount] = useState(0);
   const [requiresPasswordSetup, setRequiresPasswordSetup] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [fcmToken, setFcmToken] = useState<string | null>(null);
@@ -159,9 +163,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | undefined;
     let unsubscribeNotifs: (() => void) | undefined;
+    let unsubscribeLetters: (() => void) | undefined;
+    let unsubscribeConvs: (() => void) | undefined;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (unsubscribeUserDoc) unsubscribeUserDoc();
       if (unsubscribeNotifs) unsubscribeNotifs();
+      if (unsubscribeLetters) unsubscribeLetters();
+      if (unsubscribeConvs) unsubscribeConvs();
+
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
         unsubscribeUserDoc = onSnapshot(userRef, async (userSnap) => {
@@ -216,10 +226,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         });
         
-        const notifsQuery = query(collection(db, 'notifications'), where('userId', '==', firebaseUser.uid), orderBy('timestamp', 'desc'), limit(50));
+        // Notification Signal Node
+        const notifsQuery = query(collection(db, 'notifications'), where('userId', '==', firebaseUser.uid), orderBy('timestamp', 'desc'), limit(100));
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             const fetchedNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType));
-            
             if (fetchedNotifs.length > 0) {
               const latest = fetchedNotifs[0];
               const cacheKey = `island_seen_${latest.id}`;
@@ -233,16 +243,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 sessionStorage.setItem(cacheKey, 'true');
               }
             }
-            
             setNotifications(fetchedNotifs);
         }, async (error) => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'notifications', operation: 'list' }));
         });
+
+        // Mailbox Signal Node (Letters)
+        const lettersQuery = query(collection(db, 'letters'), where('authorId', '==', firebaseUser.uid), where('isReadByAuthor', '==', false));
+        unsubscribeLetters = onSnapshot(lettersQuery, (snapshot) => {
+          setUnreadLettersCount(snapshot.size);
+        });
+
+        // Messaging Signal Node (Conversations)
+        const convsQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', firebaseUser.uid));
+        unsubscribeConvs = onSnapshot(convsQuery, (snapshot) => {
+          const count = snapshot.docs.filter(d => {
+            const data = d.data();
+            return data.lastMessage?.senderId !== firebaseUser.uid && data.lastMessage?.isRead === false;
+          }).length;
+          setUnreadConversationsCount(count);
+        });
+
         getRedirectResult(auth).then((result) => { if (result) showIsland({ title: "Welcome back!", type: 'success' }); }).catch(console.error);
       } else {
         setUser(null);
         setLoading(false);
         setNotifications([]);
+        setUnreadLettersCount(0);
+        setUnreadConversationsCount(0);
         if (typeof window !== 'undefined') sessionStorage.removeItem(USER_CACHE_KEY);
       }
     });
@@ -250,6 +278,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unsubscribeAuth();
       if (unsubscribeUserDoc) unsubscribeUserDoc();
       if (unsubscribeNotifs) unsubscribeNotifs();
+      if (unsubscribeLetters) unsubscribeLetters();
+      if (unsubscribeConvs) unsubscribeConvs();
     };
   }, [handleAchievementUnlock, toast, showIsland]);
 
@@ -436,23 +466,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(1) });
     
-    await batch.commit();
-    
-    // Authorize and send the Signal to the recipient's Activity node
-    await addNotification({
-        userId: targetUserId,
-        type: 'new_follower',
-        message: `started following you.`,
-        link: `/profile/${user.id}`,
-        actor: {
-            id: user.id,
-            username: user.username,
-            displayName: user.displayName || user.username,
-            avatarUrl: user.avatarUrl
-        }
-    });
-
-    showIsland({ title: "Following", type: 'success' });
+    batch.commit()
+      .then(async () => {
+          await addNotification({
+              userId: targetUserId,
+              type: 'new_follower',
+              message: `started following you.`,
+              link: `/profile/${user.id}`,
+              actor: { id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl }
+          });
+          showIsland({ title: "Following", type: 'success' });
+      })
+      .catch(async (error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `users/${targetUserId}`, operation: 'update' }));
+      });
   }, [user, showIsland, addNotification]);
 
   const unfollowUser = useCallback(async (targetUserId: string) => {
@@ -460,7 +487,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(-1) });
-    batch.commit().then(() => showIsland({ title: "Unfollowed", type: 'info' }));
+    batch.commit()
+      .then(() => showIsland({ title: "Unfollowed", type: 'info' }))
+      .catch(async (error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `users/${targetUserId}`, operation: 'update' }));
+      });
   }, [user, showIsland]);
 
   const addToLibrary = useCallback(async (story: Story) => {
@@ -505,6 +536,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     authLoading,
     notifications,
+    unreadLettersCount,
+    unreadConversationsCount,
     requiresPasswordSetup,
     notificationPermission,
     fcmToken,
@@ -530,7 +563,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setNewUserPassword,
     clearAppCache
   }), [
-    user, loading, authLoading, notifications, requiresPasswordSetup, 
+    user, loading, authLoading, notifications, unreadLettersCount, unreadConversationsCount, requiresPasswordSetup, 
     notificationPermission, fcmToken, addNotification, markNotificationAsRead, 
     markAllNotificationsAsRead, enablePushNotifications, sendVerificationEmail, 
     reloadUser, signInWithGoogle, signUpWithEmailPassword, 
