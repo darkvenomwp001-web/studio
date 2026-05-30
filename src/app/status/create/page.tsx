@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { 
     X, 
     Type, 
@@ -111,7 +112,6 @@ export default function CreateStatusPage() {
             audio.play().catch(e => console.warn("Autoplay blocked", e));
             previewAudioRef.current = audio;
 
-            // Automatically stop after 30 seconds
             const timer = setTimeout(() => {
                 audio.pause();
             }, 30000);
@@ -249,11 +249,7 @@ export default function CreateStatusPage() {
             }
 
             if (selectedSong) {
-                if (selectedSong.source === 'itunes') {
-                    statusData.songUrl = selectedSong.previewUrl;
-                } else {
-                    statusData.spotifyUrl = `https://open.spotify.com/track/${selectedSong.id}`;
-                }
+                statusData.spotifyUrl = `https://open.spotify.com/track/${selectedSong.id}`;
             }
 
             await addDoc(collection(db, 'statusUpdates'), statusData);
@@ -376,9 +372,6 @@ export default function CreateStatusPage() {
             >
                 <div 
                     className="relative aspect-[9/16] h-full max-h-screen max-w-full overflow-hidden shadow-2xl transform-gpu"
-                    style={{ 
-                        transform: `translate(${mediaTransform.x}px, ${mediaTransform.y}px) scale(${mediaTransform.scale}) rotate(${mediaTransform.rotation}deg)` 
-                    }}
                     onMouseDown={() => !isDragging && setIsDragging({ type: 'media' })}
                     onTouchStart={(e) => {
                         if (e.touches.length === 2) {
@@ -390,13 +383,20 @@ export default function CreateStatusPage() {
                     }}
                 >
                     {mediaPreview && (
-                        <Image 
-                            src={mediaPreview} 
-                            alt="Canvas" 
-                            layout="fill" 
-                            objectFit="cover" 
-                            className="pointer-events-none select-none" 
-                        />
+                        <div 
+                            className="absolute inset-0 transform-gpu"
+                            style={{ 
+                                transform: `translate(${mediaTransform.x}px, ${mediaTransform.y}px) scale(${mediaTransform.scale}) rotate(${mediaTransform.rotation}deg)` 
+                            }}
+                        >
+                            <Image 
+                                src={mediaPreview} 
+                                alt="Canvas" 
+                                layout="fill" 
+                                objectFit="contain" 
+                                className="pointer-events-none select-none" 
+                            />
+                        </div>
                     )}
 
                     <div className="absolute inset-0 pointer-events-none">
@@ -408,7 +408,7 @@ export default function CreateStatusPage() {
                                     top: `${textPosition.y}%`,
                                     transform: `translate(-50%, -50%) scale(${textTransform.scale}) rotate(${textTransform.rotation}deg)` 
                                 }}
-                                onMouseDown={() => setIsDragging({ type: 'text' })}
+                                onMouseDown={(e) => { e.stopPropagation(); setIsDragging({ type: 'text' }); }}
                                 onTouchStart={(e) => {
                                     e.stopPropagation();
                                     if (e.touches.length === 1) setIsDragging({ type: 'text' });
@@ -434,12 +434,6 @@ export default function CreateStatusPage() {
                                     >
                                         {noteContent}
                                     </p>
-                                    <button 
-                                        className="absolute -top-4 -right-4 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover/text:opacity-100 transition-opacity shadow-lg border border-white/10 pointer-events-auto"
-                                        onClick={(e) => { e.stopPropagation(); setNoteContent(''); }}
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
                                 </div>
                             </div>
                         )}
@@ -453,7 +447,7 @@ export default function CreateStatusPage() {
                                     top: `${s.position.y}%`,
                                     transform: `translate(-50%, -50%) scale(${s.scale}) rotate(${s.rotation}deg)`
                                 }}
-                                onMouseDown={() => setIsDragging({ type: 'sticker', id: s.id })}
+                                onMouseDown={(e) => { e.stopPropagation(); setIsDragging({ type: 'sticker', id: s.id }); }}
                                 onTouchStart={(e) => {
                                     e.stopPropagation();
                                     if (e.touches.length === 1) setIsDragging({ type: 'sticker', id: s.id });
@@ -485,7 +479,7 @@ export default function CreateStatusPage() {
                                     top: `${m.position.y}%`,
                                     transform: `translate(-50%, -50%) scale(${m.scale}) rotate(${m.rotation}deg)`
                                 }}
-                                onMouseDown={() => setIsDragging({ type: 'mention', id: m.id })}
+                                onMouseDown={(e) => { e.stopPropagation(); setIsDragging({ type: 'mention', id: m.id }); }}
                                 onTouchStart={(e) => {
                                     e.stopPropagation();
                                     if (e.touches.length === 1) setIsDragging({ type: 'mention', id: m.id });
@@ -547,7 +541,7 @@ export default function CreateStatusPage() {
                         <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Link</span>
                     </button>
                     
-                    <div className="h-px bg-white/10 mx-2" />
+                    <Separator className="bg-white/10 mx-2 h-[1px] w-auto" />
                     
                     <button 
                         className={cn(
@@ -659,7 +653,7 @@ export default function CreateStatusPage() {
                                     {f}
                                 </button>
                             ))}
-                            <div className="w-px h-4 bg-white/20 mx-1" />
+                            <Separator className="bg-white/20 mx-1 h-4 w-[1px]" orientation="vertical" />
                             <button 
                                 className={cn(
                                     "w-8 h-8 rounded-lg flex items-center justify-center border transition-all",
@@ -850,4 +844,3 @@ export default function CreateStatusPage() {
         </div>
     );
 }
-
