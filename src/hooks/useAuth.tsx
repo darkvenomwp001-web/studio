@@ -183,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               messagingPreference: firestoreUserData.messagingPreference || 'everyone',
               notificationSettings: firestoreUserData.notificationSettings || { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false },
               followersCount: firestoreUserData.followersCount || 0,
-              followingCount: firestoreUserData.followingIds?.length || 0,
+              followingCount: firestoreUserData.followingCount || firestoreUserData.followingIds?.length || 0,
               followingIds: firestoreUserData.followingIds || [],
               closeFriendIds: firestoreUserData.closeFriendIds || [],
               fcmTokens: firestoreUserData.fcmTokens || [],
@@ -432,19 +432,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [toast, showIsland]);
 
   const followUser = useCallback(async (targetUserId: string) => {
-    if (!user) return;
+    if (!user || user.id === targetUserId) return;
     const batch = writeBatch(db);
-    batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
-    batch.update(doc(db, 'users', targetUserId), { followersCount: increment(1) });
-    batch.commit().then(() => showIsland({ title: "Following", type: 'success' }));
+    const userRef = doc(db, 'users', user.id);
+    const targetRef = doc(db, 'users', targetUserId);
+    
+    batch.update(userRef, { 
+      followingIds: arrayUnion(targetUserId),
+      followingCount: increment(1)
+    });
+    batch.update(targetRef, { 
+      followersCount: increment(1) 
+    });
+
+    batch.commit()
+      .then(() => showIsland({ title: "Following", type: 'success' }))
+      .catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+              path: `users/${targetUserId}`,
+              operation: 'update',
+              requestResourceData: { followersCount: 'increment' },
+          } satisfies SecurityRuleContext);
+          errorEmitter.emit('permission-error', permissionError);
+      });
   }, [user, showIsland]);
 
   const unfollowUser = useCallback(async (targetUserId: string) => {
-    if (!user) return;
+    if (!user || user.id === targetUserId) return;
     const batch = writeBatch(db);
-    batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
-    batch.update(doc(db, 'users', targetUserId), { followersCount: increment(-1) });
-    batch.commit().then(() => showIsland({ title: "Unfollowed", type: 'info' }));
+    const userRef = doc(db, 'users', user.id);
+    const targetRef = doc(db, 'users', targetUserId);
+
+    batch.update(userRef, { 
+      followingIds: arrayRemove(targetUserId),
+      followingCount: increment(-1)
+    });
+    batch.update(targetRef, { 
+      followersCount: increment(-1) 
+    });
+
+    batch.commit()
+      .then(() => showIsland({ title: "Unfollowed", type: 'info' }))
+      .catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+              path: `users/${targetUserId}`,
+              operation: 'update',
+              requestResourceData: { followersCount: 'decrement' },
+          } satisfies SecurityRuleContext);
+          errorEmitter.emit('permission-error', permissionError);
+      });
   }, [user, showIsland]);
 
   const addToLibrary = useCallback(async (story: Story) => {
