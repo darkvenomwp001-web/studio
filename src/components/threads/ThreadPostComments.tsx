@@ -166,11 +166,12 @@ function ThreadComment({ comment, postId, parentCollection, onUpdate, onDelete }
 
 interface ThreadPostCommentsProps {
     postId: string;
+    postAuthorId?: string; // Optional, used for notifications
     parentCollection?: string;
 }
 
-export default function ThreadPostComments({ postId, parentCollection = 'feedPosts' }: ThreadPostCommentsProps) {
-    const { user: currentUser, loading: authLoading } = useAuth();
+export default function ThreadPostComments({ postId, postAuthorId, parentCollection = 'feedPosts' }: ThreadPostCommentsProps) {
+    const { user: currentUser, addNotification, loading: authLoading } = useAuth();
     const [newComment, setNewComment] = useState('');
     const [comments, setComments] = useState<CommentType[]>([]);
     const [isLoadingComments, setIsLoadingComments] = useState(true);
@@ -238,6 +239,17 @@ export default function ThreadPostComments({ postId, parentCollection = 'feedPos
             const newCommentsCount = (postDoc.data().commentsCount || 0) + 1;
             transaction.update(postRef, { commentsCount: newCommentsCount });
             transaction.set(doc(commentsRef), commentData);
+            
+            // Trigger Notification
+            if (postAuthorId && postAuthorId !== currentUser.id) {
+                addNotification({
+                    userId: postAuthorId,
+                    type: 'comment',
+                    message: `commented on your post.`,
+                    link: `/?postId=${postId}`,
+                    actor: { id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName, avatarUrl: currentUser.avatarUrl }
+                }).catch(() => {});
+            }
         })
         .then(() => {
             setNewComment('');

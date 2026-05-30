@@ -95,13 +95,14 @@ function ReactorsList({ postId, parentCollection }: { postId: string, parentColl
 
 interface ReactionButtonProps {
     postId: string;
+    authorId?: string; // Optional, used for notifications
     parentCollection?: 'feedPosts' | 'broadcasts' | 'annotations';
     initialReactionsCount: number;
     reactionCounts?: Record<string, number>;
 }
 
-export default function ReactionButton({ postId, parentCollection = 'feedPosts', initialReactionsCount, reactionCounts = {} }: ReactionButtonProps) {
-    const { user } = useAuth();
+export default function ReactionButton({ postId, authorId, parentCollection = 'feedPosts', initialReactionsCount, reactionCounts = {} }: ReactionButtonProps) {
+    const { user, addNotification } = useAuth();
     const { toast } = useToast();
     const [userReaction, setUserReaction] = useState<ReactionType | null>(null);
     const [liveReactionsCount, setLiveReactionsCount] = useState(initialReactionsCount);
@@ -189,12 +190,22 @@ export default function ReactionButton({ postId, parentCollection = 'feedPosts',
                     timestamp: serverTimestamp(),
                     user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
                 };
-                // Use merge: true to prevent "Document already exists" errors during race conditions
                 transaction.set(reactionRef, reactionData, { merge: true });
                 transaction.update(postRef, { 
                     reactionsCount: increment(1),
                     [`reactionCounts.${type}`]: increment(1)
                 });
+                
+                // Trigger Notification
+                if (authorId && authorId !== user.id) {
+                    addNotification({
+                        userId: authorId,
+                        type: 'reaction',
+                        message: `reacted to your post with ${type}.`,
+                        link: `/?postId=${postId}`, // Generic link, refine per parentCollection if needed
+                        actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+                    }).catch(() => {});
+                }
             }
         })
         .catch(async (serverError) => {

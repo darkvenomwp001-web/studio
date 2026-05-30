@@ -22,7 +22,8 @@ import {
   doc,
   serverTimestamp,
   Timestamp,
-  runTransaction
+  runTransaction,
+  getDoc
 } from 'firebase/firestore';
 import Link from 'next/link';
 import {
@@ -280,7 +281,7 @@ interface CommentSectionProps {
 }
 
 export default function CommentSection({ storyId, chapterId, quote }: CommentSectionProps) {
-  const { user: currentUser, loading: authLoading } = useAuth();
+  const { user: currentUser, addNotification, loading: authLoading } = useAuth();
   const { showIsland } = useDynamicIsland();
   const [newComment, setNewComment] = useState('');
   const [allComments, setAllComments] = useState<CommentType[]>([]);
@@ -367,6 +368,17 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
 
         transaction.update(storyRef, { chapters: updatedChapters });
         transaction.set(doc(collection(db, 'comments')), commentData);
+        
+        // Trigger Notification
+        if (storyData.author.id !== currentUser.id) {
+            addNotification({
+                userId: storyData.author.id,
+                type: 'comment',
+                message: `commented on your story "${storyData.title}".`,
+                link: `/stories/${storyId}/read/${chapterId}/comments`,
+                actor: { id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName, avatarUrl: currentUser.avatarUrl }
+            }).catch(() => {});
+        }
     })
     .then(() => {
         setNewComment('');
@@ -383,7 +395,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
         console.error("Comment submit error:", error);
         toast({ title: "Failed to post comment", variant: "destructive" });
     })
-    .finally(() => setIsPostingComment(false));
+    .finally(() => dispatchEvent(new CustomEvent('revalidate-story', { detail: { storyId } })));
   };
 
   const handleReply = (commentId: string, username: string) => {

@@ -187,7 +187,7 @@ export interface Annotation {
 export interface NotificationType {
     id: string;
     userId: string;
-    type: 'new_follower' | 'new_chapter' | 'story_update' | 'comment_reply' | 'mention' | 'announcement' | 'new_letter' | 'letter_response' | 'premium_access' | 'achievement_unlocked' | 'author_announcement' | 'app_update' | 'user_update' | 'notice_update';
+    type: 'new_follower' | 'new_chapter' | 'story_update' | 'comment_reply' | 'mention' | 'announcement' | 'new_letter' | 'letter_response' | 'premium_access' | 'achievement_unlocked' | 'author_announcement' | 'app_update' | 'user_update' | 'notice_update' | 'reaction' | 'repost' | 'comment';
     message: string;
     link: string;
     isRead: boolean;

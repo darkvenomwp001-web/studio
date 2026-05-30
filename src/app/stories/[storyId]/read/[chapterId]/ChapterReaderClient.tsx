@@ -112,7 +112,7 @@ const HIGHLIGHT_COLORS = [
 export default function ChapterReaderClient({ storyId, chapterId }: { storyId: string, chapterId: string }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user: currentUser, addToLibrary, removeFromLibrary, authLoading } = useAuth();
+  const { user: currentUser, addToLibrary, removeFromLibrary, authLoading, addNotification } = useAuth();
   const { showIsland } = useDynamicIsland();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
@@ -380,7 +380,20 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     const newVoterIds = wasVoting ? currentChapter?.voterIds!.filter(id => id !== currentUser.id) : [...(currentChapter?.voterIds || []), currentUser.id];
     const newVoteCount = wasVoting ? Math.max(0, (currentChapter?.votes || 0) - 1) : (currentChapter?.votes || 0) + 1;
     const updatedChapters = story.chapters.map(ch => ch.id === currentChapter?.id ? { ...ch, voterIds: newVoterIds, votes: newVoteCount } : ch);
-    updateDoc(doc(db, 'stories', story.id), { chapters: updatedChapters }).finally(() => setIsVoting(false));
+    
+    updateDoc(doc(db, 'stories', story.id), { chapters: updatedChapters })
+      .then(() => {
+          if (!wasVoting && story.author.id !== currentUser.id) {
+              addNotification({
+                  userId: story.author.id,
+                  type: 'reaction',
+                  message: `voted for "${currentChapter.title}" in your story "${story.title}".`,
+                  link: `/stories/${story.id}/read/${currentChapter.id}`,
+                  actor: { id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName, avatarUrl: currentUser.avatarUrl }
+              }).catch(() => {});
+          }
+      })
+      .finally(() => setIsVoting(false));
   };
 
   const handleLibraryAction = () => {
