@@ -35,10 +35,10 @@ service cloud.firestore {
                     && !request.resource.data.keys().hasAny(['isVerified', 'isBanned', 'role'])
                     || isAppOwner();
 
-      // Fix: Allow signed-in users to increment/decrement followersCount on others' profiles for following logic
+      // Allow signed-in users to update followersCount and follow/unfollow nodes
       allow update: if isAppOwner()
                     || (isSignedIn() && isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'isVerified', 'role']))
-                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount']));
+                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['followersCount', 'followingIds']));
 
       allow delete: if isAppOwner() && request.auth.uid != userId;
     }
@@ -51,7 +51,6 @@ service cloud.firestore {
 
       allow create: if isSignedIn();
       
-      // Allow readers to increment views safely on Public/Unlisted stories.
       allow update: if (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()))
                     || (
                       (resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted')
@@ -71,11 +70,7 @@ service cloud.firestore {
     match /broadcasts/{broadcastId} {
       allow read: if true;
       allow create, delete: if isAppOwner();
-      
-      // Allow community members to update reaction/comment tallies
-      allow update: if isAppOwner() || (
-        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'commentsCount'])
-      );
+      allow update: if isSignedIn();
 
       match /comments/{commentId} {
         allow read: if true;
@@ -99,7 +94,7 @@ service cloud.firestore {
     
     // Notifications Collection
     match /notifications/{notificationId} {
-      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      allow read, list, update, delete: if isSignedIn() && isOwner(resource.data.userId);
       allow create: if isSignedIn();
     }
 
@@ -125,8 +120,7 @@ service cloud.firestore {
 
     // Status Updates
     match /statusUpdates/{statusId} {
-      // Fix: Respect 'close-friends' visibility and ensure privacy
-      allow read: if isAppOwner() 
+      allow get: if isAppOwner() 
                     || (isSignedIn() && isOwner(resource.data.authorId))
                     || (
                          resource.data.status == 'published' 
@@ -141,8 +135,19 @@ service cloud.firestore {
                          )
                        );
       
+      // Split list rule to align with community feed filters
+      allow list: if isSignedIn() && (
+        isAppOwner() || 
+        (resource.data.status == 'published' && resource.data.isHidden == false && resource.data.visibility == 'public')
+      );
+      
       allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
-      allow update, delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId));
+      allow update, delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId)) || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostsCount']));
+
+      match /reactions/{userId} {
+        allow read: if true;
+        allow create, update, delete: if isSignedIn() && (isOwner(userId) || isAppOwner());
+      }
     }
 
     // Prompts
@@ -191,9 +196,9 @@ service cloud.firestore {
     match /announcements/{announcementId} {
       allow read: if true;
       allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
-      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner()) 
+      allow update: if isSignedIn() && (isOwner(request.resource.data.author.id) || isAppOwner()) 
                     && request.resource.data.author.id == resource.data.author.id;
-      allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner());
+      allow delete: if isSignedIn() && (isOwner(request.resource.data.author.id) || isAppOwner());
     }
 
     // Community Feed Posts

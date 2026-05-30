@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -362,8 +361,8 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                   />
                 )}
 
-                {/* Header Controls */}
-                <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-6 flex flex-col gap-2 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+                {/* Header Controls - Blurry gradient removed */}
+                <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-6 flex flex-col gap-2 pointer-events-none">
                     <div className="flex items-center justify-between pointer-events-auto">
                         <div className="flex items-center gap-2">
                             <Avatar className="h-8 w-8 border border-white/20">

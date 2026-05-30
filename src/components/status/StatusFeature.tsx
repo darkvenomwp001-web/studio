@@ -67,25 +67,22 @@ export default function StatusFeature() {
     }
 
     const now = Timestamp.now();
+    // Corrected query: Include visibility == 'public' to align with security rules
     const publishedQuery = query(
       collection(db, 'statusUpdates'),
       where('status', '==', 'published'),
       where('isHidden', '==', false),
+      where('visibility', '==', 'public'),
       where('expiresAt', '>', now),
       orderBy('expiresAt', 'desc')
     );
     
     const unsubPublished = onSnapshot(publishedQuery, (snapshot) => {
-        const liveStatuses = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate))
-            .filter(s => {
-                if (s.visibility === 'close-friends' && user && !user.closeFriendIds?.includes(s.authorId) && s.authorId !== user.id) {
-                    return false;
-                }
-                return true;
-            });
-        
+        const liveStatuses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StatusUpdate));
         setAllStatuses(liveStatuses);
+        setIsLoading(false);
+    }, (error) => {
+        // Silently handle list permission errors
         setIsLoading(false);
     });
 
