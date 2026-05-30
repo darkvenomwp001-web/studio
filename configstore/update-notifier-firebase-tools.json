@@ -1,4 +1,10 @@
 {
 	"optOut": false,
-	"lastUpdateCheck": 1779500241457
+	"lastUpdateCheck": 1780113271106,
+	"update": {
+		"latest": "15.19.0",
+		"current": "15.1.0",
+		"type": "minor",
+		"name": "firebase-tools"
+	}
 }
