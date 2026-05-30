@@ -30,8 +30,9 @@ import {
     Camera,
     Palette,
     SendHorizontal,
-    RotateCw,
+    Wand2,
     Crop,
+    RotateCw,
     Maximize2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -69,9 +70,11 @@ export default function CreateStatusPage() {
     const [isMusicToolActive, setIsMusicToolActive] = useState(false);
     const [isStickerToolActive, setIsStickerToolActive] = useState(false);
     const [isMentionToolActive, setIsMentionToolActive] = useState(false);
+    const [isTransformHubOpen, setIsTransformHubOpen] = useState(false);
     const [isCloseFriendsPickerOpen, setIsCloseFriendsPickerOpen] = useState(false);
 
     // Transformation States
+    const [mediaTransform, setMediaTransform] = useState({ scale: 1, rotation: 0, x: 0, y: 0 });
     const [textTransform, setTextTransform] = useState({ scale: 1, rotation: 0 });
     const [stickers, setStickers] = useState<{ id: string, emoji: string, position: { x: number, y: number }, scale: number, rotation: number }[]>([]);
     const [mentions, setMentions] = useState<{ id: string, userId: string, username: string, position: { x: number, y: number }, scale: number, rotation: number }[]>([]);
@@ -84,7 +87,7 @@ export default function CreateStatusPage() {
     const [followers, setFollowers] = useState<User[]>([]);
     const [isLoadingFollowers, setIsLoadingFollowers] = useState(false);
 
-    const [isDragging, setIsDragging] = useState<{ type: 'text' | 'sticker' | 'mention', id?: string } | null>(null);
+    const [isDragging, setIsDragging] = useState<{ type: 'text' | 'sticker' | 'mention' | 'media', id?: string } | null>(null);
     const [textPosition, setTextPosition] = useState({ x: 50, y: 40 });
     const [textStyle, setTextStyle] = useState<TextOverlayStyle>({
         font: 'sans',
@@ -103,6 +106,7 @@ export default function CreateStatusPage() {
             const file = e.target.files[0];
             setMediaFile(file);
             setMediaType(file.type.startsWith('video/') ? 'video' : 'image');
+            setMediaTransform({ scale: 1, rotation: 0, x: 0, y: 0 });
             const reader = new FileReader();
             reader.onload = (event) => setMediaPreview(event.target?.result as string);
             reader.readAsDataURL(file);
@@ -197,6 +201,7 @@ export default function CreateStatusPage() {
                 visibility: visibility,
                 mentions: mentions.map(m => ({ userId: m.userId, username: m.username, position: m.position, scale: m.scale, rotation: m.rotation })),
                 stickers: stickers.map(s => ({ emoji: s.emoji, position: s.position, scale: s.scale, rotation: s.rotation })),
+                mediaTransform,
             };
 
             if (mediaUrl) {
@@ -260,30 +265,36 @@ export default function CreateStatusPage() {
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         
         // Handle Multi-touch Transformations (Scale/Rotate)
-        if ('touches' in e && e.touches.length === 2 && initialDist !== null && initialAngle !== null && isDragging) {
+        if ('touches' in e && e.touches.length === 2 && initialDist !== null && initialAngle !== null) {
             const currentDist = getDist(e.touches[0], e.touches[1]);
             const currentAngle = getAngle(e.touches[0], e.touches[1]);
             
             const scaleDelta = currentDist / initialDist;
             const rotationDelta = currentAngle - initialAngle;
 
-            if (isDragging.type === 'text') {
+            if (isDragging?.type === 'text') {
                 setTextTransform(prev => ({
                     scale: Math.max(0.5, Math.min(4, prev.scale * scaleDelta)),
                     rotation: prev.rotation + rotationDelta
                 }));
-            } else if (isDragging.type === 'sticker') {
+            } else if (isDragging?.type === 'sticker') {
                 setStickers(prev => prev.map(s => s.id === isDragging.id ? { 
                     ...s, 
                     scale: Math.max(0.5, Math.min(4, s.scale * scaleDelta)),
                     rotation: s.rotation + rotationDelta 
                 } : s));
-            } else if (isDragging.type === 'mention') {
+            } else if (isDragging?.type === 'mention') {
                 setMentions(prev => prev.map(m => m.id === isDragging.id ? { 
                     ...m, 
                     scale: Math.max(0.5, Math.min(4, m.scale * scaleDelta)),
                     rotation: m.rotation + rotationDelta 
                 } : m));
+            } else if (mediaPreview) {
+                setMediaTransform(prev => ({
+                    ...prev,
+                    scale: Math.max(0.1, Math.min(5, prev.scale * scaleDelta)),
+                    rotation: prev.rotation + rotationDelta
+                }));
             }
 
             setInitialDist(currentDist);
@@ -313,6 +324,9 @@ export default function CreateStatusPage() {
             setStickers(prev => prev.map(s => s.id === isDragging.id ? { ...s, position: { x: boundedX, y: boundedY } } : s));
         } else if (isDragging.type === 'mention') {
             setMentions(prev => prev.map(m => m.id === isDragging.id ? { ...m, position: { x: boundedX, y: boundedY } } : m));
+        } else if (isDragging.type === 'media') {
+            // Simplified drag for media
+            setMediaTransform(prev => ({ ...prev, x: clientX - rect.left - rect.width/2, y: clientY - rect.top - rect.height/2 }));
         }
     };
 
@@ -331,7 +345,21 @@ export default function CreateStatusPage() {
                 }}
                 onTouchEnd={() => { setIsDragging(null); setInitialDist(null); setInitialAngle(null); }}
             >
-                <div className="relative aspect-[9/16] h-full max-h-screen max-w-full overflow-hidden shadow-2xl">
+                <div 
+                    className="relative aspect-[9/16] h-full max-h-screen max-w-full overflow-hidden shadow-2xl transform-gpu"
+                    style={{ 
+                        transform: `translate(${mediaTransform.x}px, ${mediaTransform.y}px) scale(${mediaTransform.scale}) rotate(${mediaTransform.rotation}deg)` 
+                    }}
+                    onMouseDown={() => !isDragging && setIsDragging({ type: 'media' })}
+                    onTouchStart={(e) => {
+                        if (e.touches.length === 2) {
+                            setInitialDist(getDist(e.touches[0], e.touches[1]));
+                            setInitialAngle(getAngle(e.touches[0], e.touches[1]));
+                        } else if (!isDragging) {
+                            setIsDragging({ type: 'media' });
+                        }
+                    }}
+                >
                     {mediaPreview && (
                         <Image 
                             src={mediaPreview} 
@@ -353,6 +381,7 @@ export default function CreateStatusPage() {
                                 }}
                                 onMouseDown={() => setIsDragging({ type: 'text' })}
                                 onTouchStart={(e) => {
+                                    e.stopPropagation();
                                     if (e.touches.length === 1) setIsDragging({ type: 'text' });
                                     if (e.touches.length === 2) {
                                         setInitialDist(getDist(e.touches[0], e.touches[1]));
@@ -397,6 +426,7 @@ export default function CreateStatusPage() {
                                 }}
                                 onMouseDown={() => setIsDragging({ type: 'sticker', id: s.id })}
                                 onTouchStart={(e) => {
+                                    e.stopPropagation();
                                     if (e.touches.length === 1) setIsDragging({ type: 'sticker', id: s.id });
                                     if (e.touches.length === 2) {
                                         setInitialDist(getDist(e.touches[0], e.touches[1]));
@@ -428,6 +458,7 @@ export default function CreateStatusPage() {
                                 }}
                                 onMouseDown={() => setIsDragging({ type: 'mention', id: m.id })}
                                 onTouchStart={(e) => {
+                                    e.stopPropagation();
                                     if (e.touches.length === 1) setIsDragging({ type: 'mention', id: m.id });
                                     if (e.touches.length === 2) {
                                         setInitialDist(getDist(e.touches[0], e.touches[1]));
@@ -454,7 +485,7 @@ export default function CreateStatusPage() {
             <div className="absolute top-0 left-0 right-0 z-[100] p-4 flex items-center justify-between pointer-events-none">
                 <div />
 
-                <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] mt-16 backdrop-blur-none shadow-none">
+                <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] mt-16 backdrop-blur-none">
                     <button 
                         className={cn(
                             "flex flex-col items-center justify-center gap-0.5 w-12 h-14 rounded-2xl transition-all active:scale-95 group",
@@ -487,29 +518,44 @@ export default function CreateStatusPage() {
                         <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Link</span>
                     </button>
                     
-                    <Separator className="h-px bg-white/10 mx-2" />
+                    <div className="h-px bg-white/10 mx-2" />
                     
                     <button 
-                        className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
-                        onClick={() => toast({ title: "Touch transformation enabled", description: "Use 2 fingers to zoom or rotate nodes." })}
+                        className={cn(
+                            "flex flex-col items-center justify-center gap-0.5 w-12 h-14 rounded-2xl transition-all active:scale-95 hover:bg-white/10 group",
+                            isTransformHubOpen ? "text-primary bg-white/10" : "text-white"
+                        )}
+                        onClick={() => setIsTransformHubOpen(!isTransformHubOpen)}
                     >
-                        <Maximize2 className="h-5 w-5" />
-                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Transform</span>
+                        <Wand2 className="h-5 w-5" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Magic</span>
                     </button>
-                    <button 
-                        className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
-                        onClick={() => toast({ title: "Rotate mode active" })}
-                    >
-                        <RotateCw className="h-5 w-5" />
-                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Rotate</span>
-                    </button>
-                    <button 
-                        className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
-                        onClick={() => toast({ title: "Crop tool calibrated" })}
-                    >
-                        <Crop className="h-5 w-5" />
-                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Crop</span>
-                    </button>
+
+                    {isTransformHubOpen && (
+                        <div className="flex flex-col gap-2 animate-in slide-in-from-right-4 duration-300">
+                             <button 
+                                className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
+                                onClick={() => toast({ title: "Touch transformation active", description: "Use 2 fingers to zoom or rotate layers." })}
+                            >
+                                <Maximize2 className="h-4 w-4" />
+                                <span className="text-[7px] font-black uppercase tracking-tighter opacity-80">Scale</span>
+                            </button>
+                            <button 
+                                className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
+                                onClick={() => setMediaTransform(prev => ({ ...prev, rotation: prev.rotation + 90 }))}
+                            >
+                                <RotateCw className="h-4 w-4" />
+                                <span className="text-[7px] font-black uppercase tracking-tighter opacity-80">Rotate</span>
+                            </button>
+                            <button 
+                                className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
+                                onClick={() => toast({ title: "Smart crop engaged" })}
+                            >
+                                <Crop className="h-4 w-4" />
+                                <span className="text-[7px] font-black uppercase tracking-tighter opacity-80">Crop</span>
+                            </button>
+                        </div>
+                    )}
 
                     {!mediaPreview && (
                         <div className="flex flex-col gap-1.5 p-1 pt-2 mt-1">
@@ -584,7 +630,7 @@ export default function CreateStatusPage() {
                                     {f}
                                 </button>
                             ))}
-                            <Separator orientation="vertical" className="h-4 bg-white/20 mx-1" />
+                            <div className="w-px h-4 bg-white/20 mx-1" />
                             <button 
                                 className={cn(
                                     "w-8 h-8 rounded-lg flex items-center justify-center border transition-all",
