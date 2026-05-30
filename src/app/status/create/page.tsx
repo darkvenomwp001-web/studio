@@ -29,7 +29,7 @@ import {
     Plus,
     Camera,
     Palette,
-    SendHorizonal
+    SendHorizontal
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -370,7 +370,7 @@ export default function CreateStatusPage() {
             <div className="absolute top-0 left-0 right-0 z-[100] p-4 flex items-center justify-between pointer-events-none">
                 <div className="pointer-events-auto" />
 
-                <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] mt-16 border border-white/5">
+                <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] mt-16 border border-white/5 backdrop-blur-none">
                     <button 
                         className={cn(
                             "flex flex-col items-center justify-center gap-0.5 w-12 h-14 rounded-2xl transition-all active:scale-95 group",
@@ -452,7 +452,7 @@ export default function CreateStatusPage() {
                         {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (
                             <>
                                 Share
-                                <SendHorizonal className="h-3.5 w-3.5" />
+                                <SendHorizontal className="h-3.5 w-3.5" />
                             </>
                         )}
                     </Button>
@@ -460,7 +460,7 @@ export default function CreateStatusPage() {
             </div>
 
             {isTextToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
+                <div className="absolute inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300 backdrop-blur-none">
                     <div className="w-full max-w-xl space-y-8 text-center">
                         <div className="flex justify-center items-center gap-2">
                             {['sans', 'serif', 'mono'].map(f => (
@@ -517,14 +517,14 @@ export default function CreateStatusPage() {
             )}
 
             {isMusicToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500">
-                    <header className="flex justify-between items-center mb-6">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
+                    <div className="flex justify-between items-center mb-6">
                         <div>
                             <h3 className="text-2xl font-headline font-bold text-white">Archives Audio</h3>
                             <p className="text-[8px] font-bold uppercase tracking-widest text-white/40">Premium Soundtrack Node</p>
                         </div>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsMusicToolActive(false)}><X className="h-5 w-5"/></Button>
-                    </header>
+                    </div>
                     <SongSearch onSongSelect={(song) => { setSelectedSong(song); setIsMusicToolActive(false); }} />
                     {selectedSong && (
                         <div className="mt-6 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3 animate-in zoom-in-95">
@@ -542,11 +542,11 @@ export default function CreateStatusPage() {
             )}
 
             {isStickerToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col animate-in slide-in-from-bottom-full duration-500">
-                    <header className="flex justify-between items-center p-6 border-b border-white/10">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
+                    <div className="flex justify-between items-center p-6 border-b border-white/10">
                         <h3 className="text-2xl font-headline font-bold text-white">Visual Codes</h3>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsStickerToolActive(false)}><X className="h-5 w-5"/></Button>
-                    </header>
+                    </div>
                     <div className="flex-1 overflow-hidden">
                         <EmojiPicker 
                             onEmojiClick={addSticker} 
@@ -560,11 +560,11 @@ export default function CreateStatusPage() {
             )}
 
             {isMentionToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500">
-                    <header className="flex justify-between items-center mb-6">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
+                    <div className="flex justify-between items-center mb-6">
                         <h3 className="text-2xl font-headline font-bold text-white">Mention Node</h3>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsMentionToolActive(false)}><X className="h-5 w-5"/></Button>
-                    </header>
+                    </div>
                     <div className="relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
                         <Input 
@@ -600,8 +600,8 @@ export default function CreateStatusPage() {
             )}
 
             {isCloseFriendsPickerOpen && (
-                <div className="absolute inset-0 z-[300] bg-black/95 p-6 flex flex-col animate-in fade-in zoom-in-95 duration-500">
-                    <header className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
+                <div className="absolute inset-0 z-[300] bg-black/95 p-6 flex flex-col animate-in fade-in zoom-in-95 duration-500 backdrop-blur-none">
+                    <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
                         <div>
                             <h3 className="text-3xl font-headline font-bold text-white flex items-center gap-2">
                                 <Star className="h-8 w-8 text-green-500 fill-current" />
@@ -610,7 +610,7 @@ export default function CreateStatusPage() {
                             <p className="text-[8px] font-bold uppercase tracking-widest text-white/40">Private Archival Access</p>
                         </div>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsCloseFriendsPickerOpen(false)}><X className="h-5 w-5"/></Button>
-                    </header>
+                    </div>
 
                     <ScrollArea className="flex-1">
                         {isLoadingFollowers ? (
@@ -666,7 +666,3 @@ export default function CreateStatusPage() {
         </div>
     );
 }
-
-```
-<description>Surgically removed accidental XML trailing tags from the Status Studio page and verified the component's structural integrity to resolve the Next.js parsing error.</description>
-```
