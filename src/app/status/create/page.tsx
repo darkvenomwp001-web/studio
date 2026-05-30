@@ -876,9 +876,9 @@ export default function CreateStatusPage() {
                                 {followers.map(f => {
                                     const isSelected = user?.closeFriendIds?.includes(f.id);
                                     return (
-                                        <div 
+                                        <button 
                                             key={f.id} 
-                                            className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-green-500/40 transition-all cursor-pointer group"
+                                            className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-green-500/40 transition-all cursor-pointer group text-left"
                                             onClick={() => handleToggleCF(f.id)}
                                         >
                                             <Avatar className="h-10 w-10 border border-white/10">
@@ -895,7 +895,7 @@ export default function CreateStatusPage() {
                                             )}>
                                                 <Check className="h-3 w-3" />
                                             </div>
-                                        </div>
+                                        </button>
                                     );
                                 })}
                             </div>
