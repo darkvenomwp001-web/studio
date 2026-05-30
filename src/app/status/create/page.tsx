@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, ChangeEvent, useTransition } from 'react';
@@ -270,6 +271,9 @@ export default function CreateStatusPage() {
 
             if (selectedSong) {
                 statusData.spotifyUrl = `https://open.spotify.com/track/${selectedSong.id}`;
+                if (selectedSong.previewUrl) {
+                  statusData.songUrl = selectedSong.previewUrl;
+                }
             }
 
             await addDoc(collection(db, 'statusUpdates'), statusData);
@@ -918,4 +922,3 @@ export default function CreateStatusPage() {
         </div>
     );
 }
-

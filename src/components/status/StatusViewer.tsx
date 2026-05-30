@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -5,12 +6,11 @@ import { useAuth } from '@/hooks/useAuth';
 import type { User, StatusUpdate, UserSummary } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { X, Pause, Play, VolumeX, Volume2, Trash2, Heart, Repeat, MessageCircle, Send, Loader2 } from 'lucide-react';
+import { X, Pause, Play, VolumeX, Volume2, Trash2, Heart, Repeat, MessageCircle, Send, Loader2, Music } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import NextImage from 'next/image';
 import { Timestamp, doc, deleteDoc, updateDoc, runTransaction, serverTimestamp, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
-import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { db } from '@/lib/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -28,6 +28,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
     const [isPaused, setIsPaused] = useState(false);
     const [isMuted, setIsMuted] = useState(true);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const bgAudioRef = useRef<HTMLAudioElement>(null);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const { toast } = useToast();
 
@@ -85,6 +86,17 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
             }
         };
     }, [isOpen, currentStatusIndex, selectedUser, userStatuses, isPaused, currentStatus]);
+
+    // Handle background audio playback
+    useEffect(() => {
+      if (bgAudioRef.current) {
+        if (currentStatus?.songUrl && !isPaused && isOpen) {
+          bgAudioRef.current.play().catch(() => {});
+        } else {
+          bgAudioRef.current.pause();
+        }
+      }
+    }, [currentStatus, isPaused, isOpen]);
 
     const handleNext = () => {
         setAnimationKey(prev => prev + 1);
@@ -169,6 +181,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
             if (currentStatus.note) repostData.note = currentStatus.note;
             if (currentStatus.backgroundStyle) repostData.backgroundStyle = currentStatus.backgroundStyle;
             if (currentStatus.spotifyUrl) repostData.spotifyUrl = currentStatus.spotifyUrl;
+            if (currentStatus.songUrl) repostData.songUrl = currentStatus.songUrl;
             if (currentStatus.textOverlay) {
                 repostData.textOverlay = currentStatus.textOverlay;
                 repostData.textOverlayStyle = currentStatus.textOverlayStyle;
@@ -281,7 +294,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         return null;
     }
     
-    const isNoteStatus = !!currentStatus.note || !!currentStatus.spotifyUrl;
+    const isNoteStatus = !!currentStatus.note || !!currentStatus.songUrl;
     const isOwner = user && (OWNER_HANDLES.includes(user.username) || user.id === selectedUser.id);
     const isVideo = currentStatus.mediaType === 'video';
 
@@ -338,31 +351,52 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     <DialogDescription>A temporary status update from {selectedUser.username}.</DialogDescription>
                 </DialogHeader>
                 
+                {/* Background Audio Node */}
+                {currentStatus.songUrl && (
+                  <audio 
+                    ref={bgAudioRef} 
+                    src={currentStatus.songUrl} 
+                    loop 
+                    muted={isMuted} 
+                    className="hidden" 
+                  />
+                )}
+
                 {/* Header Controls */}
-                <div className="absolute top-0 left-0 right-0 z-20 p-4 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
-                    <div className="flex items-center gap-2 pointer-events-auto">
-                        <Avatar className="h-8 w-8 border border-white/20">
-                            <AvatarImage src={selectedUser.avatarUrl} />
-                            <AvatarFallback>{selectedUser.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
-                        </Avatar>
-                        <span className="text-white text-sm font-bold shadow-sm">{selectedUser.displayName || selectedUser.username}</span>
-                        <span className="text-white/60 text-[10px] font-bold uppercase tracking-tight">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-6 flex flex-col gap-2 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+                    <div className="flex items-center justify-between pointer-events-auto">
+                        <div className="flex items-center gap-2">
+                            <Avatar className="h-8 w-8 border border-white/20">
+                                <AvatarImage src={selectedUser.avatarUrl} />
+                                <AvatarFallback>{selectedUser.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-white text-sm font-bold shadow-sm">{selectedUser.displayName || selectedUser.username}</span>
+                            <span className="text-white/60 text-[10px] font-bold uppercase tracking-tight">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            {isOwner && (
+                                <Button variant="ghost" size="icon" className="text-white hover:bg-red-500/20 rounded-full" onClick={(e) => { e.stopPropagation(); handleDeleteStatus(); }}>
+                                    <Trash2 className="h-5 w-5" />
+                                </Button>
+                            )}
+                            {(isVideo || currentStatus.songUrl) && (
+                                <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full" onClick={(e) => { e.stopPropagation(); setIsMuted(prev => !prev); }}>
+                                    {isMuted ? <VolumeX className="h-5 w-5"/> : <Volume2 className="h-5 w-5"/>}
+                                </Button>
+                            )}
+                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full" onClick={() => onOpenChange(false)}>
+                                  <X className="h-5 w-5"/>
+                            </Button>
+                        </div>
                     </div>
-                     <div className="flex items-center gap-1 pointer-events-auto">
-                        {isOwner && (
-                            <Button variant="ghost" size="icon" className="text-white hover:bg-red-500/20 rounded-full" onClick={(e) => { e.stopPropagation(); handleDeleteStatus(); }}>
-                                <Trash2 className="h-5 w-5" />
-                            </Button>
-                        )}
-                        {isVideo && (
-                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full" onClick={(e) => { e.stopPropagation(); setIsMuted(prev => !prev); }}>
-                                {isMuted ? <VolumeX className="h-5 w-5"/> : <Volume2 className="h-5 w-5"/>}
-                            </Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full" onClick={() => onOpenChange(false)}>
-                              <X className="h-5 w-5"/>
-                        </Button>
-                     </div>
+                    {currentStatus.songUrl && (
+                      <div className="flex items-center gap-1.5 px-1 animate-in slide-in-from-left-2 duration-700">
+                        <div className="bg-primary/20 backdrop-blur-md px-2 py-0.5 rounded-full border border-primary/20 flex items-center gap-1.5 pointer-events-auto">
+                          <Music className={cn("h-2.5 w-2.5 text-primary", !isPaused && !isMuted && "animate-pulse")} />
+                          <span className="text-[8px] font-black uppercase tracking-widest text-primary">Now Playing</span>
+                        </div>
+                      </div>
+                    )}
                 </div>
 
                 {/* Progress bars */}
@@ -433,15 +467,6 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                             <p style={textStyle} className="whitespace-pre-line text-lg font-bold shadow-2xl">
                                 {currentStatus.textOverlay}
                             </p>
-                        </div>
-                    )}
-
-                    {currentStatus.spotifyUrl && (
-                         <div className={cn(
-                             "absolute z-10 w-full px-6 transition-all duration-500",
-                             currentStatus.note ? "bottom-24" : "bottom-1/2 translate-y-1/2"
-                         )}>
-                           <SpotifyPlayer trackUrl={currentStatus.spotifyUrl} />
                         </div>
                     )}
                 </div>
