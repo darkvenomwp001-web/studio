@@ -96,9 +96,37 @@ export default function CreateStatusPage() {
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
     const getDist = (t1: Touch, t2: Touch) => Math.sqrt((t1.clientX - t2.clientX) ** 2 + (t1.clientY - t2.clientY) ** 2);
     const getAngle = (t1: Touch, t2: Touch) => Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * 180 / Math.PI;
+
+    useEffect(() => {
+        if (selectedSong?.previewUrl) {
+            if (previewAudioRef.current) {
+                previewAudioRef.current.pause();
+            }
+            const audio = new Audio(selectedSong.previewUrl);
+            audio.volume = 0.5;
+            audio.play().catch(e => console.warn("Autoplay blocked", e));
+            previewAudioRef.current = audio;
+
+            // Automatically stop after 30 seconds
+            const timer = setTimeout(() => {
+                audio.pause();
+            }, 30000);
+
+            return () => {
+                audio.pause();
+                clearTimeout(timer);
+            };
+        } else {
+            if (previewAudioRef.current) {
+                previewAudioRef.current.pause();
+                previewAudioRef.current = null;
+            }
+        }
+    }, [selectedSong]);
 
     const handleMediaSelect = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -221,7 +249,6 @@ export default function CreateStatusPage() {
             }
 
             if (selectedSong) {
-                // If it's from our new iTunes source, it has a previewUrl
                 if (selectedSong.source === 'itunes') {
                     statusData.songUrl = selectedSong.previewUrl;
                 } else {
@@ -268,7 +295,6 @@ export default function CreateStatusPage() {
     const handleCanvasDrag = (e: React.MouseEvent | React.TouchEvent) => {
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         
-        // Handle Multi-touch Transformations (Scale/Rotate)
         if ('touches' in e && e.touches.length === 2 && initialDist !== null && initialAngle !== null) {
             const currentDist = getDist(e.touches[0], e.touches[1]);
             const currentAngle = getAngle(e.touches[0], e.touches[1]);
@@ -337,7 +363,7 @@ export default function CreateStatusPage() {
         <div className="fixed inset-0 z-[1000] bg-black flex flex-col overflow-hidden animate-in fade-in duration-700 font-sans">
             <div 
                 className={cn(
-                    "absolute inset-0 transition-all duration-700 transform-gpu overflow-hidden flex items-center justify-center",
+                    "absolute inset-0 transition-all duration-700 transform-gpu overflow-hidden flex items-center justify-center backdrop-blur-none",
                     mediaPreview ? 'bg-black' : backgroundStyle
                 )}
                 onMouseMove={handleCanvasDrag}
@@ -485,7 +511,7 @@ export default function CreateStatusPage() {
                 </div>
             </div>
 
-            <div className="absolute top-0 left-0 right-0 z-[100] p-4 flex items-center justify-between pointer-events-none">
+            <div className="absolute top-0 left-0 right-0 z-[100] p-4 flex items-center justify-between pointer-events-none backdrop-blur-none">
                 <div />
 
                 <div className="flex flex-col gap-2 pointer-events-auto bg-black/20 p-1.5 rounded-[1.5rem] mt-16 backdrop-blur-none">
@@ -575,7 +601,7 @@ export default function CreateStatusPage() {
                 </div>
             </div>
 
-            <div className="absolute bottom-0 left-0 right-0 p-6 z-[100] flex items-center justify-between pointer-events-none">
+            <div className="absolute bottom-0 left-0 right-0 p-6 z-[100] flex items-center justify-between pointer-events-none backdrop-blur-none">
                 <div className="flex items-center gap-2 pointer-events-auto">
                     <button 
                         className="w-11 h-11 rounded-full bg-black/20 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
@@ -675,7 +701,7 @@ export default function CreateStatusPage() {
             )}
 
             {isMusicToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
                     <div className="flex justify-between items-center mb-6">
                         <div>
                             <h3 className="text-2xl font-headline font-bold text-white">Archives Audio</h3>
@@ -700,7 +726,7 @@ export default function CreateStatusPage() {
             )}
 
             {isStickerToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col animate-in slide-in-from-bottom-full duration-500">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
                     <div className="flex justify-between items-center p-6 border-b border-white/10">
                         <h3 className="text-2xl font-headline font-bold text-white">Visual Codes</h3>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsStickerToolActive(false)}><X className="h-5 w-5"/></Button>
@@ -718,7 +744,7 @@ export default function CreateStatusPage() {
             )}
 
             {isMentionToolActive && (
-                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500">
+                <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-2xl font-headline font-bold text-white">Mention Node</h3>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsMentionToolActive(false)}><X className="h-5 w-5"/></Button>
@@ -758,7 +784,7 @@ export default function CreateStatusPage() {
             )}
 
             {isCloseFriendsPickerOpen && (
-                <div className="absolute inset-0 z-[300] bg-black/95 p-6 flex flex-col animate-in fade-in zoom-in-95 duration-500">
+                <div className="absolute inset-0 z-[300] bg-black/95 p-6 flex flex-col animate-in fade-in zoom-in-95 duration-500 backdrop-blur-none">
                     <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
                         <div>
                             <h3 className="text-3xl font-headline font-bold text-white flex items-center gap-2">
@@ -824,3 +850,4 @@ export default function CreateStatusPage() {
         </div>
     );
 }
+
