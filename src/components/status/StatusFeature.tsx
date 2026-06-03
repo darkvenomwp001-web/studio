@@ -67,7 +67,6 @@ export default function StatusFeature() {
     }
 
     const now = Timestamp.now();
-    // Re-calibrated query to include visibility filter to match security rules
     const publishedQuery = query(
       collection(db, 'statusUpdates'),
       where('status', '==', 'published'),

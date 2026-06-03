@@ -379,11 +379,10 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                   />
                 )}
 
-                {/* Refined Header - No blury lines, sharp identity nodes */}
                 <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-6 flex flex-col gap-2 pointer-events-none">
                     <div className="flex items-center justify-between pointer-events-auto">
                         <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8 border border-white/20 shadow-sm">
+                            <Avatar className="h-8 w-8 border border-white/20">
                                 <AvatarImage src={selectedUser.avatarUrl} />
                                 <AvatarFallback className="bg-muted text-primary font-bold text-[10px]">{selectedUser.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
                             </Avatar>
@@ -408,9 +407,9 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     </div>
                     {currentStatus.songUrl && (
                       <div className="flex items-center gap-1.5 px-1 animate-in slide-in-from-left-2 duration-700">
-                        <div className="bg-primary/30 backdrop-blur-md px-2 py-0.5 rounded-full border border-primary/20 flex items-center gap-1.5 pointer-events-auto">
-                          <Music className={cn("h-2.5 w-2.5 text-primary", !isPaused && !isMuted && "animate-pulse")} />
-                          <span className="text-[8px] font-black uppercase tracking-widest text-primary">Now Playing</span>
+                        <div className="bg-black/40 px-2 py-0.5 rounded-full border border-white/10 flex items-center gap-1.5 pointer-events-auto">
+                          <Music className={cn("h-2.5 w-2.5 text-white", !isPaused && !isMuted && "animate-pulse")} />
+                          <span className="text-[8px] font-black uppercase tracking-widest text-white">Now Playing</span>
                         </div>
                       </div>
                     )}

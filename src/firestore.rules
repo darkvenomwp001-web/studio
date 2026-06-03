@@ -29,8 +29,6 @@ service cloud.firestore {
       
       allow create: if isSignedIn() && isOwner(userId);
 
-      // Allow users to update their own profile OR allow community members to increment followersCount
-      // and followingIds for real-time community syncing.
       allow update: if isAppOwner()
                     || (isSignedIn() && isOwner(userId))
                     || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['followersCount', 'followingIds', 'closeFriendIds']));
@@ -49,15 +47,10 @@ service cloud.firestore {
       allow update: if (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()))
                     || (
                       (resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted')
-                      && request.resource.data.diff(resource.data).affectedKeys().hasAny(['views', 'chapters'])
+                      && request.resource.data.diff(resource.data).affectedKeys().hasAny(['views', 'chapters', 'notes', 'rating'])
                     );
 
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.author.id || isAppOwner());
-
-      match /chapters/{chapterId} {
-        allow read: if true;
-        allow write: if isSignedIn();
-      }
     }
 
     // Carousel Collection
@@ -112,12 +105,11 @@ service cloud.firestore {
     
     // Status Updates
     match /statusUpdates/{statusId} {
-      // Split get and list to avoid "Rules are not filters" errors
       allow get: if isAppOwner() 
-                    || (isSignedIn() && isOwner(resource.data.authorId))
+                    || (isSignedIn() && resource.data.authorId == request.auth.uid)
                     || (resource.data.status == 'published' && resource.data.isHidden == false);
       
-      allow list: if isSignedIn(); // authorized via client-side filters
+      allow list: if isSignedIn(); // Authorized via client-side filters
       
       allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
       
@@ -173,10 +165,10 @@ service cloud.firestore {
       allow read, list: if true;
       allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
       allow update: if isSignedIn() && (
-        isAppOwner() || isOwner(resource.data.author.id) || 
+        isAppOwner() || isOwner(request.resource.data.author.id) || 
         request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount', 'commentsCount'])
       );
-      allow delete: if isAppOwner() || isOwner(resource.data.author.id);
+      allow delete: if isAppOwner() || isOwner(request.resource.data.author.id);
 
       match /comments/{commentId} {
         allow read: if true;
