@@ -20,10 +20,10 @@ export default function StoryCard({ story }: StoryCardProps) {
   return (
     <div 
       onClick={() => onOpen(story.id)}
-      className="group cursor-pointer flex flex-col space-y-1.5 animate-in fade-in duration-500"
+      className="group cursor-pointer flex flex-col space-y-1.5 animate-in fade-in duration-500 w-32 md:w-40 flex-shrink-0"
     >
       {/* Optimized Compact Cover Box */}
-      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-sm transition-all duration-500 group-hover:shadow-xl group-hover:shadow-primary/20 group-hover:-translate-y-1 bg-muted">
+      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-sm transition-all duration-500 group-hover:shadow-xl group-hover:shadow-primary/20 group-hover:-translate-y-1 bg-muted border border-border/40">
         <NextImage
           src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
           alt={story.title}
