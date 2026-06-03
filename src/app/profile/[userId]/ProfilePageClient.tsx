@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, ChangeEvent, useCallback, useMemo, FormEvent } from 'react';
@@ -54,6 +53,7 @@ import {
   orderBy,
   getDocs,
   addDoc,
+  setDoc,
   serverTimestamp,
   updateDoc,
   deleteDoc,
@@ -180,9 +180,10 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
     useEffect(() => {
         if (!user || !post.id) return;
         const reactionRef = doc(db, 'feedPosts', post.id, 'reactions', user.id);
-        return onSnapshot(reactionRef, (docSnap) => {
+        const unsub = onSnapshot(reactionRef, (docSnap) => {
             setIsLiked(docSnap.exists());
         });
+        return () => unsub();
     }, [user, post.id]);
 
     const toggleLike = async () => {
@@ -194,32 +195,25 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
         const reactionRef = doc(db, 'feedPosts', post.id, 'reactions', user.id);
 
         try {
-            await runTransaction(db, async (transaction) => {
-                const reactionDoc = await transaction.get(reactionRef);
-                const postDoc = await transaction.get(postRef);
-
-                if (!postDoc.exists()) return;
-
-                if (reactionDoc.exists()) {
-                    transaction.delete(reactionRef);
-                    transaction.update(postRef, { 
-                        reactionsCount: increment(-1),
-                        'reactionCounts.love': increment(-1)
-                    });
-                } else {
-                    const reactionData = { 
-                        userId: user.id, 
-                        type: 'love',
-                        timestamp: serverTimestamp(),
-                        user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
-                    };
-                    transaction.set(reactionRef, reactionData, { merge: true });
-                    transaction.update(postRef, { 
-                        reactionsCount: increment(1),
-                        'reactionCounts.love': increment(1)
-                    });
-                }
-            });
+            if (isLiked) {
+                await deleteDoc(reactionRef);
+                await updateDoc(postRef, { 
+                    reactionsCount: increment(-1),
+                    'reactionCounts.love': increment(-1)
+                });
+            } else {
+                const reactionData = { 
+                    userId: user.id, 
+                    type: 'love',
+                    timestamp: serverTimestamp(),
+                    user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+                };
+                await setDoc(reactionRef, reactionData, { merge: true });
+                await updateDoc(postRef, { 
+                    reactionsCount: increment(1),
+                    'reactionCounts.love': increment(1)
+                });
+            }
         } catch (e) {
             console.error("Reaction failure:", e);
         }
@@ -344,42 +338,44 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
                 )}
             </CardContent>
 
-            <CardFooter className="p-4 bg-transparent border-t border-border/10 flex items-center justify-start gap-1">
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className={cn("rounded-full h-10 w-10 transition-all hover:scale-110 active:scale-90", isLiked ? "text-rose-500" : "text-foreground")}
-                    onClick={toggleLike}
-                >
-                    <Heart className={cn("h-6 w-6", isLiked && "fill-current")} />
-                </Button>
-                
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-primary transition-all">
-                            <MessageSquare className="h-6 w-6" />
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
-                        <DialogHeader className="p-6 bg-muted/30 border-b">
-                            <DialogTitle className="text-xl font-headline font-bold">Comments</DialogTitle>
-                        </DialogHeader>
-                        <div className="p-6 h-[60vh]">
-                            <ThreadPostComments postId={post.id} />
-                        </div>
-                    </DialogContent>
-                </Dialog>
-                
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all -rotate-12">
-                            <Send className="h-6 w-6" />
-                        </Button>
-                    </DialogTrigger>
-                    <ShareToMootsDialog post={post} currentUser={user} />
-                </Dialog>
+            <CardFooter className="p-4 bg-transparent border-t border-border/10 flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className={cn("rounded-full h-11 w-11 transition-all active:scale-95", isLiked ? "text-rose-500" : "text-foreground")}
+                        onClick={toggleLike}
+                    >
+                        <Heart className={cn("h-6 w-6", isLiked && "fill-current")} />
+                    </Button>
+                    
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="rounded-full h-11 w-11 text-foreground hover:text-primary transition-all">
+                                <MessageSquare className="h-6 w-6" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
+                            <DialogHeader className="p-6 bg-muted/30 border-b">
+                                <DialogTitle className="text-xl font-headline font-bold">Comments</DialogTitle>
+                            </DialogHeader>
+                            <div className="p-6 h-[60vh]">
+                                <ThreadPostComments postId={post.id} />
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                    
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="rounded-full h-11 w-11 text-foreground hover:text-accent transition-all -rotate-12">
+                                <Send className="h-6 w-6" />
+                            </Button>
+                        </DialogTrigger>
+                        <ShareToMootsDialog post={post} currentUser={user} />
+                    </Dialog>
+                </div>
 
-                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-foreground hover:text-accent transition-all" onClick={toggleLike}>
+                <Button variant="ghost" size="icon" className="rounded-full h-11 w-11 text-foreground hover:text-accent transition-all">
                     <Repeat className="h-6 w-6" />
                 </Button>
             </CardFooter>
@@ -1061,7 +1057,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
             {publishedWorks.length > 0 && (
               <div>
                 <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight">
-                    <BookOpen className="h-5 w-5 text-primary" /> 
+                    < BookOpen className="h-5 w-5 text-primary" /> 
                     Published Stories
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">

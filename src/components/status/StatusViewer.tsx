@@ -386,8 +386,8 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                                 <AvatarImage src={selectedUser.avatarUrl} />
                                 <AvatarFallback className="bg-muted text-primary font-bold text-[10px]">{selectedUser.username?.substring(0,1).toUpperCase() || 'U'}</AvatarFallback>
                             </Avatar>
-                            <span className="text-white text-sm font-bold drop-shadow-md">{selectedUser.displayName || selectedUser.username}</span>
-                            <span className="text-white/60 text-[10px] font-bold uppercase tracking-tight drop-shadow-md">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                            <span className="text-white text-sm font-bold">{selectedUser.displayName || selectedUser.username}</span>
+                            <span className="text-white/60 text-[10px] font-bold uppercase tracking-tight">{currentStatus.createdAt ? (currentStatus.createdAt as Timestamp).toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                         </div>
                         <div className="flex items-center gap-1">
                             {isOwner && (
@@ -407,7 +407,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                     </div>
                     {currentStatus.songUrl && (
                       <div className="flex items-center gap-1.5 px-1 animate-in slide-in-from-left-2 duration-700">
-                        <div className="bg-black/40 px-2 py-0.5 rounded-full border border-white/10 flex items-center gap-1.5 pointer-events-auto">
+                        <div className="bg-black/20 px-2 py-0.5 rounded-full border border-white/10 flex items-center gap-1.5 pointer-events-auto">
                           <Music className={cn("h-2.5 w-2.5 text-white", !isPaused && !isMuted && "animate-pulse")} />
                           <span className="text-[8px] font-black uppercase tracking-widest text-white">Now Playing</span>
                         </div>
@@ -478,7 +478,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
                                 transform: 'translate(-50%, -50%)',
                             }}
                         >
-                            <p style={textStyle} className="whitespace-pre-line text-lg font-bold shadow-2xl">
+                            <p style={textStyle} className="whitespace-pre-line text-lg font-bold">
                                 {currentStatus.textOverlay}
                             </p>
                         </div>

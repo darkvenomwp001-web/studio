@@ -109,7 +109,11 @@ service cloud.firestore {
                     || (isSignedIn() && resource.data.authorId == request.auth.uid)
                     || (resource.data.status == 'published' && resource.data.isHidden == false);
       
-      allow list: if isSignedIn(); // Authorized via client-side filters
+      allow list: if isAppOwner() || (
+        request.query.filters.status == 'published' &&
+        request.query.filters.isHidden == false &&
+        request.query.filters.visibility == 'public'
+      );
       
       allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
       
