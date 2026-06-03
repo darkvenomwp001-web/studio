@@ -245,7 +245,7 @@ function ChapterAccessDialog({ storyId, chapter, onUpdate }: { storyId: string, 
 function StoryDetailsInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, addNotification, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryStoryId = searchParams.get('storyId');
 
@@ -779,7 +779,7 @@ function StoryDetailsInner() {
               </Card>
           </TabsContent>
 
-          <TabsContent value="advanced" className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-8">
+          <TabsContent value="advanced" className="animate-in fade-in duration-500 space-y-8">
               <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-8">
                     <Card className="rounded-3xl border-none shadow-xl">
@@ -893,7 +893,7 @@ function StoryDetailsInner() {
               </div>
           </TabsContent>
 
-          <TabsContent value="team" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <TabsContent value="team" className="animate-in fade-in duration-500">
               <div className="max-w-2xl mx-auto space-y-6">
                 <Card className="rounded-3xl border-none shadow-xl overflow-hidden">
                     <CardHeader className="bg-muted/30 border-b">
@@ -925,7 +925,7 @@ function StoryDetailsInner() {
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-10 w-10 border shadow-sm">
                                                 <AvatarImage src={collab.avatarUrl} />
-                                                <AvatarFallback>{collab.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                                <AvatarFallback>{collab.username?.substring(0,1).toUpperCase()}</AvatarFallback>
                                             </Avatar>
                                             <div>
                                                 <p className="font-bold text-sm">@{collab.username}</p>

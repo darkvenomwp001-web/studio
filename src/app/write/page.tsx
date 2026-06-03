@@ -58,9 +58,19 @@ function DashboardContent() {
                 isoDate = new Date(data.lastUpdated).toISOString();
             }
         }
+        
+        // Ensure author object exists to prevent 'id' read errors downstream
+        const authorData = data.author ? {
+            id: data.author.id || 'unknown',
+            username: data.author.username || 'Unknown Author',
+            displayName: data.author.displayName,
+            avatarUrl: data.author.avatarUrl
+        } : { id: 'unknown', username: 'Unknown Author' };
+
         return {
             id: docSnap.id,
             ...data,
+            author: authorData,
             lastUpdated: isoDate,
             chapters: data.chapters || [],
             tags: data.tags || [],
@@ -231,4 +241,3 @@ export default function WriteDashboardPage() {
     </Suspense>
   );
 }
-

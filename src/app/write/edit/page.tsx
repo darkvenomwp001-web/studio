@@ -237,7 +237,8 @@ function EditorContentInner() {
       if (docSnap.exists()) {
         const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
         
-        if (storyData.author.id !== currentUser.id && !storyData.collaboratorIds?.includes(currentUser.id)) {
+        // Add null check for storyData.author
+        if (storyData.author?.id !== currentUser.id && !storyData.collaboratorIds?.includes(currentUser.id)) {
           toast({ title: "Access Denied", description: "No editing permission.", variant: "destructive" });
           router.push(`/stories/${queryStoryId}`);
           return;
@@ -422,11 +423,11 @@ function EditorContentInner() {
         try {
             const followersQuery = query(
                 collection(db, 'users'), 
-                where('followingIds', 'array-contains', storyDetails.author.id)
+                where('followingIds', 'array-contains', storyDetails.author?.id || '')
             );
             const followersSnapshot = await getDocs(followersQuery);
             
-            // Notify up to 100 followers instantly
+            // Notify up to 100 followers instantly for author broadcasts
             const followersToNotify = followersSnapshot.docs.slice(0, 100);
             
             for (const followerDoc of followersToNotify) {
@@ -478,7 +479,7 @@ function EditorContentInner() {
       isZenFocus && "zen-focus-enabled",
   );
 
-  const isInLibrary = currentUser?.readingList?.some(item => item.id === storyDetails.id);
+  const isInLibrary = currentUser?.readingList?.some(item => item && item.id === storyDetails.id);
 
   const zenFocusStyles = `
     .zen-mode .ProseMirror p {
