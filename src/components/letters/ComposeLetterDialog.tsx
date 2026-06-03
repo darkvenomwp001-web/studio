@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useDynamicIsland } from '@/context/DynamicIslandContext';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Send, PenSquare, Sparkles, BookOpen, X } from 'lucide-react';
 import type { Story, Chapter, ReadingListItem } from '@/types';
-import { addDoc, collection, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, doc, getDoc, query, where, getDocs, documentId } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
@@ -36,6 +36,40 @@ export default function ComposeLetterDialog() {
   const [isDrafting, startDraftTransition] = useTransition();
 
   const readingList: ReadingListItem[] = user?.readingList || [];
+  const [verifiedReadingList, setVerifiedReadingList] = useState<ReadingListItem[]>([]);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  // Protocol: Verify that stories in the list actually exist in the archives
+  useEffect(() => {
+    if (!isOpen || readingList.length === 0) {
+      setVerifiedReadingList([]);
+      return;
+    }
+
+    const verifyStories = async () => {
+      setIsVerifying(true);
+      const ids = readingList.map(s => s.id);
+      const storiesRef = collection(db, 'stories');
+      
+      try {
+        const verifiedIds = new Set<string>();
+        // Process in chunks of 30 (Firestore 'in' limit)
+        for (let i = 0; i < ids.length; i += 30) {
+          const chunk = ids.slice(i, i + 30);
+          const q = query(storiesRef, where(documentId(), 'in', chunk));
+          const snap = await getDocs(q);
+          snap.docs.forEach(d => verifiedIds.add(d.id));
+        }
+        setVerifiedReadingList(readingList.filter(s => verifiedIds.has(s.id)));
+      } catch (err) {
+        console.error("Mailbox verification error:", err);
+      } finally {
+        setIsVerifying(false);
+      }
+    };
+
+    verifyStories();
+  }, [isOpen, readingList]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -188,15 +222,17 @@ export default function ComposeLetterDialog() {
                 <Label htmlFor="story-select" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">
                   Manuscript
                 </Label>
-                <Select onValueChange={setSelectedStoryId} value={selectedStoryId || ''} disabled={isSending}>
+                <Select onValueChange={setSelectedStoryId} value={selectedStoryId || ''} disabled={isSending || isVerifying}>
                     <SelectTrigger id="story-select" className="rounded-2xl bg-muted/20 border-none shadow-inner h-12">
-                        <SelectValue placeholder="Pick a story..." />
+                        <SelectValue placeholder={isVerifying ? "Verifying..." : "Pick a story..."} />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl border-none shadow-2xl">
-                        {readingList.length > 0 ? readingList.map(story => (
+                        {verifiedReadingList.length > 0 ? verifiedReadingList.map(story => (
                             <SelectItem key={story.id} value={story.id} className="rounded-xl">{story.title}</SelectItem>
                         )) : (
-                            <SelectItem value="none" disabled>Your library is empty.</SelectItem>
+                            <SelectItem value="none" disabled>
+                                {isVerifying ? "Calibrating list..." : "No stories found in library."}
+                            </SelectItem>
                         )}
                     </SelectContent>
                 </Select>

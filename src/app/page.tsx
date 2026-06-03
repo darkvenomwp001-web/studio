@@ -157,8 +157,8 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState('for-you');
   const TABS = [
     { value: 'for-you', label: 'For You', icon: <Sparkles className="h-4 w-4" /> },
-    { value: 'annotations', label: 'Highlights', icon: <Quote className="h-4 w-4" /> },
     { value: 'feed', label: 'Feed', icon: <LayoutGrid className="h-4 w-4" /> },
+    { value: 'annotations', label: 'Highlights', icon: <Quote className="h-4 w-4" /> },
     { value: 'broadcast', label: 'Updates', icon: <Radio className="h-4 w-4" /> },
   ];
 
@@ -170,8 +170,8 @@ export default function HomePage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex justify-center border-b border-border/40 pb-2 mb-4"><AnimatedTabs tabs={TABS} activeTab={activeTab} /></div>
             <TabsContent value="for-you" className="mt-0"><ForYouTabContent /></TabsContent>
-            <TabsContent value="annotations" className="container mx-auto px-4 mt-8"><AnnotationFeed /></TabsContent>
             <TabsContent value="feed" className="container mx-auto px-4 mt-8"><ThreadsFeed /></TabsContent>
+            <TabsContent value="annotations" className="container mx-auto px-4 mt-8"><AnnotationFeed /></TabsContent>
             <TabsContent value="broadcast" className="container mx-auto px-4 mt-8"><BroadcastFeed /></TabsContent>
         </Tabs>
       </main>
