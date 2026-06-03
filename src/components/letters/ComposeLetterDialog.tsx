@@ -48,19 +48,24 @@ export default function ComposeLetterDialog() {
 
     const verifyStories = async () => {
       setIsVerifying(true);
-      const ids = readingList.map(s => s.id);
+      // Null safety for reading list entries
+      const ids = readingList.filter(s => s && s.id).map(s => s.id);
       const storiesRef = collection(db, 'stories');
       
       try {
-        const verifiedIds = new Set<string>();
-        // Process in chunks of 30 (Firestore 'in' limit)
-        for (let i = 0; i < ids.length; i += 30) {
-          const chunk = ids.slice(i, i + 30);
-          const q = query(storiesRef, where(documentId(), 'in', chunk));
-          const snap = await getDocs(q);
-          snap.docs.forEach(d => verifiedIds.add(d.id));
+        if (ids.length > 0) {
+          const verifiedIds = new Set<string>();
+          // Process in chunks of 30 (Firestore 'in' limit)
+          for (let i = 0; i < ids.length; i += 30) {
+            const chunk = ids.slice(i, i + 30);
+            const q = query(storiesRef, where(documentId(), 'in', chunk));
+            const snap = await getDocs(q);
+            snap.docs.forEach(d => verifiedIds.add(d.id));
+          }
+          setVerifiedReadingList(readingList.filter(s => s && verifiedIds.has(s.id)));
+        } else {
+          setVerifiedReadingList([]);
         }
-        setVerifiedReadingList(readingList.filter(s => verifiedIds.has(s.id)));
       } catch (err) {
         console.error("Mailbox verification error:", err);
       } finally {
@@ -113,7 +118,7 @@ export default function ComposeLetterDialog() {
         const result = await getMagicLetterDraft({
             context: `Reader writing to an author about the chapter "${chapter?.title}" in the story "${storyDetails.title}". Story summary: ${storyDetails.summary}`,
             sender_type: 'reader',
-            recipient_name: storyDetails.author.displayName || storyDetails.author.username,
+            recipient_name: storyDetails.author?.displayName || storyDetails.author?.username,
             tone: 'encouraging and appreciative'
         });
         if ('error' in result) {
@@ -146,7 +151,7 @@ export default function ComposeLetterDialog() {
         storyTitle: storyDetails.title,
         chapterId: chapter.id,
         chapterTitle: chapter.title,
-        authorId: storyDetails.author.id,
+        authorId: storyDetails.author?.id,
         author: storyDetails.author,
         reader: {
           id: user.id,
@@ -164,7 +169,7 @@ export default function ComposeLetterDialog() {
     const lettersColRef = collection(db, 'letters');
     addDoc(lettersColRef, letterData)
         .then(() => {
-            if (storyDetails.author.id !== user.id) {
+            if (storyDetails.author?.id !== user.id) {
                 addNotification({
                     userId: storyDetails.author.id,
                     type: 'new_letter',

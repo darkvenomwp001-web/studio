@@ -64,7 +64,7 @@ function ForYouTabContent() {
     
     const unsubscribeStories = onSnapshot(storiesQuery, (snapshot) => {
       const fetchedStories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Story));
-      setAllStories(fetchedStories.filter(s => s.status !== 'Draft' && s.title));
+      setAllStories(fetchedStories.filter(s => s && s.status !== 'Draft' && s.title));
       setIsDataLoading(false);
     }, () => {
         setIsDataLoading(false);
@@ -83,14 +83,20 @@ function ForYouTabContent() {
     }
 
     const verifyReadingList = async () => {
-        const ids = user.readingList!.map(s => s.id);
+        // Null safety for reading list entries
+        const ids = user.readingList!.filter(s => s && s.id).map(s => s.id);
+        if (ids.length === 0) {
+            setActiveReadingList([]);
+            return;
+        }
+        
         const storiesRef = collection(db, 'stories');
         
         try {
             const q = query(storiesRef, where(documentId(), 'in', ids.slice(0, 30)));
             const snap = await getDocs(q);
             const existingIds = new Set(snap.docs.map(d => d.id));
-            const filtered = user.readingList!.filter(s => existingIds.has(s.id));
+            const filtered = user.readingList!.filter(s => s && existingIds.has(s.id));
             setActiveReadingList(filtered);
         } catch (err) {
             console.error("Home feed error:", err);
@@ -100,8 +106,8 @@ function ForYouTabContent() {
     verifyReadingList();
   }, [user?.readingList]);
 
-  const validSlides = carouselSlides.filter(s => !!s.imageUrl && !!s.ctaLink);
-  const trendingStories = [...allStories].sort((a,b) => ((b.views || 0) + (b.rating || 0) * 100) - ((a.views || 0) + (a.rating || 0) * 100)).slice(0, 12);
+  const validSlides = carouselSlides.filter(s => s && !!s.imageUrl && !!s.ctaLink);
+  const trendingStories = [...allStories].filter(s => !!s).sort((a,b) => ((b.views || 0) + (b.rating || 0) * 100) - ((a.views || 0) + (a.rating || 0) * 100)).slice(0, 12);
 
   if (isDataLoading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -113,7 +119,7 @@ function ForYouTabContent() {
                 {validSlides.map(slide => (
                     <CarouselItem key={slide.id} className="pl-0 basis-full">
                         <Link href={slide.ctaLink || '/'} className="block relative aspect-[16/9] md:aspect-[3/1] rounded-none md:rounded-b-[40px] overflow-hidden bg-muted">
-                            <Image src={slide.imageUrl} alt={slide.title} fill className="object-cover" />
+                            <Image src={slide.imageUrl} alt={slide.title || ''} fill className="object-cover" />
                             <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent flex flex-col justify-end p-8">
                                 <Button size="lg" className="rounded-full w-fit px-10 font-bold shadow-xl">{slide.ctaText || 'Read Now'}</Button>
                             </div>
@@ -132,7 +138,7 @@ function ForYouTabContent() {
               <Link href="/library" className="text-xs font-bold text-primary uppercase">View All</Link>
             </div>
             <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-hide">
-              {activeReadingList.slice(0, 10).map(story => <CompactStoryCard key={story.id} story={story} />)}
+              {activeReadingList.slice(0, 10).map(story => story && <CompactStoryCard key={story.id} story={story} />)}
             </div>
           </section>
         )}
@@ -144,7 +150,7 @@ function ForYouTabContent() {
               <Link href="/stories" className="text-xs font-bold text-primary uppercase">Explore All</Link>
             </div>
             <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-hide">
-              {trendingStories.map(story => <StoryCard key={story.id} story={story} />)}
+              {trendingStories.map(story => story && <StoryCard key={story.id} story={story} />)}
             </div>
           </section>
         )}

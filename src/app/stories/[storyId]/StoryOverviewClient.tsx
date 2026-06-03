@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -73,7 +72,9 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
 
   const publishedChapters = useMemo(() => {
     if (!story) return [];
-    const isOwner = user && (story.author.id === user.id || story.collaboratorIds?.includes(user.id));
+    // Author safety node
+    const authorId = story.author?.id;
+    const isOwner = user && authorId && (authorId === user.id || story.collaboratorIds?.includes(user.id));
     
     return story.chapters.filter(ch => {
         if (isOwner) return true;
@@ -108,7 +109,7 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
         return;
     }
 
-    const isInLibrary = user.readingList?.some(item => item.id === story.id);
+    const isInLibrary = user.readingList?.some(item => item && item.id === story.id);
     if (isInLibrary) {
       removeFromLibrary(story.id);
     } else {
@@ -133,9 +134,9 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
     </div>
   );
 
-  const isInLibrary = user?.readingList?.some(item => item.id === story.id);
+  const isInLibrary = user?.readingList?.some(item => item && item.id === story.id);
   const totalVotes = story.chapters?.reduce((acc, chapter) => acc + (chapter.votes || 0), 0) || 0;
-  const isOwner = user && story.author.id === user.id;
+  const isOwner = user && story.author?.id === user.id;
 
   return (
     <div className="container mx-auto max-w-4xl py-8 px-4 space-y-10 animate-in fade-in duration-700">
@@ -154,9 +155,9 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
         <div className="flex flex-col items-center sm:items-start flex-grow text-center sm:text-left pt-2">
           <div className="space-y-1 mb-4">
             <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground leading-tight tracking-tight">{story.title}</h1>
-            <Link href={`/profile/${story.author.id}`} className="inline-flex items-center gap-2 text-lg text-muted-foreground hover:text-primary transition-colors font-medium">
+            <Link href={`/profile/${story.author?.id || 'unknown'}`} className="inline-flex items-center gap-2 text-lg text-muted-foreground hover:text-primary transition-colors font-medium">
                 <span>by</span>
-                <span className="font-bold text-foreground hover:underline">@{story.author.username}</span>
+                <span className="font-bold text-foreground hover:underline">@{story.author?.username || 'unknown'}</span>
             </Link>
           </div>
 

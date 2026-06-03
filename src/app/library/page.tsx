@@ -39,17 +39,20 @@ export default function LibraryPage() {
 
         const verifyStories = async () => {
             setIsVerifying(true);
-            const ids = user.readingList.map(s => s.id);
+            // Null safety for reading list entries
+            const ids = user.readingList!.filter(s => s && s.id).map(s => s.id);
             const results = new Set<string>();
             const storiesRef = collection(db, 'stories');
 
             try {
-                // Process in chunks of 30 (Firestore 'in' limit)
-                for (let i = 0; i < ids.length; i += 30) {
-                    const chunk = ids.slice(i, i + 30);
-                    const q = query(storiesRef, where(documentId(), 'in', chunk));
-                    const snap = await getDocs(q);
-                    snap.docs.forEach(d => results.add(d.id));
+                if (ids.length > 0) {
+                    // Process in chunks of 30 (Firestore 'in' limit)
+                    for (let i = 0; i < ids.length; i += 30) {
+                        const chunk = ids.slice(i, i + 30);
+                        const q = query(storiesRef, where(documentId(), 'in', chunk));
+                        const snap = await getDocs(q);
+                        snap.docs.forEach(d => results.add(d.id));
+                    }
                 }
                 setExistingStoryIds(results);
             } catch (error) {
@@ -63,8 +66,8 @@ export default function LibraryPage() {
     }, [user?.readingList]);
 
     const filteredAndSortedList = useMemo(() => {
-        // Step 1: Filter out ghost stories (deleted manuscripts)
-        let stories = readingList.filter(s => existingStoryIds.has(s.id));
+        // Step 1: Filter out ghost stories (deleted manuscripts) and nulls
+        let stories = readingList.filter(s => s && existingStoryIds.has(s.id));
 
         // Step 2: Filter by search term
         if (searchTerm.trim()) {
@@ -92,7 +95,7 @@ export default function LibraryPage() {
                 }
                 case 'added-desc': 
                 default:
-                    const indexMap = new Map(readingList.map((story, index) => [story.id, index]));
+                    const indexMap = new Map(readingList.map((story, index) => [story?.id, index]));
                     return (indexMap.get(b.id) ?? -1) - (indexMap.get(a.id) ?? -1);
             }
         });
@@ -134,7 +137,7 @@ export default function LibraryPage() {
                     <div className="flex flex-col items-center justify-center h-[calc(100vh-20rem)] text-center p-4">
                         <Library className="h-24 w-24 text-muted-foreground/50 mb-6" />
                         <h2 className="text-2xl font-headline font-semibold mb-2">Your Library Awaits</h2>
-                        <p className="text-muted-foreground max-w-sm">
+                        <p className="text-muted-foreground max-sm">
                             <Link href="/auth/signin" className="text-primary font-bold hover:underline">Sign in</Link> to save your favorite stories and track your reading progress.
                         </p>
                     </div>

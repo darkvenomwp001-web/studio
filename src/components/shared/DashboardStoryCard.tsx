@@ -37,7 +37,8 @@ export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
   };
 
   const displayStatus = story.visibility !== 'Public' ? story.visibility : (story.status || 'Draft');
-  const isCollaborator = story.author.id !== user?.id;
+  // Null safety for author mapping
+  const isCollaborator = story.author?.id !== user?.id;
 
   return (
     <div className="w-full group">
@@ -81,7 +82,7 @@ export default function DashboardStoryCard({ story }: DashboardStoryCardProps) {
                         {story.title}
                      </Link>
                      {isCollaborator && (
-                        <p className="text-xs text-muted-foreground">by @{story.author.username}</p>
+                        <p className="text-xs text-muted-foreground">by @{story.author?.username || 'unknown'}</p>
                     )}
                 </div>
                  <DropdownMenu>

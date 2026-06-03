@@ -493,7 +493,8 @@ function StoryDetailsInner() {
     );
   }
 
-  const isOwner = user?.id === story.author.id;
+  // Author identity null safety
+  const isOwner = user?.id === story.author?.id;
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-10 pb-20">
