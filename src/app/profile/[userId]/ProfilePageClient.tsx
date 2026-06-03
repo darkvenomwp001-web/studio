@@ -186,7 +186,7 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
         return () => unsub();
     }, [user, post.id]);
 
-    const toggleLike = async () => {
+    const toggleLike = () => {
         if (!user) {
             toast({ title: "Please sign in to like" });
             return;
@@ -194,28 +194,38 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
         const postRef = doc(db, 'feedPosts', post.id);
         const reactionRef = doc(db, 'feedPosts', post.id, 'reactions', user.id);
 
-        try {
-            if (isLiked) {
-                await deleteDoc(reactionRef);
-                await updateDoc(postRef, { 
-                    reactionsCount: increment(-1),
-                    'reactionCounts.love': increment(-1)
-                });
-            } else {
-                const reactionData = { 
-                    userId: user.id, 
-                    type: 'love',
-                    timestamp: serverTimestamp(),
-                    user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
-                };
-                await setDoc(reactionRef, reactionData, { merge: true });
-                await updateDoc(postRef, { 
-                    reactionsCount: increment(1),
-                    'reactionCounts.love': increment(1)
-                });
-            }
-        } catch (e) {
-            console.error("Reaction failure:", e);
+        if (isLiked) {
+            deleteDoc(reactionRef);
+            updateDoc(postRef, { 
+                reactionsCount: increment(-1),
+                'reactionCounts.love': increment(-1)
+            }).catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: postRef.path,
+                    operation: 'update',
+                    requestResourceData: { reactionsCount: 'decrement' },
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+            });
+        } else {
+            const reactionData = { 
+                userId: user.id, 
+                type: 'love',
+                timestamp: serverTimestamp(),
+                user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+            };
+            setDoc(reactionRef, reactionData, { merge: true });
+            updateDoc(postRef, { 
+                reactionsCount: increment(1),
+                'reactionCounts.love': increment(1)
+            }).catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: postRef.path,
+                    operation: 'update',
+                    requestResourceData: { reactionsCount: 'increment' },
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+            });
         }
     };
 
@@ -359,7 +369,7 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
                             <DialogHeader className="p-6 bg-muted/30 border-b">
                                 <DialogTitle className="text-xl font-headline font-bold">Comments</DialogTitle>
                             </DialogHeader>
-                            <div className="p-6 h-[60vh]">
+                            <div className="p-6 h-auto min-h-[400px] max-h-[70vh]">
                                 <ThreadPostComments postId={post.id} />
                             </div>
                         </DialogContent>
@@ -658,6 +668,7 @@ function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwn
             const permissionError = new FirestorePermissionError({
                 path: annoRef.path,
                 operation: 'delete',
+                requestResourceData: null,
             } satisfies SecurityRuleContext);
             errorEmitter.emit('permission-error', permissionError);
         })

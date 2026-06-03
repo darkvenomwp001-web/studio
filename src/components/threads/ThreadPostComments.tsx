@@ -104,7 +104,7 @@ function ThreadComment({ comment, postId, parentCollection, onUpdate, onDelete }
                                             <EllipsisVertical className="h-3 w-3" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-32 rounded-xl border-border/40">
+                                    <DropdownMenuContent align="end" className="w-32 rounded-xl border-border/40 shadow-xl">
                                         <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
                                             <Edit3 className="h-3 w-3" /> Edit
                                         </DropdownMenuItem>
@@ -292,7 +292,7 @@ export default function ThreadPostComments({ postId, parentCollection = 'feedPos
     
     return (
         <AlertDialog>
-            <div className="flex flex-col h-[60vh]">
+            <div className="flex flex-col h-full min-h-[400px]">
                 <ScrollArea className="flex-grow pr-4 -mr-4">
                     <div className="space-y-6">
                         {isLoadingComments ? (
@@ -330,11 +330,11 @@ export default function ThreadPostComments({ postId, parentCollection = 'feedPos
                                 placeholder="Add a comment..."
                                 value={newComment}
                                 onChange={(e) => setNewComment(e.target.value)}
-                                className="min-h-[20px] text-sm rounded-xl focus-visible:ring-primary shadow-inner"
+                                className="min-h-[44px] text-sm rounded-2xl focus-visible:ring-primary shadow-inner bg-muted/20 border-none"
                                 rows={1}
                                 disabled={isPostingComment}
                             />
-                            <Button type="submit" size="icon" className="rounded-full flex-shrink-0 shadow-lg shadow-primary/20" disabled={isPostingComment || !newComment.trim()}>
+                            <Button type="submit" size="icon" className="rounded-full flex-shrink-0 shadow-lg shadow-primary/20 h-11 w-11" disabled={isPostingComment || !newComment.trim()}>
                                 {isPostingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                             </Button>
                         </div>

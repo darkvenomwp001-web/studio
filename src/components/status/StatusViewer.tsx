@@ -119,49 +119,57 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
         setIsPaused(prev => !prev);
     };
 
-    const handleLike = async () => {
+    const handleLike = () => {
         if (!user || !currentStatus) return;
         setIsLiking(true);
         const statusRef = doc(db, 'statusUpdates', currentStatus.id);
         const reactionRef = doc(db, 'statusUpdates', currentStatus.id, 'reactions', user.id);
 
-        runTransaction(db, async (transaction) => {
-            const reactionDoc = await transaction.get(reactionRef);
-            const statusDoc = await transaction.get(statusRef);
-            if (!statusDoc.exists()) return;
+        const isCurrentlyLiked = currentStatus.reactionCounts?.love > 0;
 
-            if (reactionDoc.exists()) {
-                transaction.delete(reactionRef);
-                transaction.update(statusRef, { 
-                    reactionsCount: (statusDoc.data().reactionsCount || 1) - 1,
-                    'reactionCounts.love': (statusDoc.data().reactionCounts?.love || 1) - 1
-                });
-            } else {
-                transaction.set(reactionRef, { 
-                    type: 'love', 
-                    userId: user.id, 
-                    timestamp: serverTimestamp(),
-                    user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
-                });
-                transaction.update(statusRef, { 
-                    reactionsCount: (statusDoc.data().reactionsCount || 0) + 1,
-                    'reactionCounts.love': (statusDoc.data().reactionCounts?.love || 0) + 1
-                });
-            }
-        })
-        .then(async () => {
-            if (user.id !== currentStatus.authorId) {
-                await addNotification({
-                    userId: currentStatus.authorId,
-                    type: 'user_update',
-                    message: `liked your signal.`,
-                    link: `/?status=${currentStatus.authorId}`,
-                    actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
-                });
-            }
-            toast({ title: "Signal updated" });
-        })
-        .finally(() => setIsLiking(false));
+        if (isCurrentlyLiked) {
+            deleteDoc(reactionRef);
+            updateDoc(statusRef, { 
+                reactionsCount: increment(-1),
+                'reactionCounts.love': increment(-1)
+            }).catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: statusRef.path,
+                    operation: 'update',
+                    requestResourceData: { reactionsCount: 'decrement' },
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+            }).finally(() => setIsLiking(false));
+        } else {
+            const reactionData = { 
+                type: 'love', 
+                userId: user.id, 
+                timestamp: serverTimestamp(),
+                user: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+            };
+            setDoc(reactionRef, reactionData, { merge: true });
+            updateDoc(statusRef, { 
+                reactionsCount: increment(1),
+                'reactionCounts.love': increment(1)
+            }).then(async () => {
+                if (user.id !== currentStatus.authorId) {
+                    await addNotification({
+                        userId: currentStatus.authorId,
+                        type: 'user_update',
+                        message: `liked your signal.`,
+                        link: `/?status=${currentStatus.authorId}`,
+                        actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+                    });
+                }
+            }).catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: statusRef.path,
+                    operation: 'update',
+                    requestResourceData: { reactionsCount: 'increment' },
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+            }).finally(() => setIsLiking(false));
+        }
     };
 
     const handleRepost = async () => {
@@ -200,7 +208,7 @@ export default function StatusViewer({ isOpen, onOpenChange, selectedUser, userS
             await addDoc(collection(db, 'statusUpdates'), repostData);
             
             await updateDoc(doc(db, 'statusUpdates', currentStatus.id), {
-                repostsCount: (currentStatus.repostsCount || 0) + 1
+                repostsCount: increment(1)
             });
 
             if (user.id !== currentStatus.authorId) {
