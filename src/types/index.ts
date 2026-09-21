@@ -46,6 +46,9 @@ export interface User {
   profileSongNote?: string;
   writingStatus?: WritingStatus;
   profilePrivacy?: 'public' | 'private' | 'locked'; // Added for Account Privacy Hub
+  commentingPreference?: 'everyone' | 'following' | 'none';
+  taggingPreference?: 'everyone' | 'following' | 'none';
+  presencePreference?: 'everyone' | 'following' | 'none';
   lifeTags?: string[]; // Added for Author favorites
   createdAt?: any;
   updatedAt?: any;

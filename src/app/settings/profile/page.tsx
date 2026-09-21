@@ -16,9 +16,8 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import type { User as AppUser, WritingStatus } from '@/types';
 import NextImage from 'next/image';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
-// Native APK Bridge Imports
+// Native Bridge Imports
 import { Camera as NativeCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 const WRITING_STATUSES: { value: WritingStatus; label: string; icon: string }[] = [
@@ -51,6 +50,9 @@ export default function EditProfilePage() {
 
   const [writingStatus, setWritingStatus] = useState<WritingStatus>('none');
   const [profilePrivacy, setProfilePrivacy] = useState<'public' | 'private' | 'locked'>('public');
+  const [commentingPreference, setCommentingPreference] = useState<'everyone' | 'following' | 'none'>('everyone');
+  const [taggingPreference, setTaggingPreference] = useState<'everyone' | 'following' | 'none'>('everyone');
+  const [presencePreference, setPresencePreference] = useState<'everyone' | 'following' | 'none'>('everyone');
   
   const [isProfileUpdating, setIsProfileUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -68,6 +70,9 @@ export default function EditProfilePage() {
       setCoverPreview(user.coverImageUrl || null);
       setWritingStatus(user.writingStatus || 'none');
       setProfilePrivacy(user.profilePrivacy || 'public');
+      setCommentingPreference(user.commentingPreference || 'everyone');
+      setTaggingPreference(user.taggingPreference || 'everyone');
+      setPresencePreference(user.presencePreference || 'everyone');
     }
   }, [user]);
 
@@ -129,7 +134,7 @@ export default function EditProfilePage() {
             toast({ title: "Permission Denied", description: "Please enable media access in settings.", variant: "destructive" });
         }
     } catch (e) {
-        console.warn("APK Native Picker protocol interrupted.", e);
+        console.warn("Native Picker interrupted.", e);
         if (type === 'avatar') avatarInputRef.current?.click();
         else coverInputRef.current?.click();
     }
@@ -178,6 +183,9 @@ export default function EditProfilePage() {
         if (role !== user.role) updates.role = role;
         if (writingStatus !== user.writingStatus) updates.writingStatus = writingStatus;
         if (profilePrivacy !== user.profilePrivacy) updates.profilePrivacy = profilePrivacy;
+        if (commentingPreference !== user.commentingPreference) updates.commentingPreference = commentingPreference;
+        if (taggingPreference !== user.taggingPreference) updates.taggingPreference = taggingPreference;
+        if (presencePreference !== user.presencePreference) updates.presencePreference = presencePreference;
 
         if (Object.keys(updates).length > 0) {
             await updateUserProfile(updates);
@@ -188,7 +196,7 @@ export default function EditProfilePage() {
         }
     } catch (error) {
         console.error('Update error:', error);
-        toast({ title: 'Update Failed', description: 'Could not synchronize your profile data.', variant: 'destructive' });
+        toast({ title: 'Update Failed', description: 'Could not save your changes.', variant: 'destructive' });
     } finally {
         setIsUploading(false);
         setIsProfileUpdating(false);
@@ -220,7 +228,7 @@ export default function EditProfilePage() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Hub
             </Button>
             <h1 className="text-3xl font-headline font-bold text-foreground">Identity Hub</h1>
-            <p className="text-muted-foreground text-sm">Refine your community presence and account safety.</p>
+            <p className="text-muted-foreground text-sm">Manage your public name and privacy.</p>
         </div>
 
         <form onSubmit={handleProfileSubmit} className="space-y-10 pb-20">
@@ -231,7 +239,7 @@ export default function EditProfilePage() {
                 ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/30 animate-pulse">
                         <ImagePlus className="h-12 w-12 mb-2" />
-                        <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Upload High-Fidelity Banner</p>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Upload Cover Banner</p>
                     </div>
                 )}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -266,7 +274,7 @@ export default function EditProfilePage() {
                         className="rounded-full h-8 px-4 mt-2 font-bold text-[10px] uppercase tracking-widest shadow-sm"
                     >
                          {isUploading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <UploadCloud className="mr-2 h-3 w-3" />}
-                         Sync Image
+                         Update Image
                     </Button>
                   </div>
                 </div>
@@ -276,7 +284,7 @@ export default function EditProfilePage() {
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 text-primary font-semibold">
                         <Sparkles className="h-5 w-5" />
-                        <h3 className="text-sm font-bold uppercase tracking-widest">Real-time Activity</h3>
+                        <h3 className="text-sm font-bold uppercase tracking-widest">Live Status</h3>
                     </div>
                     <Select value={writingStatus} onValueChange={(v: WritingStatus) => setWritingStatus(v)}>
                         <SelectTrigger className="h-12 rounded-2xl bg-muted/20 border-none shadow-inner transition-all hover:bg-muted/30">
@@ -342,41 +350,64 @@ export default function EditProfilePage() {
                 <div className="space-y-6">
                     <div className="flex items-center gap-2 text-primary font-semibold">
                         <ShieldCheck className="h-5 w-5" />
-                        <h3 className="text-sm font-bold uppercase tracking-widest">Account Privacy</h3>
+                        <h3 className="text-sm font-bold uppercase tracking-widest">Account Visibility</h3>
                     </div>
-                    <div className="p-6 rounded-[2rem] bg-muted/10 border-2 border-dashed border-border/40">
-                         <RadioGroup value={profilePrivacy} onValueChange={(v: any) => setProfilePrivacy(v)} className="space-y-4">
-                            <div className={cn(
-                                "flex items-center space-x-3 p-4 border rounded-2xl hover:bg-muted/50 cursor-pointer transition-all",
-                                profilePrivacy === 'public' ? "border-primary bg-primary/5" : "border-transparent bg-background/50"
-                            )} onClick={() => setProfilePrivacy('public')}>
-                                <RadioGroupItem value="public" id="priv-public" />
-                                <Label htmlFor="priv-public" className="flex-1 cursor-pointer">
-                                    <span className="font-bold block text-sm">Public Space</span>
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Everyone can see your stories, photos, and updates.</span>
-                                </Label>
-                            </div>
-                            <div className={cn(
-                                "flex items-center space-x-3 p-4 border rounded-2xl hover:bg-muted/50 cursor-pointer transition-all",
-                                profilePrivacy === 'private' ? "border-primary bg-primary/5" : "border-transparent bg-background/50"
-                            )} onClick={() => setProfilePrivacy('private')}>
-                                <RadioGroupItem value="private" id="priv-private" />
-                                <Label htmlFor="priv-private" className="flex-1 cursor-pointer">
-                                    <span className="font-bold block text-sm">Private Space</span>
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Only your mutual friends can see your activity.</span>
-                                </Label>
-                            </div>
-                            <div className={cn(
-                                "flex items-center space-x-3 p-4 border rounded-2xl hover:bg-muted/50 cursor-pointer transition-all",
-                                profilePrivacy === 'locked' ? "border-primary bg-primary/5" : "border-transparent bg-background/50"
-                            )} onClick={() => setProfilePrivacy('locked')}>
-                                <RadioGroupItem value="locked" id="priv-locked" />
-                                <Label htmlFor="priv-locked" className="flex-1 cursor-pointer">
-                                    <span className="font-bold block text-sm">Locked Profile</span>
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Strictly for friends. Strangers only see your name and photo.</span>
-                                </Label>
-                            </div>
-                        </RadioGroup>
+                    <div className="space-y-6 p-6 rounded-[2rem] bg-muted/10 border border-border/40 shadow-inner">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Space Visibility</Label>
+                            <Select value={profilePrivacy} onValueChange={(v: any) => setProfilePrivacy(v)}>
+                                <SelectTrigger className="h-12 rounded-2xl bg-background border-none shadow-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl border-none shadow-3xl">
+                                    <SelectItem value="public" className="rounded-xl">Public Space (Everyone)</SelectItem>
+                                    <SelectItem value="private" className="rounded-xl">Private Space (Friends Only)</SelectItem>
+                                    <SelectItem value="locked" className="rounded-xl">Locked Space (Strictly Friends)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Story Interactions</Label>
+                            <Select value={commentingPreference} onValueChange={(v: any) => setCommentingPreference(v)}>
+                                <SelectTrigger className="h-12 rounded-2xl bg-background border-none shadow-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl border-none shadow-3xl">
+                                    <SelectItem value="everyone" className="rounded-xl">Allow everyone to comment</SelectItem>
+                                    <SelectItem value="following" className="rounded-xl">Only friends can comment</SelectItem>
+                                    <SelectItem value="none" className="rounded-xl">Disable story comments</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Mentions & Tags</Label>
+                            <Select value={taggingPreference} onValueChange={(v: any) => setTaggingPreference(v)}>
+                                <SelectTrigger className="h-12 rounded-2xl bg-background border-none shadow-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl border-none shadow-3xl">
+                                    <SelectItem value="everyone" className="rounded-xl">Allow everyone to tag me</SelectItem>
+                                    <SelectItem value="following" className="rounded-xl">Only friends can tag me</SelectItem>
+                                    <SelectItem value="none" className="rounded-xl">Don't allow tags</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Activity Visibility</Label>
+                            <Select value={presencePreference} onValueChange={(v: any) => setPresencePreference(v)}>
+                                <SelectTrigger className="h-12 rounded-2xl bg-background border-none shadow-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl border-none shadow-3xl">
+                                    <SelectItem value="everyone" className="rounded-xl">Show active status to everyone</SelectItem>
+                                    <SelectItem value="following" className="rounded-xl">Show active status to friends</SelectItem>
+                                    <SelectItem value="none" className="rounded-xl">Hide my active status</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </div>
             </CardContent>
