@@ -470,7 +470,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   };
 
   const articleClasses = cn(
-      "prose dark:prose-invert max-w-none py-8 px-4 sm:px-6 md:px-12 selection:bg-primary/20 transition-all duration-500 transform-gpu",
+      "prose dark:prose-invert max-w-none pt-8 pb-0 px-4 sm:px-6 md:px-12 selection:bg-primary/20 transition-all duration-500 transform-gpu",
       isFocusMode && "zen-mode",
       {
         'prose-sm': fontSize === 'sm', 'prose-base': fontSize === 'base', 'prose-lg': fontSize === 'lg', 'prose-xl': fontSize === 'xl',
@@ -666,7 +666,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
           </SheetContent>
       </Sheet>
 
-      <main className="pt-28 pb-10 min-h-screen">
+      <main className="pt-28 pb-0 min-h-screen">
         <AlertDialog open={isDisclaimerOpen} onOpenChange={setIsDisclaimerOpen}>
             <AlertDialogContent className="max-w-xl rounded-[3rem] border-none shadow-3xl p-0 overflow-hidden bg-background/95 backdrop-blur-3xl">
                 <AlertDialogHeader className="p-10 bg-muted/30 border-b">
@@ -735,31 +735,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         </div>
                     </div>
                     <EditorContent editor={editor} />
-                    
-                    {/* End of Chapter Action Pill - Tightened spacing */}
-                    <div className="max-w-2xl mx-auto mt-12 px-6 pb-4">
-                        <Card className="rounded-[3rem] border-none shadow-2xl bg-primary/5 backdrop-blur-md overflow-hidden transform-gpu transition-all hover:shadow-primary/5">
-                            <CardContent className="p-10 flex flex-col items-center text-center gap-6">
-                                <div className="p-5 rounded-[2rem] bg-primary text-white shadow-xl shadow-primary/20 animate-bounce">
-                                    <Sparkles className="h-8 w-8" />
-                                </div>
-                                <div className="space-y-2">
-                                    <h3 className="text-2xl font-headline font-bold">End of Part {currentChapter.order}</h3>
-                                    <p className="text-sm text-muted-foreground font-medium">Did you enjoy this archival entry?</p>
-                                </div>
-                                <div className="flex flex-wrap items-center justify-center gap-3">
-                                    <Button onClick={handleVoteClick} disabled={isVoting} className={cn("rounded-full px-10 h-14 font-black uppercase tracking-widest text-xs shadow-xl transition-all active:scale-95", currentChapter?.voterIds?.includes(currentUser?.id || '') ? "bg-primary text-white" : "bg-card hover:bg-muted border border-border/40 text-foreground")}>
-                                        <ThumbsUp className={cn("mr-2 h-5 w-5", currentChapter?.voterIds?.includes(currentUser?.id || '') && "fill-current")} />
-                                        {currentChapter?.voterIds?.includes(currentUser?.id || '') ? 'Voted' : 'Vote Now'}
-                                    </Button>
-                                    <Button variant="outline" className="rounded-full px-10 h-14 font-black uppercase tracking-widest text-xs border-border/60" onClick={() => router.push(`/stories/${story.id}/read/${currentChapter.id}/comments`)}>
-                                        <MessageSquare className="mr-2 h-5 w-5" />
-                                        Discuss
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
                 </article>
             </div>
         ) : (
