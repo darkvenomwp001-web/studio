@@ -165,17 +165,17 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
   const [ambientSound, setAmbientSound] = useState<'none' | 'lofi' | 'rain'>('none');
   
-  // NEW: Reading Improvement System states
+  // Reading Improvement System states
   const [isEyeStrainGuard, setIsEyeStrainGuard] = useState(false);
   const [isHighContrast, setIsHighContrast] = useState(false);
   const [isLineFocus, setIsLineFocus] = useState(false);
   const [isParchmentMode, setIsParchmentMode] = useState(false);
   const [isInteractionLocked, setIsInteractionLocked] = useState(false);
 
-  // NEW: Type Improvements states
+  // Type Improvements states
   const [letterSpacing, setLetterSpacing] = useState<'normal' | 'wide'>('normal');
 
-  // NEW: Atmosphere Improvements states
+  // Atmosphere Improvements states
   const [atmosphereVolume, setAtmosphereVolume] = useState(30);
   const [isHapticFeedback, setIsHapticFeedback] = useState(false);
   const [isVignette, setIsVignette] = useState(false);
@@ -449,7 +449,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const handleLibraryAction = () => {
     if (!story || !currentUser) { router.push('/auth/signin'); return; }
     if (isHapticFeedback && window.navigator.vibrate) window.navigator.vibrate(5);
-    const isInLib = currentUser.readingList?.some(item => item.id === story.id);
+    const isInLib = currentUser.readingList?.some(item => item && item.id === story.id);
     if (isInLib) removeFromLibrary(story.id);
     else addToLibrary(story);
   };
@@ -558,6 +558,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   if (isLoading || !editor) return <div className="flex justify-center items-center h-screen bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (!story || !currentChapter) return null;
+
+  const isInLibrary = currentUser?.readingList?.some(item => item && item.id === story.id);
 
   return (
     <TooltipProvider delayDuration={300}>
