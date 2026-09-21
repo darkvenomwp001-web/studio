@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  Loader2, 
   MessageCircle, 
   MessageSquare,
   UserPlus, 
@@ -36,7 +35,8 @@ import {
   Heart,
   Edit2,
   ArrowLeft,
-  Radio
+  Radio,
+  Loader2
 } from 'lucide-react';
 import NextImage from 'next/image';
 import Link from 'next/link';
@@ -105,7 +105,7 @@ function ShareToMootsDialog({ post, currentUser }: { post: ThreadPost, currentUs
                 });
                 setMoots(mootsData);
             } catch (e) {
-                console.error("Moot fetch failure:", e);
+                console.error("Friends fetch failure:", e);
             } finally {
                 setIsLoading(false);
             }
@@ -243,7 +243,7 @@ function VisualGalleryPost({ post, isOwnProfile }: { post: ThreadPost, isOwnProf
         const postRef = doc(db, 'feedPosts', post.id);
         deleteDoc(postRef)
             .then(() => {
-                toast({ title: "Post removed from gallery" });
+                toast({ title: "Post removed" });
                 setIsDeleteDialogOpen(false);
             })
             .catch(async (serverError) => {
@@ -774,7 +774,7 @@ function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwn
         <DialogContent className="rounded-[2.5rem] border-none shadow-3xl p-8">
           <DialogHeader className="mb-4">
             <DialogTitle className="text-2xl font-headline font-bold">Edit Update</DialogTitle>
-            <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Modify your transmission</DialogDescription>
+            <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Modify your post</DialogDescription>
           </DialogHeader>
           <Textarea 
             value={editedContent} 
@@ -797,13 +797,13 @@ function UpdatesTab({ profileUser, isOwnProfile }: { profileUser: AppUser, isOwn
         <AlertDialogContent className="rounded-[2.5rem] border-none shadow-3xl p-8">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-2xl font-headline font-bold">Delete this update?</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm leading-relaxed">This action is permanent and will remove the signal from your followers' feeds.</AlertDialogDescription>
+            <AlertDialogDescription className="text-sm leading-relaxed">This action is permanent and will remove the update from your followers' feeds.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-full font-bold uppercase text-[10px] tracking-widest" disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteAnnouncement} className="bg-destructive hover:bg-destructive/90 rounded-full px-10 shadow-lg shadow-destructive/20 font-bold uppercase text-[10px] tracking-widest" disabled={isDeleting}>
               {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              Erase
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -821,7 +821,7 @@ function ProfileStoryCard({ story, isPrivate = false }: { story: Pick<Story, 'id
        <Link href={isPrivate ? editLink : viewLink} passHref>
         <div className={cn(
             "aspect-[2/3] relative rounded-md overflow-hidden shadow-sm transition-all bg-muted cursor-pointer mb-2",
-             isPrivate && "opacity-70" 
+            isPrivate && "opacity-70" 
         )}>
           <NextImage
             src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/512/800`}
@@ -854,8 +854,8 @@ function PhotoGalleryTab({ profileUser, isOwnProfile }: { profileUser: AppUser, 
         return (
             <div className="text-center py-32 text-muted-foreground italic bg-muted/5 rounded-[3rem] border border-dashed border-border/40 max-w-2xl mx-auto">
                 <Lock className="h-16 w-16 text-muted-foreground/20 mx-auto mb-6" />
-                <h3 className="text-2xl font-headline font-bold mb-2 text-foreground">Restricted Gallery</h3>
-                <p className="text-sm px-10">This archive is only visible to mutual friends. Follow each other to unlock this vault.</p>
+                <h3 className="text-2xl font-headline font-bold mb-2 text-foreground">Private Photos</h3>
+                <p className="text-sm px-10">This section is only visible to mutual friends. Follow each other to see these photos.</p>
             </div>
         );
     }
@@ -1089,8 +1089,8 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
             {publishedWorks.length === 0 && !isOwnProfile && (
                  <div className="text-center py-32 text-muted-foreground border-2 border-dashed rounded-[3rem] border-border/40 max-w-2xl mx-auto">
                     <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                    <h3 className="text-lg font-bold text-foreground">Archive is Empty</h3>
-                    <p className="text-sm">No public stories found.</p>
+                    <h3 className="text-lg font-bold text-foreground">No stories found</h3>
+                    <p className="text-sm">This author hasn't posted any stories yet.</p>
                 </div>
             )}
           </TabsContent>
@@ -1100,7 +1100,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                 <div className="flex justify-center mb-8">
                     <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm backdrop-blur-md">
                         <TabsTrigger value="about" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
-                            <PenTool className="h-4 w-4" /> About Me
+                            <PenTool className="h-4 w-4" /> About the Author
                         </TabsTrigger>
                         <TabsTrigger value="archive" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
                             <LayoutGrid className="h-4 w-4" /> Photos

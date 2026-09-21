@@ -261,7 +261,7 @@ export default function CreateStatusPage() {
                     statusData.textOverlayTransform = textTransform;
                 }
             } else {
-                statusData.note = noteContent.trim() || 'Digital Signal';
+                statusData.note = noteContent.trim() || 'Posted';
                 statusData.backgroundStyle = backgroundStyle;
                 statusData.textOverlayStyle = textStyle;
                 statusData.textOverlayPosition = textPosition;
@@ -281,7 +281,7 @@ export default function CreateStatusPage() {
                 addNotification({
                     userId: mention.userId,
                     type: 'mention',
-                    message: `mentioned you in their status update.`,
+                    message: `tagged you in their status.`,
                     link: `/?status=${user.id}`,
                     actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
                 });
@@ -290,7 +290,7 @@ export default function CreateStatusPage() {
             showIsland({ title: "Status posted", type: 'success', image: user.avatarUrl });
             router.push('/');
         } catch (error) {
-            toast({ title: 'Publish Failed', variant: 'destructive' });
+            toast({ title: 'Post Failed', variant: 'destructive' });
         } finally {
             setIsSubmitting(false);
         }
@@ -576,7 +576,7 @@ export default function CreateStatusPage() {
                         onClick={() => setIsMentionToolActive(true)}
                     >
                         <AtSign className="h-5 w-5" />
-                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Link</span>
+                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Tag</span>
                     </button>
                     
                     <Separator className="bg-white/10 mx-2 h-[1px] w-auto" />
@@ -635,17 +635,17 @@ export default function CreateStatusPage() {
                         onClick={() => setIsTransformHubOpen(!isTransformHubOpen)}
                     >
                         <Wand2 className="h-5 w-5" />
-                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Magic</span>
+                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Edit</span>
                     </button>
 
                     {isTransformHubOpen && collageLayout === 'single' && (
                         <div className="flex flex-col gap-2 animate-in slide-in-from-right-4 duration-300">
                              <button 
                                 className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
-                                onClick={() => toast({ title: "Touch transformation active", description: "Use 2 fingers to zoom or rotate layers." })}
+                                onClick={() => toast({ title: "Zoom/Rotate active", description: "Use two fingers to resize or turn items." })}
                             >
                                 <Maximize2 className="h-4 w-4" />
-                                <span className="text-[7px] font-black uppercase tracking-tighter opacity-80">Scale</span>
+                                <span className="text-[7px] font-black uppercase tracking-tighter opacity-80">Size</span>
                             </button>
                             <button 
                                 className="flex flex-col items-center justify-center gap-0.5 w-12 h-14 text-white rounded-2xl transition-all active:scale-95 hover:bg-white/10 group"
@@ -680,11 +680,11 @@ export default function CreateStatusPage() {
                     >
                         <LucideImageIcon className="h-5 w-5" />
                     </button>
-                    <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" multiple onChange={handleMediaSelect} />
+                    <input type="file" setMediaPreviews={setMediaPreviews} ref={mediaInputRef} className="hidden" accept="image/*,video/*" multiple onChange={handleMediaSelect} />
                     
                     <button 
                         className="w-11 h-11 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
-                        onClick={() => toast({ title: "Camera protocol engaged" })}
+                        onClick={() => toast({ title: "Camera opened" })}
                     >
                         <Camera className="h-5 w-5" />
                     </button>
@@ -696,7 +696,7 @@ export default function CreateStatusPage() {
                         className="h-11 rounded-full px-4 bg-black/40 text-white font-bold text-[10px] uppercase tracking-widest gap-2"
                     >
                         <Star className="h-3.5 w-3.5 text-green-500 fill-current" />
-                        Circles
+                        Friends
                     </Button>
 
                     <Button 
@@ -706,7 +706,7 @@ export default function CreateStatusPage() {
                     >
                         {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (
                             <>
-                                Share
+                                Post Now
                                 <SendHorizontal className="h-3.5 w-3.5" />
                             </>
                         )}
@@ -746,7 +746,7 @@ export default function CreateStatusPage() {
                             autoFocus
                             value={noteContent}
                             onChange={e => setNoteContent(e.target.value)}
-                            placeholder="Write your signal..."
+                            placeholder="What's on your mind?..."
                             className={cn(
                                 "bg-transparent border-none text-white text-3xl md:text-5xl font-black text-center focus-visible:ring-0 min-h-[200px] shadow-none resize-none p-0",
                                 textStyle.font === 'serif' ? 'font-serif' : (textStyle.font === 'mono' ? 'font-mono' : 'font-sans'),
@@ -775,8 +775,8 @@ export default function CreateStatusPage() {
                 <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
                     <div className="flex justify-between items-center mb-6">
                         <div>
-                            <h3 className="text-2xl font-headline font-bold text-white">Archives Audio</h3>
-                            <p className="text-[8px] font-bold uppercase tracking-widest text-white/40">Premium Soundtrack Node</p>
+                            <h3 className="text-2xl font-headline font-bold text-white">Search Music</h3>
+                            <p className="text-[8px] font-bold uppercase tracking-widest text-white/40">Find a song for your status</p>
                         </div>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsMusicToolActive(false)}><X className="h-5 w-5"/></Button>
                     </div>
@@ -799,7 +799,7 @@ export default function CreateStatusPage() {
             {isStickerToolActive && (
                 <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
                     <div className="flex justify-between items-center p-6 border-b border-white/10">
-                        <h3 className="text-2xl font-headline font-bold text-white">Visual Codes</h3>
+                        <h3 className="text-2xl font-headline font-bold text-white">Choose Emojis</h3>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsStickerToolActive(false)}><X className="h-5 w-5"/></Button>
                     </div>
                     <div className="flex-1 overflow-hidden">
@@ -808,7 +808,7 @@ export default function CreateStatusPage() {
                             width="100%" 
                             height="100%" 
                             theme={'dark' as any}
-                            searchPlaceHolder="Search visual archives..."
+                            searchPlaceHolder="Search emojis..."
                         />
                     </div>
                 </div>
@@ -817,13 +817,13 @@ export default function CreateStatusPage() {
             {isMentionToolActive && (
                 <div className="absolute inset-0 z-[200] bg-black/95 flex flex-col p-6 animate-in slide-in-from-bottom-full duration-500 backdrop-blur-none">
                     <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-2xl font-headline font-bold text-white">Mention Node</h3>
+                        <h3 className="text-2xl font-headline font-bold text-white">Tag a Friend</h3>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsMentionToolActive(false)}><X className="h-5 w-5"/></Button>
                     </div>
                     <div className="relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
                         <Input 
-                            placeholder="Find author node..." 
+                            placeholder="Search by username..." 
                             value={mentionSearch} 
                             onChange={e => handleMentionSearch(e.target.value)}
                             className="pl-10 h-14 rounded-2xl bg-white/10 border-white/20 text-white font-bold focus-visible:ring-primary/40 shadow-inner"
@@ -860,9 +860,9 @@ export default function CreateStatusPage() {
                         <div>
                             <h3 className="text-3xl font-headline font-bold text-white flex items-center gap-2">
                                 <Star className="h-8 w-8 text-green-500 fill-current" />
-                                Circle
+                                Close Friends
                             </h3>
-                            <p className="text-[8px] font-bold uppercase tracking-widest text-white/40">Private Archival Access</p>
+                            <p className="text-[8px] font-bold uppercase tracking-widest text-white/40">Private Status Access</p>
                         </div>
                         <Button variant="ghost" size="icon" className="text-white h-10 w-10 bg-white/10 rounded-full" onClick={() => setIsCloseFriendsPickerOpen(false)}><X className="h-5 w-5"/></Button>
                     </div>
@@ -900,7 +900,7 @@ export default function CreateStatusPage() {
                             </div>
                         ) : (
                             <div className="text-center py-20 text-white/20 italic bg-white/5 rounded-3xl border-2 border-dashed border-white/10">
-                                <p className="text-sm px-10">Network protocol requires mutual signal following to establish a private circle.</p>
+                                <p className="text-sm px-10">You can only add friends who follow you back to your Close Friends.</p>
                             </div>
                         )}
                     </ScrollArea>
@@ -913,7 +913,7 @@ export default function CreateStatusPage() {
                             }} 
                             className="w-full rounded-2xl h-14 bg-green-500 hover:bg-green-600 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95"
                         >
-                            Sync Circle Signal
+                            Save Changes
                         </Button>
                     </div>
                 </div>

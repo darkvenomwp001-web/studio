@@ -59,7 +59,6 @@ function DashboardContent() {
             }
         }
         
-        // Ensure author object exists to prevent 'id' read errors downstream
         const authorData = data.author ? {
             id: data.author.id || 'unknown',
             username: data.author.username || 'Unknown Author',
@@ -133,7 +132,7 @@ function DashboardContent() {
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-10rem)] gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground animate-pulse">Entering Workspace Node...</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground animate-pulse">Loading Writing Hub...</p>
       </div>
     );
   }
@@ -144,8 +143,8 @@ function DashboardContent() {
         <div className="bg-muted/30 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
             <Feather className="h-10 w-10 text-muted-foreground/40" />
         </div>
-        <h1 className="text-3xl font-headline font-bold text-foreground">Writer Studio</h1>
-        <p className="text-muted-foreground max-w-xs mx-auto">Please <Link href="/auth/signin" className="text-primary font-bold hover:underline">sign in</Link> to access your manuscript studio.</p>
+        <h1 className="text-3xl font-headline font-bold text-foreground">Writing Hub</h1>
+        <p className="text-muted-foreground max-w-xs mx-auto">Please <Link href="/auth/signin" className="text-primary font-bold hover:underline">sign in</Link> to start writing your stories.</p>
       </div>
     );
   }
@@ -153,11 +152,10 @@ function DashboardContent() {
   return (
     <div className="space-y-6 pb-32 animate-in fade-in duration-700 px-4 md:px-6 mt-6">
       
-      {/* Morphic Liquid Glass Header */}
       <header className="flex flex-row items-center justify-between p-6 md:p-8 bg-card/30 backdrop-blur-2xl rounded-[2rem] md:rounded-[2.5rem] border border-white/10 shadow-2xl transform-gpu">
           <div className="space-y-1">
-              <h1 className="text-2xl md:text-4xl font-headline font-bold tracking-tight">Writer Studio</h1>
-              <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Creative Workspace Node</p>
+              <h1 className="text-2xl md:text-4xl font-headline font-bold tracking-tight">Writing Hub</h1>
+              <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Your Stories</p>
           </div>
           <Link href="/write/edit-details" passHref>
               <Button size="lg" className="rounded-full shadow-xl shadow-primary/20 gap-2 font-bold h-10 md:h-12 px-6 md:px-10 transition-all hover:scale-[1.02] active:scale-95">
@@ -176,7 +174,7 @@ function DashboardContent() {
                     <Badge variant="ghost" className="h-5 px-1.5 font-bold min-w-[20px]">{publishedStories.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger value="drafts" className="rounded-full font-bold text-xs flex-1 gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">
-                    <Feather className="h-4 w-4" /> Archives
+                    <Feather className="h-4 w-4" /> Drafts
                     <Badge variant="ghost" className="h-5 px-1.5 font-bold min-w-[20px]">{draftStories.length}</Badge>
                 </TabsTrigger>
             </TabsList>
@@ -195,11 +193,11 @@ function DashboardContent() {
                     <Book className="h-12 w-12 text-muted-foreground/30" />
                 </div>
                 <div className="space-y-1">
-                    <p className="text-lg font-bold text-foreground">Manuscript Node Offline</p>
-                    <p className="text-sm text-muted-foreground">You haven't released any public manuscripts yet.</p>
+                    <p className="text-lg font-bold text-foreground">No Stories Yet</p>
+                    <p className="text-sm text-muted-foreground">You haven't posted any stories for others to read yet.</p>
                 </div>
                 <Link href="/write/edit-details" passHref>
-                    <Button variant="outline" className="rounded-full mt-2 font-bold text-xs uppercase tracking-widest px-8">Start First Entry</Button>
+                    <Button variant="outline" className="rounded-full mt-2 font-bold text-xs uppercase tracking-widest px-8">Write Your First Story</Button>
                 </Link>
             </div>
           )}
@@ -218,8 +216,8 @@ function DashboardContent() {
                     <Feather className="h-12 w-12 text-muted-foreground/30" />
                 </div>
                 <div className="space-y-1">
-                    <p className="text-lg font-bold text-foreground">Archive is Clean</p>
-                    <p className="text-sm text-muted-foreground">Your private drafts and archival manuscripts will appear here.</p>
+                    <p className="text-lg font-bold text-foreground">No Drafts</p>
+                    <p className="text-sm text-muted-foreground">Your private drafts and hidden stories will show up here.</p>
                 </div>
             </div>
           )}
@@ -234,7 +232,7 @@ export default function WriteDashboardPage() {
     <Suspense fallback={
         <div className="flex flex-col justify-center items-center h-screen bg-background gap-4">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground animate-pulse">Syncing Studio Hub...</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground animate-pulse">Loading Writing Hub...</p>
         </div>
     }>
       <DashboardContent />

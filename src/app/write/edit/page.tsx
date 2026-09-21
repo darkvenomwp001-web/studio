@@ -237,7 +237,6 @@ function EditorContentInner() {
       if (docSnap.exists()) {
         const storyData = { id: docSnap.id, ...docSnap.data() } as Story;
         
-        // Add null check for storyData.author
         if (storyData.author?.id !== currentUser.id && !storyData.collaboratorIds?.includes(currentUser.id)) {
           toast({ title: "Access Denied", description: "No editing permission.", variant: "destructive" });
           router.push(`/stories/${queryStoryId}`);
@@ -259,12 +258,12 @@ function EditorContentInner() {
           setIsLoading(false);
         }
       } else {
-        toast({ title: "Manuscript Not Found", variant: "destructive" });
+        toast({ title: "Story Not Found", variant: "destructive" });
         router.push('/write'); 
         setIsLoading(false);
       }
     }, (error) => {
-      console.error("Studio data fetch error:", error);
+      console.error("Editor data fetch error:", error);
       setIsLoading(false);
     });
     
@@ -381,8 +380,8 @@ function EditorContentInner() {
             
             setCurrentChapter(prev => prev ? { ...prev, artworkUrl: data.secure_url } : null);
             showIsland({
-              title: "Artwork updated",
-              description: "Chapter art is ready.",
+              title: "Image updated",
+              description: "Chapter image is ready.",
               type: 'success'
             });
         }
@@ -427,7 +426,6 @@ function EditorContentInner() {
             );
             const followersSnapshot = await getDocs(followersQuery);
             
-            // Notify up to 100 followers instantly for author broadcasts
             const followersToNotify = followersSnapshot.docs.slice(0, 100);
             
             for (const followerDoc of followersToNotify) {
@@ -523,7 +521,7 @@ function EditorContentInner() {
                                 </Link>
                             )}
                             <div className="hidden sm:block">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none mb-1">Editing Manuscript</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none mb-1">Editing Story</p>
                                 <h2 className="text-sm font-bold text-foreground truncate max-w-[200px]">{storyDetails?.title}</h2>
                             </div>
                         </div>
@@ -534,7 +532,7 @@ function EditorContentInner() {
                                 autoSaveStatus === 'Saved' ? 'bg-green-500/10 text-green-600 border-green-500/20' : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
                             )}>
                                 {autoSaveStatus === 'Saving...' || autoSaveStatus === 'Typing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
-                                {autoSaveStatus}
+                                {autoSaveStatus === 'Typing' || autoSaveStatus === 'Saving...' ? 'Saving...' : (autoSaveStatus === 'Saved' ? 'Saved' : 'Auto-saved')}
                             </div>
 
                             <div className="flex items-center gap-2 ml-4">
@@ -556,7 +554,7 @@ function EditorContentInner() {
                                         <AlertDialogHeader>
                                             <AlertDialogTitle className="font-headline text-3xl font-bold">Ready to Publish?</AlertDialogTitle>
                                             <AlertDialogDescription className="text-base text-muted-foreground leading-relaxed">
-                                                This will make your new chapter <strong>"{chapterTitle}"</strong> available to your readers immediately.
+                                                This will make your new part <strong>"{chapterTitle}"</strong> available to your readers immediately.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
@@ -577,11 +575,11 @@ function EditorContentInner() {
                     )}>
                         <div className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-none sm:rounded-[40px] overflow-hidden bg-muted/50 border-b sm:border border-border/40 group mb-8 shadow-sm transform-gpu">
                             {currentChapter.artworkUrl ? (
-                                <NextImage src={currentChapter.artworkUrl} alt="Chapter Artwork" fill className="object-cover transition-transform duration-1000 group-hover:scale-[1.03]" priority />
+                                <NextImage src={currentChapter.artworkUrl} alt="Chapter Image" fill className="object-cover transition-transform duration-1000 group-hover:scale-[1.03]" priority />
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30 animate-pulse">
                                     <ImagePlus className="h-12 w-12 mb-2" />
-                                    <p className="text-[10px] font-bold uppercase tracking-widest">Landscape Chapter Art</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest">Add an image</p>
                                 </div>
                             )}
                             {isAuthorOrCollaborator && (
@@ -592,7 +590,7 @@ function EditorContentInner() {
                                         onClick={() => artworkInputRef.current?.click()}
                                     >
                                         <Camera className="h-4 w-4" />
-                                        Set Chapter Art
+                                        Set Chapter Image
                                     </Button>
                                 </div>
                             )}
@@ -627,7 +625,7 @@ function EditorContentInner() {
                                 <div className="flex items-center gap-2 max-w-xs w-full bg-muted/30 p-1 rounded-full border border-border/40 focus-within:border-primary/40 transition-all">
                                     <div className="pl-3"><Tag className="h-3.5 w-3.5 text-muted-foreground" /></div>
                                     <Input 
-                                        placeholder="Add chapter warning..." 
+                                        placeholder="Add warning..." 
                                         value={tagInput} 
                                         onChange={e => setTagInput(e.target.value)}
                                         onKeyDown={e => e.key === 'Enter' && handleAddTag()}
@@ -642,7 +640,7 @@ function EditorContentInner() {
                             <div className="flex items-center justify-center gap-4 md:gap-8 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 border-y border-border/10 py-4 mt-4">
                                 <div className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> {wordCount} Words</div>
                                 <div className="flex items-center gap-1.5"><Timer className="h-3 w-3" /> {readingTimeMinutes} MIN Read</div>
-                                <div className="flex items-center gap-1.5"><History className="h-3 w-3" /> Cloud Sync</div>
+                                <div className="flex items-center gap-1.5"><History className="h-3 w-3" /> Auto-saved</div>
                             </div>
                         </div>
 
@@ -697,7 +695,7 @@ function EditorContentInner() {
                             <PopoverTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-10 px-3 rounded-2xl gap-2 hover:bg-primary/10 hover:text-primary transition-all font-bold text-xs uppercase tracking-widest">
                                     <Type className="h-4 w-4" />
-                                    <span className="hidden md:inline">Typeface</span>
+                                    <span className="hidden md:inline">Font</span>
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-60 p-2 rounded-2xl bg-card/95 backdrop-blur-xl border-white/10 shadow-3xl" side="top" align="center">
@@ -752,7 +750,7 @@ function EditorContentInner() {
                             </div>
                             <div>
                                 <AlertDialogTitle className="text-3xl font-headline text-3xl font-bold text-foreground leading-none mb-1">{chapterTitle || 'Untitled Part'}</AlertDialogTitle>
-                                <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Immersive Reader Experience & bull; High Fidelity</AlertDialogDescription>
+                                <AlertDialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Reading Preview</AlertDialogDescription>
                             </div>
                         </div>
                         <AlertDialogCancel className="rounded-full h-12 w-12 p-0 border-none bg-muted/40 hover:bg-destructive hover:text-white transition-all"><X className="h-5 w-5"/></AlertDialogCancel>
@@ -761,8 +759,8 @@ function EditorContentInner() {
                         <article className={articleClasses} dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }} />
                     </div>
                     <AlertDialogFooter className="p-6 bg-muted/20 border-t flex items-center justify-between">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 italic">End of manuscript preview</p>
-                        <AlertDialogCancel className="rounded-full px-12 h-12 font-bold uppercase text-xs tracking-widest shadow-lg bg-background border-border/40">Return to Studio</AlertDialogCancel>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 italic">End of preview</p>
+                        <AlertDialogCancel className="rounded-full px-12 h-12 font-bold uppercase text-xs tracking-widest shadow-lg bg-background border-border/40">Back to Editor</AlertDialogCancel>
                     </AlertDialogFooter>
                 </AlertDialogContent>
 

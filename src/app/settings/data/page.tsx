@@ -46,10 +46,9 @@ export default function DataAndCachePage() {
         setIsClearing(true);
         try {
             await clearAppCache();
-            toast({ title: "Cache Purged!", description: "App session has been refreshed." });
-            // The clearAppCache function in useAuth reloads the window
+            toast({ title: "Cache Cleared!", description: "App has been refreshed." });
         } catch (error) {
-            toast({ title: "Purge Failed", variant: "destructive" });
+            toast({ title: "Failed to clear", variant: "destructive" });
             setIsClearing(false);
         }
     };
@@ -58,10 +57,10 @@ export default function DataAndCachePage() {
         setIsResetting(true);
         try {
             await clearFirestoreCache();
-            toast({ title: "Persistence Reset", description: "Offline database has been cleared. Re-syncing with cloud..." });
+            toast({ title: "System Reset", description: "Storage has been cleared. Re-syncing with cloud..." });
             setTimeout(() => window.location.reload(), 1500);
         } catch (error) {
-            toast({ title: "Reset Failed", description: "Make sure all other LitVerse tabs are closed.", variant: "destructive" });
+            toast({ title: "Reset Failed", description: "Make sure all other tabs are closed.", variant: "destructive" });
             setIsResetting(false);
         }
     };
@@ -81,9 +80,9 @@ export default function DataAndCachePage() {
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
                 </Button>
                 <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground flex items-center gap-4">
-                    <Database className="h-10 w-10 text-emerald-500" /> Data & Cache
+                    <Database className="h-10 w-10 text-emerald-500" /> Storage
                 </h1>
-                <p className="text-muted-foreground text-sm font-medium">Fix loading "hangs", clear offline junk, and manage your local storage.</p>
+                <p className="text-muted-foreground text-sm font-medium">Fix loading issues and manage your app memory.</p>
             </header>
 
             <div className="grid gap-6">
@@ -91,13 +90,13 @@ export default function DataAndCachePage() {
                     <CardHeader className="bg-emerald-500/5 border-b border-emerald-500/10 p-8">
                         <div className="flex items-center justify-between mb-2">
                             <CardTitle className="text-xl flex items-center gap-3">
-                                <Zap className="h-6 w-6 text-emerald-500" /> Storage Health
+                                <Zap className="h-6 w-6 text-emerald-500" /> Storage Info
                             </CardTitle>
                             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1.5 rounded-full px-3">
-                                <CheckCircle className="h-3 w-3" /> System Nominal
+                                <CheckCircle className="h-3 w-3" /> All Good
                             </Badge>
                         </div>
-                        <CardDescription className="text-sm">Current telemetry of your local D4RKV3NOM environment.</CardDescription>
+                        <CardDescription className="text-sm">Current details of your app storage.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-8 space-y-6">
                         <div className="grid sm:grid-cols-2 gap-4">
@@ -107,7 +106,7 @@ export default function DataAndCachePage() {
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Sync Status</p>
-                                    <p className="text-sm font-bold">Synchronized</p>
+                                    <p className="text-sm font-bold">Updated</p>
                                 </div>
                             </div>
                             <div className="p-5 rounded-3xl bg-muted/30 border border-border/40 flex items-center gap-4">
@@ -126,8 +125,8 @@ export default function DataAndCachePage() {
                         <div className="space-y-4">
                             <div className="flex items-center justify-between gap-4">
                                 <div className="space-y-1">
-                                    <h4 className="font-bold text-foreground">Purge App Cache</h4>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">Clears session-specific "junk" like cached user profiles and temporary UI states. Safe and recommended if the app feels slow.</p>
+                                    <h4 className="font-bold text-foreground">Clear App Cache</h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">Clears temporary data to speed up the app. Safe and recommended if the app feels slow.</p>
                                 </div>
                                 <Button 
                                     variant="outline" 
@@ -136,7 +135,7 @@ export default function DataAndCachePage() {
                                     disabled={isClearing}
                                 >
                                     {isClearing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                                    Purge
+                                    Clear
                                 </Button>
                             </div>
 
@@ -144,8 +143,8 @@ export default function DataAndCachePage() {
 
                             <div className="flex items-center justify-between gap-4">
                                 <div className="space-y-1">
-                                    <h4 className="font-bold text-foreground">Deep Reset Persistence</h4>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">Forces the Firestore database to wipe its local IndexedDB copy and re-fetch everything from the cloud. <strong>Fixes the "Loading Hang" error.</strong></p>
+                                    <h4 className="font-bold text-foreground">Full Storage Reset</h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">Clears your offline story data and re-syncs everything with the server. Fixes most loading problems.</p>
                                 </div>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
@@ -160,16 +159,16 @@ export default function DataAndCachePage() {
                                     </AlertDialogTrigger>
                                     <AlertDialogContent className="rounded-[2.5rem] border-none shadow-3xl">
                                         <AlertDialogHeader>
-                                            <AlertDialogTitle className="font-headline text-2xl">Hard Reset Persistence?</AlertDialogTitle>
+                                            <AlertDialogTitle className="font-headline text-2xl">Reset App Storage?</AlertDialogTitle>
                                             <AlertDialogDescription className="text-sm">
-                                                This will clear the offline copy of your manuscripts and force a fresh sync with the server. This is the primary solution for data loading issues. 
+                                                This will clear the offline copy of your stories and re-download them from the cloud.
                                                 <br /><br />
-                                                <strong>Note:</strong> All other tabs must be closed for this to complete.
+                                                <strong>Note:</strong> Close any other open tabs for this to work.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handleResetPersistence} className="bg-emerald-600 hover:bg-emerald-700 rounded-full px-8 font-bold">Initiate Deep Reset</AlertDialogAction>
+                                            <AlertDialogAction onClick={handleResetPersistence} className="bg-emerald-600 hover:bg-emerald-700 rounded-full px-8 font-bold">Start Reset</AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
@@ -183,25 +182,25 @@ export default function DataAndCachePage() {
                         <CardTitle className="text-lg text-destructive flex items-center gap-2 font-headline">
                             <ShieldAlert className="h-5 w-5" /> Danger Zone
                         </CardTitle>
-                        <CardDescription className="text-destructive/70">Wipe all local LitVerse data and reset the environment.</CardDescription>
+                        <CardDescription className="text-destructive/70">Wipe all app settings and preferences.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-8">
                         <div className="flex items-center justify-between gap-6">
                             <div className="space-y-1">
-                                <h4 className="font-bold text-foreground">Wipe Reader Preferences</h4>
-                                <p className="text-xs text-muted-foreground leading-relaxed">Deletes all local storage items including your custom font sizes, reading themes, and "Zen Mode" states. This brings the app back to factory defaults.</p>
+                                <h4 className="font-bold text-foreground">Reset All Preferences</h4>
+                                <p className="text-xs text-muted-foreground leading-relaxed">Deletes your custom font sizes, reading themes, and colors. Resets the app to its original state.</p>
                             </div>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="destructive" className="rounded-2xl h-11 px-6 font-bold uppercase text-[10px] tracking-widest flex-shrink-0 shadow-lg shadow-destructive/20">
-                                        <RotateCcw className="h-4 w-4 mr-2" /> Wipe All
+                                        <RotateCcw className="h-4 w-4 mr-2" /> Reset All
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent className="rounded-[2.5rem] border-none shadow-3xl">
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle className="text-2xl font-headline font-bold text-destructive">Wipe everything?</AlertDialogTitle>
+                                        <AlertDialogTitle className="text-2xl font-headline font-bold text-destructive">Reset everything?</AlertDialogTitle>
                                         <AlertDialogDescription className="text-sm">
-                                            This will delete every local preference and setting saved in this browser. You will stay logged in, but your personalized reading setup will be lost.
+                                            This will delete all your personalized settings. You will stay logged in, but your reading preferences will be lost.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -210,7 +209,7 @@ export default function DataAndCachePage() {
                                             onClick={() => { localStorage.clear(); window.location.reload(); }}
                                             className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold"
                                         >
-                                            Confirm Wipe
+                                            Confirm Reset
                                         </AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
@@ -221,7 +220,7 @@ export default function DataAndCachePage() {
             </div>
             
             <footer className="pt-10 text-center">
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">Local Node Architecture & bull; LitVerse Core</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">DVHIDEOUT Storage Hub</p>
             </footer>
         </div>
     );

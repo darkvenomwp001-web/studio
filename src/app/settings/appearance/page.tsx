@@ -43,7 +43,7 @@ const accentColors = [
     { id: 'lavender', name: 'Lavender Haze', emoji: '🔮' },
     { id: 'honey', name: 'Golden Honey', emoji: '🍯' },
     
-    // 25 New Filipino Colors with Witty Humorous Emojis
+    // 25 Filipino Colors
     { id: 'ube-overload', name: 'Ube Overload', emoji: '🍦' },
     { id: 'matcha-diet', name: 'Matcha Diet', emoji: '🥗' },
     { id: 'kalamansi-shot', name: 'Kalamansi Shot', emoji: '🍋' },
@@ -126,9 +126,9 @@ export default function AppearanceSettingsPage() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
             </Button>
             <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground flex items-center gap-4">
-                <Palette className="h-10 w-10 text-primary" /> Appearance
+                <Palette className="h-10 w-10 text-primary" /> Display Settings
             </h1>
-            <p className="text-muted-foreground text-sm font-medium">Curate your perfect literary atmosphere with real-time immersive features.</p>
+            <p className="text-muted-foreground text-sm font-medium">Choose your favorite colors and reading style.</p>
         </div>
         {(authLoading) && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
       </header>
@@ -138,13 +138,13 @@ export default function AppearanceSettingsPage() {
             <section className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                     <div className="h-1 w-6 bg-primary rounded-full" />
-                    <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Core Style</h2>
+                    <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">App Style</h2>
                 </div>
                 
                 <Card className="border-border/40 shadow-sm bg-card/50 backdrop-blur-xl">
                     <CardHeader className="pb-4">
-                        <CardTitle className="text-lg flex items-center gap-2"><Monitor className="h-4 w-4 text-primary" /> Application Theme</CardTitle>
-                        <CardDescription>Select the fundamental color mode for your session.</CardDescription>
+                        <CardTitle className="text-lg flex items-center gap-2"><Monitor className="h-4 w-4 text-primary" /> Theme</CardTitle>
+                        <CardDescription>Choose how the app looks for you.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-3">
@@ -163,8 +163,8 @@ export default function AppearanceSettingsPage() {
 
                 <Card className="border-border/40 shadow-xl overflow-hidden bg-card/40 backdrop-blur-sm">
                     <CardHeader className="pb-4 bg-muted/20 border-b border-border/40">
-                        <CardTitle className="text-lg flex items-center gap-2"><Coffee className="h-4 w-4 text-primary" /> CAFE palette</CardTitle>
-                        <CardDescription>Choose a high-fidelity accent flavor for your creative workspace.</CardDescription>
+                        <CardTitle className="text-lg flex items-center gap-2"><Coffee className="h-4 w-4 text-primary" /> Colors</CardTitle>
+                        <CardDescription>Choose your favorite main color for the app.</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
                         <ScrollArea className="h-[360px] pr-4 -mr-4">
@@ -198,7 +198,7 @@ export default function AppearanceSettingsPage() {
             <section className="space-y-4 pt-4">
                 <div className="flex items-center gap-2 mb-2">
                     <div className="h-1 w-6 bg-accent rounded-full" />
-                    <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Immersive Reading</h2>
+                    <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Reading Experience</h2>
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-6">
@@ -207,7 +207,7 @@ export default function AppearanceSettingsPage() {
                             <CardTitle className="text-base flex items-center gap-2"><Library className="h-4 w-4 text-amber-600" /> Parchment Mode</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <p className="text-xs text-muted-foreground leading-relaxed">Adds a realistic analog paper grain to reduce eye strain during long sessions.</p>
+                            <p className="text-xs text-muted-foreground leading-relaxed">Adds a soft paper texture to reduce eye strain when reading stories.</p>
                             <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-dashed border-border/60">
                                 <span className="text-[10px] font-bold uppercase tracking-widest">Enable Texture</span>
                                 <Switch checked={localSettings.parchmentMode} onCheckedChange={(v) => updateAppearance('parchmentMode', v)} />
@@ -217,10 +217,10 @@ export default function AppearanceSettingsPage() {
 
                     <Card className="border-border/40 shadow-md bg-card/30">
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2"><Music className="h-4 w-4 text-purple-500" /> Reading Focus</CardTitle>
+                            <CardTitle className="text-base flex items-center gap-2"><Music className="h-4 w-4 text-purple-500" /> Focus Sounds</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <p className="text-xs text-muted-foreground">Toggle real-time atmospheric sounds to block out distractions while you read.</p>
+                            <p className="text-xs text-muted-foreground">Turn on background sounds to help you focus while reading.</p>
                             <RadioGroup value={localSettings.ambientSound} onValueChange={(v: any) => updateAppearance('ambientSound', v)} className="grid grid-cols-3 gap-2">
                                 {['none', 'lofi', 'rain'].map(s => (
                                     <Label key={s} htmlFor={`snd-${s}`} className="flex flex-col items-center justify-center p-2 rounded-xl border-2 border-transparent bg-muted/40 cursor-pointer transition-all hover:bg-muted/60 data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">
@@ -236,15 +236,15 @@ export default function AppearanceSettingsPage() {
 
                 <Card className="border-border/40 shadow-md bg-card/30">
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-center gap-2"><BoxSelect className="h-4 w-4 text-green-500" /> App Corner Dynamics</CardTitle>
-                        <CardDescription>Determine the "roundness" of all interface elements.</CardDescription>
+                        <CardTitle className="text-base flex items-center gap-2"><BoxSelect className="h-4 w-4 text-green-500" /> Corner Style</CardTitle>
+                        <CardDescription>Choose how rounded you want buttons and cards to be.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <RadioGroup value={localSettings.cornerStyle} onValueChange={(v: any) => updateAppearance('cornerStyle', v)} className="grid grid-cols-3 gap-4">
                             {[
-                                { id: 'minimal', label: 'Minimal', desc: 'Sharp edges' },
-                                { id: 'rounded', label: 'Rounded', desc: 'Standard flow' },
-                                { id: 'organic', label: 'Organic', desc: 'Extra soft' },
+                                { id: 'minimal', label: 'Minimal', desc: 'Square edges' },
+                                { id: 'rounded', label: 'Rounded', desc: 'Normal' },
+                                { id: 'organic', label: 'Organic', desc: 'Very round' },
                             ].map(s => (
                                 <div key={s.id}>
                                     <RadioGroupItem value={s.id} id={`radius-${s.id}`} className="sr-only" />
@@ -268,7 +268,7 @@ export default function AppearanceSettingsPage() {
             <section className="sticky top-24 space-y-6">
                 <div className="flex items-center gap-2 mb-2">
                     <div className="h-1 w-6 bg-green-500 rounded-full" />
-                    <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Real-time Preview</h2>
+                    <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Preview</h2>
                 </div>
                 
                 <Card className={cn(
@@ -278,9 +278,9 @@ export default function AppearanceSettingsPage() {
                     localSettings.cornerStyle === 'minimal' ? 'rounded-none' : localSettings.cornerStyle === 'organic' ? 'rounded-[3rem]' : 'rounded-3xl'
                 )}>
                     <CardHeader className="p-8 pb-4">
-                        <Badge className="w-fit mb-4 bg-primary text-primary-foreground font-bold text-[9px] uppercase tracking-[0.2em]">Sample Manuscript</Badge>
-                        <CardTitle className="text-2xl font-headline font-bold leading-tight">The Midnight Paradox</CardTitle>
-                        <CardDescription>A snippet from the archives...</CardDescription>
+                        <Badge className="w-fit mb-4 bg-primary text-primary-foreground font-bold text-[9px] uppercase tracking-[0.2em]">Example Story</Badge>
+                        <CardTitle className="text-2xl font-headline font-bold leading-tight">The Midnight Adventure</CardTitle>
+                        <CardDescription>How it will look when reading...</CardDescription>
                     </CardHeader>
                     <CardContent className="p-8 pt-0 space-y-6">
                         <p className={cn(
@@ -290,7 +290,7 @@ export default function AppearanceSettingsPage() {
                             "The rain drummed against the library windows, echoing the rhythmic ticking of a clock that shouldn't have been there. She reached for the glowing volume, her fingers brushing the worn parchment..."
                         </p>
                         <div className="flex items-center gap-3">
-                            <Button className="rounded-full px-6 h-10 font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">Resume Study</Button>
+                            <Button className="rounded-full px-6 h-10 font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">Read Now</Button>
                             <Button variant="ghost" className="rounded-full h-10 w-10"><HeartPulse className="h-4 w-4 text-red-500"/></Button>
                         </div>
                     </CardContent>
@@ -308,13 +308,13 @@ export default function AppearanceSettingsPage() {
 
                 <Card className="border-border/40 shadow-md bg-card/20">
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest"><Wand2 className="h-4 w-4 text-primary" /> Studio Enhancements</CardTitle>
+                        <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest"><Wand2 className="h-4 w-4 text-primary" /> Visual Effects</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-0 divide-y divide-border/20">
                         {[
-                            { id: 'glassmorphism', label: 'Glassmorphism', desc: 'Cinematic blur effects', icon: Wand2 },
-                            { id: 'oledMode', label: 'OLED Stealth', desc: 'Pure black backgrounds', icon: Moon },
-                            { id: 'autoDim', label: 'Auto-Dim HUD', desc: 'Reduce distractions while reading', icon: EyeOff },
+                            { id: 'glassmorphism', label: 'Blur Effects', desc: 'Glass-like appearance', icon: Wand2 },
+                            { id: 'oledMode', label: 'True Black', desc: 'Deep black background', icon: Moon },
+                            { id: 'autoDim', label: 'Auto-Dim', desc: 'Darken menus while reading', icon: EyeOff },
                         ].map(item => (
                             <div key={item.id} className="flex items-center justify-between py-4">
                                 <div className="space-y-0.5">
@@ -332,10 +332,10 @@ export default function AppearanceSettingsPage() {
       
       <footer className="pt-10 flex flex-col sm:flex-row gap-4">
         <Button variant="outline" className="flex-1 h-14 rounded-2xl font-bold uppercase text-xs tracking-widest shadow-sm hover:bg-muted/50" onClick={() => router.push('/')}>
-            Return to Dashboard
+            Back to Home
         </Button>
         <Button className="flex-1 h-14 rounded-2xl font-bold uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 shadow-2xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95" onClick={() => router.push('/settings')}>
-            Back to Account Hub
+            Back to Settings
         </Button>
       </footer>
     </div>
