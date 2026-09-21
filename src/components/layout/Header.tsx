@@ -46,7 +46,7 @@ export default function Header() {
 
   const handleStart = () => {
     setIsLongPressDetected(false);
-    // Deliberate 6.5-second hold for switching accounts
+    // Deliberate 4-second hold for switching accounts
     longPressTimer.current = setTimeout(() => {
         if (user && savedAccounts.length > 0) {
             setIsLongPressDetected(true);
@@ -54,7 +54,7 @@ export default function Header() {
             // Tactile feedback for hold success
             if (window.navigator.vibrate) window.navigator.vibrate(20);
         }
-    }, 6500); 
+    }, 4000); 
   };
 
   const handleEnd = () => {
@@ -65,23 +65,23 @@ export default function Header() {
   };
 
   const handleProfileClick = (e: React.MouseEvent | React.KeyboardEvent) => {
-      // 1. Critical: Stop event propagation to prevent Radix from opening on click
+      // 1. Intercept the standard click behavior
       e.preventDefault();
       e.stopPropagation();
 
-      // 2. If it was a long press, the switcher is already open via the timer.
+      // 2. If it was a deliberate hold, the menu is handled by the timer.
       if (isLongPressDetected) {
-          // Reset detection for next time
+          // Reset detection state
           setTimeout(() => setIsLongPressDetected(false), 200);
           return;
       }
 
-      // 3. If it's a normal single tap (not a long press):
-      // Redirect to the profile page as normal.
+      // 3. If it's a normal tap (not a long hold):
+      // Redirect to the profile space immediately.
       if (user) {
         router.push(`/profile/${user.id}`);
       }
-      // Ensure the switcher remains closed
+      // Ensure the menu remains closed
       setIsSwitcherOpen(false);
   };
 
@@ -133,8 +133,7 @@ export default function Header() {
             <DropdownMenu 
               open={isSwitcherOpen} 
               onOpenChange={(open) => {
-                // Only allow closing via the standard way (clicking outside, etc.)
-                // Opening is ONLY handled by the 6.5s timer in the profile button.
+                // Opening is restricted to the 4-second hold timer.
                 if (!open) {
                   setIsSwitcherOpen(false);
                   setIsLongPressDetected(false);
@@ -143,7 +142,7 @@ export default function Header() {
             >
                 <DropdownMenuTrigger asChild>
                     <button 
-                        className="relative h-10 w-10 md:h-11 md:w-11 rounded-full outline-none group transition-transform active:scale-95 touch-none"
+                        className="relative h-10 w-10 md:h-11 md:w-11 rounded-full outline-none group transition-transform active:scale-95 touch-none select-none"
                         onPointerDown={handleStart}
                         onPointerUp={handleEnd}
                         onPointerLeave={handleEnd}

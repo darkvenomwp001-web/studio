@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const { showIsland } = useDynamicIsland();
 
-  // Initialize saved accounts
+  // Load known accounts from local storage
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const stored = localStorage.getItem(SAVED_ACCOUNTS_KEY);
@@ -137,7 +137,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSavedAccounts(prev => {
         const exists = prev.some(a => a.id === account.id);
         if (exists) {
-            // Update metadata if changed
             const updated = prev.map(a => a.id === account.id ? account : a);
             localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(updated));
             return updated;
@@ -161,7 +160,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
         await signOut(auth);
         sessionStorage.removeItem(USER_CACHE_KEY);
-        // Navigate to entry point with a user hint
         router.push(`/auth/signin?hint=${account.username}`);
         showIsland({ title: `Switching to @${account.username}`, type: 'info' });
     } catch (e) {
@@ -262,7 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(fullUser);
             if (typeof window !== 'undefined') sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(fullUser));
             
-            // Update saved account list
+            // Remember this account for quick switching
             if (!firebaseUser.isAnonymous) {
               addSavedAccount({ 
                 id: fullUser.id, 
@@ -288,7 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         });
         
-        // Notification Monitoring Area
+        // Activity Monitoring Section
         const notifsQuery = query(collection(db, 'notifications'), where('userId', '==', firebaseUser.uid), orderBy('timestamp', 'desc'), limit(100));
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             const fetchedNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType));
@@ -310,13 +308,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'notifications', operation: 'list' }));
         });
 
-        // Mailbox Monitoring Area
+        // Mailbox Monitoring Section
         const lettersQuery = query(collection(db, 'letters'), where('authorId', '==', firebaseUser.uid), where('isReadByAuthor', '==', false));
         unsubscribeLetters = onSnapshot(lettersQuery, (snapshot) => {
           setUnreadLettersCount(snapshot.size);
         });
 
-        // Messaging Monitoring Area
+        // Direct Message Monitoring Section
         const convsQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', firebaseUser.uid));
         unsubscribeConvs = onSnapshot(convsQuery, (snapshot) => {
           const count = snapshot.docs.filter(d => {
