@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Slider } from '@/components/ui/slider';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -761,7 +762,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 </article>
             </div>
         ) : (
-            <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 text-center animate-in fade-in zoom-in-95 duration-700"><Lock className="h-20 w-20 text-yellow-500/30 mb-6" /><h2 className="text-3xl font-headline font-bold mb-2">Access Re-routed</h2><p className="text-muted-foreground max-w-xs mb-10">This archive entry is currently locked or scheduled for later release.</p><Button variant="outline" className="rounded-full px-12 h-14 font-black uppercase tracking-widest text-xs border-border/40" onClick={() => router.push(`/stories/${storyId}`)}>Back to Overview</Button></div>
+            <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 text-center animate-in fade-in zoom-in-95 duration-700"><Lock className="h-20 w-20 text-yellow-500/30 mb-6" /><h2 className="text-3xl font-headline font-bold mb-2">Access Re-routed</h2><p className="text-muted-foreground max-xs mb-10">This archive entry is currently locked or scheduled for later release.</p><Button variant="outline" className="rounded-full px-12 h-14 font-black uppercase tracking-widest text-xs border-border/40" onClick={() => router.push(`/stories/${storyId}`)}>Back to Overview</Button></div>
         )}
       </main>
 
