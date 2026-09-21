@@ -18,7 +18,9 @@ import {
   SlidersHorizontal, 
   Eye,
   ListOrdered,
-  ChevronDown
+  ChevronDown,
+  Sparkles,
+  TrendingUp
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -204,33 +206,42 @@ function SearchResults() {
   const hasResults = storyResults.length > 0 || userResults.length > 0;
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-0 pb-24 animate-in fade-in duration-500 overflow-x-hidden">
-      {/* Search Header - Sticky at the very top (Header removed from parent) */}
-      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border/40 px-4 py-3 md:p-4 space-y-4 w-full">
-        <div className="relative group w-full">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+    <div className="w-full max-w-7xl mx-auto space-y-0 pb-32 animate-in fade-in duration-700 overflow-x-hidden">
+      {/* Premium Search Header */}
+      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-2xl border-b border-border/40 px-4 py-6 space-y-6 w-full transform-gpu">
+        <div className="relative group w-full max-w-4xl mx-auto">
+          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors duration-300" />
           <Input 
-              placeholder="Search for stories or people" 
-              className="pl-10 w-full h-10 md:h-12 rounded-lg bg-muted/40 border-none shadow-none text-sm focus-visible:ring-primary/20"
+              placeholder="Search for stories or authors" 
+              className="pl-12 w-full h-14 rounded-2xl bg-muted/20 border-none shadow-inner text-base md:text-lg focus-visible:ring-primary/20 transition-all duration-300"
               value={searchTerm}
               onChange={handleInputChange}
           />
           {searchTerm && (
-              <button className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center text-muted-foreground" onClick={handleClear}>
-                  <X className="h-4 w-4" />
+              <button className="absolute right-4 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-colors" onClick={handleClear}>
+                  <X className="h-5 w-5" />
               </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2 w-full">
+        <div className="flex items-center gap-4 w-full max-w-4xl mx-auto">
             <ScrollArea className="flex-1 whitespace-nowrap scrollbar-hide">
-                <div className="flex items-center gap-6 px-1">
+                <div className="flex items-center gap-8 px-1">
+                    <button 
+                        onClick={() => handleGenreClick('all')}
+                        className={cn(
+                            "text-[10px] md:text-xs font-black uppercase tracking-[0.2em] transition-all pb-2 border-b-2",
+                            activeGenre === 'all' ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"
+                        )}
+                    >
+                        Explore All
+                    </button>
                     {GENRES.map(genre => (
                         <button 
                             key={genre} 
                             onClick={() => handleGenreClick(genre)}
                             className={cn(
-                                "text-xs md:text-sm font-bold uppercase tracking-widest transition-all pb-1 border-b-2",
+                                "text-[10px] md:text-xs font-black uppercase tracking-[0.2em] transition-all pb-2 border-b-2",
                                 activeGenre === genre ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"
                             )}
                         >
@@ -243,27 +254,27 @@ function SearchResults() {
             
             <Popover>
                 <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full flex-shrink-0 hover:bg-primary/10 hover:text-primary transition-all">
+                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full flex-shrink-0 bg-muted/20 hover:bg-primary/10 hover:text-primary transition-all shadow-sm">
                         <ChevronDown className="h-4 w-4" />
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[90vw] sm:w-[400px] p-4 rounded-3xl border-none shadow-3xl bg-card/95 backdrop-blur-xl" align="end" sideOffset={12}>
-                    <div className="space-y-4">
+                <PopoverContent className="w-[90vw] sm:w-[450px] p-6 rounded-[2.5rem] border-none shadow-3xl bg-card/95 backdrop-blur-3xl" align="end" sideOffset={16}>
+                    <div className="space-y-6">
                         <div className="flex items-center justify-between px-1">
                             <h4 className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">Library Categories</h4>
                             {activeGenre !== 'all' && (
-                                <button onClick={() => handleGenreClick('all')} className="text-[10px] font-black uppercase text-primary hover:underline">Clear</button>
+                                <button onClick={() => handleGenreClick('all')} className="text-[10px] font-black uppercase text-primary hover:underline">Reset</button>
                             )}
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-2.5">
                             {GENRES.map(genre => (
                                 <Button
                                     key={genre}
                                     variant={activeGenre === genre ? 'default' : 'outline'}
                                     size="sm"
                                     className={cn(
-                                        "justify-start h-10 text-[9px] font-black uppercase tracking-widest rounded-xl px-4 border-border/40 transition-all",
-                                        activeGenre === genre ? "shadow-lg shadow-primary/20" : "hover:bg-primary/5 hover:text-primary hover:border-primary/30"
+                                        "justify-start h-11 text-[9px] font-black uppercase tracking-widest rounded-xl px-4 border-border/40 transition-all",
+                                        activeGenre === genre ? "shadow-lg shadow-primary/30" : "hover:bg-primary/5 hover:text-primary hover:border-primary/40"
                                     )}
                                     onClick={() => handleGenreClick(genre)}
                                 >
@@ -277,15 +288,20 @@ function SearchResults() {
         </div>
       </div>
 
-      {/* Discovery Hub */}
+      {/* Discovery Hub Content */}
       {isBrowsing && (
-          <div className="p-4 md:p-6 space-y-8">
-              <section className="space-y-4">
-                <h2 className="text-base md:text-lg font-bold tracking-tight">Hottest Originals</h2>
+          <div className="p-4 md:p-10 space-y-12 max-w-6xl mx-auto">
+              <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                        <TrendingUp className="h-5 w-5" />
+                    </div>
+                    <h2 className="text-xl md:text-2xl font-headline font-bold tracking-tight">Hottest Trending</h2>
+                </div>
                 <ScrollArea className="w-full whitespace-nowrap scrollbar-hide -mx-4 px-4">
-                    <div className="flex gap-3 pb-2">
+                    <div className="flex gap-4 pb-4">
                         {trendingStories.slice(0, 8).map(s => (
-                            <div key={s.id} className="w-28 md:w-36 shrink-0">
+                            <div key={s.id} className="w-36 md:w-44 shrink-0 transition-transform duration-500 hover:scale-105">
                                 <StoryCard story={s} />
                             </div>
                         ))}
@@ -294,26 +310,33 @@ function SearchResults() {
                 </ScrollArea>
               </section>
 
-              <div className="flex items-center justify-between pt-4">
-                 <h2 className="text-base md:text-lg font-bold tracking-tight">
-                    {formatCompactNumber(trendingStories.length * 100)} Stories
-                 </h2>
+              <div className="flex items-center justify-between pt-6 border-t border-border/20">
+                 <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-accent/10 text-accent">
+                        <Sparkles className="h-5 w-5" />
+                    </div>
+                    <h2 className="text-xl md:text-2xl font-headline font-bold tracking-tight">
+                        {formatCompactNumber(trendingStories.length * 150)} New Discoveries
+                    </h2>
+                 </div>
                  <Popover>
                     <PopoverTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 gap-2 rounded-lg font-bold uppercase text-[10px] tracking-widest border border-border/40">
-                            <SlidersHorizontal className="h-3 w-3" />
-                            Filter
+                        <Button variant="outline" size="sm" className="h-10 gap-2 rounded-full px-6 font-bold uppercase text-[10px] tracking-widest border-border/40 hover:bg-muted shadow-sm transition-all active:scale-95">
+                            <SlidersHorizontal className="h-3.5 w-3.5" />
+                            Refine
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[85vw] max-w-sm p-4 rounded-2xl border-none shadow-3xl bg-card/95 backdrop-blur-xl" align="end">
-                        <div className="space-y-4">
-                            <h4 className="font-bold text-sm">Refine Search</h4>
-                            <div className="space-y-1.5">
-                                <Label className="text-[9px] font-black uppercase text-muted-foreground">Sort By</Label>
-                                <RadioGroup value={sortBy} onValueChange={(v) => setSortBy(v as any)} className="grid grid-cols-1 gap-1">
+                    <PopoverContent className="w-[85vw] max-w-sm p-6 rounded-[2rem] border-none shadow-3xl bg-card/95 backdrop-blur-3xl" align="end">
+                        <div className="space-y-6">
+                            <div className="space-y-3">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Sort Order</Label>
+                                <RadioGroup value={sortBy} onValueChange={(v) => setSortBy(v as any)} className="grid grid-cols-1 gap-2">
                                     {['relevance', 'views', 'newest'].map(s => (
-                                        <Label key={s} htmlFor={`sort-${s}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer capitalize text-xs">
-                                            <RadioGroupItem value={s} id={`sort-${s}`} />
+                                        <Label key={s} htmlFor={`sort-${s}`} className={cn(
+                                            "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border border-transparent hover:bg-muted/50 capitalize text-sm font-bold",
+                                            sortBy === s && "bg-primary/5 border-primary/20 text-primary"
+                                        )}>
+                                            <RadioGroupItem value={s} id={`sort-${s}`} className="sr-only" />
                                             {s}
                                         </Label>
                                     ))}
@@ -324,25 +347,26 @@ function SearchResults() {
                  </Popover>
               </div>
 
-              <div className="space-y-6 pt-2">
+              <div className="grid gap-10 pt-2">
                   {trendingStories.map((story, index) => (
-                      <Link href={`/stories/${story.id}`} key={story.id} className="flex gap-4 group">
-                          <div className="relative w-20 md:w-24 aspect-[2/3] shrink-0 rounded-md overflow-hidden bg-muted shadow-sm group-hover:shadow-md transition-shadow">
-                              <NextImage src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/200/300`} alt="" fill className="object-cover transition-transform duration-700 group-hover/img:scale-105" />
+                      <Link href={`/stories/${story.id}`} key={story.id} className="flex gap-6 group transform-gpu transition-all hover:-translate-x-2">
+                          <div className="relative w-28 md:w-36 aspect-[2/3] shrink-0 rounded-2xl overflow-hidden bg-muted shadow-lg ring-1 ring-white/5">
+                              <NextImage src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/200/300`} alt="" fill className="object-cover transition-transform duration-1000 group-hover:scale-110" />
                           </div>
-                          <div className="flex-1 space-y-1 py-1">
-                              <div className="flex items-center gap-2">
-                                  <span className="text-base font-bold text-foreground/40">{index + 1}</span>
-                                  <h3 className="font-bold text-sm md:text-base line-clamp-1 group-hover:text-primary transition-colors">{story.title}</h3>
+                          <div className="flex-1 space-y-3 py-2">
+                              <div className="flex items-center gap-3">
+                                  <span className="text-2xl font-black text-foreground/10 tabular-nums italic">{index + 1}</span>
+                                  <h3 className="font-headline font-bold text-lg md:text-2xl line-clamp-1 group-hover:text-primary transition-colors leading-tight">{story.title}</h3>
                               </div>
-                              <p className="text-xs text-muted-foreground font-medium">@{story.author.username}</p>
-                              <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground/60">
-                                  <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {formatCompactNumber(story.views || 0)}</span>
-                                  <span className="flex items-center gap-1"><ListOrdered className="h-3 w-3" /> {story.chapters?.length || 0}</span>
+                              <p className="text-sm text-muted-foreground/60 font-bold uppercase tracking-widest">@{story.author.username}</p>
+                              <div className="flex items-center gap-6 text-[11px] font-black uppercase tracking-widest text-muted-foreground/40">
+                                  <span className="flex items-center gap-2"><Eye className="h-4 w-4 text-primary/30" /> {formatCompactNumber(story.views || 0)}</span>
+                                  <span className="flex items-center gap-2"><ListOrdered className="h-4 w-4 text-accent/30" /> {story.chapters?.length || 0} Parts</span>
                               </div>
-                              <div className="flex flex-wrap gap-1.5 pt-1">
+                              <div className="flex flex-wrap gap-2 pt-2">
+                                  <Badge variant="outline" className="h-6 px-3 rounded-full bg-primary/5 text-primary border-primary/20 font-black text-[9px] uppercase tracking-widest">{story.genre}</Badge>
                                   {story.tags.slice(0, 3).map(tag => (
-                                      <Badge key={tag} variant="secondary" className="h-5 px-2 rounded bg-muted/50 text-[9px] font-bold border-none">{tag}</Badge>
+                                      <Badge key={tag} variant="secondary" className="h-6 px-3 rounded-full bg-muted/40 text-muted-foreground border-none font-bold text-[9px] uppercase tracking-widest">#{tag}</Badge>
                                   ))}
                               </div>
                           </div>
@@ -352,47 +376,48 @@ function SearchResults() {
           </div>
       )}
 
-      {/* Search Results View */}
+      {/* Search Results Hub */}
       {!isBrowsing && (
-        <div className="p-4 md:p-6 space-y-6">
+        <div className="p-4 md:p-10 space-y-10 max-w-6xl mx-auto">
             {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-[10px] font-black uppercase text-muted-foreground animate-pulse">Scanning Archives</p>
+                <div className="flex flex-col items-center justify-center py-32 gap-4">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Scanning the multiverse...</p>
                 </div>
             ) : !hasResults ? (
-                <div className="text-center py-20 bg-muted/10 rounded-3xl border-2 border-dashed border-border/40">
-                    <SearchIcon className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
-                    <h3 className="text-sm font-bold">No results found</h3>
-                    <button className="text-xs font-black uppercase text-primary mt-2" onClick={handleClear}>Clear Search</button>
+                <div className="text-center py-32 bg-muted/10 rounded-[3rem] border-2 border-dashed border-border/40 animate-in zoom-in-95 duration-500">
+                    <SearchIcon className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
+                    <h3 className="text-xl font-headline font-bold">No archival matches</h3>
+                    <p className="text-sm text-muted-foreground mt-2 mb-8">Try adjusting your coordinates or genre signal.</p>
+                    <Button onClick={handleClear} className="rounded-full px-10 h-12 font-black uppercase text-[10px] tracking-widest shadow-xl">Reset Search</Button>
                 </div>
             ) : (
                 <Tabs defaultValue="stories" className="w-full">
-                    <div className="flex justify-between items-center mb-6">
-                        <TabsList className="bg-muted/50 p-0.5 rounded-lg h-9">
-                            <TabsTrigger value="stories" className="rounded-md text-[10px] font-black uppercase gap-1 px-4 h-8">Manuscripts</TabsTrigger>
-                            <TabsTrigger value="authors" className="rounded-md text-[10px] font-black uppercase gap-1 px-4 h-8">Creators</TabsTrigger>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-12">
+                        <TabsList className="bg-muted/40 backdrop-blur-xl p-1 rounded-full border border-border/40 shadow-inner h-12 w-full sm:w-auto">
+                            <TabsTrigger value="stories" className="rounded-full font-black uppercase text-[10px] tracking-widest px-8 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">Manuscripts</TabsTrigger>
+                            <TabsTrigger value="authors" className="rounded-full font-black uppercase text-[10px] tracking-widest px-8 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">Creators</TabsTrigger>
                         </TabsList>
-                        <Badge variant="outline" className="h-6 rounded-full px-3 text-[10px] font-bold uppercase tracking-tight">{storyResults.length} Results</Badge>
+                        <Badge variant="outline" className="h-9 rounded-full px-6 font-black text-[10px] uppercase tracking-[0.2em] bg-primary/5 text-primary border-primary/20">{storyResults.length} Archives Found</Badge>
                     </div>
 
-                    <TabsContent value="stories" className="space-y-6">
+                    <TabsContent value="stories" className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
                         {storyResults.map((story) => (
-                            <Link href={`/stories/${story.id}`} key={story.id} className="flex gap-4 group">
-                                <div className="relative w-24 md:w-28 aspect-[2/3] shrink-0 rounded-md overflow-hidden bg-muted shadow-sm">
+                            <Link href={`/stories/${story.id}`} key={story.id} className="flex gap-6 md:gap-10 group">
+                                <div className="relative w-32 md:w-44 aspect-[2/3] shrink-0 rounded-2xl overflow-hidden bg-muted shadow-2xl transition-transform duration-700 group-hover:scale-105">
                                     <NextImage src={story.coverImageUrl || `https://picsum.photos/seed/${story.id}/200/300`} alt="" fill className="object-cover" />
                                 </div>
-                                <div className="flex-1 py-1 space-y-2">
-                                    <h3 className="font-bold text-sm md:text-lg line-clamp-2 group-hover:text-primary transition-colors leading-snug">{story.title}</h3>
-                                    <p className="text-xs text-muted-foreground font-medium">@{story.author.username}</p>
-                                    <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground/70">
-                                        <span className="flex items-center gap-1.5"><Eye className="h-3.5 w-3.5" /> {formatCompactNumber(story.views || 0)}</span>
-                                        <span className="flex items-center gap-1.5"><BookOpen className="h-3.5 w-3.5" /> {story.chapters?.length || 0} Parts</span>
+                                <div className="flex-1 py-4 space-y-4">
+                                    <h3 className="font-headline font-bold text-xl md:text-4xl line-clamp-2 group-hover:text-primary transition-colors leading-tight tracking-tight">{story.title}</h3>
+                                    <p className="text-xs md:text-sm text-muted-foreground/60 font-bold uppercase tracking-widest">@{story.author.username}</p>
+                                    <div className="flex items-center gap-8 text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground/40">
+                                        <span className="flex items-center gap-2.5"><Eye className="h-4 w-4 text-primary/30" /> {formatCompactNumber(story.views || 0)}</span>
+                                        <span className="flex items-center gap-2.5"><BookOpen className="h-4 w-4 text-accent/30" /> {story.chapters?.length || 0} Parts</span>
                                     </div>
-                                    <div className="flex flex-wrap gap-1.5 pt-1">
-                                        <Badge variant="outline" className="h-5 px-2 text-[9px] uppercase tracking-tighter text-primary border-primary/20 bg-primary/5">{story.genre}</Badge>
-                                        {story.tags.slice(0, 2).map(tag => (
-                                            <Badge key={tag} variant="secondary" className="h-5 px-2 rounded bg-muted/40 text-[9px] font-bold border-none truncate max-w-[80px]">#{tag}</Badge>
+                                    <div className="flex flex-wrap gap-2.5 pt-2">
+                                        <Badge variant="outline" className="h-7 px-4 rounded-full bg-primary/5 text-primary border-primary/20 font-black text-[9px] uppercase tracking-widest">{story.genre}</Badge>
+                                        {story.tags.slice(0, 3).map(tag => (
+                                            <Badge key={tag} variant="secondary" className="h-7 px-4 rounded-full bg-muted/40 text-muted-foreground border-none font-bold text-[9px] uppercase tracking-widest">#{tag}</Badge>
                                         ))}
                                     </div>
                                 </div>
@@ -400,27 +425,31 @@ function SearchResults() {
                         ))}
                     </TabsContent>
 
-                    <TabsContent value="authors" className="space-y-3">
-                        {userResults.length > 0 ? userResults.map(author => (
-                        <Link href={`/profile/${author.id}`} key={author.id} className="block group">
-                            <Card className="rounded-xl border-border/40 hover:bg-muted/30 transition-colors">
-                                <CardContent className="p-3 flex items-center gap-4">
-                                    <Avatar className="w-12 h-12 border shadow-sm">
-                                        <AvatarImage src={author.avatarUrl} alt={author.username} />
-                                        <AvatarFallback className="text-xs font-black uppercase">{(author.username).substring(0, 2)}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-sm truncate">@{author.username}</h3>
-                                        <p className="text-[10px] text-muted-foreground font-bold tracking-widest">{author.displayName}</p>
-                                        <p className="text-[10px] text-primary font-black mt-1">{author.followersCount || 0} Followers</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                        )) : (
-                            <div className="text-center py-20 opacity-40">
-                                <Users className="h-10 w-10 mx-auto mb-2" />
-                                <p className="text-xs font-bold uppercase tracking-widest">No matching creators found</p>
+                    <TabsContent value="authors" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        {userResults.length > 0 ? (
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                {userResults.map(author => (
+                                <Link href={`/profile/${author.id}`} key={author.id} className="block group">
+                                    <Card className="rounded-[2rem] border-border/40 hover:bg-primary/5 transition-all duration-500 hover:shadow-xl hover:shadow-primary/5 transform-gpu group-hover:-translate-y-1">
+                                        <CardContent className="p-6 flex items-center gap-5">
+                                            <Avatar className="w-16 h-16 border-2 border-background shadow-md">
+                                                <AvatarImage src={author.avatarUrl} alt={author.username} />
+                                                <AvatarFallback className="text-lg font-black uppercase bg-muted text-primary">{(author.username).substring(0, 2)}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-bold text-lg truncate">@{author.username}</h3>
+                                                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-60 truncate">{author.displayName}</p>
+                                                <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-2">{formatCompactNumber(author.followersCount || 0)} Signals</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </Link>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-32 opacity-40">
+                                <Users className="h-12 w-12 mx-auto mb-4" />
+                                <p className="text-[10px] font-black uppercase tracking-widest">No matching creator signals found</p>
                             </div>
                         )}
                     </TabsContent>
@@ -428,15 +457,15 @@ function SearchResults() {
             )}
         </div>
       )}
+      <BottomNavigationBar />
     </div>
   );
 }
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>}>
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>}>
       <SearchResults />
-      <BottomNavigationBar />
     </Suspense>
   );
 }
