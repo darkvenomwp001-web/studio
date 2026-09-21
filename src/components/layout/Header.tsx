@@ -35,7 +35,7 @@ export default function Header() {
   const { user, loading, savedAccounts, switchAccount, removeSavedAccount, signOutFirebase } = useAuth(); 
   const router = useRouter();
   
-  // High-Fidelity Identity Hub State
+  // High-Fidelity Account Hub State
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const [isLongPressDetected, setIsLongPressDetected] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -59,13 +59,15 @@ export default function Header() {
 
   const handleStart = () => {
     setIsLongPressDetected(false);
+    // User requested a 6-second hold to trigger the switcher
     longPressTimer.current = setTimeout(() => {
         if (user && savedAccounts.length > 0) {
             setIsLongPressDetected(true);
             setIsSwitcherOpen(true);
-            if (window.navigator.vibrate) window.navigator.vibrate(10);
+            // High-fidelity tactile feedback for hold success
+            if (window.navigator.vibrate) window.navigator.vibrate(15);
         }
-    }, 600);
+    }, 6000); 
   };
 
   const handleEnd = () => {
@@ -76,11 +78,12 @@ export default function Header() {
   };
 
   const handleProfileClick = (e: React.MouseEvent) => {
-      // If a long press was detected, prevent the single-click navigation
+      // If the 6-second hold was completed, prevent the normal navigation
       if (isLongPressDetected) {
           e.preventDefault();
           return;
       }
+      // Otherwise, act as a normal click and go to the profile
       router.push(`/profile/${user?.id}`);
   };
 

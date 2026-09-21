@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
@@ -162,13 +161,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
         await signOut(auth);
         sessionStorage.removeItem(USER_CACHE_KEY);
-        // We redirect to sign in with a hint. 
-        // Real seamless switching without any password re-entry 
-        // usually requires cross-account tokens or custom session storage.
+        // Navigate to entry point with a user hint
         router.push(`/auth/signin?hint=${account.username}`);
         showIsland({ title: `Switching to @${account.username}`, type: 'info' });
     } catch (e) {
-        toast({ title: "Switch failed", variant: "destructive" });
+        toast({ title: "Failed to switch accounts", variant: "destructive" });
     } finally {
         setAuthLoading(false);
     }
@@ -265,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(fullUser);
             if (typeof window !== 'undefined') sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(fullUser));
             
-            // Sync saved accounts hub
+            // Sync saved accounts in the hub
             if (!firebaseUser.isAnonymous) {
               addSavedAccount({ 
                 id: fullUser.id, 
@@ -281,7 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const isAnonymous = firebaseUser.isAnonymous;
             const username = isAnonymous ? `Guest${firebaseUser.uid.substring(0, 6)}` : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0].toLowerCase() || `user_${firebaseUser.uid.substring(0, 5)}`;
             const displayName = isAnonymous ? 'A Mysterious Guest' : (firebaseUser.displayName || username);
-            const newUserProfile: any = { id: firebaseUser.uid, username, displayName, email: firebaseUser.email || '', emailVerified: firebaseUser.emailVerified, avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`, bio: isAnonymous ? 'Just visiting!' : 'New to LitVerse!', messagingPreference: 'everyone', level: 1, xp: 0, achievements: [], notificationSettings: { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false }, followersCount: 0, followingCount: 0, followingIds: [], closeFriendIds: [], fcmTokens: [], readingList: [], readerSettings: { swipeToNavigate: true, navigationStyle: 'horizontal', autoNextChapter: false }, isAnonymous, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+            const newUserProfile: any = { id: firebaseUser.uid, username, displayName, email: firebaseUser.email || '', emailVerified: firebaseUser.emailVerified, avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`, bio: isAnonymous ? 'Just visiting!' : 'New to DVHIDEOUT!', messagingPreference: 'everyone', level: 1, xp: 0, achievements: [], notificationSettings: { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false }, followersCount: 0, followingCount: 0, followingIds: [], closeFriendIds: [], fcmTokens: [], readingList: [], readerSettings: { swipeToNavigate: true, navigationStyle: 'horizontal', autoNextChapter: false }, isAnonymous, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
             setDoc(userRef, newUserProfile, { merge: true }).catch(async (serverError) => {
                 errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'create', requestResourceData: newUserProfile }));
             });
@@ -291,7 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         });
         
-        // Notification Signal Node
+        // Notification Monitoring Area
         const notifsQuery = query(collection(db, 'notifications'), where('userId', '==', firebaseUser.uid), orderBy('timestamp', 'desc'), limit(100));
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             const fetchedNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType));
@@ -313,13 +310,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'notifications', operation: 'list' }));
         });
 
-        // Mailbox Signal Node (Letters)
+        // Mailbox Monitoring Area
         const lettersQuery = query(collection(db, 'letters'), where('authorId', '==', firebaseUser.uid), where('isReadByAuthor', '==', false));
         unsubscribeLetters = onSnapshot(lettersQuery, (snapshot) => {
           setUnreadLettersCount(snapshot.size);
         });
 
-        // Messaging Signal Node (Conversations)
+        // Messaging Monitoring Area
         const convsQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', firebaseUser.uid));
         unsubscribeConvs = onSnapshot(convsQuery, (snapshot) => {
           const count = snapshot.docs.filter(d => {
@@ -396,7 +393,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const sendVerificationEmail = useCallback(async () => {
-    toast({ title: "Note", description: "Email verification is currently managed internally." });
+    toast({ title: "Email verification is currently managed internally." });
   }, [toast]);
 
   const reloadUser = useCallback(async () => {
@@ -413,7 +410,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
         try { await signInWithRedirect(auth, provider); } catch (redirectError: any) {
-          toast({ title: "Sign-In Error", description: redirectError.message || "Please allow redirects.", variant: "destructive" });
+          toast({ title: "Please allow redirects to sign in.", variant: "destructive" });
         }
       } else {
         toast({ title: "Sign-In Error", description: error.message || "Failed to connect with Google.", variant: "destructive" });
@@ -439,7 +436,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const q = query(collection(db, 'users'), where('username', '==', emailOrUsername.toLowerCase()));
         const snapshot = await getDocs(q);
         if (!snapshot.empty) email = snapshot.docs[0].data().email;
-        else throw new Error("No user found with that username.");
+        else throw new Error("No user found with that handle.");
       }
       await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
       showIsland({ title: "Welcome back!", type: 'success' });
@@ -495,7 +492,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       showIsland({ title: "Email updated", type: 'success' });
       return true;
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Update failed", description: error.message, variant: "destructive" });
       return false;
     }
   }, [updateUserProfile, toast, showIsland]);
@@ -509,7 +506,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       showIsland({ title: "Password updated", type: 'success' });
       return true;
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Update failed", description: error.message, variant: "destructive" });
       return false;
     }
   }, [toast, showIsland]);
@@ -520,7 +517,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       showIsland({ title: "Reset link sent", type: 'info' });
       return true;
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Action failed", description: error.message, variant: "destructive" });
       return false;
     }
   }, [toast, showIsland]);
@@ -562,7 +559,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const addToLibrary = useCallback(async (story: Story) => {
     if (!user) return;
     const item: ReadingListItem = { id: story.id, title: story.title, author: story.author, chapters: story.chapters, lastUpdated: story.lastUpdated, coverImageUrl: story.coverImageUrl, status: story.status };
-    updateDoc(doc(db, 'users', user.id), { readingList: arrayUnion(item) }).then(() => showIsland({ title: "Added to Library", type: 'success' }));
+    updateDoc(doc(db, 'users', user.id), { readingList: arrayUnion(item) }).then(() => showIsland({ title: "Saved to Library", type: 'success' }));
   }, [user, showIsland]);
 
   const removeFromLibrary = useCallback(async (storyId: string) => {
@@ -576,10 +573,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             await updateFirebasePassword(auth.currentUser, password);
             setRequiresPasswordSetup(false);
-            showIsland({ title: "Password setup complete", type: 'success' });
+            showIsland({ title: "Password complete", type: 'success' });
             return true;
         } catch (error: any) {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
+            toast({ title: "Action failed", description: error.message, variant: "destructive" });
             return false;
         }
     }
