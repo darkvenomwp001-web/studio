@@ -178,11 +178,21 @@ body.parchment-mode::after {
 }
 
 @layer base {
-  * { @apply border-border; }
+  * { 
+    @apply border-border;
+    -webkit-touch-callout: none !important; /* Global anti-popup on iOS */
+  }
+  
   body {
     @apply bg-background text-foreground scrollbar-none md:scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-transparent overflow-x-hidden w-full max-w-full;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Preserve selection for archival features */
+  .prose, .ProseMirror, input, textarea {
+    -webkit-user-select: text !important;
+    user-select: text !important;
   }
 }
 

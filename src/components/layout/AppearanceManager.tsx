@@ -1,12 +1,30 @@
-
 'use client';
 
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 
+/**
+ * AppearanceManager handles global visual styles, account switching themes,
+ * ambient sounds, and anti-popup security for long-press gestures.
+ */
 export default function AppearanceManager() {
   const { user } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    // Global Anti-Popup Hub
+    // This prevents browser-native context menus from appearing when the user 
+    // performs a long-press (press and hold) across the entire application.
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+        e.preventDefault();
+    };
+
+    document.addEventListener('contextmenu', handleGlobalContextMenu);
+    
+    return () => {
+        document.removeEventListener('contextmenu', handleGlobalContextMenu);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user?.appearanceSettings) return;
@@ -58,7 +76,7 @@ export default function AppearanceManager() {
       body.classList.remove('ui-compact');
     }
 
-    // Apply Ambient Sound
+    // Apply Ambient Sound System
     const playSound = async (type: string) => {
         if (!audioRef.current) {
             audioRef.current = new Audio();
@@ -72,8 +90,8 @@ export default function AppearanceManager() {
         }
 
         const source = type === 'lofi' 
-            ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' // Placeholder Lo-fi
-            : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'; // Placeholder Rain
+            ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' 
+            : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3';
 
         if (audioRef.current.src !== source) {
             audioRef.current.src = source;
