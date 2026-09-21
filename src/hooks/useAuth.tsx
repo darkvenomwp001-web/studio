@@ -159,8 +159,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchAccount = useCallback(async (account: UserSummary) => {
     setAuthLoading(true);
     try {
+        // Sign out current session to allow switching
         await signOut(auth);
         sessionStorage.removeItem(USER_STORAGE_NAME);
+        
+        // Use a hint to pre-fill the username on the sign-in page
         router.push(`/auth/signin?hint=${account.username}`);
         showIsland({ title: `Switching to @${account.username}`, type: 'info' });
     } catch (e) {
@@ -261,7 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(fullUser);
             if (typeof window !== 'undefined') sessionStorage.setItem(USER_STORAGE_NAME, JSON.stringify(fullUser));
             
-            // Remember this account for switching
+            // Save this identity to the local Switcher Hub
             if (!firebaseUser.isAnonymous) {
               addSavedAccount({ 
                 id: fullUser.id, 
@@ -349,11 +352,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAuthRoute = AUTH_PAGES.includes(pathname);
     const isAuthenticated = user && !user.isAnonymous;
     
-    // Check for "Add Account" intent signal
+    // Check for "Add Account" intent signal to bypass automatic redirection
     const isAddingAccount = searchParams.get('mode') === 'addAccount';
 
     if (isAuthenticated) {
-        // Only redirect to home if NOT intentionally adding another account
         if (isAuthRoute && !isAddingAccount) {
             router.push(DEFAULT_HOME_PATH);
         }
