@@ -36,7 +36,9 @@ import {
   Edit2,
   ArrowLeft,
   Radio,
-  Loader2
+  Loader2,
+  ShieldCheck,
+  EyeOff
 } from 'lucide-react';
 import NextImage from 'next/image';
 import Link from 'next/link';
@@ -978,6 +980,9 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
   const displayName = profileUser.displayName || profileUser.username;
   const showAnnouncementsTab = isOwnProfile || announcementCount > 0;
 
+  // Account Privacy Enforcement Node
+  const canSeeFullProfile = isOwnProfile || isMoot || profileUser.profilePrivacy === 'public' || !profileUser.profilePrivacy;
+
   return (
     <div className="pb-20 animate-in fade-in duration-500">
       <div className="relative w-full aspect-[21/9] md:aspect-[4/1] bg-muted overflow-hidden">
@@ -1035,7 +1040,7 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
                       </Link>
                   </div>
 
-                  {profileUser.bio && <p className="text-muted-foreground text-xs sm:text-sm max-w-2xl leading-relaxed line-clamp-2">{profileUser.bio}</p>}
+                  {canSeeFullProfile && profileUser.bio && <p className="text-muted-foreground text-xs sm:text-sm max-w-2xl leading-relaxed line-clamp-2">{profileUser.bio}</p>}
                   
                   {!isOwnProfile && (
                     <div className="flex flex-wrap gap-2 sm:gap-3 pt-3 sm:pt-4">
@@ -1055,131 +1060,145 @@ export default function ProfilePageClient({ userId }: { userId: string }) {
       </div>
 
       <main className="container mx-auto px-4 mt-10 md:mt-12 space-y-10">
-        <Tabs defaultValue="works" className="w-full">
-          <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6 md:gap-10 overflow-x-auto no-scrollbar">
-            <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Stories</TabsTrigger>
-            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Social</TabsTrigger>
-            {showAnnouncementsTab && (
-                <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Updates</TabsTrigger>
-            )}
-          </TabsList>
-          
-          <TabsContent value="works" className="mt-8 space-y-12">
-            {publishedWorks.length > 0 && (
-              <div>
-                <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight">
-                    < BookOpen className="h-5 w-5 text-primary" /> 
-                    Published Stories
+        {!canSeeFullProfile ? (
+            <div className="text-center py-32 bg-card/20 rounded-[3rem] border-2 border-dashed border-border/40 max-w-2xl mx-auto flex flex-col items-center animate-in zoom-in-95 duration-700">
+                <div className="p-8 bg-muted/40 rounded-full mb-6">
+                    {profileUser.profilePrivacy === 'locked' ? <ShieldCheck className="h-12 w-12 text-primary" /> : <Lock className="h-12 w-12 text-muted-foreground/40" />}
+                </div>
+                <h2 className="text-3xl font-headline font-bold text-foreground mb-2">
+                    {profileUser.profilePrivacy === 'locked' ? 'Profile is Locked' : 'Private Space'}
                 </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
-                    {publishedWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} /> ))}
-                </div>
-              </div>
-            )}
-            
-            {isOwnProfile && privateWorks.length > 0 && (
-              <div>
-                <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight"><Lock className="h-5 w-5 text-muted-foreground" /> Private Drafts</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
-                    {privateWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} isPrivate /> ))}
-                </div>
-              </div>
-            )}
+                <p className="text-muted-foreground max-w-xs px-8 leading-relaxed italic font-medium">
+                    Only mutual friends can see this creator's full creative archive. Follow each other to unlock their stories.
+                </p>
+            </div>
+        ) : (
+            <Tabs defaultValue="works" className="w-full">
+              <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6 md:gap-10 overflow-x-auto no-scrollbar">
+                <TabsTrigger value="works" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Stories</TabsTrigger>
+                <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Social</TabsTrigger>
+                {showAnnouncementsTab && (
+                    <TabsTrigger value="announcements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-transparent font-bold pb-4 px-0 transition-all text-xs md:text-sm uppercase tracking-widest">Updates</TabsTrigger>
+                )}
+              </TabsList>
+              
+              <TabsContent value="works" className="mt-8 space-y-12">
+                {publishedWorks.length > 0 && (
+                  <div>
+                    <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight">
+                        < BookOpen className="h-5 w-5 text-primary" /> 
+                        Published Stories
+                    </h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
+                        {publishedWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} /> ))}
+                    </div>
+                  </div>
+                )}
+                
+                {isOwnProfile && privateWorks.length > 0 && (
+                  <div>
+                    <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 tracking-tight"><Lock className="h-5 w-5 text-muted-foreground" /> Private Drafts</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
+                        {privateWorks.map(story => ( <ProfileStoryCard key={story.id} story={story} isPrivate /> ))}
+                    </div>
+                  </div>
+                )}
 
-            {publishedWorks.length === 0 && !isOwnProfile && (
-                 <div className="text-center py-32 text-muted-foreground border-2 border-dashed rounded-[3rem] border-border/40 max-w-2xl mx-auto">
-                    <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                    <h3 className="text-lg font-bold text-foreground">No stories found</h3>
-                    <p className="text-sm">This author hasn't posted any stories yet.</p>
-                </div>
-            )}
-          </TabsContent>
+                {publishedWorks.length === 0 && !isOwnProfile && (
+                     <div className="text-center py-32 text-muted-foreground border-2 border-dashed rounded-[3rem] border-border/40 max-w-2xl mx-auto">
+                        <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                        <h3 className="text-lg font-bold text-foreground">No stories found</h3>
+                        <p className="text-sm">This author hasn't posted any stories yet.</p>
+                    </div>
+                )}
+              </TabsContent>
 
-          <TabsContent value="feed" className="mt-8">
-             <Tabs defaultValue="about" className="w-full">
-                <div className="flex justify-center mb-8">
-                    <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm backdrop-blur-md">
-                        <TabsTrigger value="about" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
-                            <PenTool className="h-4 w-4" /> About the Author
-                        </TabsTrigger>
-                        <TabsTrigger value="archive" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
-                            <LayoutGrid className="h-4 w-4" /> Photos
-                        </TabsTrigger>
-                    </TabsList>
-                </div>
+              <TabsContent value="feed" className="mt-8">
+                 <Tabs defaultValue="about" className="w-full">
+                    <div className="flex justify-center mb-8">
+                        <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm backdrop-blur-md">
+                            <TabsTrigger value="about" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+                                <PenTool className="h-4 w-4" /> About the Author
+                            </TabsTrigger>
+                            <TabsTrigger value="archive" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+                                <LayoutGrid className="h-4 w-4" /> Photos
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
 
-                <TabsContent value="about" className="space-y-10 animate-in fade-in duration-500">
-                    <Card className="rounded-[2.5rem] border-none bg-card/40 backdrop-blur-xl shadow-2xl overflow-hidden min-h-[400px]">
-                        <CardHeader className="p-8 border-b border-border/10 flex flex-row items-center justify-between">
-                            <div>
-                                <CardTitle className="text-2xl font-headline font-bold text-foreground">About Me</CardTitle>
-                            </div>
-                            {isOwnProfile && (
-                                <div className="flex gap-2">
-                                    {!isEditingBio ? (
-                                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/5" onClick={() => setIsEditingBio(true)}>
-                                            <Edit2 className="h-5 w-5 text-primary" />
+                    <TabsContent value="about" className="space-y-10 animate-in fade-in duration-500">
+                        <Card className="rounded-[2.5rem] border-none bg-card/40 backdrop-blur-xl shadow-2xl overflow-hidden min-h-[400px]">
+                            <CardHeader className="p-8 border-b border-border/10 flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-2xl font-headline font-bold text-foreground">About Me</CardTitle>
+                                </div>
+                                {isOwnProfile && (
+                                    <div className="flex gap-2">
+                                        {!isEditingBio ? (
+                                            <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/5" onClick={() => setIsEditingBio(true)}>
+                                                <Edit2 className="h-5 w-5 text-primary" />
+                                            </Button>
+                                        ) : (
+                                            <div className="flex gap-1">
+                                                <Button variant="ghost" size="icon" className="rounded-full text-destructive hover:bg-destructive/5" onClick={handleClearBio}>
+                                                    <Trash2 className="h-5 w-5" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="rounded-full" onClick={() => { setIsEditingBio(false); setBioInput(profileUser.authorBio || ''); }}>
+                                                    <X className="h-5 w-5" />
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </CardHeader>
+                            <CardContent className="p-8 space-y-8">
+                                {isEditingBio ? (
+                                    <div className="space-y-6">
+                                        <Textarea 
+                                            value={bioInput}
+                                            onChange={e => setBioInput(e.target.value)}
+                                            placeholder="Tell your story here..."
+                                            className="min-h-[300px] text-lg leading-relaxed bg-muted/20 border-none shadow-inner rounded-3xl p-8 focus-visible:ring-primary/20"
+                                            disabled={isSavingBio}
+                                        />
+                                        <Button 
+                                            className="w-full h-12 rounded-full font-bold uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20" 
+                                            onClick={handleSaveBio} 
+                                            disabled={isSavingBio || bioInput === (profileUser.authorBio || '')}
+                                        >
+                                            {isSavingBio ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                                            Save Info
                                         </Button>
-                                    ) : (
-                                        <div className="flex gap-1">
-                                            <Button variant="ghost" size="icon" className="rounded-full text-destructive hover:bg-destructive/5" onClick={handleClearBio}>
-                                                <Trash2 className="h-5 w-5" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="rounded-full" onClick={() => { setIsEditingBio(false); setBioInput(profileUser.authorBio || ''); }}>
-                                                <X className="h-5 w-5" />
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </CardHeader>
-                        <CardContent className="p-8 space-y-8">
-                            {isEditingBio ? (
-                                <div className="space-y-6">
-                                    <Textarea 
-                                        value={bioInput}
-                                        onChange={e => setBioInput(e.target.value)}
-                                        placeholder="Tell your story here..."
-                                        className="min-h-[300px] text-lg leading-relaxed bg-muted/20 border-none shadow-inner rounded-3xl p-8 focus-visible:ring-primary/20"
-                                        disabled={isSavingBio}
-                                    />
-                                    <Button 
-                                        className="w-full h-12 rounded-full font-bold uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20" 
-                                        onClick={handleSaveBio} 
-                                        disabled={isSavingBio || bioInput === (profileUser.authorBio || '')}
-                                    >
-                                        {isSavingBio ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                                        Save Info
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="prose dark:prose-invert max-w-none">
-                                    <p className="text-lg md:text-xl leading-relaxed text-foreground/80 whitespace-pre-line italic font-medium">
-                                        {profileUser.authorBio ? (
-                                            <>
-                                                <Quote className="h-6 w-6 text-primary/20 -scale-x-100 inline mr-2 mb-1" />
-                                                {profileUser.authorBio}
-                                            </>
-                                        ) : "No information shared yet."}
-                                    </p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                                    </div>
+                                ) : (
+                                    <div className="prose dark:prose-invert max-w-none">
+                                        <p className="text-lg md:text-xl leading-relaxed text-foreground/80 whitespace-pre-line italic font-medium">
+                                            {profileUser.authorBio ? (
+                                                <>
+                                                    <Quote className="h-6 w-6 text-primary/20 -scale-x-100 inline mr-2 mb-1" />
+                                                    {profileUser.authorBio}
+                                                </>
+                                            ) : "No information shared yet."}
+                                        </p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                <TabsContent value="archive" className="animate-in fade-in duration-500">
-                    <PhotoGalleryTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
-                </TabsContent>
-             </Tabs>
-          </TabsContent>
+                    <TabsContent value="archive" className="animate-in fade-in duration-500">
+                        <PhotoGalleryTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
+                    </TabsContent>
+                 </Tabs>
+              </TabsContent>
 
-          {showAnnouncementsTab && (
-            <TabsContent value="announcements" className="mt-8">
-                <UpdatesTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
-            </TabsContent>
-          )}
-        </Tabs>
+              {showAnnouncementsTab && (
+                <TabsContent value="announcements" className="mt-8">
+                    <UpdatesTab profileUser={profileUser} isOwnProfile={isOwnProfile} />
+                </TabsContent>
+              )}
+            </Tabs>
+        )}
       </main>
     </div>
   );

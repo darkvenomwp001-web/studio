@@ -45,6 +45,7 @@ export interface User {
   profileSongUrl?: string;
   profileSongNote?: string;
   writingStatus?: WritingStatus;
+  profilePrivacy?: 'public' | 'private' | 'locked'; // Added for Account Privacy Hub
   lifeTags?: string[]; // Added for Author favorites
   createdAt?: any;
   updatedAt?: any;

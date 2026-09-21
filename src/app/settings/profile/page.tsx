@@ -9,14 +9,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Save, UploadCloud, ArrowLeft, Music, User, AtSign, AlignLeft, Info, ExternalLink, Sparkles, Camera, ImagePlus } from 'lucide-react';
+import { Loader2, Save, UploadCloud, ArrowLeft, ShieldCheck, User, AtSign, AlignLeft, Camera, ImagePlus, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { User as AppUser, WritingStatus } from '@/types';
 import NextImage from 'next/image';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 // Native APK Bridge Imports
 import { Camera as NativeCamera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -49,9 +49,8 @@ export default function EditProfilePage() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
-  const [profileSongUrl, setProfileSongUrl] = useState('');
-  const [profileSongNote, setProfileSongNote] = useState('');
   const [writingStatus, setWritingStatus] = useState<WritingStatus>('none');
+  const [profilePrivacy, setProfilePrivacy] = useState<'public' | 'private' | 'locked'>('public');
   
   const [isProfileUpdating, setIsProfileUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -67,9 +66,8 @@ export default function EditProfilePage() {
       setRole(user.role || 'reader');
       setAvatarPreview(user.avatarUrl || null);
       setCoverPreview(user.coverImageUrl || null);
-      setProfileSongUrl(user.profileSongUrl || '');
-      setProfileSongNote(user.profileSongNote || '');
       setWritingStatus(user.writingStatus || 'none');
+      setProfilePrivacy(user.profilePrivacy || 'public');
     }
   }, [user]);
 
@@ -178,9 +176,8 @@ export default function EditProfilePage() {
         if (newCoverUrl !== user.coverImageUrl) updates.coverImageUrl = newCoverUrl;
         if (bio !== user.bio) updates.bio = bio;
         if (role !== user.role) updates.role = role;
-        if (profileSongUrl !== user.profileSongUrl) updates.profileSongUrl = profileSongUrl;
-        if (profileSongNote !== user.profileSongNote) updates.profileSongNote = profileSongNote;
         if (writingStatus !== user.writingStatus) updates.writingStatus = writingStatus;
+        if (profilePrivacy !== user.profilePrivacy) updates.profilePrivacy = profilePrivacy;
 
         if (Object.keys(updates).length > 0) {
             await updateUserProfile(updates);
@@ -202,7 +199,7 @@ export default function EditProfilePage() {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-12rem)] space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-muted-foreground animate-pulse">Entering Studio...</p>
+        <p className="text-muted-foreground animate-pulse">Entering Hub...</p>
       </div>
     );
   }
@@ -222,8 +219,8 @@ export default function EditProfilePage() {
             <Button variant="ghost" onClick={() => router.push('/settings')} className="w-fit -ml-2 text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Hub
             </Button>
-            <h1 className="text-3xl font-headline font-bold text-foreground">Identity Studio</h1>
-            <p className="text-muted-foreground text-sm">Refine your community presence and visual aesthetics.</p>
+            <h1 className="text-3xl font-headline font-bold text-foreground">Identity Hub</h1>
+            <p className="text-muted-foreground text-sm">Refine your community presence and account safety.</p>
         </div>
 
         <form onSubmit={handleProfileSubmit} className="space-y-10 pb-20">
@@ -344,31 +341,42 @@ export default function EditProfilePage() {
 
                 <div className="space-y-6">
                     <div className="flex items-center gap-2 text-primary font-semibold">
-                        <Music className="h-5 w-5" />
-                        <h3 className="text-sm font-bold uppercase tracking-widest">Atmosphere</h3>
+                        <ShieldCheck className="h-5 w-5" />
+                        <h3 className="text-sm font-bold uppercase tracking-widest">Account Privacy</h3>
                     </div>
-                    <div className="p-6 rounded-[2rem] bg-muted/10 border-2 border-dashed border-border/40 space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="profileSongUrl" className="text-[10px] uppercase tracking-widest font-black text-muted-foreground/60 flex items-center gap-1.5 ml-1">
-                                Spotify Soundtrack
-                                <Popover>
-                                    <PopoverTrigger asChild><Info className="h-3 w-3 cursor-help opacity-40 hover:opacity-100 transition-opacity" /></PopoverTrigger>
-                                    <PopoverContent className="text-[10px] w-64 p-4 space-y-3 bg-card/95 border-none shadow-2xl rounded-2xl">
-                                        <p className="font-black uppercase tracking-widest text-primary">Archiving Music:</p>
-                                        <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground font-medium">
-                                            <li>Open the Spotify Interface</li>
-                                            <li>Navigate to your Song &rarr; Share</li>
-                                            <li>Choose "Copy Link" and paste here</li>
-                                        </ol>
-                                    </PopoverContent>
-                                </Popover>
-                            </Label>
-                            <Input id="profileSongUrl" value={profileSongUrl} onChange={(e) => setProfileSongUrl(e.target.value)} placeholder="https://open.spotify.com/track/..." className="h-12 rounded-2xl bg-background border-none shadow-sm" disabled={anySubmitting} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="profileSongNote" className="text-[10px] uppercase tracking-widest font-black text-muted-foreground/60 ml-1">Soundtrack Note</Label>
-                            <Input id="profileSongNote" value={profileSongNote} onChange={(e) => setProfileSongNote(e.target.value)} placeholder="Currently writing to this loop..." className="h-12 rounded-2xl bg-background border-none shadow-sm" disabled={anySubmitting} />
-                        </div>
+                    <div className="p-6 rounded-[2rem] bg-muted/10 border-2 border-dashed border-border/40">
+                         <RadioGroup value={profilePrivacy} onValueChange={(v: any) => setProfilePrivacy(v)} className="space-y-4">
+                            <div className={cn(
+                                "flex items-center space-x-3 p-4 border rounded-2xl hover:bg-muted/50 cursor-pointer transition-all",
+                                profilePrivacy === 'public' ? "border-primary bg-primary/5" : "border-transparent bg-background/50"
+                            )} onClick={() => setProfilePrivacy('public')}>
+                                <RadioGroupItem value="public" id="priv-public" />
+                                <Label htmlFor="priv-public" className="flex-1 cursor-pointer">
+                                    <span className="font-bold block text-sm">Public Space</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Everyone can see your stories, photos, and updates.</span>
+                                </Label>
+                            </div>
+                            <div className={cn(
+                                "flex items-center space-x-3 p-4 border rounded-2xl hover:bg-muted/50 cursor-pointer transition-all",
+                                profilePrivacy === 'private' ? "border-primary bg-primary/5" : "border-transparent bg-background/50"
+                            )} onClick={() => setProfilePrivacy('private')}>
+                                <RadioGroupItem value="private" id="priv-private" />
+                                <Label htmlFor="priv-private" className="flex-1 cursor-pointer">
+                                    <span className="font-bold block text-sm">Private Space</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Only your mutual friends can see your activity.</span>
+                                </Label>
+                            </div>
+                            <div className={cn(
+                                "flex items-center space-x-3 p-4 border rounded-2xl hover:bg-muted/50 cursor-pointer transition-all",
+                                profilePrivacy === 'locked' ? "border-primary bg-primary/5" : "border-transparent bg-background/50"
+                            )} onClick={() => setProfilePrivacy('locked')}>
+                                <RadioGroupItem value="locked" id="priv-locked" />
+                                <Label htmlFor="priv-locked" className="flex-1 cursor-pointer">
+                                    <span className="font-bold block text-sm">Locked Profile</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Strictly for friends. Strangers only see your name and photo.</span>
+                                </Label>
+                            </div>
+                        </RadioGroup>
                     </div>
                 </div>
             </CardContent>
@@ -377,7 +385,7 @@ export default function EditProfilePage() {
                 <Button 
                     type="submit" 
                     disabled={anySubmitting} 
-                    className="w-full sm:w-auto min-w-[220px] h-14 text-sm font-bold uppercase tracking-[0.2em] shadow-2xl shadow-primary/30 rounded-full bg-primary hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-full sm:w-auto min-w-[220px] h-14 text-sm font-bold uppercase tracking-[0.2em] shadow-2xl shadow-primary/30 rounded-full bg-primary hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-0.98"
                 >
                   {isProfileUpdating || specificAuthLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save Changes
@@ -389,7 +397,6 @@ export default function EditProfilePage() {
                     onClick={() => router.push(`/profile/${user.id}`)}
                     disabled={anySubmitting}
                 >
-                    <ExternalLink className="h-4 w-4" />
                     View Profile
                 </Button>
             </CardFooter>
