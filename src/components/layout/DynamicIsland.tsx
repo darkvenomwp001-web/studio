@@ -16,7 +16,7 @@ export default function DynamicIsland() {
       <div 
         className={cn(
           "bg-black text-white shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3 p-1.5 pr-5 transition-all duration-700 ease-morphic transform-gpu",
-          "rounded-[28px] border border-white/10 backdrop-blur-xl",
+          "rounded-2xl border border-white/10 backdrop-blur-xl",
           "animate-in slide-in-from-top-8 fade-in zoom-in-95",
           activeMessage ? "w-auto max-w-[90vw] min-w-[180px]" : "w-10 h-10 opacity-0"
         )}

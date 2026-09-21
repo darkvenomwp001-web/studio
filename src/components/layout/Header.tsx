@@ -159,7 +159,7 @@ export default function Header() {
                         )}
                     </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72 rounded-[2.5rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-3 animate-in zoom-in-95 duration-200">
+                <DropdownMenuContent align="end" className="w-72 rounded-2xl border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-3 animate-in zoom-in-95 duration-200">
                     <DropdownMenuLabel className="px-4 pt-4 pb-2">
                         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Switch Account</p>
                     </DropdownMenuLabel>

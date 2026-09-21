@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
@@ -364,7 +363,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [handleAchievementUnlock, toast, showIsland, addSavedAccount]);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || authLoading) return;
     const isAuthRoute = AUTH_PAGES.includes(pathname);
     const isAuthenticated = user && !user.isAnonymous;
     
@@ -379,7 +378,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push(DEFAULT_LOGIN_PATH);
         }
     }
-  }, [user, loading, pathname, router, searchParams]);
+  }, [user, loading, authLoading, pathname, router, searchParams]);
 
   const addNotification = useCallback(async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
     const newNotifData = { ...notificationData, timestamp: serverTimestamp(), isRead: false };
