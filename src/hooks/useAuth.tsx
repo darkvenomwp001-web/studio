@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import type { User as AppUserType, NotificationType, Story, ReadingListItem, Achievement } from '@/types';
+import type { User as AppUserType, NotificationType, Story, ReadingListItem, Achievement, UserSummary } from '@/types';
 import { auth, db, rtdb } from '@/lib/firebase';
 import { getMessagingInstance } from '@/lib/firebase';
 import { getToken } from 'firebase/messaging';
@@ -47,6 +48,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const USER_CACHE_KEY = 'litverse_user_cache';
+const SAVED_ACCOUNTS_KEY = 'litverse_saved_accounts';
 
 interface AppUser extends AppUserType {
   email?: string;
@@ -69,6 +71,7 @@ interface AuthContextType {
   requiresPasswordSetup: boolean;
   notificationPermission: NotificationPermission;
   fcmToken: string | null;
+  savedAccounts: UserSummary[];
   addNotification: (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
@@ -90,6 +93,8 @@ interface AuthContextType {
   setRequiresPasswordSetup: (requires: boolean) => void;
   setNewUserPassword: (password: string) => Promise<boolean>;
   clearAppCache: () => Promise<void>;
+  switchAccount: (account: UserSummary) => Promise<void>;
+  removeSavedAccount: (userId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -107,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   });
 
+  const [savedAccounts, setSavedAccounts] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
@@ -119,6 +125,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast();
   const { showIsland } = useDynamicIsland();
+
+  // Initialize saved accounts
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem(SAVED_ACCOUNTS_KEY);
+        if (stored) setSavedAccounts(JSON.parse(stored));
+    }
+  }, []);
+
+  const addSavedAccount = useCallback((account: UserSummary) => {
+    setSavedAccounts(prev => {
+        const exists = prev.some(a => a.id === account.id);
+        if (exists) {
+            // Update metadata if changed
+            const updated = prev.map(a => a.id === account.id ? account : a);
+            localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(updated));
+            return updated;
+        }
+        const next = [...prev, account];
+        localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(next));
+        return next;
+    });
+  }, []);
+
+  const removeSavedAccount = useCallback((userId: string) => {
+    setSavedAccounts(prev => {
+        const next = prev.filter(a => a.id !== userId);
+        localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(next));
+        return next;
+    });
+  }, []);
+
+  const switchAccount = useCallback(async (account: UserSummary) => {
+    setAuthLoading(true);
+    try {
+        await signOut(auth);
+        sessionStorage.removeItem(USER_CACHE_KEY);
+        // We redirect to sign in with a hint. 
+        // Real seamless switching without any password re-entry 
+        // usually requires cross-account tokens or custom session storage.
+        router.push(`/auth/signin?hint=${account.username}`);
+        showIsland({ title: `Switching to @${account.username}`, type: 'info' });
+    } catch (e) {
+        toast({ title: "Switch failed", variant: "destructive" });
+    } finally {
+        setAuthLoading(false);
+    }
+  }, [router, showIsland, toast]);
 
   const handleAchievementUnlock = useCallback((newAchievements: Achievement[], oldAchievements: Achievement[]) => {
       if (newAchievements.length > oldAchievements.length) {
@@ -210,6 +264,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
             setUser(fullUser);
             if (typeof window !== 'undefined') sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(fullUser));
+            
+            // Sync saved accounts hub
+            if (!firebaseUser.isAnonymous) {
+              addSavedAccount({ 
+                id: fullUser.id, 
+                username: fullUser.username, 
+                displayName: fullUser.displayName, 
+                avatarUrl: fullUser.avatarUrl 
+              });
+            }
+
             if(fullUser.achievements) handleAchievementUnlock(fullUser.achievements, oldAchievements);
             setLoading(false);
           } else {
@@ -281,7 +346,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (unsubscribeLetters) unsubscribeLetters();
       if (unsubscribeConvs) unsubscribeConvs();
     };
-  }, [handleAchievementUnlock, toast, showIsland]);
+  }, [handleAchievementUnlock, toast, showIsland, addSavedAccount]);
 
   useEffect(() => {
     if (loading) return;
@@ -541,6 +606,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     requiresPasswordSetup,
     notificationPermission,
     fcmToken,
+    savedAccounts,
     addNotification,
     markNotificationAsRead,
     markAllNotificationsAsRead,
@@ -561,16 +627,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     removeFromLibrary,
     setRequiresPasswordSetup,
     setNewUserPassword,
-    clearAppCache
+    clearAppCache,
+    switchAccount,
+    removeSavedAccount
   }), [
     user, loading, authLoading, notifications, unreadLettersCount, unreadConversationsCount, requiresPasswordSetup, 
-    notificationPermission, fcmToken, addNotification, markNotificationAsRead, 
+    notificationPermission, fcmToken, savedAccounts, addNotification, markNotificationAsRead, 
     markAllNotificationsAsRead, enablePushNotifications, sendVerificationEmail, 
     reloadUser, signInWithGoogle, signUpWithEmailPassword, 
     signInWithEmailAndPassword, signOutFirebase, updateUserProfile, 
     updateUserEmailFirebase, updateUserPasswordFirebase, sendPasswordResetFirebase, 
     followUser, unfollowUser, addToLibrary, removeFromLibrary, 
-    setRequiresPasswordSetup, setNewUserPassword, clearAppCache
+    setRequiresPasswordSetup, setNewUserPassword, clearAppCache, switchAccount, removeSavedAccount
   ]);
 
   return (
