@@ -161,11 +161,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Swipe Gestures Node
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
+  // High-Velocity Swipe Engine
   const touchStartY = useRef(0);
-  const touchEndY = useRef(0);
+  const touchStartX = useRef(0);
 
   const editor = useEditor({
     extensions: [
@@ -295,38 +293,37 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       return [...sortedChapters].reverse().find(c => c.order < (currentChapter.order || 0))?.id;
   }, [sortedChapters, currentChapter]);
 
+  // High-Velocity TikTok Style Gestures
   const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.targetTouches[0].clientX;
     touchStartY.current = e.targetTouches[0].clientY;
+    touchStartX.current = e.targetTouches[0].clientX;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!currentUser?.readerSettings?.swipeToNavigate) return;
-    
-    touchEndX.current = e.changedTouches[0].clientX;
-    touchEndY.current = e.changedTouches[0].clientY;
+    const touchEndY = e.changedTouches[0].clientY;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diffY = touchStartY.current - touchEndY;
+    const diffX = touchStartX.current - touchEndX;
 
-    const diffX = touchStartX.current - touchEndX.current;
-    const diffY = touchStartY.current - touchEndY.current;
-    const horizontalThreshold = 100;
-    const verticalThreshold = 80;
+    const threshold = 120; // Velocity threshold
+    const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 10;
+    const isAtTop = window.scrollY <= 10;
 
-    if (currentUser.readerSettings.navigationStyle === 'horizontal') {
-        if (Math.abs(diffX) > Math.abs(diffY)) {
-            if (diffX > horizontalThreshold && nextChapterId) {
-                router.push(`/stories/${storyId}/read/${nextChapterId}`);
-            } else if (diffX < -horizontalThreshold && prevChapterId) {
-                router.push(`/stories/${storyId}/read/${prevChapterId}`);
-            }
+    // Check for Vertical Flick (TikTok Style)
+    if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > threshold) {
+        if (diffY > 0 && isAtBottom && nextChapterId) {
+            router.push(`/stories/${storyId}/read/${nextChapterId}`);
+        } else if (diffY < 0 && isAtTop && prevChapterId) {
+            router.push(`/stories/${storyId}/read/${prevChapterId}`);
         }
-    } else if (currentUser.readerSettings.navigationStyle === 'vertical') {
-        const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 50;
-        const isAtTop = window.scrollY <= 10;
+    }
 
-        if (isAtBottom && diffY > verticalThreshold && nextChapterId) {
-             router.push(`/stories/${storyId}/read/${nextChapterId}`);
-        } else if (isAtTop && diffY < -verticalThreshold && prevChapterId) {
-             router.push(`/stories/${storyId}/read/${prevChapterId}`);
+    // Traditional Horizontal Swipe Support
+    if (currentUser?.readerSettings?.swipeToNavigate && Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > threshold) {
+        if (diffX > 0 && nextChapterId) {
+            router.push(`/stories/${storyId}/read/${nextChapterId}`);
+        } else if (diffX < 0 && prevChapterId) {
+            router.push(`/stories/${storyId}/read/${prevChapterId}`);
         }
     }
   };
@@ -509,14 +506,14 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   return (
     <TooltipProvider delayDuration={300}>
     <div className={cn(
-        "relative min-h-screen bg-background text-foreground transition-colors duration-700",
+        "relative min-h-screen bg-background text-foreground transition-colors duration-700 transform-gpu",
         isNightPortalActive && "dark night-portal",
         isFocusMode && "zen-focus-mode"
     )} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       
       {/* Slick Floating Header */}
       <header className={cn(
-        'fixed top-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl md:max-w-2xl bg-card/70 backdrop-blur-2xl border border-white/10 p-2.5 flex items-center justify-between transition-all duration-700 transform-gpu rounded-full shadow-2xl',
+        'fixed top-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl md:max-w-2xl bg-card/70 backdrop-blur-3xl border border-white/10 p-2.5 flex items-center justify-between transition-all duration-700 transform-gpu rounded-full shadow-2xl',
         controlsVisible ? 'translate-y-0 opacity-100' : '-translate-y-24 opacity-0 scale-95'
       )}>
         <div className="flex items-center ml-1">

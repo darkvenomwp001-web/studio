@@ -207,24 +207,24 @@ function SearchResults() {
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-0 pb-32 animate-in fade-in duration-700 overflow-x-hidden">
-      {/* Premium Search Header */}
-      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-2xl border-b border-border/40 px-4 py-6 space-y-6 w-full transform-gpu">
-        <div className="relative group w-full max-w-4xl mx-auto">
-          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors duration-300" />
+      {/* Floating Glassmorphic Search Header */}
+      <div className="sticky top-4 z-40 mx-4 md:mx-auto max-w-4xl bg-card/70 backdrop-blur-3xl border border-white/10 p-4 space-y-4 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] transform-gpu transition-all">
+        <div className="relative group w-full">
+          <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors duration-300" />
           <Input 
               placeholder="Search for stories or authors" 
-              className="pl-12 w-full h-14 rounded-2xl bg-muted/20 border-none shadow-inner text-base md:text-lg focus-visible:ring-primary/20 transition-all duration-300"
+              className="pl-12 w-full h-14 rounded-full bg-black/20 border-none shadow-inner text-base md:text-lg focus-visible:ring-primary/20 transition-all duration-300"
               value={searchTerm}
               onChange={handleInputChange}
           />
           {searchTerm && (
-              <button className="absolute right-4 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-colors" onClick={handleClear}>
+              <button className="absolute right-5 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-colors" onClick={handleClear}>
                   <X className="h-5 w-5" />
               </button>
           )}
         </div>
 
-        <div className="flex items-center gap-4 w-full max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 w-full px-2">
             <ScrollArea className="flex-1 whitespace-nowrap scrollbar-hide">
                 <div className="flex items-center gap-8 px-1">
                     <button 
@@ -254,7 +254,7 @@ function SearchResults() {
             
             <Popover>
                 <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full flex-shrink-0 bg-muted/20 hover:bg-primary/10 hover:text-primary transition-all shadow-sm">
+                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full flex-shrink-0 bg-white/5 hover:bg-primary/10 hover:text-primary transition-all shadow-sm">
                         <ChevronDown className="h-4 w-4" />
                     </Button>
                 </PopoverTrigger>
@@ -287,6 +287,8 @@ function SearchResults() {
             </Popover>
         </div>
       </div>
+
+      <div className="h-6" /> {/* Spacing for floating header */}
 
       {/* Discovery Hub Content */}
       {isBrowsing && (
