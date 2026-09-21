@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import type { User as AppUserType, NotificationType, Story, ReadingListItem, Achievement, UserSummary } from '@/types';
 import { auth, db, rtdb } from '@/lib/firebase';
 import { getMessagingInstance } from '@/lib/firebase';
@@ -46,8 +46,8 @@ import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
-const USER_CACHE_KEY = 'litverse_user_cache';
-const SAVED_ACCOUNTS_KEY = 'litverse_saved_accounts';
+const USER_STORAGE_NAME = 'litverse_user_info';
+const SAVED_ACCOUNTS_STORAGE_NAME = 'litverse_saved_identities';
 
 interface AppUser extends AppUserType {
   email?: string;
@@ -98,14 +98,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_ROUTES = ['/auth/signin', '/auth/signup'];
-const DEFAULT_REDIRECT_AUTHENTICATED = '/';
-const DEFAULT_REDIRECT_UNAUTHENTICATED = '/auth/signin';
+const AUTH_PAGES = ['/auth/signin', '/auth/signup'];
+const DEFAULT_HOME_PATH = '/';
+const DEFAULT_LOGIN_PATH = '/auth/signin';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(() => {
     if (typeof window !== 'undefined') {
-      const cached = sessionStorage.getItem(USER_CACHE_KEY);
+      const cached = sessionStorage.getItem(USER_STORAGE_NAME);
       return cached ? JSON.parse(cached) : null;
     }
     return null;
@@ -122,13 +122,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [fcmToken, setFcmToken] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { showIsland } = useDynamicIsland();
 
-  // Load known accounts from local storage
+  // Load known identities from local storage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem(SAVED_ACCOUNTS_KEY);
+        const stored = localStorage.getItem(SAVED_ACCOUNTS_STORAGE_NAME);
         if (stored) setSavedAccounts(JSON.parse(stored));
     }
   }, []);
@@ -138,11 +139,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const exists = prev.some(a => a.id === account.id);
         if (exists) {
             const updated = prev.map(a => a.id === account.id ? account : a);
-            localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(updated));
+            localStorage.setItem(SAVED_ACCOUNTS_STORAGE_NAME, JSON.stringify(updated));
             return updated;
         }
         const next = [...prev, account];
-        localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(next));
+        localStorage.setItem(SAVED_ACCOUNTS_STORAGE_NAME, JSON.stringify(next));
         return next;
     });
   }, []);
@@ -150,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const removeSavedAccount = useCallback((userId: string) => {
     setSavedAccounts(prev => {
         const next = prev.filter(a => a.id !== userId);
-        localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(next));
+        localStorage.setItem(SAVED_ACCOUNTS_STORAGE_NAME, JSON.stringify(next));
         return next;
     });
   }, []);
@@ -159,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
         await signOut(auth);
-        sessionStorage.removeItem(USER_CACHE_KEY);
+        sessionStorage.removeItem(USER_STORAGE_NAME);
         router.push(`/auth/signin?hint=${account.username}`);
         showIsland({ title: `Switching to @${account.username}`, type: 'info' });
     } catch (e) {
@@ -258,9 +259,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               updatedAt: firestoreUserData.updatedAt,
             };
             setUser(fullUser);
-            if (typeof window !== 'undefined') sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(fullUser));
+            if (typeof window !== 'undefined') sessionStorage.setItem(USER_STORAGE_NAME, JSON.stringify(fullUser));
             
-            // Remember this account for quick switching
+            // Remember this account for switching
             if (!firebaseUser.isAnonymous) {
               addSavedAccount({ 
                 id: fullUser.id, 
@@ -281,12 +282,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'create', requestResourceData: newUserProfile }));
             });
             setUser(newUserProfile); 
-            if (typeof window !== 'undefined') sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(newUserProfile));
+            if (typeof window !== 'undefined') sessionStorage.setItem(USER_STORAGE_NAME, JSON.stringify(newUserProfile));
             setLoading(false);
           }
         });
         
-        // Activity Monitoring Section
+        // Activity Monitoring
         const notifsQuery = query(collection(db, 'notifications'), where('userId', '==', firebaseUser.uid), orderBy('timestamp', 'desc'), limit(100));
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             const fetchedNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType));
@@ -308,13 +309,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'notifications', operation: 'list' }));
         });
 
-        // Mailbox Monitoring Section
+        // Mailbox Monitoring
         const lettersQuery = query(collection(db, 'letters'), where('authorId', '==', firebaseUser.uid), where('isReadByAuthor', '==', false));
         unsubscribeLetters = onSnapshot(lettersQuery, (snapshot) => {
           setUnreadLettersCount(snapshot.size);
         });
 
-        // Direct Message Monitoring Section
+        // Chat Monitoring
         const convsQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', firebaseUser.uid));
         unsubscribeConvs = onSnapshot(convsQuery, (snapshot) => {
           const count = snapshot.docs.filter(d => {
@@ -331,7 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setNotifications([]);
         setUnreadLettersCount(0);
         setUnreadConversationsCount(0);
-        if (typeof window !== 'undefined') sessionStorage.removeItem(USER_CACHE_KEY);
+        if (typeof window !== 'undefined') sessionStorage.removeItem(USER_STORAGE_NAME);
       }
     });
     return () => {
@@ -345,14 +346,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading) return;
-    const isAuthRoute = AUTH_ROUTES.includes(pathname);
+    const isAuthRoute = AUTH_PAGES.includes(pathname);
     const isAuthenticated = user && !user.isAnonymous;
+    
+    // Check for "Add Account" intent signal
+    const isAddingAccount = searchParams.get('mode') === 'addAccount';
+
     if (isAuthenticated) {
-        if (isAuthRoute) router.push(DEFAULT_REDIRECT_AUTHENTICATED);
+        // Only redirect to home if NOT intentionally adding another account
+        if (isAuthRoute && !isAddingAccount) {
+            router.push(DEFAULT_HOME_PATH);
+        }
     } else {
-        if (!isAuthRoute) router.push(DEFAULT_REDIRECT_UNAUTHENTICATED);
+        if (!isAuthRoute) {
+            router.push(DEFAULT_LOGIN_PATH);
+        }
     }
-  }, [user, loading, pathname, router]);
+  }, [user, loading, pathname, router, searchParams]);
 
   const addNotification = useCallback(async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
     const newNotifData = { ...notificationData, timestamp: serverTimestamp(), isRead: false };
@@ -391,7 +401,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const sendVerificationEmail = useCallback(async () => {
-    toast({ title: "Email verification is currently managed internally." });
+    toast({ title: "Email verification is managed internally." });
   }, [toast]);
 
   const reloadUser = useCallback(async () => {
@@ -451,7 +461,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await set(userStatusRef, { state: 'offline', last_changed: rtdbTimestamp(), active_path: null });
       }
       await signOut(auth);
-      if (typeof window !== 'undefined') sessionStorage.removeItem(USER_CACHE_KEY);
+      if (typeof window !== 'undefined') sessionStorage.removeItem(USER_STORAGE_NAME);
       router.push('/auth/signin');
       showIsland({ title: "Signed out", type: 'info' });
     } catch (error) { console.error(error); } finally { setAuthLoading(false); }
@@ -583,7 +593,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearAppCache = useCallback(async () => {
     if (typeof window !== 'undefined') {
-        sessionStorage.removeItem(USER_CACHE_KEY);
+        sessionStorage.removeItem(USER_STORAGE_NAME);
         Object.keys(sessionStorage).forEach(key => {
             if (key.startsWith('ach-toast') || key.startsWith('disclaimer-seen') || key.startsWith('island_seen')) sessionStorage.removeItem(key);
         });

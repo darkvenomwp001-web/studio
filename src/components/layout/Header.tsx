@@ -202,7 +202,7 @@ export default function Header() {
                     <DropdownMenuSeparator className="bg-border/20 mx-3" />
                     
                     <div className="p-1">
-                        <DropdownMenuItem onClick={() => router.push('/auth/signin')} className="rounded-xl gap-3 p-3 font-bold text-xs uppercase tracking-widest hover:bg-primary/5 hover:text-primary transition-all">
+                        <DropdownMenuItem onClick={() => router.push('/auth/signin?mode=addAccount')} className="rounded-xl gap-3 p-3 font-bold text-xs uppercase tracking-widest hover:bg-primary/5 hover:text-primary transition-all">
                             <UserPlus className="h-4 w-4" />
                             Add Account
                         </DropdownMenuItem>
