@@ -187,7 +187,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   // Audio Atmosphere Protocol
   useEffect(() => {
-    if (!isOpen || ambientSound === 'none') {
+    if (isLoading || ambientSound === 'none') {
         if (audioRef.current) audioRef.current.pause();
         return;
     }
