@@ -421,16 +421,10 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
 
   return (
     <AlertDialog>
-        <section className="space-y-8">
-        <div className="flex items-center justify-between px-1">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                Archival Logs ({topLevelComments.length})
-            </h3>
-        </div>
-        
+        <section className="space-y-4">
         {!authLoading && currentUser && (
-            <form onSubmit={handleSubmitComment} className="flex flex-col gap-4 bg-muted/20 p-5 rounded-[2rem] border border-border/40 shadow-sm transition-all focus-within:shadow-md focus-within:bg-muted/30">
-              <div className="flex items-start gap-4">
+            <form onSubmit={handleSubmitComment} className="flex flex-col gap-3 bg-muted/20 p-4 rounded-[2rem] border border-border/40 shadow-sm transition-all focus-within:shadow-md focus-within:bg-muted/30 w-full animate-in fade-in duration-300">
+              <div className="flex items-start gap-3">
                 <Avatar className="h-10 w-10 border-2 border-background shadow-md">
                     <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} data-ai-hint="profile person" />
                     <AvatarFallback className="bg-primary/10 text-primary font-bold">{currentUser.username?.substring(0, 1).toUpperCase()}</AvatarFallback>
@@ -462,31 +456,30 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pl-14 pr-2">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setIsSpoiler(!isSpoiler)}>
-                        <div className={cn(
-                            "p-2 rounded-xl transition-all duration-300",
-                            isSpoiler ? "bg-red-500/10 text-red-500 shadow-[inset_0_0_10px_rgba(239,68,68,0.1)]" : "bg-background text-muted-foreground group-hover:text-foreground"
-                        )}>
-                            <EyeOff className="h-4 w-4" />
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">Spoiler</span>
-                    </div>
+              <div className="flex items-center justify-between pl-1 md:pl-14">
+                  <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setIsSpoiler(!isSpoiler)}>
+                      <div className={cn(
+                          "p-2 rounded-xl transition-all duration-300",
+                          isSpoiler ? "bg-red-500/10 text-red-500 shadow-[inset_0_0_10px_rgba(239,68,68,0.1)]" : "bg-background text-muted-foreground group-hover:text-foreground"
+                      )}>
+                          <EyeOff className="h-4 w-4" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">Spoiler</span>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     {replyingTo && (
                         <Button variant="ghost" size="sm" onClick={() => setReplyingTo(null)} className="h-10 rounded-full font-bold uppercase text-[10px] tracking-widest px-4">Cancel</Button>
                     )}
-                    <Button type="submit" size="lg" disabled={isPostingComment || !newComment.trim()} className="rounded-full px-8 h-10 font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-primary/30 transition-all active:scale-95 border-none">
+                    <Button type="submit" size="lg" disabled={isPostingComment || !newComment.trim()} className="rounded-full px-8 h-10 bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/30 transition-all active:scale-95 border-none">
                         {isPostingComment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                        Publish
+                        Post
                     </Button>
                   </div>
               </div>
             </form>
         )}
+        
         {!authLoading && !currentUser && (
             <div className="text-center py-8 bg-muted/20 rounded-[2rem] border border-dashed border-border/40">
                 <p className="text-sm text-muted-foreground">
@@ -495,12 +488,18 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
             </div>
         )}
 
+        <div className="flex items-center justify-between px-1 mt-8">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                Community Logs ({topLevelComments.length})
+            </h3>
+        </div>
+
         {isLoadingComments ? (
             <div className="flex justify-center items-center py-20">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
         ) : (
-            <div className="divide-y divide-border/40 pb-20">
+            <div className="divide-y divide-border/20 pb-20">
             {topLevelComments.length > 0 ? (
                 topLevelComments.map(comment => (
                 <Comment 

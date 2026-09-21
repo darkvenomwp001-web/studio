@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import CommentSection from '@/components/comments/CommentSection';
-import { Loader2, ArrowLeft, BookOpen, MessageSquare, Sparkles } from 'lucide-react';
+import { Loader2, ArrowLeft, MessageSquare, Sparkles, BookOpen } from 'lucide-react';
 import type { Story, Chapter } from '@/types';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -72,38 +72,37 @@ function CommentsContent() {
     
     return (
         <div className="min-h-screen bg-background animate-in fade-in duration-700">
-            <div className="max-w-2xl mx-auto py-6 px-4 md:px-6 space-y-8">
-                <header className="flex items-center justify-between border-b border-border/40 pb-4">
-                    <div className="flex items-center gap-4">
+            <div className="max-w-3xl mx-auto py-4 md:py-6 px-4 md:px-6 space-y-4">
+                <header className="flex items-center justify-between border-b border-border/20 pb-3">
+                    <div className="flex items-center gap-3">
                         <Button 
                             variant="ghost" 
                             size="icon"
                             onClick={() => router.back()} 
-                            className="rounded-full h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                            className="rounded-full h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                         >
                             <ArrowLeft className="h-4 w-4"/>
                         </Button>
-                        <div>
-                           <h2 className="text-[10px] font-black uppercase tracking-widest text-primary">Discussion Hub</h2>
-                           {chapter && (
-                             <p className="text-[9px] font-bold text-muted-foreground uppercase truncate max-w-[200px]">
-                               Part {chapter.order}: {chapter.title}
-                             </p>
-                           )}
-                        </div>
+                        <h2 className="text-[10px] font-black uppercase tracking-widest text-primary">Discussion Hub</h2>
                     </div>
                     
-                    <div className="flex items-center gap-2 bg-muted/40 rounded-full px-3 py-1 border border-border/40">
+                    <div className="flex items-center gap-2 bg-muted/40 rounded-full px-3 py-1 border border-border/20">
                         <Sparkles className="h-3 w-3 text-primary" />
-                        <span className="text-[8px] font-black uppercase tracking-widest opacity-60">Interactive</span>
+                        <span className="text-[8px] font-black uppercase tracking-widest opacity-60">Archive Context</span>
                     </div>
                 </header>
 
-                <main className="space-y-8 pb-32">
+                <main className="space-y-1 pb-32">
                     {quote && (
-                        <section className="space-y-3 animate-in slide-in-from-top-4 duration-500">
-                            <div className="bg-muted/20 p-6 rounded-2xl border-l-4 border-l-primary border-t border-r border-b border-border/40 shadow-inner relative group overflow-hidden">
-                                <p className="italic text-base md:text-lg text-foreground/80 leading-relaxed font-serif">
+                        <section className="space-y-2 animate-in slide-in-from-top-4 duration-500 mb-2">
+                             {chapter && (
+                                <div className="flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest ml-1">
+                                    <BookOpen className="h-3 w-3 opacity-40" />
+                                    <span>Part {chapter.order}: {chapter.title}</span>
+                                </div>
+                             )}
+                            <div className="bg-muted/10 p-6 rounded-xl border-l-4 border-l-primary/40 shadow-inner relative overflow-hidden w-full">
+                                <p className="italic text-base md:text-lg text-foreground/90 leading-relaxed font-serif">
                                     “{quote}”
                                 </p>
                             </div>
@@ -111,11 +110,11 @@ function CommentsContent() {
                     )}
 
                     {!quote && chapter && (
-                        <section className="text-center py-4 space-y-2">
-                             <h1 className="text-3xl font-headline font-bold tracking-tight">{chapter.title}</h1>
-                             <div className="flex items-center justify-center gap-2 text-primary font-bold text-[9px] uppercase tracking-[0.2em]">
-                                <MessageSquare className="h-3.5 w-3.5" />
-                                <span>Chapter Discussion</span>
+                        <section className="text-center py-6 space-y-1">
+                             <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">{chapter.title}</h1>
+                             <div className="flex items-center justify-center gap-2 text-primary font-bold text-[8px] uppercase tracking-[0.2em]">
+                                <MessageSquare className="h-3 w-3" />
+                                <span>Manuscript Log Discussion</span>
                              </div>
                         </section>
                     )}
