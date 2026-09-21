@@ -16,9 +16,7 @@ import {
   where,
   orderBy,
   onSnapshot,
-  addDoc,
   updateDoc,
-  deleteDoc,
   doc,
   serverTimestamp,
   Timestamp,
@@ -45,8 +43,6 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { useToast } from '@/hooks/use-toast';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -121,16 +117,16 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
   return (
     <div className="flex gap-3 py-4">
       <Link href={`/profile/${comment.user.id}`}>
-        <Avatar className="h-10 w-10">
+        <Avatar className="h-10 w-10 border shadow-sm">
             <AvatarImage src={comment.user.avatarUrl} alt={comment.user.username} data-ai-hint="profile person" />
             <AvatarFallback>{comment.user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
         </Avatar>
       </Link>
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-                <Link href={`/profile/${comment.user.id}`} className="font-semibold text-sm text-foreground hover:underline">{comment.user.displayName || comment.user.username}</Link>
-                <span className="text-[10px] text-muted-foreground">
+                <Link href={`/profile/${comment.user.id}`} className="font-bold text-xs text-foreground hover:underline">{comment.user.displayName || comment.user.username}</Link>
+                <span className="text-[9px] text-muted-foreground uppercase font-medium">
                     {comment.timestamp instanceof Timestamp 
                         ? formatDistanceToNow(comment.timestamp.toDate(), { addSuffix: true })
                         : comment.timestamp ? formatDistanceToNow(new Date(comment.timestamp), { addSuffix: true }) : 'Just now'}
@@ -170,27 +166,27 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
               value={editedContent}
               onChange={(e) => setEditedContent(e.target.value)}
               rows={3}
-              className="text-sm bg-background focus-visible:ring-primary"
+              className="text-sm bg-background focus-visible:ring-primary rounded-xl"
               disabled={isSavingEdit}
             />
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleSaveEdit} disabled={isSavingEdit}>
+              <Button size="sm" onClick={handleSaveEdit} disabled={isSavingEdit} className="rounded-full px-4">
                 {isSavingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4"/>}
                 Save
               </Button>
-              <Button size="sm" variant="ghost" onClick={handleCancelEdit} disabled={isSavingEdit}>Cancel</Button>
+              <Button size="sm" variant="ghost" onClick={handleCancelEdit} disabled={isSavingEdit} className="rounded-full">Cancel</Button>
             </div>
           </div>
         ) : (
             <div className="mt-1 relative group">
                 {comment.quote && (
-                    <blockquote className="border-l-2 pl-2 text-xs italic text-muted-foreground mb-1">"{comment.quote}"</blockquote>
+                    <blockquote className="border-l-2 border-primary/40 pl-3 text-xs italic text-muted-foreground mb-2 py-0.5">"{comment.quote}"</blockquote>
                 )}
                 
                 <div className="relative">
                     <p className={cn(
-                        "text-sm text-foreground/90 whitespace-pre-line transition-all duration-500",
-                        comment.isSpoiler && !isRevealed && "blur-sm select-none grayscale"
+                        "text-sm md:text-base text-foreground/90 whitespace-pre-line transition-all duration-500 leading-relaxed",
+                        comment.isSpoiler && !isRevealed && "blur-md select-none grayscale opacity-40"
                     )}>
                         {comment.content}
                     </p>
@@ -200,9 +196,9 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
                             className="absolute inset-0 flex items-center justify-center cursor-pointer"
                             onClick={() => setIsRevealed(true)}
                         >
-                            <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2 shadow-lg animate-in zoom-in-95 duration-300">
+                            <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2 shadow-lg animate-in zoom-in-95 duration-300 transform-gpu">
                                 <EyeOff className="h-3 w-3 text-red-500" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-white">Tap to reveal spoiler</span>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-white">Tap to reveal spoiler</span>
                             </div>
                         </div>
                     )}
@@ -211,14 +207,14 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
         )}
 
         {!isEditing && (
-            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
-            <button className="flex items-center gap-1 hover:text-primary transition-colors font-medium">
-                <ThumbsUp className="h-4 w-4" /> ({comment.likes || 0})
+            <div className="flex items-center gap-5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-3">
+            <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
+                <ThumbsUp className="h-3.5 w-3.5" /> ({comment.likes || 0})
             </button>
             {currentUser && onReply && (
                 <button 
                 onClick={() => onReply(comment.id, comment.user.displayName || comment.user.username)}
-                className="hover:text-primary transition-colors font-medium"
+                className="hover:text-primary transition-colors"
                 >
                 Reply
                 </button>
@@ -234,7 +230,7 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                <AlertDialogCancel className="rounded-full px-6">Cancel</AlertDialogCancel>
                 <AlertDialogAction 
                     onClick={() => {
                         onCommentDelete(comment.id)
@@ -248,14 +244,14 @@ function Comment({ comment, onReply, allComments, onCommentUpdate, onCommentDele
         </AlertDialogContent>
 
         {replies.length > 0 && (
-            <button onClick={handleToggleReplies} className="text-xs font-semibold text-muted-foreground hover:text-primary mt-3 flex items-center gap-2">
-                <div className="w-6 border-t"></div>
-                {showReplies ? 'Hide' : `View ${replies.length}`} {replies.length === 1 ? 'reply' : 'replies'}
+            <button onClick={handleToggleReplies} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-primary mt-4 flex items-center gap-3 group">
+                <div className="w-8 border-t group-hover:border-primary transition-colors"></div>
+                {showReplies ? 'Hide' : `Show ${replies.length}`} {replies.length === 1 ? 'reply' : 'replies'}
             </button>
         )}
 
         {showReplies && (
-          <div className="mt-3">
+          <div className="mt-4 border-l border-border/40 pl-4">
             {replies.map(reply => (
               <Comment 
                 key={reply.id} 
@@ -373,8 +369,8 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
         setReplyingTo(null);
         setIsSpoiler(false);
         showIsland({
-          title: "Comment posted",
-          description: "Your thought is now in the archives.",
+          title: "Thought archived",
+          description: "Your log is now public.",
           type: 'success',
           image: currentUser.avatarUrl
         });
@@ -394,7 +390,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
 
   const handleCommentUpdate = async (commentId: string, newContent: string) => {
     const commentRef = doc(db, 'comments', commentId);
-    updateDoc(commentRef, {
+    return updateDoc(commentRef, {
       content: newContent,
     });
   };
@@ -402,7 +398,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
   const handleCommentDelete = async (commentId: string) => {
     const storyRef = doc(db, 'stories', storyId);
     
-    runTransaction(db, async (transaction) => {
+    return runTransaction(db, async (transaction) => {
         const storySnap = await transaction.get(storyRef);
         if (!storySnap.exists()) throw "Story not found";
 
@@ -425,82 +421,86 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
 
   return (
     <AlertDialog>
-        <section>
-        <h3 className="text-xl sm:text-2xl font-headline font-semibold mb-6 text-foreground">
-            Comments ({topLevelComments.length})
-        </h3>
+        <section className="space-y-8">
+        <div className="flex items-center justify-between px-1">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                Archival Logs ({topLevelComments.length})
+            </h3>
+        </div>
         
         {!authLoading && currentUser && (
-            <form onSubmit={handleSubmitComment} className="flex flex-col gap-3 mb-8 bg-muted/20 p-4 rounded-2xl border border-border/40">
-              <div className="flex items-start gap-3">
-                <Avatar className="h-10 w-10">
+            <form onSubmit={handleSubmitComment} className="flex flex-col gap-4 bg-muted/20 p-5 rounded-[2rem] border border-border/40 shadow-sm transition-all focus-within:shadow-md focus-within:bg-muted/30">
+              <div className="flex items-start gap-4">
+                <Avatar className="h-10 w-10 border-2 border-background shadow-md">
                     <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} data-ai-hint="profile person" />
-                    <AvatarFallback>{currentUser.username?.substring(0, 1).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback className="bg-primary/10 text-primary font-bold">{currentUser.username?.substring(0, 1).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                     <div className="relative">
                         <Textarea
                             id="comment-textarea"
-                            placeholder={replyingTo ? `Replying to ${replyingTo.username}...` : (quote ? "Commenting on quote..." : "Add a comment...")}
+                            placeholder={replyingTo ? `Responding to ${replyingTo.username}...` : (quote ? "Archiving a thought on this quote..." : "Add to the discussion...")}
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            className="min-h-[80px] bg-background border-none focus-visible:ring-primary rounded-xl pr-10 shadow-inner"
-                            rows={3}
+                            className="min-h-[100px] bg-background border-none focus-visible:ring-primary/20 rounded-2xl pr-10 shadow-inner text-sm md:text-base leading-relaxed p-4"
+                            rows={4}
                             disabled={isPostingComment}
                         />
-                        <Popover>
-                        <PopoverTrigger asChild>
-                            <Button type="button" variant="ghost" size="icon" className="absolute right-1 bottom-1 h-8 w-8 rounded-full">
-                                <Smile className="h-5 w-5 text-muted-foreground" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 border-0">
-                            <EmojiPicker onEmojiClick={onEmojiClick} />
-                        </PopoverContent>
-                        </Popover>
+                        <div className="absolute right-3 bottom-3">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all">
+                                        <Smile className="h-5 w-5 opacity-60" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 border-none shadow-3xl rounded-2xl overflow-hidden" side="top">
+                                    <EmojiPicker onEmojiClick={onEmojiClick} theme={'dark' as any} />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
                     </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pl-12">
-                  <div className="flex items-center gap-3">
-                    <Label htmlFor="spoiler-toggle" className="flex items-center gap-2 cursor-pointer group">
+              <div className="flex items-center justify-between pl-14 pr-2">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setIsSpoiler(!isSpoiler)}>
                         <div className={cn(
-                            "p-1.5 rounded-lg transition-colors",
-                            isSpoiler ? "bg-red-500/10 text-red-500" : "bg-muted text-muted-foreground group-hover:bg-muted/50"
+                            "p-2 rounded-xl transition-all duration-300",
+                            isSpoiler ? "bg-red-500/10 text-red-500 shadow-[inset_0_0_10px_rgba(239,68,68,0.1)]" : "bg-background text-muted-foreground group-hover:text-foreground"
                         )}>
-                            <EyeOff className="h-3.5 w-3.5" />
+                            <EyeOff className="h-4 w-4" />
                         </div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Spoiler Warning</span>
-                    </Label>
-                    <Switch id="spoiler-toggle" checked={isSpoiler} onCheckedChange={setIsSpoiler} className="scale-75" />
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">Spoiler</span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     {replyingTo && (
-                        <Button variant="ghost" size="sm" onClick={() => setReplyingTo(null)} className="h-8 text-[10px] font-bold uppercase tracking-widest">Cancel</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setReplyingTo(null)} className="h-10 rounded-full font-bold uppercase text-[10px] tracking-widest px-4">Cancel</Button>
                     )}
-                    <Button type="submit" size="sm" disabled={isPostingComment || !newComment.trim()} className="rounded-full px-6 font-bold shadow-lg shadow-primary/20">
+                    <Button type="submit" size="lg" disabled={isPostingComment || !newComment.trim()} className="rounded-full px-8 h-10 font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-primary/30 transition-all active:scale-95 border-none">
                         {isPostingComment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                        Post
+                        Publish
                     </Button>
                   </div>
               </div>
             </form>
         )}
         {!authLoading && !currentUser && (
-            <p className="text-muted-foreground text-center py-4 border rounded-md bg-background mb-6">
-                Please <Link href="/auth/signin" className="text-primary hover:underline">sign in</Link> to post a comment.
-            </p>
+            <div className="text-center py-8 bg-muted/20 rounded-[2rem] border border-dashed border-border/40">
+                <p className="text-sm text-muted-foreground">
+                    Please <Link href="/auth/signin" className="text-primary font-bold hover:underline">sign in</Link> to contribute to the archives.
+                </p>
+            </div>
         )}
 
         {isLoadingComments ? (
-            <div className="flex justify-center items-center py-10">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="ml-3 text-muted-foreground">Loading comments...</p>
+            <div className="flex justify-center items-center py-20">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
         ) : (
-            <div className="divide-y divide-border/60">
+            <div className="divide-y divide-border/40 pb-20">
             {topLevelComments.length > 0 ? (
                 topLevelComments.map(comment => (
                 <Comment 
@@ -513,7 +513,10 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
                 />
                 ))
             ) : (
-                <p className="text-muted-foreground text-center py-8">Be the first to share your thoughts!</p>
+                <div className="text-center py-20 opacity-30">
+                    <MessageSquareIcon className="h-12 w-12 mx-auto mb-4" />
+                    <p className="text-sm font-bold uppercase tracking-widest">No archival logs found</p>
+                </div>
             )}
             </div>
         )}
