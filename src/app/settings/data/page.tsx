@@ -46,7 +46,7 @@ export default function DataAndCachePage() {
         setIsClearing(true);
         try {
             await clearAppCache();
-            toast({ title: "Cache Cleared!", description: "App has been refreshed." });
+            toast({ title: "Temporary data cleared!", description: "App has been refreshed." });
         } catch (error) {
             toast({ title: "Failed to clear", variant: "destructive" });
             setIsClearing(false);
@@ -57,7 +57,7 @@ export default function DataAndCachePage() {
         setIsResetting(true);
         try {
             await clearFirestoreCache();
-            toast({ title: "System Reset", description: "Storage has been cleared. Re-syncing with cloud..." });
+            toast({ title: "System Reset", description: "Storage has been cleared. Updating from cloud..." });
             setTimeout(() => window.location.reload(), 1500);
         } catch (error) {
             toast({ title: "Reset Failed", description: "Make sure all other tabs are closed.", variant: "destructive" });
@@ -80,9 +80,9 @@ export default function DataAndCachePage() {
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
                 </Button>
                 <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground flex items-center gap-4">
-                    <Database className="h-10 w-10 text-emerald-500" /> Storage
+                    <Database className="h-10 w-10 text-emerald-500" /> App Storage
                 </h1>
-                <p className="text-muted-foreground text-sm font-medium">Fix loading issues and manage your app memory.</p>
+                <p className="text-muted-foreground text-sm font-medium">Manage your app memory and resolve loading issues.</p>
             </header>
 
             <div className="grid gap-6">
@@ -93,10 +93,10 @@ export default function DataAndCachePage() {
                                 <Zap className="h-6 w-6 text-emerald-500" /> Storage Info
                             </CardTitle>
                             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1.5 rounded-full px-3">
-                                <CheckCircle className="h-3 w-3" /> All Good
+                                <CheckCircle className="h-3 w-3" /> System Stable
                             </Badge>
                         </div>
-                        <CardDescription className="text-sm">Current details of your app storage.</CardDescription>
+                        <CardDescription className="text-sm">Current details of your local app storage.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-8 space-y-6">
                         <div className="grid sm:grid-cols-2 gap-4">
@@ -105,7 +105,7 @@ export default function DataAndCachePage() {
                                     <Cloud className="h-5 w-5 text-blue-500" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Sync Status</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Status</p>
                                     <p className="text-sm font-bold">Updated</p>
                                 </div>
                             </div>
@@ -125,8 +125,8 @@ export default function DataAndCachePage() {
                         <div className="space-y-4">
                             <div className="flex items-center justify-between gap-4">
                                 <div className="space-y-1">
-                                    <h4 className="font-bold text-foreground">Clear App Cache</h4>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">Clears temporary data to speed up the app. Safe and recommended if the app feels slow.</p>
+                                    <h4 className="font-bold text-foreground">Clear Temporary Data</h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">Clears short-term data to speed up the app. Safe and recommended if the app feels slow.</p>
                                 </div>
                                 <Button 
                                     variant="outline" 
@@ -144,7 +144,7 @@ export default function DataAndCachePage() {
                             <div className="flex items-center justify-between gap-4">
                                 <div className="space-y-1">
                                     <h4 className="font-bold text-foreground">Full Storage Reset</h4>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">Clears your offline story data and re-syncs everything with the server. Fixes most loading problems.</p>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">Clears your local story copies and re-downloads everything. Resolves most display problems.</p>
                                 </div>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
@@ -161,9 +161,9 @@ export default function DataAndCachePage() {
                                         <AlertDialogHeader>
                                             <AlertDialogTitle className="font-headline text-2xl">Reset App Storage?</AlertDialogTitle>
                                             <AlertDialogDescription className="text-sm">
-                                                This will clear the offline copy of your stories and re-download them from the cloud.
+                                                This will clear local copies of your stories and re-download them from the cloud.
                                                 <br /><br />
-                                                <strong>Note:</strong> Close any other open tabs for this to work.
+                                                <strong>Note:</strong> Close any other open tabs before starting.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
@@ -188,7 +188,7 @@ export default function DataAndCachePage() {
                         <div className="flex items-center justify-between gap-6">
                             <div className="space-y-1">
                                 <h4 className="font-bold text-foreground">Reset All Preferences</h4>
-                                <p className="text-xs text-muted-foreground leading-relaxed">Deletes your custom font sizes, reading themes, and colors. Resets the app to its original state.</p>
+                                <p className="text-xs text-muted-foreground leading-relaxed">Deletes your custom fonts, reading themes, and styles. Resets the app to original settings.</p>
                             </div>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
@@ -200,7 +200,7 @@ export default function DataAndCachePage() {
                                     <AlertDialogHeader>
                                         <AlertDialogTitle className="text-2xl font-headline font-bold text-destructive">Reset everything?</AlertDialogTitle>
                                         <AlertDialogDescription className="text-sm">
-                                            This will delete all your personalized settings. You will stay logged in, but your reading preferences will be lost.
+                                            This will delete all your personalized settings. You will stay logged in, but your styles will be lost.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -220,7 +220,7 @@ export default function DataAndCachePage() {
             </div>
             
             <footer className="pt-10 text-center">
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">DVHIDEOUT Storage Hub</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">DVHIDEOUT Storage Area</p>
             </footer>
         </div>
     );

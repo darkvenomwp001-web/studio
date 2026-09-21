@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import type { User as AppUser, WritingStatus } from '@/types';
 import NextImage from 'next/image';
 
-// Native Bridge Imports
+// Native Camera Bridge
 import { Camera as NativeCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 const WRITING_STATUSES: { value: WritingStatus; label: string; icon: string }[] = [
@@ -144,7 +144,7 @@ export default function EditProfilePage() {
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
-    if (!cloudName || !uploadPreset) throw new Error("Cloudinary missing");
+    if (!cloudName || !uploadPreset) throw new Error("Cloudinary settings missing");
 
     const formData = new FormData();
     formData.append('file', file);
@@ -207,7 +207,7 @@ export default function EditProfilePage() {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-12rem)] space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-muted-foreground animate-pulse">Entering Hub...</p>
+        <p className="text-muted-foreground animate-pulse">Entering Settings...</p>
       </div>
     );
   }
@@ -225,10 +225,10 @@ export default function EditProfilePage() {
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-10">
         <div className="flex flex-col space-y-2">
             <Button variant="ghost" onClick={() => router.push('/settings')} className="w-fit -ml-2 text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Hub
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
             </Button>
-            <h1 className="text-3xl font-headline font-bold text-foreground">Identity Hub</h1>
-            <p className="text-muted-foreground text-sm">Manage your public name and privacy.</p>
+            <h1 className="text-3xl font-headline font-bold text-foreground">Profile Settings</h1>
+            <p className="text-muted-foreground text-sm">Manage your public name and privacy preferences.</p>
         </div>
 
         <form onSubmit={handleProfileSubmit} className="space-y-10 pb-20">
@@ -284,7 +284,7 @@ export default function EditProfilePage() {
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 text-primary font-semibold">
                         <Sparkles className="h-5 w-5" />
-                        <h3 className="text-sm font-bold uppercase tracking-widest">Live Status</h3>
+                        <h3 className="text-sm font-bold uppercase tracking-widest">Public Status</h3>
                     </div>
                     <Select value={writingStatus} onValueChange={(v: WritingStatus) => setWritingStatus(v)}>
                         <SelectTrigger className="h-12 rounded-2xl bg-muted/20 border-none shadow-inner transition-all hover:bg-muted/30">
@@ -350,11 +350,11 @@ export default function EditProfilePage() {
                 <div className="space-y-6">
                     <div className="flex items-center gap-2 text-primary font-semibold">
                         <ShieldCheck className="h-5 w-5" />
-                        <h3 className="text-sm font-bold uppercase tracking-widest">Account Visibility</h3>
+                        <h3 className="text-sm font-bold uppercase tracking-widest">Privacy Settings</h3>
                     </div>
                     <div className="space-y-6 p-6 rounded-[2rem] bg-muted/10 border border-border/40 shadow-inner">
                         <div className="space-y-2">
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Space Visibility</Label>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Account Visibility</Label>
                             <Select value={profilePrivacy} onValueChange={(v: any) => setProfilePrivacy(v)}>
                                 <SelectTrigger className="h-12 rounded-2xl bg-background border-none shadow-sm">
                                     <SelectValue />
@@ -362,13 +362,13 @@ export default function EditProfilePage() {
                                 <SelectContent className="rounded-2xl border-none shadow-3xl">
                                     <SelectItem value="public" className="rounded-xl">Public Space (Everyone)</SelectItem>
                                     <SelectItem value="private" className="rounded-xl">Private Space (Friends Only)</SelectItem>
-                                    <SelectItem value="locked" className="rounded-xl">Locked Space (Strictly Friends)</SelectItem>
+                                    <SelectItem value="locked" className="rounded-xl">Locked Profile (Strictly Friends)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Story Interactions</Label>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Story Comments</Label>
                             <Select value={commentingPreference} onValueChange={(v: any) => setCommentingPreference(v)}>
                                 <SelectTrigger className="h-12 rounded-2xl bg-background border-none shadow-sm">
                                     <SelectValue />
@@ -376,7 +376,7 @@ export default function EditProfilePage() {
                                 <SelectContent className="rounded-2xl border-none shadow-3xl">
                                     <SelectItem value="everyone" className="rounded-xl">Allow everyone to comment</SelectItem>
                                     <SelectItem value="following" className="rounded-xl">Only friends can comment</SelectItem>
-                                    <SelectItem value="none" className="rounded-xl">Disable story comments</SelectItem>
+                                    <SelectItem value="none" className="rounded-xl">Turn off comments</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -396,15 +396,15 @@ export default function EditProfilePage() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Activity Visibility</Label>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Active Status</Label>
                             <Select value={presencePreference} onValueChange={(v: any) => setPresencePreference(v)}>
                                 <SelectTrigger className="h-12 rounded-2xl bg-background border-none shadow-sm">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-2xl border-none shadow-3xl">
-                                    <SelectItem value="everyone" className="rounded-xl">Show active status to everyone</SelectItem>
-                                    <SelectItem value="following" className="rounded-xl">Show active status to friends</SelectItem>
-                                    <SelectItem value="none" className="rounded-xl">Hide my active status</SelectItem>
+                                    <SelectItem value="everyone" className="rounded-xl">Show to everyone</SelectItem>
+                                    <SelectItem value="following" className="rounded-xl">Show to friends only</SelectItem>
+                                    <SelectItem value="none" className="rounded-xl">Hide my status</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

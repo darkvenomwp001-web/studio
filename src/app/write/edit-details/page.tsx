@@ -114,7 +114,7 @@ function ChapterSchedulingDialog({ storyId, chapter, onUpdate }: { storyId: stri
                     <Calendar className="h-6 w-6 text-primary" />
                     Schedule Release
                 </DialogTitle>
-                <DialogDescription>Select the exact date and time this part will be published.</DialogDescription>
+                <DialogDescription>Select the date and time this part will go live.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-6 py-4">
                 <div className="space-y-2">
@@ -375,7 +375,7 @@ function StoryDetailsInner() {
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
     if (!cloudName || !uploadPreset) {
-        toast({ title: "Configuration Error", variant: "destructive"});
+        toast({ title: "Settings Error", variant: "destructive"});
         setIsUploading(false);
         return;
     }
@@ -421,7 +421,7 @@ function StoryDetailsInner() {
       const newChapter: Chapter = {
         id: newChapterId,
         title: 'Untitled Part',
-        content: '<p>Start writing your masterpiece here...</p>',
+        content: '<p>Start writing your story here...</p>',
         order: story.chapters.length + 1,
         status: 'Draft',
         accessType: 'public',
@@ -450,7 +450,7 @@ function StoryDetailsInner() {
       if (!story) return;
       const updatedChapters = story.chapters.filter(ch => ch.id !== chapterId);
       await updateDoc(doc(db, 'stories', story.id), { chapters: updatedChapters, lastUpdated: serverTimestamp() });
-      toast({ title: "Chapter deleted" });
+      toast({ title: "Part deleted" });
   };
 
   const handleDeleteStory = async () => {
@@ -470,14 +470,14 @@ function StoryDetailsInner() {
           const collabSummary: UserSummary = { id: collabUser.id, username: collabUser.username, avatarUrl: collabUser.avatarUrl, displayName: collabUser.displayName };
           
           if (story.collaboratorIds?.includes(collabUser.id)) {
-              toast({ title: "User already a collaborator" });
+              toast({ title: "User already a teammate" });
           } else {
               await updateDoc(doc(db, 'stories', story.id), {
                   collaborators: arrayUnion(collabSummary),
                   collaboratorIds: arrayUnion(collabUser.id)
               });
               setCollaboratorUsername('');
-              toast({ title: "Collaborator added!" });
+              toast({ title: "Teammate added!" });
           }
       } else {
           toast({ title: "User not found", variant: "destructive" });
@@ -493,7 +493,6 @@ function StoryDetailsInner() {
     );
   }
 
-  // Author identity null safety
   const isOwner = user?.id === story.author?.id;
 
   return (
@@ -576,10 +575,10 @@ function StoryDetailsInner() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                            <div className="space-y-2">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Genre</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Category</Label>
                                 <Select value={genre} onValueChange={(v) => { setGenre(v); handleUpdateField('genre', v); }}>
                                     <SelectTrigger className="h-12 rounded-xl bg-card border-none shadow-inner">
-                                        <SelectValue placeholder="Select genre..." />
+                                        <SelectValue placeholder="Select category..." />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {GENRES.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
@@ -606,7 +605,7 @@ function StoryDetailsInner() {
                             value={summary} 
                             onChange={e => setSummary(e.target.value)}
                             onBlur={() => handleUpdateField('summary', summary)}
-                            placeholder="Manuscript summary..."
+                            placeholder="Brief overview of the story..."
                             rows={8} 
                             className="rounded-2xl bg-card border-none shadow-inner resize-none text-base p-4 focus-visible:ring-primary/30" 
                           />
@@ -614,7 +613,7 @@ function StoryDetailsInner() {
 
                       <div className="space-y-3">
                           <div className="flex justify-between items-center px-1">
-                              <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Manuscript Tags ({tags.length}/10)</Label>
+                              <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Thematic Tags ({tags.length}/10)</Label>
                               {tags.length >= 10 && <span className="text-[9px] text-orange-500 font-bold uppercase">Limit Reached</span>}
                           </div>
                           <div className="flex flex-wrap gap-2 mb-3">
@@ -627,7 +626,7 @@ function StoryDetailsInner() {
                           </div>
                           <div className="flex gap-2">
                               <Input 
-                                placeholder="Add thematic trope (e.g., enemies-to-lovers)..." 
+                                placeholder="Add thematic tags (e.g., enemies-to-lovers)..." 
                                 value={tagInput} 
                                 onChange={e => setTagInput(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleAddTag()}
@@ -645,7 +644,7 @@ function StoryDetailsInner() {
               <Card className="rounded-3xl border-none shadow-xl overflow-hidden bg-card/50 backdrop-blur-sm">
                   <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b bg-muted/20 gap-4">
                       <div className="min-w-0">
-                          <CardTitle className="font-headline text-xl">Manuscript Map</CardTitle>
+                          <CardTitle className="font-headline text-xl">Manuscript View</CardTitle>
                           <CardDescription className="truncate">{story.chapters.length} Parts total & bull; Reorder and Schedule</CardDescription>
                       </div>
                       <Button onClick={handleAddChapter} className="rounded-full shadow-lg shadow-primary/20 gap-2 w-full sm:w-auto">
@@ -753,7 +752,7 @@ function StoryDetailsInner() {
                                                     </AlertDialogTrigger>
                                                     <AlertDialogContent className="rounded-3xl">
                                                         <AlertDialogHeader>
-                                                            <AlertDialogTitle>Delete this chapter?</AlertDialogTitle>
+                                                            <AlertDialogTitle>Delete this part?</AlertDialogTitle>
                                                             <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
@@ -772,7 +771,7 @@ function StoryDetailsInner() {
                           <div className="py-20 text-center space-y-4">
                               <BookOpen className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
                               <p className="text-muted-foreground font-medium">Your manuscript is empty.</p>
-                              <Button onClick={handleAddChapter} variant="outline" className="rounded-full px-8">Add First Chapter</Button>
+                              <Button onClick={handleAddChapter} variant="outline" className="rounded-full px-8">Add First Part</Button>
                           </div>
                       )}
                   </CardContent>
@@ -784,29 +783,29 @@ function StoryDetailsInner() {
                   <div className="space-y-8">
                     <Card className="rounded-3xl border-none shadow-xl">
                         <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-2"><Globe className="h-5 w-5 text-primary" /> Distribution</CardTitle>
+                            <CardTitle className="text-lg flex items-center gap-2"><Globe className="h-5 w-5 text-primary" /> Access Control</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <RadioGroup value={visibility} onValueChange={(v) => { setVisibility(v as any); handleUpdateField('visibility', v); }} className="space-y-3">
                                 <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
                                     <RadioGroupItem value="Public" id="pub" />
                                     <Label htmlFor="pub" className="flex-1 cursor-pointer">
-                                        <span className="font-bold block">Public</span>
+                                        <span className="font-bold block">Public Space</span>
                                         <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Everyone can read</span>
                                     </Label>
                                 </div>
                                 <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
                                     <RadioGroupItem value="Unlisted" id="unl" />
                                     <Label htmlFor="unl" className="flex-1 cursor-pointer">
-                                        <span className="font-bold block">Unlisted</span>
+                                        <span className="font-bold block">Unlisted Space</span>
                                         <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Only those with the link</span>
                                     </Label>
                                 </div>
                                 <div className="flex items-center space-x-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer">
                                     <RadioGroupItem value="Private" id="pri" />
                                     <Label htmlFor="pri" className="flex-1 cursor-pointer">
-                                        <span className="font-bold block">Private</span>
-                                        <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Author only</span>
+                                        <span className="font-bold block">Private Space</span>
+                                        <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Only you can see this</span>
                                     </Label>
                                 </div>
                             </RadioGroup>
@@ -836,15 +835,15 @@ function StoryDetailsInner() {
                     <Card className="rounded-3xl border-destructive/20 bg-destructive/5 shadow-none overflow-hidden">
                         <CardHeader className="bg-destructive/10 border-b border-destructive/10">
                             <CardTitle className="text-lg text-destructive flex items-center gap-2 font-headline">
-                                <ShieldAlert className="h-5 w-5" /> Danger Zone
+                                <ShieldAlert className="h-5 w-5" /> Safety Zone
                             </CardTitle>
-                            <CardDescription>Wipe all cloud records for this manuscript.</CardDescription>
+                            <CardDescription>Wipe all records for this manuscript.</CardDescription>
                         </CardHeader>
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between gap-6">
                                 <div className="space-y-1">
                                     <h4 className="font-bold text-foreground">Delete Manuscript</h4>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">This will permanently remove the story and all its chapters from our archives. This cannot be undone.</p>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">Permanently remove the story and all parts. This cannot be undone.</p>
                                 </div>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
@@ -856,7 +855,7 @@ function StoryDetailsInner() {
                                         <AlertDialogHeader>
                                             <AlertDialogTitle className="text-2xl font-headline font-bold text-destructive">Erase this manuscript?</AlertDialogTitle>
                                             <AlertDialogDescription className="text-sm">
-                                                Every chapter, comment, and read count will be purged. This action cannot be reversed.
+                                                Every part, comment, and read count will be deleted. This action is permanent.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
@@ -865,7 +864,7 @@ function StoryDetailsInner() {
                                                 onClick={handleDeleteStory}
                                                 className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold"
                                             >
-                                                Permanently Erase
+                                                Confirm Deletion
                                             </AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
@@ -877,14 +876,14 @@ function StoryDetailsInner() {
                     <Card className="rounded-3xl border-none shadow-xl">
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2"><AlertCircle className="h-5 w-5 text-primary" /> Disclaimer</CardTitle>
-                            <CardDescription>Content warnings or legal notices displayed before entry.</CardDescription>
+                            <CardDescription>Warnings or notes shown before entry.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Textarea 
                                 value={disclaimer}
                                 onChange={e => setDisclaimer(e.target.value)}
                                 onBlur={() => handleUpdateField('disclaimer', disclaimer)}
-                                placeholder="E.g. Warning: Contains intense sequences..."
+                                placeholder="E.g. Warning: Contains specific themes..."
                                 className="rounded-2xl bg-muted/20 border-none shadow-inner resize-none text-sm h-32"
                             />
                         </CardContent>
@@ -897,7 +896,7 @@ function StoryDetailsInner() {
               <div className="max-w-2xl mx-auto space-y-6">
                 <Card className="rounded-3xl border-none shadow-xl overflow-hidden">
                     <CardHeader className="bg-muted/30 border-b">
-                        <CardTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Story Collaboration</CardTitle>
+                        <CardTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Teammates</CardTitle>
                         <CardDescription>Add fellow writers to help manage and edit this manuscript.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6 space-y-6">
@@ -906,7 +905,7 @@ function StoryDetailsInner() {
                                 <div className="relative flex-1">
                                     <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                     <Input 
-                                        placeholder="Collaborator username..." 
+                                        placeholder="Teammate handle..." 
                                         value={collaboratorUsername} 
                                         onChange={e => setCollaboratorUsername(e.target.value)} 
                                         className="pl-10 h-12 rounded-xl bg-muted/20 border-none"
@@ -951,7 +950,7 @@ function StoryDetailsInner() {
                                 )) : (
                                     <div className="text-center py-10 bg-muted/5 rounded-2xl border-2 border-dashed">
                                         <Users className="h-8 w-8 mx-auto mb-2 opacity-10" />
-                                        <p className="text-xs text-muted-foreground italic">Solo Project</p>
+                                        <p className="text-xs text-muted-foreground italic">Writing solo</p>
                                     </div>
                                 )}
                              </div>

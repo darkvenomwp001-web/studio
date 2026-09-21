@@ -4,17 +4,17 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 
 /**
- * AppearanceManager handles global visual styles, account switching themes,
- * ambient sounds, and anti-popup security for long-press gestures.
+ * AppearanceManager handles global visual styles, account switching,
+ * environment sounds, and touch settings for long-press gestures.
  */
 export default function AppearanceManager() {
   const { user } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    // Global Anti-Popup Hub
+    // Global Touch Settings
     // This prevents browser-native context menus from appearing when the user 
-    // performs a long-press (press and hold) across the entire application.
+    // performs a long-press across the entire application.
     const handleGlobalContextMenu = (e: MouseEvent) => {
         e.preventDefault();
     };
@@ -36,7 +36,7 @@ export default function AppearanceManager() {
     // Apply Accent Color
     root.setAttribute('data-accent', settings.accentColor || 'default');
 
-    // Apply Corner Radius
+    // Apply Corner Style
     root.setAttribute('data-radius', settings.cornerStyle || 'rounded');
 
     // Apply Parchment Mode
@@ -76,7 +76,7 @@ export default function AppearanceManager() {
       body.classList.remove('ui-compact');
     }
 
-    // Apply Ambient Sound System
+    // Apply Environment Sound System
     const playSound = async (type: string) => {
         if (!audioRef.current) {
             audioRef.current = new Audio();

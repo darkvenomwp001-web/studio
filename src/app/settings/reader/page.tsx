@@ -56,25 +56,25 @@ export default function ReaderSettingsPage() {
     <div className="max-w-2xl mx-auto space-y-8 py-10 px-4 pb-32">
       <header>
         <Button variant="ghost" onClick={() => router.push('/settings')} className="mb-2 -ml-2 text-muted-foreground">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Hub
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
         </Button>
         <h1 className="text-3xl font-headline font-bold text-foreground flex items-center gap-3">
             <BookMarked className="h-8 w-8 text-primary" /> Reader Preferences
         </h1>
-        <p className="text-muted-foreground text-sm">Configure gestures and interactive reading protocols.</p>
+        <p className="text-muted-foreground text-sm">Configure gestures and interactive reading styles.</p>
       </header>
 
       <div className="space-y-6">
         <Card className="rounded-[2rem] border-border/40 shadow-lg bg-card/50 backdrop-blur-sm">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg"><Smartphone className="h-5 w-5 text-primary" /> Gesture Navigation</CardTitle>
-                <CardDescription>Control how you navigate through manuscripts using touch gestures.</CardDescription>
+                <CardDescription>Control how you navigate through stories using touch gestures.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
                 <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/40">
                     <div className="space-y-0.5">
                         <Label htmlFor="swipe-toggle" className="text-sm font-bold block">Swipe to Navigate</Label>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Swipe between parts/chapters</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Swipe between story parts</p>
                     </div>
                     <Switch id="swipe-toggle" checked={localSettings.swipeToNavigate} onCheckedChange={(v) => updateReaderSetting('swipeToNavigate', v)} />
                 </div>
@@ -117,7 +117,7 @@ export default function ReaderSettingsPage() {
                                     </div>
                                     <div className="space-y-1">
                                         <span className="text-xs font-bold uppercase tracking-widest block">Vertical</span>
-                                        <span className="text-[9px] text-muted-foreground leading-none">Swipe up at the bottom</span>
+                                        <span className="text-[9px] text-muted-foreground leading-none">High-velocity flick upwards</span>
                                     </div>
                                 </Label>
                             </div>
@@ -144,7 +144,7 @@ export default function ReaderSettingsPage() {
       </div>
 
       <footer className="pt-10 text-center">
-        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">Haptic Node Protocol & bull; D4RKV3NOM Core</p>
+        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">Touch Feedback System & bull; D4RKV3NOM Core</p>
       </footer>
     </div>
   );

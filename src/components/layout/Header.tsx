@@ -14,12 +14,10 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuLabel
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
-
-const OWNER_HANDLES = ['arnv'];
 
 const NavLink = ({ href, children, icon }: { href: string; children: React.ReactNode; icon?: React.ReactNode }) => (
   <Link href={href} passHref>
@@ -35,7 +33,6 @@ export default function Header() {
   const { user, loading, savedAccounts, switchAccount, removeSavedAccount, signOutFirebase } = useAuth(); 
   const router = useRouter();
   
-  // High-Fidelity Account Hub State
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const [isLongPressDetected, setIsLongPressDetected] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -59,15 +56,15 @@ export default function Header() {
 
   const handleStart = () => {
     setIsLongPressDetected(false);
-    // User requested a 6-second hold to trigger the switcher
+    // Deliberate 6.5-second hold for switching accounts
     longPressTimer.current = setTimeout(() => {
         if (user && savedAccounts.length > 0) {
             setIsLongPressDetected(true);
             setIsSwitcherOpen(true);
-            // High-fidelity tactile feedback for hold success
-            if (window.navigator.vibrate) window.navigator.vibrate(15);
+            // Tactile feedback for hold success
+            if (window.navigator.vibrate) window.navigator.vibrate(20);
         }
-    }, 6000); 
+    }, 6500); 
   };
 
   const handleEnd = () => {
@@ -78,13 +75,14 @@ export default function Header() {
   };
 
   const handleProfileClick = (e: React.MouseEvent) => {
-      // If the 6-second hold was completed, prevent the normal navigation
+      // If the hold was completed, the switcher was already opened via state
       if (isLongPressDetected) {
           e.preventDefault();
           return;
       }
-      // Otherwise, act as a normal click and go to the profile
+      // Short tap redirects to profile
       router.push(`/profile/${user?.id}`);
+      setIsSwitcherOpen(false);
   };
 
   const displayName = user?.displayName || user?.username;
@@ -114,11 +112,9 @@ export default function Header() {
                 <DropdownMenuTrigger asChild>
                     <button 
                         className="relative h-10 w-10 md:h-11 md:w-11 rounded-full outline-none group transition-transform active:scale-95"
-                        onMouseDown={handleStart}
-                        onMouseUp={handleEnd}
-                        onMouseLeave={handleEnd}
-                        onTouchStart={handleStart}
-                        onTouchEnd={handleEnd}
+                        onPointerDown={handleStart}
+                        onPointerUp={handleEnd}
+                        onPointerLeave={handleEnd}
                         onClick={handleProfileClick}
                     >
                         <Avatar className="h-full w-full border border-border/40 shadow-sm transition-all group-hover:border-primary/40">

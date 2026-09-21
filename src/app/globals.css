@@ -8,20 +8,20 @@ body {
   touch-action: manipulation;
 }
 
-/* Global External Popup Guard */
+/* Global Interaction Guard */
 * {
   -webkit-touch-callout: none !important;
   -webkit-user-select: none;
   user-select: none;
 }
 
-/* Preserve selection for internal archival tools and editing */
+/* Preserve selection for editing and archival tools */
 .prose, .ProseMirror, input, textarea {
   -webkit-user-select: text !important;
   user-select: text !important;
 }
 
-/* Night Reading Hub */
+/* Night Reading Mode */
 body.night-portal {
   --background: 0 0% 0%;
   --foreground: 210 15% 80%;
@@ -29,7 +29,7 @@ body.night-portal {
   --border: 210 10% 20%;
 }
 
-/* Parchment Hub Overlay */
+/* Parchment Mode Overlay */
 body.parchment-mode::after {
   content: "";
   position: fixed;
@@ -151,7 +151,7 @@ body.parchment-mode::after {
   [data-accent="charcoal"] { --primary: 220 15% 35%; --accent: 220 15% 25%; --ring: 220 15% 35%; }
   [data-accent="pistachio"] { --primary: 100 40% 70%; --accent: 100 40% 60%; --ring: 100 40% 70%; }
 
-  /* 25 New Localized Colors */
+  /* New Community Colors */
   [data-accent="ube-overload"] { --primary: 271 70% 60%; --accent: 271 70% 50%; --ring: 271 70% 60%; }
   [data-accent="matcha-diet"] { --primary: 100 40% 50%; --accent: 100 40% 40%; --ring: 100 40% 50%; }
   [data-accent="kalamansi-shot"] { --primary: 66 90% 45%; --accent: 66 90% 35%; --ring: 66 90% 45%; }
@@ -178,7 +178,7 @@ body.parchment-mode::after {
   [data-accent="shanghai-gold"] { --primary: 40 80% 50%; --accent: 40 80% 40%; --ring: 40 80% 50%; }
   [data-accent="pancit-canton"] { --primary: 45 70% 65%; --accent: 45 70% 55%; --ring: 45 70% 65%; }
 
-  /* Radius Hub */
+  /* Corner Styling */
   [data-radius="minimal"] { --radius: 0.15rem; }
   [data-radius="rounded"] { --radius: 0.75rem; }
   [data-radius="organic"] { --radius: 1.75rem; }
@@ -202,7 +202,7 @@ body.parchment-mode::after {
   }
 }
 
-/* Explicit Spacing Node for Manuscripts: NO TRAILING VERTICAL SPACE */
+/* Explicit Spacing Rule for Manuscripts: NO TRAILING VERTICAL SPACE */
 .prose p, 
 .ProseMirror p {
   @apply mb-6 leading-relaxed;

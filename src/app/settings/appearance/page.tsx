@@ -126,9 +126,9 @@ export default function AppearanceSettingsPage() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
             </Button>
             <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground flex items-center gap-4">
-                <Palette className="h-10 w-10 text-primary" /> Display Settings
+                <Palette className="h-10 w-10 text-primary" /> Visual Styles
             </h1>
-            <p className="text-muted-foreground text-sm font-medium">Choose your favorite colors and reading style.</p>
+            <p className="text-muted-foreground text-sm font-medium">Choose your favorite colors and reading preferences.</p>
         </div>
         {(authLoading) && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
       </header>
@@ -138,13 +138,13 @@ export default function AppearanceSettingsPage() {
             <section className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                     <div className="h-1 w-6 bg-primary rounded-full" />
-                    <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">App Style</h2>
+                    <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">App Interface</h2>
                 </div>
                 
                 <Card className="border-border/40 shadow-sm bg-card/50 backdrop-blur-xl">
                     <CardHeader className="pb-4">
                         <CardTitle className="text-lg flex items-center gap-2"><Monitor className="h-4 w-4 text-primary" /> Theme</CardTitle>
-                        <CardDescription>Choose how the app looks for you.</CardDescription>
+                        <CardDescription>Choose how the interface looks for you.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-3">
@@ -163,7 +163,7 @@ export default function AppearanceSettingsPage() {
 
                 <Card className="border-border/40 shadow-xl overflow-hidden bg-card/40 backdrop-blur-sm">
                     <CardHeader className="pb-4 bg-muted/20 border-b border-border/40">
-                        <CardTitle className="text-lg flex items-center gap-2"><Coffee className="h-4 w-4 text-primary" /> Colors</CardTitle>
+                        <CardTitle className="text-lg flex items-center gap-2"><Coffee className="h-4 w-4 text-primary" /> Main Colors</CardTitle>
                         <CardDescription>Choose your favorite main color for the app.</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
@@ -207,7 +207,7 @@ export default function AppearanceSettingsPage() {
                             <CardTitle className="text-base flex items-center gap-2"><Library className="h-4 w-4 text-amber-600" /> Parchment Mode</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <p className="text-xs text-muted-foreground leading-relaxed">Adds a soft paper texture to reduce eye strain when reading stories.</p>
+                            <p className="text-xs text-muted-foreground leading-relaxed">Adds a soft paper texture to reduce eye strain when reading manuscripts.</p>
                             <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-dashed border-border/60">
                                 <span className="text-[10px] font-bold uppercase tracking-widest">Enable Texture</span>
                                 <Switch checked={localSettings.parchmentMode} onCheckedChange={(v) => updateAppearance('parchmentMode', v)} />
@@ -217,7 +217,7 @@ export default function AppearanceSettingsPage() {
 
                     <Card className="border-border/40 shadow-md bg-card/30">
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2"><Music className="h-4 w-4 text-purple-500" /> Focus Sounds</CardTitle>
+                            <CardTitle className="text-base flex items-center gap-2"><Music className="h-4 w-4 text-purple-500" /> Environment Sounds</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <p className="text-xs text-muted-foreground">Turn on background sounds to help you focus while reading.</p>
@@ -278,7 +278,7 @@ export default function AppearanceSettingsPage() {
                     localSettings.cornerStyle === 'minimal' ? 'rounded-none' : localSettings.cornerStyle === 'organic' ? 'rounded-[3rem]' : 'rounded-3xl'
                 )}>
                     <CardHeader className="p-8 pb-4">
-                        <Badge className="w-fit mb-4 bg-primary text-primary-foreground font-bold text-[9px] uppercase tracking-[0.2em]">Example Story</Badge>
+                        <Badge className="w-fit mb-4 bg-primary text-primary-foreground font-bold text-[9px] uppercase tracking-[0.2em]">Sample Manuscript</Badge>
                         <CardTitle className="text-2xl font-headline font-bold leading-tight">The Midnight Adventure</CardTitle>
                         <CardDescription>How it will look when reading...</CardDescription>
                     </CardHeader>
@@ -313,7 +313,7 @@ export default function AppearanceSettingsPage() {
                     <CardContent className="space-y-0 divide-y divide-border/20">
                         {[
                             { id: 'glassmorphism', label: 'Blur Effects', desc: 'Glass-like appearance', icon: Wand2 },
-                            { id: 'oledMode', label: 'True Black', desc: 'Deep black background', icon: Moon },
+                            { id: 'oledMode', label: 'True Black', desc: 'Deep black for AMOLED screens', icon: Moon },
                             { id: 'autoDim', label: 'Auto-Dim', desc: 'Darken menus while reading', icon: EyeOff },
                         ].map(item => (
                             <div key={item.id} className="flex items-center justify-between py-4">

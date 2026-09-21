@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -47,7 +46,6 @@ export default function SafetySettingsPage() {
             setIsLoadingBlocked(true);
             try {
                 const usersRef = collection(db, 'users');
-                // Firestore limit for 'in' is 10, but for blocking a few names is fine for MVP
                 const q = query(usersRef, where('__name__', 'in', user.blockedUserIds!.slice(0, 10)));
                 const snap = await getDocs(q);
                 setBlockedUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -85,9 +83,9 @@ export default function SafetySettingsPage() {
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
                 </Button>
                 <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground flex items-center gap-4">
-                    <Shield className="h-10 w-10 text-red-500" /> Safety Hub
+                    <Shield className="h-10 w-10 text-red-500" /> Safety Settings
                 </h1>
-                <p className="text-muted-foreground text-sm font-medium">Protect your space. Control who can interact with you and what you see.</p>
+                <p className="text-muted-foreground text-sm font-medium">Protect your space and control who can interact with you.</p>
             </header>
 
             <div className="grid gap-6">
@@ -123,16 +121,16 @@ export default function SafetySettingsPage() {
                             </div>
                         ) : (
                             <div className="text-center py-10 text-muted-foreground italic bg-muted/10 rounded-3xl border border-dashed">
-                                <p className="text-xs">Your blocked list is clean.</p>
+                                <p className="text-xs">Your blocked list is empty.</p>
                             </div>
                         )}
                         
                         <div className="pt-4">
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Safety Note</Label>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Note</Label>
                             <div className="p-4 rounded-2xl bg-muted/20 border border-border/40 flex items-start gap-3 mt-2">
                                 <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
                                 <p className="text-[11px] leading-relaxed text-muted-foreground">
-                                    Blocking is a serious tool for personal safety. If someone is violating community guidelines, please also use the Report feature on their profile or content to notify our moderators.
+                                    Blocking is a tool for personal safety. If someone is violating community rules, please also report their profile.
                                 </p>
                             </div>
                         </div>
@@ -141,28 +139,28 @@ export default function SafetySettingsPage() {
 
                 <Card className="rounded-[2.5rem] border-border/40 shadow-xl bg-card/40 backdrop-blur-sm overflow-hidden">
                     <CardHeader className="p-8 pb-4">
-                        <CardTitle className="text-lg flex items-center gap-2"><EyeOff className="h-5 w-5 text-primary" /> Content Filters</CardTitle>
-                        <CardDescription>Tailor your feed to your comfort level.</CardDescription>
+                        <CardTitle className="text-lg flex items-center gap-2"><EyeOff className="h-5 w-5 text-primary" /> Community Filters</CardTitle>
+                        <CardDescription>Customize what you see in the community.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-8 pt-0 space-y-4">
                         <div className="flex items-center justify-between py-4 border-b border-border/20">
                             <div className="space-y-0.5">
-                                <Label className="text-sm font-bold">Hide Mature Search Results</Label>
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Blur 18+ content in the discovery hub</p>
+                                <Label className="text-sm font-bold">Hide Mature Results</Label>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Blur 18+ content in search</p>
                             </div>
                             <Switch defaultChecked />
                         </div>
                         <div className="flex items-center justify-between py-4 border-b border-border/20">
                             <div className="space-y-0.5">
-                                <Label className="text-sm font-bold">Aggressive Trigger Filtering</Label>
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Automatically hide stories with severe warnings</p>
+                                <Label className="text-sm font-bold">Aggressive Filtering</Label>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Hide stories with specific warnings automatically</p>
                             </div>
                             <Switch />
                         </div>
                         <div className="flex items-center justify-between py-4">
                             <div className="space-y-0.5">
                                 <Label className="text-sm font-bold">Safe Reader Mode</Label>
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Collapse all author disclaimers by default</p>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Collapse author notices by default</p>
                             </div>
                             <Switch />
                         </div>
@@ -171,7 +169,7 @@ export default function SafetySettingsPage() {
             </div>
             
             <footer className="pt-10 text-center">
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">May 15, 2026 Core Protocol & bull; D4RKV3NOM Safety Hub</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">D4RKV3NOM Safety Hub</p>
             </footer>
         </div>
     );
