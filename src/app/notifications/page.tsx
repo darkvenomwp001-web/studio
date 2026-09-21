@@ -41,8 +41,7 @@ import {
   Play,
   Square,
   Music,
-  AlertCircle,
-  Pin
+  AlertCircle
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -108,9 +107,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import Image from 'next/image';
 
-// Native APK Bridge Imports
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: NodeJS.Timeout;
   return (...args: Parameters<F>): Promise<ReturnType<F>> =>
@@ -156,7 +152,7 @@ function NotificationsList() {
             try {
                 await markNotificationAsRead(notification.id);
             } catch (error) {
-                toast({ title: "Error", description: "Failed to mark notification as read.", variant: "destructive"});
+                toast({ title: "Error", description: "Failed to mark as read.", variant: "destructive"});
             }
         }
         if (notification.link) {
@@ -166,13 +162,13 @@ function NotificationsList() {
 
     const handleMarkAllRead = async () => {
         if (notifications.every(n => n.isRead)) {
-            toast({ title: "All Read", description: "No unread notifications to mark." });
+            toast({ title: "All Read", description: "No unread items to mark." });
             return;
         }
         try {
             await markAllNotificationsAsRead();
         } catch (error) {
-            toast({ title: "Error", description: "Failed to mark all notifications as read.", variant: "destructive"});
+            toast({ title: "Error", description: "Failed to mark all as read.", variant: "destructive"});
         }
     };
 
@@ -231,7 +227,7 @@ function NotificationsList() {
         return (
              <div className="text-center py-20 text-muted-foreground flex flex-col items-center justify-center">
                 <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-                <p className="font-headline font-semibold">Updating activity feed...</p>
+                <p className="font-headline font-semibold">Updating activity...</p>
             </div>
         );
     }
@@ -250,7 +246,7 @@ function NotificationsList() {
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        placeholder="Search your history..." 
+                        placeholder="Search your activity..." 
                         className="pl-10 bg-muted/50 border-none h-10 rounded-full focus-visible:ring-primary/30" 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -321,7 +317,7 @@ function NotificationsList() {
                             <Bell className="h-10 w-10 text-muted-foreground/40" />
                         </div>
                         <h3 className="font-headline text-lg font-bold text-foreground">
-                            {searchTerm ? 'No results found' : 'All caught up!'}
+                            {searchTerm ? 'No matches found' : 'All caught up!'}
                         </h3>
                         <p className="text-sm max-w-[200px] mx-auto">
                             {searchTerm ? `Try searching for something else.` : 'No new activity to show right now. Go explore some stories!'}
@@ -363,20 +359,6 @@ function MessagesClient() {
   const [userStatuses, setUserStatuses] = useState<Record<string, 'online' | 'offline'>>({});
   const [otherUserTyping, setOtherUserTyping] = useState<boolean>(false);
 
-  const [isDeletingThread, setIsDeletingThread] = useState(false);
-
-  const [pendingMedia, setPendingMedia] = useState<File | null>(null);
-  const [pendingMediaPreview, setPendingMediaPreview] = useState<string | null>(null);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [audioURL, setAudioURL] = useState<string | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [recordingDuration, setRecordingDuration] = useState(0);
-
-  const galleryInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -473,85 +455,39 @@ function MessagesClient() {
     setMobileView('chat');
   };
 
-  const uploadFileToCloudinary = async (file: File | Blob, resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto'): Promise<string> => {
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-    if (!cloudName || !uploadPreset) throw new Error("Cloudinary not configured");
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', uploadPreset);
-
-    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType === 'auto' ? 'video' : resourceType}/upload`, {
-        method: 'POST',
-        body: formData,
-    });
-    const data = await response.json();
-    if (data.secure_url) return data.secure_url;
-    throw new Error(data.error?.message || "Upload failed");
-  };
-
   const handleSendMessage = async (contentInput?: string) => {
     const finalContent = contentInput || newMessageContent;
-    const hasAttachments = pendingMedia || pendingFile || audioBlob;
-    
-    if (!currentUser || !activeConversation || (!finalContent.trim() && !hasAttachments)) return;
+    if (!currentUser || !activeConversation || !finalContent.trim()) return;
 
     setIsSendingMessage(true);
-    let mediaUrl = '';
-    let type: Message['type'] = 'text';
-    let fileName = '';
-
     try {
-        if (pendingMedia) {
-            const isVideo = pendingMedia.type.startsWith('video/');
-            mediaUrl = await uploadFileToCloudinary(pendingMedia, isVideo ? 'video' : 'image');
-            type = isVideo ? 'video' : 'image';
-        } else if (pendingFile) {
-            mediaUrl = await uploadFileToCloudinary(pendingFile, 'auto');
-            type = 'file';
-            fileName = pendingFile.name;
-        } else if (audioBlob) {
-            mediaUrl = await uploadFileToCloudinary(audioBlob, 'video');
-            type = 'audio';
-        }
+      const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
+      remove(typingRef);
 
-        const messageData: any = {
-            senderId: currentUser.id,
-            content: finalContent.trim(),
-            timestamp: serverTimestamp(),
-            type,
-        };
+      const messageRef = await addDoc(collection(db, 'conversations', activeConversation.id, 'messages'), {
+        senderId: currentUser.id,
+        content: finalContent.trim(),
+        timestamp: serverTimestamp(),
+        type: 'text',
+      });
 
-        if (mediaUrl) messageData.mediaUrl = mediaUrl;
-        if (fileName) messageData.fileName = fileName;
+      await updateDoc(doc(db, 'conversations', activeConversation.id), {
+        lastMessage: {
+          id: messageRef.id,
+          content: finalContent.trim(),
+          senderId: currentUser.id,
+          timestamp: serverTimestamp(), 
+          isRead: false
+        },
+        updatedAt: serverTimestamp(),
+      });
 
-        const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
-        remove(typingRef);
-
-        const messageRef = await addDoc(collection(db, 'conversations', activeConversation.id, 'messages'), messageData);
-        await updateDoc(doc(db, 'conversations', activeConversation.id), {
-            lastMessage: {
-                id: messageRef.id,
-                content: type === 'text' ? messageData.content : `Sent a ${type}`,
-                senderId: currentUser.id,
-                timestamp: serverTimestamp(), 
-                isRead: false
-            },
-            updatedAt: serverTimestamp(),
-        });
-
-        setNewMessageContent('');
-        setPendingMedia(null);
-        setPendingMediaPreview(null);
-        setPendingFile(null);
-        setAudioBlob(null);
-        setAudioURL(null);
+      setNewMessageContent('');
     } catch (error) {
-        console.error("Failed to send message:", error);
-        toast({ title: "Send Failed", description: "Could not upload attachments or send message.", variant: "destructive" });
+      console.error("Failed to send message:", error);
+      toast({ title: "Send Failed", description: "Could not deliver message.", variant: "destructive" });
     } finally {
-        setIsSendingMessage(false);
+      setIsSendingMessage(false);
     }
   };
   
@@ -644,8 +580,8 @@ function MessagesClient() {
         setSearchedUsers([]);
       }
     } catch (error) {
-      console.error("Error starting new conversation:", error);
-      toast({ title: "Error", description: "Could not start new conversation.", variant: "destructive" });
+      console.error("Error starting conversation:", error);
+      toast({ title: "Error", description: "Could not start new chat.", variant: "destructive" });
     } finally {
       setIsCreatingConversation(false);
     }
@@ -662,7 +598,7 @@ function MessagesClient() {
             user2_bio: otherParticipant.bio,
         });
         if ('error' in result) {
-            toast({ title: 'AI Error', description: result.error, variant: 'destructive'});
+            toast({ title: 'Error', description: result.error, variant: 'destructive'});
         } else {
             setConversationStarters(result.starters);
         }
@@ -684,117 +620,6 @@ function MessagesClient() {
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     handleInputChange(newMessageContent + emojiData.emoji);
   };
-
-  const handleDeleteConversation = async () => {
-    if (!activeConversation || !currentUser) return;
-    setIsDeletingThread(true);
-    const convRef = doc(db, 'conversations', activeConversation.id);
-    
-    deleteDoc(convRef)
-        .then(() => {
-            toast({ title: "Conversation deleted" });
-            setActiveConversation(null);
-            setMobileView('list');
-        })
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: convRef.path,
-                operation: 'delete',
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
-        })
-        .finally(() => {
-            setIsDeletingThread(false);
-        });
-  };
-
-  const handleGallerySelect = async (e: ChangeEvent<HTMLInputElement>) => {
-    const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
-    
-    if (isNative) {
-        try {
-            const permStatus = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
-            if (permStatus.photos === 'granted') {
-                const image = await Camera.getPhoto({
-                    quality: 90,
-                    allowEditing: true,
-                    resultType: CameraResultType.Uri,
-                    source: CameraSource.Photos
-                });
-
-                if (image.webPath) {
-                    const response = await fetch(image.webPath);
-                    const blob = await response.blob();
-                    const file = new File([blob], `msg-media.${image.format}`, { type: blob.type });
-                    setPendingMedia(file);
-                    setPendingMediaPreview(image.webPath);
-                    setPendingFile(null);
-                    setAudioBlob(null);
-                }
-            } else {
-                toast({ title: "Permission Denied", description: "Access to photos is required.", variant: "destructive" });
-            }
-        } catch (err) {
-            console.warn("APK native picker protocol interrupted.");
-        }
-        return;
-    }
-
-    if (e.target.files && e.target.files[0]) {
-        const file = e.target.files[0];
-        setPendingMedia(file);
-        setPendingMediaPreview(URL.createObjectURL(file));
-        setPendingFile(null);
-        setAudioBlob(null);
-    }
-  };
-
-  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-        const file = e.target.files[0];
-        setPendingFile(file);
-        setPendingMedia(null);
-        setPendingMediaPreview(null);
-        setAudioBlob(null);
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const recorder = new MediaRecorder(stream);
-        mediaRecorderRef.current = recorder;
-        const chunks: Blob[] = [];
-
-        recorder.ondataavailable = (e) => chunks.push(e.data);
-        recorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'audio/webm' });
-            setAudioBlob(blob);
-            setAudioURL(URL.createObjectURL(blob));
-            stream.getTracks().forEach(track => track.stop());
-        };
-
-        recorder.start();
-        setIsRecording(true);
-        setRecordingDuration(0);
-        recordingTimerRef.current = setInterval(() => {
-            setRecordingDuration(d => d + 1);
-        }, 1000);
-        setPendingMedia(null);
-        setPendingFile(null);
-    } catch (err) {
-        toast({ title: "Microphone Access Denied", variant: "destructive" });
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-        mediaRecorderRef.current.stop();
-        setIsRecording(false);
-        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-    }
-  };
-
 
   useEffect(() => {
     const startConversationWithId = searchParams.get('startConversationWith');
@@ -836,61 +661,6 @@ function MessagesClient() {
             return other?.username?.toLowerCase().includes(term) || other?.displayName?.toLowerCase().includes(term);
         });
     }, [conversations, sidebarSearch]);
-
-    const renderMessageStatus = (msg: Message, isLast: boolean) => {
-        if (msg.senderId !== currentUser?.id || !isLast) return null;
-        return <div className="text-[10px] text-muted-foreground/60 mt-1 self-end mr-1 flex items-center gap-1">Sent <CheckCheck className="h-2.5 w-2.5 text-primary" /></div>;
-    };
-
-    const renderMessageContent = (msg: Message) => {
-        switch (msg.type) {
-            case 'image':
-                return (
-                    <div className="space-y-2">
-                        {msg.mediaUrl && (
-                            <div className="relative aspect-square w-full max-w-[300px] rounded-xl overflow-hidden shadow-sm bg-muted">
-                                <Image src={msg.mediaUrl} alt="Shared photo" layout="fill" objectFit="cover" />
-                            </div>
-                        )}
-                        {msg.content && <p className="text-sm">{msg.content}</p>}
-                    </div>
-                );
-            case 'video':
-                return (
-                    <div className="space-y-2">
-                        {msg.mediaUrl && (
-                            <video src={msg.mediaUrl} controls className="max-w-full rounded-xl shadow-sm bg-black" />
-                        )}
-                        {msg.content && <p className="text-sm">{msg.content}</p>}
-                    </div>
-                );
-            case 'audio':
-                return (
-                    <div className="space-y-2 py-1">
-                        {msg.mediaUrl && (
-                            <audio src={msg.mediaUrl} controls className="h-8 max-w-[200px]" />
-                        )}
-                        <div className="flex items-center gap-2 text-[10px] opacity-70">
-                            <Music className="h-3 w-3" /> <span>Voice Note</span>
-                        </div>
-                    </div>
-                );
-            case 'file':
-                return (
-                    <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-card/20 rounded-xl hover:bg-card/40 transition-colors border border-white/10">
-                        <div className="bg-primary/20 p-2 rounded-lg">
-                            <FileText className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold truncate">{msg.fileName || 'Shared file'}</p>
-                            <p className="text-[10px] uppercase tracking-widest opacity-60">Tap to download</p>
-                        </div>
-                    </a>
-                );
-            default:
-                return <p className="text-sm whitespace-pre-line leading-relaxed">{msg.content}</p>;
-        }
-    };
 
     const renderMessageList = () => {
         const elements: JSX.Element[] = [];
@@ -934,18 +704,15 @@ function MessagesClient() {
                     )}
                     {(!isCurrentUserSender && !isLastInGroup) && <div className="w-8" />}
                     
-                    <div className="flex flex-col">
-                        <div className={cn(
-                            "p-3 rounded-2xl shadow-sm text-sm transition-all", 
-                            isCurrentUserSender 
-                                ? "bg-primary text-primary-foreground rounded-br-none" 
-                                : "bg-muted text-foreground rounded-bl-none",
-                            !isLastInGroup && (isCurrentUserSender ? "rounded-br-2xl" : "rounded-bl-2xl"),
-                            !isPrevSameSender && (isCurrentUserSender ? "rounded-tr-2xl" : "rounded-tl-2xl")
-                        )}>
-                            {renderMessageContent(msg)}
-                        </div>
-                        {isCurrentUserSender && index === messages.length - 1 && renderMessageStatus(msg, true)}
+                    <div className={cn(
+                        "p-3 rounded-2xl shadow-sm text-sm transition-all", 
+                        isCurrentUserSender 
+                            ? "bg-primary text-primary-foreground rounded-br-none" 
+                            : "bg-muted text-foreground rounded-bl-none",
+                        !isLastInGroup && (isCurrentUserSender ? "rounded-br-2xl" : "rounded-bl-2xl"),
+                        !isPrevSameSender && (isCurrentUserSender ? "rounded-tr-2xl" : "rounded-tl-2xl")
+                    )}>
+                        <p className="whitespace-pre-line leading-relaxed">{msg.content}</p>
                     </div>
                 </div>
             );
@@ -973,14 +740,14 @@ function MessagesClient() {
                         <DialogTrigger asChild>
                             <Button variant="outline" size="icon" className="rounded-full shadow-sm hover:bg-primary hover:text-primary-foreground transition-all">
                                 <Plus className="h-5 w-5" />
-                                <span className="sr-only">New Thread</span>
+                                <span className="sr-only">New Chat</span>
                             </Button>
                         </DialogTrigger>
                     </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
-                            placeholder="Search conversations..." 
+                            placeholder="Search chats..." 
                             className="pl-10 h-10 rounded-full bg-muted/50 border-none focus-visible:ring-primary/50" 
                             value={sidebarSearch}
                             onChange={(e) => setSidebarSearch(e.target.value)}
@@ -1115,7 +882,7 @@ function MessagesClient() {
                                         className={cn("rounded-full h-10 w-10", isOtherParticipantOnline ? "text-primary" : "text-muted-foreground/40")}
                                         onClick={() => !isOtherParticipantOnline && toast({ title: "User is away" })}
                                     >
-                                        {isOtherParticipantOnline ? <Phone className="h-5 w-5" /> : <PhoneOff className="h-5 w-5" />}
+                                        <Phone className="h-5 w-5" />
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent className="text-[10px] font-bold uppercase">Audio Call</TooltipContent>
@@ -1127,7 +894,7 @@ function MessagesClient() {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-56 rounded-xl">
-                                    <DropdownMenuLabel>Thread Options</DropdownMenuLabel>
+                                    <DropdownMenuLabel>Chat Options</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => router.push(`/profile/${getOtherParticipant(activeConversation)?.id}`)}>
                                         <User className="mr-2 h-4 w-4" /> View Profile
@@ -1136,27 +903,9 @@ function MessagesClient() {
                                         <BellOff className="mr-2 h-4 w-4" /> Mute Notifications
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onSelect={(e) => e.preventDefault()}>
-                                                <Trash2 className="mr-2 h-4 w-4" /> Delete Conversation
-                                            </DropdownMenuItem>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent className="rounded-2xl">
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Delete this entire thread?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    This will permanently remove the conversation and its history for you.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={handleDeleteConversation} disabled={isDeletingThread} className="bg-destructive hover:bg-destructive/90 rounded-full px-6">
-                                                    Delete Thread
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
+                                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete Thread
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
@@ -1205,69 +954,47 @@ function MessagesClient() {
                     </ScrollArea>
 
                     <footer className="p-3 md:p-4 border-t bg-card/50 backdrop-blur-md w-full">
-                        <div className="flex flex-col gap-3">
-                            {(pendingMediaPreview || pendingFile || audioURL) && (
-                                <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-2xl border border-dashed border-primary/20 animate-in slide-in-from-bottom-2">
-                                    {pendingMediaPreview && (
-                                        <div className="relative h-16 w-16 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
-                                            <Image src={pendingMediaPreview} alt="Preview" layout="fill" objectFit="cover" />
-                                            <Button variant="destructive" size="icon" className="absolute top-0 right-0 h-5 w-5 rounded-bl-xl rounded-tr-none" onClick={() => { setPendingMedia(null); setPendingMediaPreview(null); }}>
-                                                <X className="h-3 w-3" />
-                                            </Button>
-                                        </div>
-                                    )}
-                                    <div className="text-[10px] font-bold uppercase tracking-widest text-primary/60 truncate">Attachment ready</div>
-                                </div>
-                            )}
-                            <div className="flex items-center gap-2 md:gap-3 w-full">
-                                <div className="flex items-center gap-1 shrink-0">
-                                    <input type="file" ref={galleryInputRef} className="hidden" accept="image/*,video/*" onChange={handleGallerySelect} />
-                                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
-                                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-primary hover:bg-primary/10 transition-colors" onClick={() => galleryInputRef.current?.click()}>
-                                        <ImageIcon className="h-5 w-5" />
-                                    </Button>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className={cn("rounded-full h-10 w-10 transition-colors", isRecording ? "text-destructive animate-pulse bg-destructive/10" : "text-primary hover:bg-primary/10")} 
-                                        onClick={isRecording ? stopRecording : startRecording}
-                                    >
-                                        {isRecording ? <Square className="h-5 w-5 fill-current" /> : <Mic className="h-5 w-5" />}
-                                    </Button>
-                                </div>
-                                <div className="relative flex-1 group min-w-0">
-                                    <Input 
-                                        type="text" 
-                                        placeholder={isRecording ? `Recording...` : "Type a message..."} 
-                                        className="w-full bg-background focus-visible:ring-primary/20 rounded-full px-5 pr-10 h-11 border-none shadow-inner" 
-                                        value={newMessageContent} 
-                                        onChange={(e) => handleInputChange(e.target.value)} 
-                                        disabled={isSendingMessage || isRecording} 
-                                        onKeyDown={(e) => e.key === 'Enter' && !isSendingMessage && handleSendMessage()} 
-                                    />
-                                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors">
-                                                    <Smile className="h-5 w-5" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden" side="top" align="end">
-                                                <EmojiPicker onEmojiClick={handleEmojiClick} />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-                                </div>
-                                <Button 
-                                    type="button" 
-                                    size="icon" 
-                                    className="bg-primary hover:bg-primary/90 rounded-full h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20" 
-                                    disabled={isSendingMessage || isRecording || (!newMessageContent.trim() && !pendingMedia && !pendingFile && !audioBlob)} 
-                                    onClick={() => handleSendMessage()}
-                                >
-                                    {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                        <div className="flex items-center gap-2 md:gap-3 w-full">
+                            <div className="flex items-center gap-1 shrink-0">
+                                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-primary hover:bg-primary/10 transition-colors">
+                                    <ImageIcon className="h-5 w-5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-primary hover:bg-primary/10 transition-colors">
+                                    <Mic className="h-5 w-5" />
                                 </Button>
                             </div>
+                            <div className="relative flex-1 group min-w-0">
+                                <Input 
+                                    type="text" 
+                                    placeholder="Type a message..." 
+                                    className="w-full bg-background focus-visible:ring-primary/20 rounded-full px-5 pr-10 h-11 border-none shadow-inner" 
+                                    value={newMessageContent} 
+                                    onChange={(e) => handleInputChange(e.target.value)} 
+                                    disabled={isSendingMessage} 
+                                    onKeyDown={(e) => e.key === 'Enter' && !isSendingMessage && handleSendMessage()} 
+                                />
+                                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors">
+                                                <Smile className="h-5 w-5" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden" side="top" align="end">
+                                            <EmojiPicker onEmojiClick={handleEmojiClick} />
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                            </div>
+                            <Button 
+                                type="button" 
+                                size="icon" 
+                                className="bg-primary hover:bg-primary/90 rounded-full h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20" 
+                                disabled={isSendingMessage || !newMessageContent.trim()} 
+                                onClick={() => handleSendMessage()}
+                            >
+                                {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                            </Button>
                         </div>
                     </footer>
                     </>
