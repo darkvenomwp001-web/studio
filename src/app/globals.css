@@ -8,7 +8,20 @@ body {
   touch-action: manipulation;
 }
 
-/* Night Reading Portal */
+/* Global External Popup Guard */
+* {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Preserve selection for internal archival tools and editing */
+.prose, .ProseMirror, input, textarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Night Reading Hub */
 body.night-portal {
   --background: 0 0% 0%;
   --foreground: 210 15% 80%;
@@ -16,7 +29,7 @@ body.night-portal {
   --border: 210 10% 20%;
 }
 
-/* Parchment Mode Overlay */
+/* Parchment Hub Overlay */
 body.parchment-mode::after {
   content: "";
   position: fixed;
@@ -124,7 +137,7 @@ body.parchment-mode::after {
     --border: 0 0% 15%;
   }
 
-  /* Accent Color Variants */
+  /* Color Variations */
   [data-accent="ube"] { --primary: 262 48% 68%; --accent: 262 48% 58%; --ring: 262 48% 68%; }
   [data-accent="matcha"] { --primary: 84 28% 54%; --accent: 84 28% 44%; --ring: 84 28% 54%; }
   [data-accent="chocolate"] { --primary: 21 44% 28%; --accent: 21 44% 20%; --ring: 21 44% 28%; }
@@ -138,7 +151,7 @@ body.parchment-mode::after {
   [data-accent="charcoal"] { --primary: 220 15% 35%; --accent: 220 15% 25%; --ring: 220 15% 35%; }
   [data-accent="pistachio"] { --primary: 100 40% 70%; --accent: 100 40% 60%; --ring: 100 40% 70%; }
 
-  /* 25 New Filipino Colors */
+  /* 25 New Localized Colors */
   [data-accent="ube-overload"] { --primary: 271 70% 60%; --accent: 271 70% 50%; --ring: 271 70% 60%; }
   [data-accent="matcha-diet"] { --primary: 100 40% 50%; --accent: 100 40% 40%; --ring: 100 40% 50%; }
   [data-accent="kalamansi-shot"] { --primary: 66 90% 45%; --accent: 66 90% 35%; --ring: 66 90% 45%; }
@@ -165,7 +178,7 @@ body.parchment-mode::after {
   [data-accent="shanghai-gold"] { --primary: 40 80% 50%; --accent: 40 80% 40%; --ring: 40 80% 50%; }
   [data-accent="pancit-canton"] { --primary: 45 70% 65%; --accent: 45 70% 55%; --ring: 45 70% 65%; }
 
-  /* Corner Styles */
+  /* Radius Hub */
   [data-radius="minimal"] { --radius: 0.15rem; }
   [data-radius="rounded"] { --radius: 0.75rem; }
   [data-radius="organic"] { --radius: 1.75rem; }
@@ -180,7 +193,6 @@ body.parchment-mode::after {
 @layer base {
   * { 
     @apply border-border;
-    -webkit-touch-callout: none !important; /* Global anti-popup on iOS */
   }
   
   body {
@@ -188,15 +200,9 @@ body.parchment-mode::after {
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-overflow-scrolling: touch;
   }
-  
-  /* Preserve selection for archival features */
-  .prose, .ProseMirror, input, textarea {
-    -webkit-user-select: text !important;
-    user-select: text !important;
-  }
 }
 
-/* Explicit Spacing Fix for Manuscripts and Editor Content */
+/* Explicit Spacing Node for Manuscripts: NO TRAILING VERTICAL SPACE */
 .prose p, 
 .ProseMirror p {
   @apply mb-6 leading-relaxed;

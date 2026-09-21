@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -7,6 +6,7 @@ import { Home, Edit3, Library, Search, Bell, UserPlus, UserX, ChevronDown, LogOu
 import { Button } from '@/components/ui/button';
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 import Logo from './Logo';
 import { 
   DropdownMenu, 
@@ -33,9 +33,11 @@ const NavLink = ({ href, children, icon }: { href: string; children: React.React
 export default function Header() {
   const [mounted, setMounted] = useState(false);
   const { user, loading, savedAccounts, switchAccount, removeSavedAccount, signOutFirebase } = useAuth(); 
+  const router = useRouter();
   
-  // Account Switcher Logic
+  // High-Fidelity Identity Hub State
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
+  const [isLongPressDetected, setIsLongPressDetected] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => setMounted(true), []);
@@ -55,24 +57,34 @@ export default function Header() {
     );
   }
 
-  const handleTouchStart = () => {
+  const handleStart = () => {
+    setIsLongPressDetected(false);
     longPressTimer.current = setTimeout(() => {
         if (user && savedAccounts.length > 0) {
+            setIsLongPressDetected(true);
             setIsSwitcherOpen(true);
+            if (window.navigator.vibrate) window.navigator.vibrate(10);
         }
     }, 600);
   };
 
-  const handleTouchEnd = () => {
+  const handleEnd = () => {
     if (longPressTimer.current) {
         clearTimeout(longPressTimer.current);
         longPressTimer.current = null;
     }
   };
 
+  const handleProfileClick = (e: React.MouseEvent) => {
+      // If a long press was detected, prevent the single-click navigation
+      if (isLongPressDetected) {
+          e.preventDefault();
+          return;
+      }
+      router.push(`/profile/${user?.id}`);
+  };
+
   const displayName = user?.displayName || user?.username;
-  const isOwner = user && OWNER_HANDLES.includes(user.username);
-  const isWriter = !!user;
 
   return (
     <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 border-b border-border/40">
@@ -86,7 +98,7 @@ export default function Header() {
             <NavLink href="/"><Home className="h-5 w-5" /> Home</NavLink>
             <NavLink href="/library"><Library className="h-5 w-5" /> Library</NavLink>
             <NavLink href="/search"><Search className="h-5 w-5" /> Search</NavLink>
-            {isWriter && <NavLink href="/write"><Edit3 className="h-5 w-5" /> Write</NavLink>}
+            {user && <NavLink href="/write"><Edit3 className="h-5 w-5" /> Write</NavLink>}
             <NavLink href="/notifications"><Bell className="h-5 w-5" /> Inbox</NavLink>
           </div>
           
@@ -99,18 +111,17 @@ export default function Header() {
                 <DropdownMenuTrigger asChild>
                     <button 
                         className="relative h-10 w-10 md:h-11 md:w-11 rounded-full outline-none group transition-transform active:scale-95"
-                        onMouseDown={handleTouchStart}
-                        onMouseUp={handleTouchEnd}
-                        onMouseLeave={handleTouchEnd}
-                        onTouchStart={handleTouchStart}
-                        onTouchEnd={handleTouchEnd}
+                        onMouseDown={handleStart}
+                        onMouseUp={handleEnd}
+                        onMouseLeave={handleEnd}
+                        onTouchStart={handleStart}
+                        onTouchEnd={handleEnd}
+                        onClick={handleProfileClick}
                     >
-                        <Link href="/profile" className="block w-full h-full pointer-events-none sm:pointer-events-auto">
-                            <Avatar className="h-full w-full border border-border/40 shadow-sm transition-all group-hover:border-primary/40">
-                                <AvatarImage src={user.avatarUrl} alt={displayName || 'User'} />
-                                <AvatarFallback className="bg-primary/10 text-primary font-bold">{displayName ? displayName.substring(0,1).toUpperCase() : 'U'}</AvatarFallback>
-                            </Avatar>
-                        </Link>
+                        <Avatar className="h-full w-full border border-border/40 shadow-sm transition-all group-hover:border-primary/40">
+                            <AvatarImage src={user.avatarUrl} alt={displayName || 'User'} />
+                            <AvatarFallback className="bg-primary/10 text-primary font-bold">{displayName ? displayName.substring(0,1).toUpperCase() : 'U'}</AvatarFallback>
+                        </Avatar>
                         {savedAccounts.length > 1 && (
                             <div className="absolute -bottom-1 -right-1 bg-background border border-border/40 rounded-full p-0.5 shadow-sm text-primary group-hover:scale-110 transition-transform">
                                 <ChevronDown className="h-2.5 w-2.5" />
@@ -120,7 +131,7 @@ export default function Header() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72 rounded-[2.5rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-3 animate-in zoom-in-95 duration-200">
                     <DropdownMenuLabel className="px-4 pt-4 pb-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Identity Switcher</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Switch Account</p>
                     </DropdownMenuLabel>
                     
                     <div className="space-y-1 mb-3">
