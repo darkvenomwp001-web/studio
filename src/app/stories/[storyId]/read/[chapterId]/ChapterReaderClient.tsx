@@ -76,7 +76,10 @@ import {
   Volume2,
   VolumeX,
   Coffee,
-  CloudRain
+  CloudRain,
+  Sun,
+  Moon,
+  Monitor
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
