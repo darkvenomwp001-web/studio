@@ -80,7 +80,13 @@ import {
   CloudRain,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  EyeOff,
+  Contrast,
+  Zap,
+  Scaling,
+  MousePointer,
+  Tally3
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -159,6 +165,21 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
   const [ambientSound, setAmbientSound] = useState<'none' | 'lofi' | 'rain'>('none');
   
+  // NEW: Reading Improvement System states
+  const [isEyeStrainGuard, setIsEyeStrainGuard] = useState(false);
+  const [isHighContrast, setIsHighContrast] = useState(false);
+  const [isLineFocus, setIsLineFocus] = useState(false);
+  const [isParchmentMode, setIsParchmentMode] = useState(false);
+  const [isInteractionLocked, setIsInteractionLocked] = useState(false);
+
+  // NEW: Type Improvements states
+  const [letterSpacing, setLetterSpacing] = useState<'normal' | 'wide'>('normal');
+
+  // NEW: Atmosphere Improvements states
+  const [atmosphereVolume, setAtmosphereVolume] = useState(30);
+  const [isHapticFeedback, setIsHapticFeedback] = useState(false);
+  const [isVignette, setIsVignette] = useState(false);
+  
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // High-Velocity Swipe Engine
@@ -197,8 +218,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     if (!audioRef.current) {
         audioRef.current = new Audio();
         audioRef.current.loop = true;
-        audioRef.current.volume = 0.3;
     }
+
+    audioRef.current.volume = atmosphereVolume / 100;
 
     const soundUrls = {
         lofi: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
@@ -211,7 +233,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     return () => {
         if (audioRef.current) audioRef.current.pause();
     };
-  }, [ambientSound, isLoading]);
+  }, [ambientSound, isLoading, atmosphereVolume]);
 
   // STRICT VIEW COUNT PROTOCOL (24-Hour Throttling)
   useEffect(() => {
@@ -295,11 +317,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   // High-Velocity TikTok Style Gestures
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (isInteractionLocked) return;
     touchStartY.current = e.targetTouches[0].clientY;
     touchStartX.current = e.targetTouches[0].clientX;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    if (isInteractionLocked) return;
     const touchEndY = e.changedTouches[0].clientY;
     const touchEndX = e.changedTouches[0].clientX;
     const diffY = touchStartY.current - touchEndY;
@@ -328,7 +352,10 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   };
 
-  const toggleControls = () => setControlsVisible(!controlsVisible);
+  const toggleControls = () => {
+      if (isInteractionLocked) return;
+      setControlsVisible(!controlsVisible);
+  };
 
   const handleManuscriptClick = (e: React.MouseEvent) => {
     const selection = window.getSelection();
@@ -411,6 +438,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const handleVoteClick = async () => {
     if (!currentUser || !story || !currentChapter || isVoting) return;
     setIsVoting(true);
+    if (isHapticFeedback && window.navigator.vibrate) window.navigator.vibrate(10);
     const wasVoting = currentChapter?.voterIds?.includes(currentUser.id) || false;
     const newVoterIds = wasVoting ? currentChapter?.voterIds!.filter(id => id !== currentUser.id) : [...(currentChapter?.voterIds || []), currentUser.id];
     const newVoteCount = wasVoting ? Math.max(0, (currentChapter?.votes || 0) - 1) : (currentChapter?.votes || 0) + 1;
@@ -420,6 +448,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   const handleLibraryAction = () => {
     if (!story || !currentUser) { router.push('/auth/signin'); return; }
+    if (isHapticFeedback && window.navigator.vibrate) window.navigator.vibrate(5);
     const isInLib = currentUser.readingList?.some(item => item.id === story.id);
     if (isInLib) removeFromLibrary(story.id);
     else addToLibrary(story);
@@ -469,10 +498,16 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const articleClasses = cn(
       "prose dark:prose-invert max-w-none pt-8 pb-0 px-4 sm:px-6 md:px-12 selection:bg-primary/20 transition-all duration-500 transform-gpu",
       isFocusMode && "zen-mode",
+      isParchmentMode && "parchment-mode",
+      isVignette && "vignette-fx",
+      isEyeStrainGuard && "eye-guard-active",
+      isHighContrast && "high-contrast-active",
+      isLineFocus && "line-focus-active",
       {
         'prose-sm': fontSize === 'sm', 'prose-base': fontSize === 'base', 'prose-lg': fontSize === 'lg', 'prose-xl': fontSize === 'xl',
         'font-body': fontFamily === 'sans', 'font-serif': fontFamily === 'serif',
         'leading-tight': lineHeight === 'tight', 'leading-normal': lineHeight === 'normal', 'leading-loose': lineHeight === 'loose',
+        'tracking-normal': letterSpacing === 'normal', 'tracking-wide': letterSpacing === 'wide',
         'max-w-3xl mx-auto': layoutWidth === 'normal', 'max-w-5xl mx-auto': layoutWidth === 'wide',
       }
   );
@@ -490,6 +525,29 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         filter: blur(0);
         transform: scale(1.02);
     }
+    .line-focus-active .ProseMirror p {
+        background: transparent;
+        transition: background 0.3s;
+    }
+    .line-focus-active .ProseMirror p:hover {
+        background: hsla(var(--primary), 0.05);
+        border-radius: 0.5rem;
+    }
+    .eye-guard-active {
+        filter: sepia(0.2) saturate(0.8);
+    }
+    .high-contrast-active {
+        filter: contrast(1.25) saturate(1.1);
+    }
+    .vignette-fx::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 5;
+        box-shadow: inset 0 0 150px rgba(0,0,0,0.5);
+        transition: opacity 0.5s;
+    }
     .ProseMirror {
         padding-bottom: 0 !important;
         outline: none !important;
@@ -500,8 +558,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   if (isLoading || !editor) return <div className="flex justify-center items-center h-screen bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (!story || !currentChapter) return null;
-
-  const isInLibrary = currentUser?.readingList?.some(item => item && item.id === story.id);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -514,7 +570,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       {/* Slick Floating Header */}
       <header className={cn(
         'fixed top-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl md:max-w-2xl bg-card/70 backdrop-blur-3xl border border-white/10 p-2.5 flex items-center justify-between transition-all duration-700 transform-gpu rounded-full shadow-2xl',
-        controlsVisible ? 'translate-y-0 opacity-100' : '-translate-y-24 opacity-0 scale-95'
+        controlsVisible && !isInteractionLocked ? 'translate-y-0 opacity-100' : '-translate-y-24 opacity-0 scale-95'
       )}>
         <div className="flex items-center ml-1">
             <Link href="/" passHref><Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-primary/10"><Home className="h-5 w-5" /></Button></Link>
@@ -535,15 +591,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-primary/10 relative">
                         <Palette className="h-5 w-5" />
-                        {(fontSize !== 'base' || lineHeight !== 'normal' || ambientSound !== 'none') && <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-primary rounded-full ring-2 ring-background" />}
+                        {(fontSize !== 'base' || lineHeight !== 'normal' || ambientSound !== 'none' || isEyeStrainGuard || isHighContrast) && <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-primary rounded-full ring-2 ring-background" />}
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[85vw] max-w-sm p-6 bg-background/95 backdrop-blur-3xl border border-white/10 shadow-3xl rounded-[2.5rem] mt-4" align="center">
+                <PopoverContent className="w-[90vw] max-w-sm p-6 bg-background/95 backdrop-blur-3xl border border-white/10 shadow-3xl rounded-[2.5rem] mt-4" align="center">
                     <Tabs defaultValue="vibe" className="w-full">
                         <TabsList className="grid w-full grid-cols-3 bg-muted/40 p-1 rounded-2xl h-11 mb-6 border border-white/5">
                             <TabsTrigger value="vibe" className="rounded-xl text-[10px] font-black uppercase tracking-widest">Vibe</TabsTrigger>
                             <TabsTrigger value="type" className="rounded-xl text-[10px] font-black uppercase tracking-widest">Type</TabsTrigger>
-                            <TabsTrigger value="sound" className="rounded-xl text-[10px] font-black uppercase tracking-widest">Atmosphere</TabsTrigger>
+                            <TabsTrigger value="sound" className="rounded-xl text-[10px] font-black uppercase tracking-widest">Atmos</TabsTrigger>
                         </TabsList>
                         
                         <TabsContent value="vibe" className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
@@ -559,14 +615,47 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                     ))}
                                 </RadioGroup>
                             </div>
-                            <div className="space-y-3 pt-2">
-                                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-white/5">
-                                    <div className="flex items-center gap-3"><Label htmlFor="zen-focus" className="text-[10px] font-black uppercase tracking-widest">Focus Mode</Label></div>
-                                    <Switch id="zen-focus" checked={isFocusMode} onCheckedChange={setIsFocusMode} />
-                                </div>
-                                <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-white/5">
-                                    <div className="flex items-center gap-3"><Label htmlFor="night-portal" className="text-[10px] font-black uppercase tracking-widest">Night Portal</Label></div>
-                                    <Switch id="night-portal" checked={isNightPortalActive} onCheckedChange={setIsNightPortalActive} />
+                            
+                            <Separator className="opacity-10" />
+
+                            <div className="space-y-3">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Reading Improvements</Label>
+                                <div className="grid gap-2">
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                                            <Label htmlFor="eye-strain" className="text-[10px] font-bold uppercase">Strain Guard</Label>
+                                        </div>
+                                        <Switch id="eye-strain" checked={isEyeStrainGuard} onCheckedChange={setIsEyeStrainGuard} className="scale-75" />
+                                    </div>
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <Contrast className="h-3.5 w-3.5 text-primary" />
+                                            <Label htmlFor="high-contrast" className="text-[10px] font-bold uppercase">Contrast</Label>
+                                        </div>
+                                        <Switch id="high-contrast" checked={isHighContrast} onCheckedChange={setIsHighContrast} className="scale-75" />
+                                    </div>
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <Eye className="h-3.5 w-3.5 text-primary" />
+                                            <Label htmlFor="line-focus" className="text-[10px] font-bold uppercase">Line Focus</Label>
+                                        </div>
+                                        <Switch id="line-focus" checked={isLineFocus} onCheckedChange={setIsLineFocus} className="scale-75" />
+                                    </div>
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <BookOpen className="h-3.5 w-3.5 text-primary" />
+                                            <Label htmlFor="parchment" className="text-[10px] font-bold uppercase">Parchment</Label>
+                                        </div>
+                                        <Switch id="parchment" checked={isParchmentMode} onCheckedChange={setIsParchmentMode} className="scale-75" />
+                                    </div>
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <Lock className="h-3.5 w-3.5 text-red-500" />
+                                            <Label htmlFor="freeze" className="text-[10px] font-bold uppercase">Freeze Node</Label>
+                                        </div>
+                                        <Switch id="freeze" checked={isInteractionLocked} onCheckedChange={setIsInteractionLocked} className="scale-75" />
+                                    </div>
                                 </div>
                             </div>
                         </TabsContent>
@@ -595,6 +684,39 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                         ))}
                                     </RadioGroup>
                                 </div>
+
+                                <Separator className="opacity-10" />
+
+                                <div className="space-y-3">
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Advanced Type Nodes</Label>
+                                    <div className="grid gap-4">
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between px-1"><span className="text-[9px] font-bold uppercase">Line Height</span></div>
+                                            <RadioGroup value={lineHeight} onValueChange={(v: any) => setLineHeight(v)} className="grid grid-cols-3 gap-2">
+                                                {['tight', 'normal', 'loose'].map(l => (
+                                                    <div key={l}>
+                                                        <RadioGroupItem value={l} id={`lh-${l}`} className="sr-only" />
+                                                        <Label htmlFor={`lh-${l}`} className={cn("flex items-center justify-center h-9 rounded-xl border transition-all cursor-pointer text-[8px] font-black uppercase tracking-tighter", lineHeight === l ? "bg-primary/20 text-primary border-primary/30" : "bg-muted/30 border-transparent")}>{l}</Label>
+                                                    </div>
+                                                ))}
+                                            </RadioGroup>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between px-1"><span className="text-[9px] font-bold uppercase">Letter Spacing</span></div>
+                                            <div className="flex gap-2">
+                                                <Button variant={letterSpacing === 'normal' ? 'default' : 'outline'} size="sm" className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase" onClick={() => setLetterSpacing('normal')}>Normal</Button>
+                                                <Button variant={letterSpacing === 'wide' ? 'default' : 'outline'} size="sm" className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase tracking-widest" onClick={() => setLetterSpacing('wide')}>Wide</Button>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between px-1"><span className="text-[9px] font-bold uppercase">Archival Width</span></div>
+                                            <div className="flex gap-2">
+                                                <Button variant={layoutWidth === 'normal' ? 'default' : 'outline'} size="sm" className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase" onClick={() => setLayoutWidth('normal')}>Normal</Button>
+                                                <Button variant={layoutWidth === 'wide' ? 'default' : 'outline'} size="sm" className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase" onClick={() => setLayoutWidth('wide')}>Wide</Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </TabsContent>
 
@@ -617,12 +739,30 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                         </Label>
                                     ))}
                                 </RadioGroup>
-                                <div className="space-y-3 p-4 bg-muted/20 rounded-2xl border border-white/5">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Auto Scroll</span>
-                                        <span className="text-[9px] font-mono text-primary font-bold">{autoScrollSpeed}x</span>
+
+                                <Separator className="opacity-10" />
+
+                                <div className="space-y-4">
+                                    <div className="space-y-2 px-1">
+                                        <div className="flex justify-between items-center"><span className="text-[10px] font-black uppercase tracking-widest">Environment Volume</span><span className="text-[10px] font-mono">{atmosphereVolume}%</span></div>
+                                        <Slider value={[atmosphereVolume]} onValueChange={([v]) => setAtmosphereVolume(v)} max={100} step={1} className="py-2" />
                                     </div>
-                                    <Slider value={[autoScrollSpeed]} onValueChange={([v]) => setAutoScrollSpeed(v)} max={10} step={0.5} className="py-2" />
+                                    <div className="grid gap-2">
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
+                                            <div className="flex items-center gap-3">
+                                                <Zap className="h-3.5 w-3.5 text-primary" />
+                                                <Label htmlFor="haptic" className="text-[10px] font-bold uppercase">Haptic Signal</Label>
+                                            </div>
+                                            <Switch id="haptic" checked={isHapticFeedback} onCheckedChange={setIsHapticFeedback} className="scale-75" />
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
+                                            <div className="flex items-center gap-3">
+                                                <Maximize2 className="h-3.5 w-3.5 text-primary" />
+                                                <Label htmlFor="vignette" className="text-[10px] font-bold uppercase">Vignette Focus</Label>
+                                            </div>
+                                            <Switch id="vignette" checked={isVignette} onCheckedChange={setIsVignette} className="scale-75" />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </TabsContent>
@@ -742,7 +882,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       {/* Slick Floating Footer Actions */}
       <footer className={cn(
         'fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl md:max-w-3xl px-4 transition-all duration-700 transform-gpu',
-        controlsVisible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 scale-95'
+        controlsVisible && !isInteractionLocked ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 scale-95'
       )}>
         <div className="bg-card/70 backdrop-blur-3xl border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.5)] rounded-[2.5rem] p-2 flex items-center justify-between">
             <Button variant="ghost" size="icon" className="h-12 w-12 md:h-14 md:w-14 rounded-full transition-all active:scale-90" onClick={() => prevChapterId && router.push(`/stories/${storyId}/read/${prevChapterId}`)} disabled={!prevChapterId}><ArrowLeft className="h-6 w-6" /></Button>
