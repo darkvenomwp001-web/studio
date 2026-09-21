@@ -146,17 +146,17 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [isVoting, setIsVoting] = useState(false);
   const [activeReaders, setActiveReaders] = useState(1);
 
-  // Disclaimer Protocol State
+  // Disclaimer System State
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
 
-  // Annotation/Highlight States
+  // Highlight States
   const [isAnnotationDialogOpen, setIsAnnotationDialogOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
   const [annotationNote, setAnnotationNote] = useState('');
   const [selectedColor, setSelectedColor] = useState(HIGHLIGHT_COLORS[0].value);
   const [isSavingAnnotation, setIsSavingAnnotation] = useState(false);
 
-  // High-Fidelity Style States
+  // Style States
   const [fontSize, setFontSize] = useState<FontSize>('base');
   const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [lineHeight, setLineHeight] = useState<LineHeight>('normal');
@@ -183,7 +183,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // High-Velocity Swipe Engine
+  // High-Velocity Swipe Hub
   const touchStartY = useRef(0);
   const touchStartX = useRef(0);
   
@@ -207,7 +207,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
 
-  // UNBREAKABLE ANTI-PLAGIARISM PROTOCOL
+  // UNBREAKABLE ANTI-PLAGIARISM SYSTEM
   useEffect(() => {
     const blockAction = (e: Event) => {
       e.preventDefault();
@@ -246,7 +246,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const totalMinutes = useMemo(() => Math.max(1, Math.round(wordCount / 225)), [wordCount]);
   const minutesLeft = useMemo(() => Math.max(0, Math.round(totalMinutes * (1 - readingProgress / 100))), [totalMinutes, readingProgress]);
 
-  // Audio Atmosphere Protocol
+  // Audio Atmosphere Hub
   useEffect(() => {
     if (isLoading || ambientSound === 'none') {
         if (audioRef.current) audioRef.current.pause();
@@ -273,7 +273,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     };
   }, [ambientSound, isLoading, atmosphereVolume]);
 
-  // STRICT VIEW COUNT PROTOCOL (24-Hour Throttling)
+  // STRICT VIEW COUNT SYSTEM (24-Hour Check)
   useEffect(() => {
     if (!story?.id || !currentChapter?.id || !isAccessGranted) return;
 
@@ -353,7 +353,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       return [...sortedChapters].reverse().find(c => c.order < (currentChapter.order || 0))?.id;
   }, [sortedChapters, currentChapter]);
 
-  // HIGH-VELOCITY FLICK ENGINE (TikTok Style)
+  // HIGH-VELOCITY FLICK SYSTEM (TikTok Style)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isInteractionLocked) return;
     touchStartY.current = e.targetTouches[0].clientY;
@@ -530,9 +530,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     try {
         await addDoc(collection(db, 'annotations'), annotationData);
         editor?.chain().focus().setHighlight({ color: selectedColor }).run();
-        showIsland({ title: "Highlight archived", type: 'success' });
+        showIsland({ title: "Highlight saved", type: 'success' });
         setIsAnnotationDialogOpen(false);
-    } catch (error) { toast({ title: "Capture Failed" }); } finally { setIsSavingAnnotation(false); }
+    } catch (error) { toast({ title: "Failed to save" }); } finally { setIsSavingAnnotation(false); }
   };
 
   const articleClasses = cn(
@@ -647,7 +647,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         
                         <TabsContent value="vibe" className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
                             <div className="space-y-3">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Archive Style</Label>
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Theme Hub</Label>
                                 <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
                                     {['light', 'dark', 'system'].map(t => (
                                         <Label key={t} htmlFor={t} className="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-transparent bg-muted/30 cursor-pointer transition-all hover:bg-muted/50 data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">
@@ -765,7 +765,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
                         <TabsContent value="sound" className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
                              <div className="space-y-4">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Soundscape</Label>
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Atmosphere Hub</Label>
                                 <RadioGroup value={ambientSound} onValueChange={(v: any) => setAmbientSound(v)} className="grid grid-cols-3 gap-2">
                                     {[
                                         { id: 'none', icon: VolumeX, label: 'Silent' },
@@ -794,14 +794,14 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                         <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
                                             <div className="flex items-center gap-3">
                                                 <Zap className="h-3.5 w-3.5 text-primary" />
-                                                <Label htmlFor="haptic" className="text-[10px] font-bold uppercase">Haptic Signals</Label>
+                                                <Label htmlFor="haptic" className="text-[10px] font-bold uppercase">Haptics</Label>
                                             </div>
                                             <Switch id="haptic" checked={isHapticFeedback} onCheckedChange={setIsHapticFeedback} className="scale-75" />
                                         </div>
                                         <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
                                             <div className="flex items-center gap-3">
                                                 <Maximize2 className="h-3.5 w-3.5 text-primary" />
-                                                <Label htmlFor="vignette" className="text-[10px] font-bold uppercase">Vignette Focus</Label>
+                                                <Label htmlFor="vignette" className="text-[10px] font-bold uppercase">Vignette</Label>
                                             </div>
                                             <Switch id="vignette" checked={isVignette} onCheckedChange={setIsVignette} className="scale-75" />
                                         </div>
@@ -819,7 +819,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
           <SheetContent side="right" className="w-[85vw] sm:w-96 p-0 border-none shadow-3xl bg-background/95 backdrop-blur-3xl flex flex-col">
               <Tabs defaultValue="chapters" className="h-full flex flex-col">
                   <SheetHeader className="p-6 bg-muted/30 border-b flex-shrink-0">
-                      <SheetTitle className="sr-only">Manuscript Navigation</SheetTitle>
+                      <SheetTitle className="sr-only">Story Navigation</SheetTitle>
                       <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-2xl h-11 mb-2">
                           <TabsTrigger value="chapters" className="rounded-xl text-[10px] font-black uppercase tracking-widest gap-2">Chapters</TabsTrigger>
                           <TabsTrigger value="search" className="rounded-xl text-[10px] font-black uppercase tracking-widest gap-2">Search</TabsTrigger>
@@ -839,8 +839,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                       </ScrollArea>
                   </TabsContent>
                   <TabsContent value="search" className="flex-1 overflow-hidden flex flex-col">
-                      <div className="p-4 bg-muted/20 border-b"><Input placeholder="Search within manuscript..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-12 rounded-2xl bg-background border-none shadow-inner" /></div>
-                      <ScrollArea className="flex-1"><div className="p-10 text-center text-muted-foreground font-black uppercase text-[10px] tracking-widest opacity-40">Ready to search...</div></ScrollArea>
+                      <div className="p-4 bg-muted/20 border-b"><Input placeholder="Search within story..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-12 rounded-2xl bg-background border-none shadow-inner" /></div>
+                      <ScrollArea className="flex-1"><div className="p-10 text-center text-muted-foreground font-black uppercase text-[10px] tracking-widest opacity-40">Search hub...</div></ScrollArea>
                   </TabsContent>
               </Tabs>
           </SheetContent>
@@ -918,7 +918,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 </article>
             </div>
         ) : (
-            <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 text-center animate-in fade-in zoom-in-95 duration-700"><Lock className="h-20 w-20 text-yellow-500/30 mb-6" /><h2 className="text-3xl font-headline font-bold mb-2">Access Restricted</h2><p className="text-muted-foreground max-xs mb-10">This archive entry is currently locked or scheduled for later release.</p><Button variant="outline" className="rounded-full px-12 h-14 font-black uppercase tracking-widest text-xs border-border/40" onClick={() => router.push(`/stories/${storyId}`)}>Back to Overview</Button></div>
+            <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 text-center animate-in fade-in zoom-in-95 duration-700"><Lock className="h-20 w-20 text-yellow-500/30 mb-6" /><h2 className="text-3xl font-headline font-bold mb-2">Access Restricted</h2><p className="text-muted-foreground max-xs mb-10">This story entry is currently locked or scheduled for later release.</p><Button variant="outline" className="rounded-full px-12 h-14 font-black uppercase tracking-widest text-xs border-border/40" onClick={() => router.push(`/stories/${storyId}`)}>Back to Overview</Button></div>
         )}
       </main>
 
@@ -955,8 +955,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
           <SheetContent side="bottom" className="h-auto max-h-[85vh] rounded-t-[3rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl">
               <div className="mx-auto w-16 h-1.5 rounded-full bg-muted/40 mb-8" />
               <SheetHeader className="text-left mb-8">
-                  <SheetTitle className="font-headline text-3xl font-bold">Capture Highlight</SheetTitle>
-                  <SheetDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Save this prose for your community archives</SheetDescription>
+                  <SheetTitle className="font-headline text-3xl font-bold">Save Highlight</SheetTitle>
+                  <SheetDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Save this line to your collection</SheetDescription>
               </SheetHeader>
               
               <div className="space-y-8 pb-12">
@@ -976,7 +976,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                   </div>
 
                   <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Archive Color</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Highlight Color</Label>
                       <div className="flex gap-4 px-2">
                           {HIGHLIGHT_COLORS.map(color => (
                               <button 
@@ -998,7 +998,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     className="w-full h-16 rounded-[2rem] bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-primary/30 transition-all hover:scale-[1.01] active:scale-95 border-none"
                   >
                       {isSavingAnnotation ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <Sparkles className="h-5 w-5 mr-3" />}
-                      Save to Archive
+                      Save to Collection
                   </Button>
               </div>
           </SheetContent>

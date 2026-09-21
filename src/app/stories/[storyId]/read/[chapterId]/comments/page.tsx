@@ -45,7 +45,7 @@ function CommentsContent() {
                     if(chapterData) {
                         setChapter(chapterData);
                     } else {
-                        toast({ title: "Error", description: "Chapter not found in story.", variant: "destructive" });
+                        toast({ title: "Error", description: "Chapter not found.", variant: "destructive" });
                     }
                 } else {
                      toast({ title: "Error", description: "Story not found.", variant: "destructive" });
@@ -65,7 +65,7 @@ function CommentsContent() {
         return (
             <div className="flex flex-col justify-center items-center min-h-screen gap-4 bg-background">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="text-muted-foreground font-black text-[10px] uppercase tracking-[0.2em] animate-pulse">Syncing discussion node...</p>
+                <p className="text-muted-foreground font-black text-[10px] uppercase tracking-[0.2em] animate-pulse">Loading discussion...</p>
             </div>
         );
     }
@@ -88,7 +88,7 @@ function CommentsContent() {
                     
                     <div className="flex items-center gap-2 bg-muted/40 rounded-full px-3 py-1 border border-border/20">
                         <Sparkles className="h-3 w-3 text-primary" />
-                        <span className="text-[8px] font-black uppercase tracking-widest opacity-60">Archive Context</span>
+                        <span className="text-[8px] font-black uppercase tracking-widest opacity-60">Context</span>
                     </div>
                 </header>
 
@@ -114,7 +114,7 @@ function CommentsContent() {
                              <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">{chapter.title}</h1>
                              <div className="flex items-center justify-center gap-2 text-primary font-bold text-[8px] uppercase tracking-[0.2em]">
                                 <MessageSquare className="h-3 w-3" />
-                                <span>Manuscript Log Discussion</span>
+                                <span>Chapter Discussion</span>
                              </div>
                         </section>
                     )}

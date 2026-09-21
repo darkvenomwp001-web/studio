@@ -127,7 +127,7 @@ function NotificationsList() {
     const handleNotificationClick = async (notification: NotificationType) => {
         if (!notification.isRead) {
             try { await markNotificationAsRead(notification.id); } 
-            catch (error) { toast({ title: "Sync failed", variant: "destructive"}); }
+            catch (error) { toast({ title: "Update failed", variant: "destructive"}); }
         }
         if (notification.link) router.push(notification.link);
     };
@@ -343,7 +343,7 @@ function MessagesClient() {
         updatedAt: serverTimestamp(),
       });
       setNewMessageContent('');
-    } catch (error) { toast({ title: "Delivery failed", variant: "destructive" }); }
+    } catch (error) { toast({ title: "Failed to send", variant: "destructive" }); }
     finally { setIsSendingMessage(false); }
   };
   
@@ -382,7 +382,7 @@ function MessagesClient() {
         participantIds: participants,
         participantInfo: { [currentUser.id]: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl }, [targetUser.id]: targetUser },
         updatedAt: serverTimestamp(),
-        lastMessage: { id: '', content: 'Thread initiated.', senderId: '', timestamp: serverTimestamp() },
+        lastMessage: { id: '', content: 'Thread started.', senderId: '', timestamp: serverTimestamp() },
         isGroup: false,
       });
       handleSelectConversation({ id: newConv.id, participantIds: participants } as any);
@@ -489,7 +489,7 @@ function MessagesClient() {
                             <div className="truncate">
                                 <h3 className="font-black text-sm md:text-base truncate">@{getOtherParticipant(activeConversation)?.username}</h3>
                                 <p className="text-[9px] font-black uppercase tracking-widest text-primary leading-none">
-                                    {otherUserTyping ? "Transmitting..." : (userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? "Online" : "Away")}
+                                    {otherUserTyping ? "Writing..." : (userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? "Online" : "Away")}
                                 </p>
                             </div>
                         </div>
@@ -562,7 +562,7 @@ function MessagesClient() {
             <DialogContent className="rounded-[3rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
                 <DialogHeader className="mb-6">
                     <DialogTitle className="text-3xl font-headline font-bold">New Thread</DialogTitle>
-                    <DialogDescription className="text-xs font-black uppercase tracking-widest opacity-60">Initiate a direct transmission</DialogDescription>
+                    <DialogDescription className="text-xs font-black uppercase tracking-widest opacity-60">Send a direct message</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-6">
                     <div className="relative group">
@@ -577,10 +577,10 @@ function MessagesClient() {
                     <ScrollArea className="h-60 border-t border-border/20 pt-4">
                         <div className="space-y-2">
                             {searchedUsers.map(u => (
-                                <button key={u.id} className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-primary/5 transition-all text-left" onClick={() => handleStartNewConversation(u)}>
+                                <div key={u.id} className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-primary/5 transition-all text-left cursor-pointer" onClick={() => handleStartNewConversation(u)}>
                                     <Avatar className="border shadow-sm"><AvatarImage src={u.avatarUrl} /></Avatar>
                                     <span className="font-black text-sm">@{u.username}</span>
-                                </button>
+                                </div>
                             ))}
                         </div>
                     </ScrollArea>
@@ -597,7 +597,7 @@ export default function UnifiedInboxPage() {
     const searchParams = useSearchParams();
     const defaultTab = searchParams.get('tab') || 'messages'; 
 
-    if (loading) return <div className="flex flex-col justify-center items-center min-h-screen gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Syncing inbox...</p></div>;
+    if (loading) return <div className="flex flex-col justify-center items-center min-h-screen gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Updating inbox...</p></div>;
     if (!user) { router.push('/auth/signin'); return null; }
 
     return (

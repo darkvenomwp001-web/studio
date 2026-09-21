@@ -369,8 +369,8 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
         setReplyingTo(null);
         setIsSpoiler(false);
         showIsland({
-          title: "Thought archived",
-          description: "Your log is now public.",
+          title: "Comment posted",
+          description: "Your thought is now live.",
           type: 'success',
           image: currentUser.avatarUrl
         });
@@ -421,9 +421,9 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
 
   return (
     <AlertDialog>
-        <section className="space-y-4">
+        <section className="space-y-2">
         {!authLoading && currentUser && (
-            <form onSubmit={handleSubmitComment} className="flex flex-col gap-3 bg-muted/20 p-4 rounded-[2rem] border border-border/40 shadow-sm transition-all focus-within:shadow-md focus-within:bg-muted/30 w-full animate-in fade-in duration-300">
+            <form onSubmit={handleSubmitComment} className="flex flex-col gap-3 bg-muted/10 p-4 rounded-xl border-l-4 border-l-primary/40 shadow-sm transition-all focus-within:bg-muted/20 w-full animate-in fade-in duration-300">
               <div className="flex items-start gap-3">
                 <Avatar className="h-10 w-10 border-2 border-background shadow-md">
                     <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} data-ai-hint="profile person" />
@@ -433,10 +433,10 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
                     <div className="relative">
                         <Textarea
                             id="comment-textarea"
-                            placeholder={replyingTo ? `Responding to ${replyingTo.username}...` : (quote ? "Archiving a thought on this quote..." : "Add to the discussion...")}
+                            placeholder={replyingTo ? `Responding to ${replyingTo.username}...` : (quote ? "Add a thought to this quote..." : "Add to the discussion...")}
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            className="min-h-[100px] bg-background border-none focus-visible:ring-primary/20 rounded-2xl pr-10 shadow-inner text-sm md:text-base leading-relaxed p-4"
+                            className="min-h-[100px] bg-background border-none focus-visible:ring-primary/20 rounded-xl pr-10 shadow-inner text-sm md:text-base leading-relaxed p-4"
                             rows={4}
                             disabled={isPostingComment}
                         />
@@ -481,16 +481,16 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
         )}
         
         {!authLoading && !currentUser && (
-            <div className="text-center py-8 bg-muted/20 rounded-[2rem] border border-dashed border-border/40">
+            <div className="text-center py-8 bg-muted/20 rounded-xl border border-dashed border-border/40">
                 <p className="text-sm text-muted-foreground">
-                    Please <Link href="/auth/signin" className="text-primary font-bold hover:underline">sign in</Link> to contribute to the archives.
+                    Please <Link href="/auth/signin" className="text-primary font-bold hover:underline">sign in</Link> to contribute to the discussion.
                 </p>
             </div>
         )}
 
         <div className="flex items-center justify-between px-1 mt-8">
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                Community Logs ({topLevelComments.length})
+                Comments ({topLevelComments.length})
             </h3>
         </div>
 
@@ -514,7 +514,7 @@ export default function CommentSection({ storyId, chapterId, quote }: CommentSec
             ) : (
                 <div className="text-center py-20 opacity-30">
                     <MessageSquareIcon className="h-12 w-12 mx-auto mb-4" />
-                    <p className="text-sm font-bold uppercase tracking-widest">No archival logs found</p>
+                    <p className="text-sm font-bold uppercase tracking-widest">No comments yet</p>
                 </div>
             )}
             </div>
