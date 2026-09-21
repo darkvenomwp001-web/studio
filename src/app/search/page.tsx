@@ -207,19 +207,19 @@ function SearchResults() {
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-0 pb-32 animate-in fade-in duration-700 overflow-x-hidden">
-      {/* Floating Glassmorphic Search Header */}
-      <div className="sticky top-4 z-40 mx-4 md:mx-auto max-w-4xl bg-card/70 backdrop-blur-3xl border border-white/10 p-4 space-y-4 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] transform-gpu transition-all">
+      {/* High-Fidelity Floating Search Header */}
+      <div className="sticky top-6 z-40 mx-4 md:mx-auto max-w-4xl bg-card/70 backdrop-blur-3xl border border-white/10 p-5 space-y-5 rounded-[2.5rem] shadow-[0_30px_70px_rgba(0,0,0,0.5)] transform-gpu transition-all">
         <div className="relative group w-full">
-          <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors duration-300" />
+          <SearchIcon className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors duration-300" />
           <Input 
               placeholder="Search for stories or authors" 
-              className="pl-12 w-full h-14 rounded-full bg-black/20 border-none shadow-inner text-base md:text-lg focus-visible:ring-primary/20 transition-all duration-300"
+              className="pl-14 w-full h-16 rounded-full bg-black/30 border-none shadow-[inset_0_2px_10px_rgba(0,0,0,0.4)] text-base md:text-lg focus-visible:ring-primary/20 transition-all duration-500"
               value={searchTerm}
               onChange={handleInputChange}
           />
           {searchTerm && (
-              <button className="absolute right-5 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-colors" onClick={handleClear}>
-                  <X className="h-5 w-5" />
+              <button className="absolute right-6 top-1/2 -translate-y-1/2 h-10 w-10 flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-colors" onClick={handleClear}>
+                  <X className="h-6 w-6" />
               </button>
           )}
         </div>
@@ -230,7 +230,7 @@ function SearchResults() {
                     <button 
                         onClick={() => handleGenreClick('all')}
                         className={cn(
-                            "text-[10px] md:text-xs font-black uppercase tracking-[0.2em] transition-all pb-2 border-b-2",
+                            "text-[10px] md:text-xs font-black uppercase tracking-[0.2em] transition-all pb-3 border-b-2",
                             activeGenre === 'all' ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"
                         )}
                     >
@@ -241,7 +241,7 @@ function SearchResults() {
                             key={genre} 
                             onClick={() => handleGenreClick(genre)}
                             className={cn(
-                                "text-[10px] md:text-xs font-black uppercase tracking-[0.2em] transition-all pb-2 border-b-2",
+                                "text-[10px] md:text-xs font-black uppercase tracking-[0.2em] transition-all pb-3 border-b-2",
                                 activeGenre === genre ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"
                             )}
                         >
@@ -254,8 +254,8 @@ function SearchResults() {
             
             <Popover>
                 <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full flex-shrink-0 bg-white/5 hover:bg-primary/10 hover:text-primary transition-all shadow-sm">
-                        <ChevronDown className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full flex-shrink-0 bg-white/5 hover:bg-primary/10 hover:text-primary transition-all shadow-sm">
+                        <ChevronDown className="h-5 w-5" />
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[90vw] sm:w-[450px] p-6 rounded-[2.5rem] border-none shadow-3xl bg-card/95 backdrop-blur-3xl" align="end" sideOffset={16}>
@@ -288,7 +288,7 @@ function SearchResults() {
         </div>
       </div>
 
-      <div className="h-6" /> {/* Spacing for floating header */}
+      <div className="h-8" /> 
 
       {/* Discovery Hub Content */}
       {isBrowsing && (
@@ -389,18 +389,18 @@ function SearchResults() {
             ) : !hasResults ? (
                 <div className="text-center py-32 bg-muted/10 rounded-[3rem] border-2 border-dashed border-border/40 animate-in zoom-in-95 duration-500">
                     <SearchIcon className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
-                    <h3 className="text-xl font-headline font-bold">No archival matches</h3>
-                    <p className="text-sm text-muted-foreground mt-2 mb-8">Try adjusting your coordinates or genre signal.</p>
+                    <h3 className="text-xl font-headline font-bold">No matches found</h3>
+                    <p className="text-sm text-muted-foreground mt-2 mb-8">Try adjusting your keywords or category.</p>
                     <Button onClick={handleClear} className="rounded-full px-10 h-12 font-black uppercase text-[10px] tracking-widest shadow-xl">Reset Search</Button>
                 </div>
             ) : (
                 <Tabs defaultValue="stories" className="w-full">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-12">
                         <TabsList className="bg-muted/40 backdrop-blur-xl p-1 rounded-full border border-border/40 shadow-inner h-12 w-full sm:w-auto">
-                            <TabsTrigger value="stories" className="rounded-full font-black uppercase text-[10px] tracking-widest px-8 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">Manuscripts</TabsTrigger>
-                            <TabsTrigger value="authors" className="rounded-full font-black uppercase text-[10px] tracking-widest px-8 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">Creators</TabsTrigger>
+                            <TabsTrigger value="stories" className="rounded-full font-black uppercase text-[10px] tracking-widest px-8 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">Stories</TabsTrigger>
+                            <TabsTrigger value="authors" className="rounded-full font-black uppercase text-[10px] tracking-widest px-8 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">Authors</TabsTrigger>
                         </TabsList>
-                        <Badge variant="outline" className="h-9 rounded-full px-6 font-black text-[10px] uppercase tracking-[0.2em] bg-primary/5 text-primary border-primary/20">{storyResults.length} Archives Found</Badge>
+                        <Badge variant="outline" className="h-9 rounded-full px-6 font-black text-[10px] uppercase tracking-[0.2em] bg-primary/5 text-primary border-primary/20">{storyResults.length} Results Found</Badge>
                     </div>
 
                     <TabsContent value="stories" className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -441,7 +441,7 @@ function SearchResults() {
                                             <div className="flex-1 min-w-0">
                                                 <h3 className="font-bold text-lg truncate">@{author.username}</h3>
                                                 <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-60 truncate">{author.displayName}</p>
-                                                <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-2">{formatCompactNumber(author.followersCount || 0)} Signals</p>
+                                                <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-2">{formatCompactNumber(author.followersCount || 0)} Followers</p>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -451,7 +451,7 @@ function SearchResults() {
                         ) : (
                             <div className="text-center py-32 opacity-40">
                                 <Users className="h-12 w-12 mx-auto mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">No matching creator signals found</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest">No matching authors found</p>
                             </div>
                         )}
                     </TabsContent>

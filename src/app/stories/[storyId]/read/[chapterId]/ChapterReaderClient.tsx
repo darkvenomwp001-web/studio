@@ -204,21 +204,35 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
 
-  // Anti-Plagiarism Protocol: Block Copy Action
+  // UNBREAKABLE ANTI-PLAGIARISM PROTOCOL
   useEffect(() => {
-    const handleCopy = (e: ClipboardEvent) => {
-      // Prevent outside copy source to avoid plagiarism
+    const blockAction = (e: Event) => {
       e.preventDefault();
       showIsland({
-        title: "Manuscript Protected",
-        description: "Authors' work is preserved. Copying is disabled.",
-        type: 'info',
+        title: "Content Protected",
+        description: "Manuscripts are protected from unauthorized copying.",
+        type: 'error',
         icon: <ShieldAlert className="h-4 w-4 text-red-500" />
       });
     };
 
-    document.addEventListener('copy', handleCopy);
-    return () => document.removeEventListener('copy', handleCopy);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'x')) {
+        blockAction(e);
+      }
+    };
+
+    document.addEventListener('copy', blockAction);
+    document.addEventListener('cut', blockAction);
+    document.addEventListener('contextmenu', blockAction);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('copy', blockAction);
+      document.removeEventListener('cut', blockAction);
+      document.removeEventListener('contextmenu', blockAction);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [showIsland]);
 
   // Reading Time Estimation
@@ -333,7 +347,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       return [...sortedChapters].reverse().find(c => c.order < (currentChapter.order || 0))?.id;
   }, [sortedChapters, currentChapter]);
 
-  // High-Velocity TikTok Style Gestures
+  // HIGH-VELOCITY FLICK ENGINE (TikTok Style)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isInteractionLocked) return;
     touchStartY.current = e.targetTouches[0].clientY;
@@ -347,20 +361,22 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     const diffY = touchStartY.current - touchEndY;
     const diffX = touchStartX.current - touchEndX;
 
-    const threshold = 120; // Velocity threshold
-    const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 10;
-    const isAtTop = window.scrollY <= 10;
+    const threshold = 120; // Velocity threshold for flick
+    const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 50;
+    const isAtTop = window.scrollY <= 50;
 
-    // Check for Vertical Flick (TikTok Style)
+    // Check for Vertical Flick
     if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > threshold) {
         if (diffY > 0 && isAtBottom && nextChapterId) {
             router.push(`/stories/${storyId}/read/${nextChapterId}`);
+            if (window.navigator.vibrate) window.navigator.vibrate(10);
         } else if (diffY < 0 && isAtTop && prevChapterId) {
             router.push(`/stories/${storyId}/read/${prevChapterId}`);
+            if (window.navigator.vibrate) window.navigator.vibrate(10);
         }
     }
 
-    // Traditional Horizontal Swipe Support
+    // Horizontal Swipe Support
     if (currentUser?.readerSettings?.swipeToNavigate && Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > threshold) {
         if (diffX > 0 && nextChapterId) {
             router.push(`/stories/${storyId}/read/${nextChapterId}`);
@@ -450,7 +466,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       const disclaimerKey = `disclaimer-seen-${storyId}`;
       sessionStorage.setItem(disclaimerKey, 'true');
       setIsDisclaimerOpen(false);
-      showIsland({ title: "Disclaimer accepted", description: "Entry granted.", type: 'success' });
+      showIsland({ title: "Welcome", description: "Manuscript entry granted.", type: 'success' });
   };
 
   const handleVoteClick = async () => {
@@ -514,7 +530,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   };
 
   const articleClasses = cn(
-      "prose dark:prose-invert max-w-none pt-8 pb-0 px-4 sm:px-6 md:px-12 selection:bg-primary/20 transition-all duration-500 transform-gpu",
+      "prose dark:prose-invert max-w-none pt-8 pb-0 px-4 sm:px-6 md:px-12 selection:bg-primary/40 transition-all duration-500 transform-gpu",
       isFocusMode && "zen-mode",
       isParchmentMode && "parchment-mode",
       isVignette && "vignette-fx",
@@ -572,6 +588,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    * { -webkit-touch-callout: none; }
   `;
 
   if (isLoading || !editor) return <div className="flex justify-center items-center h-screen bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -587,7 +604,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         isFocusMode && "zen-focus-mode"
     )} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       
-      {/* Slick Floating Header */}
+      {/* Floating Pill Header */}
       <header className={cn(
         'fixed top-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl md:max-w-2xl bg-card/70 backdrop-blur-3xl border border-white/10 p-2.5 flex items-center justify-between transition-all duration-700 transform-gpu rounded-full shadow-2xl',
         controlsVisible && !isInteractionLocked ? 'translate-y-0 opacity-100' : '-translate-y-24 opacity-0 scale-95'
@@ -672,7 +689,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                     <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
                                         <div className="flex items-center gap-3">
                                             <Lock className="h-3.5 w-3.5 text-red-500" />
-                                            <Label htmlFor="freeze" className="text-[10px] font-bold uppercase">Freeze Node</Label>
+                                            <Label htmlFor="freeze" className="text-[10px] font-bold uppercase">Freeze Interaction</Label>
                                         </div>
                                         <Switch id="freeze" checked={isInteractionLocked} onCheckedChange={setIsInteractionLocked} className="scale-75" />
                                     </div>
@@ -708,7 +725,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                 <Separator className="opacity-10" />
 
                                 <div className="space-y-3">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Advanced Type Nodes</Label>
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Layout Controls</Label>
                                     <div className="grid gap-4">
                                         <div className="space-y-2">
                                             <div className="flex justify-between px-1"><span className="text-[9px] font-bold uppercase">Line Height</span></div>
@@ -729,7 +746,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <div className="flex justify-between px-1"><span className="text-[9px] font-bold uppercase">Archival Width</span></div>
+                                            <div className="flex justify-between px-1"><span className="text-[9px] font-bold uppercase">Layout Width</span></div>
                                             <div className="flex gap-2">
                                                 <Button variant={layoutWidth === 'normal' ? 'default' : 'outline'} size="sm" className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase" onClick={() => setLayoutWidth('normal')}>Normal</Button>
                                                 <Button variant={layoutWidth === 'wide' ? 'default' : 'outline'} size="sm" className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase" onClick={() => setLayoutWidth('wide')}>Wide</Button>
@@ -771,7 +788,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                                         <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
                                             <div className="flex items-center gap-3">
                                                 <Zap className="h-3.5 w-3.5 text-primary" />
-                                                <Label htmlFor="haptic" className="text-[10px] font-bold uppercase">Haptic Signal</Label>
+                                                <Label htmlFor="haptic" className="text-[10px] font-bold uppercase">Haptic Signals</Label>
                                             </div>
                                             <Switch id="haptic" checked={isHapticFeedback} onCheckedChange={setIsHapticFeedback} className="scale-75" />
                                         </div>
@@ -799,7 +816,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                       <SheetTitle className="sr-only">Manuscript Navigation</SheetTitle>
                       <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-2xl h-11 mb-2">
                           <TabsTrigger value="chapters" className="rounded-xl text-[10px] font-black uppercase tracking-widest gap-2">Chapters</TabsTrigger>
-                          <TabsTrigger value="search" className="rounded-xl text-[10px] font-black uppercase tracking-widest gap-2">Find</TabsTrigger>
+                          <TabsTrigger value="search" className="rounded-xl text-[10px] font-black uppercase tracking-widest gap-2">Search</TabsTrigger>
                       </TabsList>
                   </SheetHeader>
                   <TabsContent value="chapters" className="flex-1 overflow-hidden">
@@ -832,8 +849,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                             <ShieldCheck className="h-8 w-8 text-primary" />
                         </div>
                         <div>
-                            <AlertDialogTitle className="font-headline text-3xl font-bold">Author's Note</AlertDialogTitle>
-                            <AlertDialogDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Crucial Manuscript Transmission</AlertDialogDescription>
+                            <AlertDialogTitle className="font-headline text-3xl font-bold">Disclaimer</AlertDialogTitle>
+                            <AlertDialogDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Important Information</AlertDialogDescription>
                         </div>
                     </div>
                 </AlertDialogHeader>
@@ -851,7 +868,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         onClick={handleAcceptDisclaimer}
                         className="w-full sm:w-auto rounded-full px-12 h-14 bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs tracking-widest shadow-2xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95 border-none"
                     >
-                        I Acknowledge & Enter
+                        I Accept
                     </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -873,7 +890,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 )}
                 <article className={articleClasses}>
                     <div className="text-center mb-20 space-y-4 px-6 animate-in slide-in-from-top-6 duration-1000">
-                        <Badge variant="outline" className="rounded-full px-5 py-1.5 font-black text-[10px] uppercase tracking-[0.4em] bg-primary/5 text-primary border-primary/20 shadow-sm">Entry {currentChapter?.order}</Badge>
+                        <Badge variant="outline" className="rounded-full px-5 py-1.5 font-black text-[10px] uppercase tracking-[0.4em] bg-primary/5 text-primary border-primary/20 shadow-sm">Part {currentChapter?.order}</Badge>
                         <h2 className="font-headline text-5xl md:text-8xl font-bold tracking-tighter leading-none text-foreground">{currentChapter?.title}</h2>
                         
                         <div className="flex items-center justify-center gap-8 mt-6 text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground/40 animate-in fade-in slide-in-from-top-4 duration-1000 delay-500">
@@ -895,11 +912,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 </article>
             </div>
         ) : (
-            <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 text-center animate-in fade-in zoom-in-95 duration-700"><Lock className="h-20 w-20 text-yellow-500/30 mb-6" /><h2 className="text-3xl font-headline font-bold mb-2">Access Re-routed</h2><p className="text-muted-foreground max-xs mb-10">This archive entry is currently locked or scheduled for later release.</p><Button variant="outline" className="rounded-full px-12 h-14 font-black uppercase tracking-widest text-xs border-border/40" onClick={() => router.push(`/stories/${storyId}`)}>Back to Overview</Button></div>
+            <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 text-center animate-in fade-in zoom-in-95 duration-700"><Lock className="h-20 w-20 text-yellow-500/30 mb-6" /><h2 className="text-3xl font-headline font-bold mb-2">Access Restricted</h2><p className="text-muted-foreground max-xs mb-10">This archive entry is currently locked or scheduled for later release.</p><Button variant="outline" className="rounded-full px-12 h-14 font-black uppercase tracking-widest text-xs border-border/40" onClick={() => router.push(`/stories/${storyId}`)}>Back to Overview</Button></div>
         )}
       </main>
 
-      {/* Slick Floating Footer Actions */}
+      {/* Floating Action Pill Footer */}
       <footer className={cn(
         'fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl md:max-w-3xl px-4 transition-all duration-700 transform-gpu',
         controlsVisible && !isInteractionLocked ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 scale-95'
@@ -932,8 +949,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
           <SheetContent side="bottom" className="h-auto max-h-[85vh] rounded-t-[3rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl">
               <div className="mx-auto w-16 h-1.5 rounded-full bg-muted/40 mb-8" />
               <SheetHeader className="text-left mb-8">
-                  <SheetTitle className="font-headline text-3xl font-bold">Archive Highlight</SheetTitle>
-                  <SheetDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Capture this transmission for the community archives</SheetDescription>
+                  <SheetTitle className="font-headline text-3xl font-bold">Capture Highlight</SheetTitle>
+                  <SheetDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Save this prose for your community archives</SheetDescription>
               </SheetHeader>
               
               <div className="space-y-8 pb-12">
@@ -943,11 +960,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                   </div>
 
                   <div className="space-y-3">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Context Note (Optional)</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Note (Optional)</Label>
                       <Textarea 
                         value={annotationNote} 
                         onChange={e => setAnnotationNote(e.target.value)} 
-                        placeholder="Why does this line resonate?..." 
+                        placeholder="Add a thought..." 
                         className="bg-muted/20 border-none rounded-2xl text-base p-6 min-h-[120px] shadow-inner focus-visible:ring-primary/20"
                       />
                   </div>
@@ -975,7 +992,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     className="w-full h-16 rounded-[2rem] bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-primary/30 transition-all hover:scale-[1.01] active:scale-95 border-none"
                   >
                       {isSavingAnnotation ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <Sparkles className="h-5 w-5 mr-3" />}
-                      Finalize Archival
+                      Save to Archive
                   </Button>
               </div>
           </SheetContent>
