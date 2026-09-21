@@ -46,12 +46,10 @@ export default function Header() {
 
   const handleStart = () => {
     setIsLongPressDetected(false);
-    // Deliberate 4-second hold for switching accounts
     longPressTimer.current = setTimeout(() => {
-        if (user && savedAccounts.length > 0) {
+        if (user) {
             setIsLongPressDetected(true);
             setIsSwitcherOpen(true);
-            // Tactile feedback for hold success
             if (window.navigator.vibrate) window.navigator.vibrate(20);
         }
     }, 4000); 
@@ -65,23 +63,17 @@ export default function Header() {
   };
 
   const handleProfileClick = (e: React.MouseEvent | React.KeyboardEvent) => {
-      // 1. Intercept the standard click behavior
       e.preventDefault();
       e.stopPropagation();
 
-      // 2. If it was a deliberate hold, the menu is handled by the timer.
       if (isLongPressDetected) {
-          // Reset detection state
           setTimeout(() => setIsLongPressDetected(false), 200);
           return;
       }
 
-      // 3. If it's a normal tap (not a long hold):
-      // Redirect to the profile space immediately.
       if (user) {
         router.push(`/profile/${user.id}`);
       }
-      // Ensure the menu remains closed
       setIsSwitcherOpen(false);
   };
 
@@ -133,7 +125,6 @@ export default function Header() {
             <DropdownMenu 
               open={isSwitcherOpen} 
               onOpenChange={(open) => {
-                // Opening is restricted to the 4-second hold timer.
                 if (!open) {
                   setIsSwitcherOpen(false);
                   setIsLongPressDetected(false);

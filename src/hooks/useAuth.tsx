@@ -61,7 +61,7 @@ interface AppUser extends AppUserType {
 }
 
 interface SavedIdentity extends UserSummary {
-  password?: string; // Stored for frictionless switching in prototype
+  password?: string; 
   email?: string;
 }
 
@@ -131,7 +131,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const { showIsland } = useDynamicIsland();
 
-  // Load saved identities from local storage
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const stored = localStorage.getItem(SAVED_ACCOUNTS_STORAGE_NAME);
@@ -165,7 +164,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (authLoading) return;
     setAuthLoading(true);
     try {
-        // If we have saved credentials, perform a silent re-auth for frictionless switching
         if (account.email && account.password) {
             await signOut(auth);
             sessionStorage.removeItem(USER_STORAGE_NAME);
@@ -173,14 +171,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             showIsland({ title: `Switched to @${account.username}`, type: 'success' });
             router.push(DEFAULT_HOME_PATH);
         } else {
-            // Fallback: manual re-entry if credentials missing
             await signOut(auth);
             sessionStorage.removeItem(USER_STORAGE_NAME);
             router.push(`/auth/signin?hint=${account.username}`);
             showIsland({ title: `Enter password for @${account.username}`, type: 'info' });
         }
     } catch (e: any) {
-        console.error("Switch error:", e);
         toast({ title: "Failed to switch accounts", description: e.message, variant: "destructive" });
         router.push(DEFAULT_LOGIN_PATH);
     } finally {
@@ -279,7 +275,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(fullUser);
             if (typeof window !== 'undefined') sessionStorage.setItem(USER_STORAGE_NAME, JSON.stringify(fullUser));
             
-            // Sync this identity to the local saved list (without password here, that's handled in sign-in)
             if (!firebaseUser.isAnonymous) {
               addSavedAccount({ 
                 id: fullUser.id, 
@@ -304,9 +299,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (typeof window !== 'undefined') sessionStorage.setItem(USER_STORAGE_NAME, JSON.stringify(newUserProfile));
             setLoading(false);
           }
+        }, async (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'get' }));
         });
         
-        // Activity Area
         const notifsQuery = query(collection(db, 'notifications'), where('userId', '==', firebaseUser.uid), orderBy('timestamp', 'desc'), limit(100));
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             const fetchedNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType));
@@ -328,7 +324,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'notifications', operation: 'list' }));
         });
 
-        // Inbox Monitoring
         const lettersQuery = query(collection(db, 'letters'), where('authorId', '==', firebaseUser.uid), where('isReadByAuthor', '==', false));
         unsubscribeLetters = onSnapshot(lettersQuery, (snapshot) => {
           setUnreadLettersCount(snapshot.size);
@@ -388,7 +383,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markNotificationAsRead = useCallback(async (notificationId: string) => {
-    updateDoc(doc(db, 'notifications', notificationId), { isRead: true });
+    updateDoc(doc(db, 'notifications', notificationId), { isRead: true }).catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `notifications/${notificationId}`, operation: 'update', requestResourceData: { isRead: true } }));
+    });
   }, []);
 
   const markAllNotificationsAsRead = useCallback(async () => {
@@ -397,7 +394,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unreadQuery = query(collection(db, 'notifications'), where('userId', '==', user.id), where('isRead', '==', false));
     const snapshot = await getDocs(unreadQuery);
     snapshot.forEach(doc => batch.update(doc.ref, { isRead: true }));
-    batch.commit();
+    batch.commit().catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'notifications', operation: 'update' }));
+    });
   }, [user]);
 
   const enablePushNotifications = useCallback(async () => {
@@ -446,7 +445,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     try {
       const res = await createUserWithEmailAndPassword(auth, email, passwordOne);
-      // Cache credentials for frictionless switching
       addSavedAccount({ 
         id: res.user.uid, 
         username, 
@@ -474,7 +472,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         else throw new Error("No user found with that handle.");
       }
       const res = await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
-      // Cache credentials for frictionless switching
       addSavedAccount({ 
         id: res.user.uid, 
         username: username || emailOrUsername, 
@@ -605,13 +602,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const addToLibrary = useCallback(async (story: Story) => {
     if (!user) return;
     const item: ReadingListItem = { id: story.id, title: story.title, author: story.author, chapters: story.chapters, lastUpdated: story.lastUpdated, coverImageUrl: story.coverImageUrl, status: story.status };
-    updateDoc(doc(db, 'users', user.id), { readingList: arrayUnion(item) }).then(() => showIsland({ title: "Saved to Library", type: 'success' }));
+    updateDoc(doc(db, 'users', user.id), { readingList: arrayUnion(item) })
+        .then(() => showIsland({ title: "Saved to Library", type: 'success' }))
+        .catch(async (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `users/${user.id}`, operation: 'update', requestResourceData: { readingList: 'arrayUnion' } }));
+        });
   }, [user, showIsland]);
 
   const removeFromLibrary = useCallback(async (storyId: string) => {
     if (!user) return;
     const itemToRemove = user.readingList?.find(i => i.id === storyId);
-    if (itemToRemove) updateDoc(doc(db, 'users', user.id), { readingList: arrayRemove(itemToRemove) }).then(() => showIsland({ title: "Removed from Library", type: 'info' }));
+    if (itemToRemove) {
+        updateDoc(doc(db, 'users', user.id), { readingList: arrayRemove(itemToRemove) })
+            .then(() => showIsland({ title: "Removed from Library", type: 'info' }))
+            .catch(async (error) => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `users/${user.id}`, operation: 'update', requestResourceData: { readingList: 'arrayRemove' } }));
+            });
+    }
   }, [user, showIsland]);
 
   const setNewUserPassword = useCallback(async (password: string) => {
