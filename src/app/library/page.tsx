@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
-import { Loader2, Library, BookOpen, Search, Grid, List, DownloadCloud } from 'lucide-react';
+import { Loader2, Library, BookOpen, Search, Grid, List, DownloadCloud, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import YourStoryCard from '@/components/shared/YourStoryCard';
 import { useState, useMemo, useEffect } from 'react';
@@ -14,6 +14,7 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
+import { cn } from '@/lib/utils';
 
 export default function LibraryPage() {
     const { user, loading } = useAuth();
@@ -29,7 +30,7 @@ export default function LibraryPage() {
 
     const readingList = user?.readingList || [];
 
-    // Protocol: Verify that stories in the reading list actually exist in the archives
+    // Archive Verification Node: Ensures ghosts of deleted stories are removed from view
     useEffect(() => {
         if (!user?.readingList || user.readingList.length === 0) {
             setExistingStoryIds(new Set());
@@ -39,14 +40,12 @@ export default function LibraryPage() {
 
         const verifyStories = async () => {
             setIsVerifying(true);
-            // Null safety for reading list entries
             const ids = user.readingList!.filter(s => s && s.id).map(s => s.id);
             const results = new Set<string>();
             const storiesRef = collection(db, 'stories');
 
             try {
                 if (ids.length > 0) {
-                    // Process in chunks of 30 (Firestore 'in' limit)
                     for (let i = 0; i < ids.length; i += 30) {
                         const chunk = ids.slice(i, i + 30);
                         const q = query(storiesRef, where(documentId(), 'in', chunk));
@@ -56,7 +55,7 @@ export default function LibraryPage() {
                 }
                 setExistingStoryIds(results);
             } catch (error) {
-                console.error("Archival verification failure:", error);
+                console.error("Verification error:", error);
             } finally {
                 setIsVerifying(false);
             }
@@ -66,24 +65,20 @@ export default function LibraryPage() {
     }, [user?.readingList]);
 
     const filteredAndSortedList = useMemo(() => {
-        // Step 1: Filter out ghost stories (deleted manuscripts) and nulls
         let stories = readingList.filter(s => s && existingStoryIds.has(s.id));
 
-        // Step 2: Filter by search term
         if (searchTerm.trim()) {
+            const term = searchTerm.trim().toLowerCase();
             stories = stories.filter(s => 
-                s.title.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
-                s.author?.username.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
-                s.author?.displayName?.toLowerCase().includes(searchTerm.trim().toLowerCase())
+                s.title.toLowerCase().includes(term) ||
+                s.author?.username.toLowerCase().includes(term)
             );
         }
 
-        // Step 3: Filter by status
         if (filterStatus !== 'all') {
             stories = stories.filter(s => s.status?.toLowerCase() === filterStatus.toLowerCase());
         }
 
-        // Step 4: Sort
         stories.sort((a, b) => {
             switch (sortBy) {
                 case 'title-asc':
@@ -106,15 +101,16 @@ export default function LibraryPage() {
     const handleSyncAll = async () => {
         if (filteredAndSortedList.length === 0) return;
         setIsSyncingAll(true);
-        toast({ title: "Smart Sync Started", description: "Saving your library for offline access..." });
+        toast({ title: "Saving to device", description: "Getting your stories ready for offline reading..." });
 
         try {
+            // Fetch each story explicitly to ensure it resides in the local IndexedDB cache
             for (const item of filteredAndSortedList) {
                 await getDoc(doc(db, 'stories', item.id));
             }
-            toast({ title: "Library Synced", description: "Your stories are ready for offline reading." });
+            toast({ title: "Stories Saved", description: "You can now read these even without internet." });
         } catch (error) {
-            toast({ title: "Sync Failed", variant: "destructive" });
+            toast({ title: "Save Failed", description: "Make sure you have a stable connection to finish saving.", variant: "destructive" });
         } finally {
             setIsSyncingAll(false);
         }
@@ -122,9 +118,9 @@ export default function LibraryPage() {
     
     if (loading || (isVerifying && readingList.length > 0)) {
         return (
-            <div className="flex flex-col justify-center items-center min-h-screen gap-4">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Syncing Library Archive...</p>
+            <div className="flex flex-col justify-center items-center h-screen bg-background gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground animate-pulse">Entering Library...</p>
             </div>
         );
     }
@@ -132,76 +128,65 @@ export default function LibraryPage() {
     return (
         <>
             <Header />
-            <main className="container mx-auto max-w-7xl pt-6 pb-24 md:pb-12 px-4 md:px-6 animate-in fade-in duration-700">
+            <main className="container mx-auto max-w-7xl pt-6 pb-32 md:pb-12 px-4 md:px-8 animate-in fade-in duration-700">
                 {!user ? (
-                    <div className="flex flex-col items-center justify-center h-[calc(100vh-20rem)] text-center p-4">
-                        <Library className="h-24 w-24 text-muted-foreground/50 mb-6" />
-                        <h2 className="text-2xl font-headline font-semibold mb-2">Your Library Awaits</h2>
-                        <p className="text-muted-foreground max-sm">
-                            <Link href="/auth/signin" className="text-primary font-bold hover:underline">Sign in</Link> to save your favorite stories and track your reading progress.
-                        </p>
+                    <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 bg-muted/20 rounded-[3rem] border border-dashed">
+                        <Library className="h-20 w-20 text-muted-foreground/20 mb-6" />
+                        <h2 className="text-2xl font-headline font-bold mb-2">Your Archive Awaits</h2>
+                        <p className="text-muted-foreground max-w-xs mx-auto mb-8">Sign in to save stories and keep track of your reading journey.</p>
+                        <Link href="/auth/signin">
+                            <Button size="lg" className="rounded-full px-10 h-12 font-bold shadow-xl">Sign In to Continue</Button>
+                        </Link>
                     </div>
                 ) : (
-                    <div className="space-y-6">
-                        <header className="flex flex-col gap-6">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 rounded-2xl bg-primary/10 text-primary">
-                                        <Library className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <h1 className="text-2xl font-headline font-bold">Manuscript Library</h1>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Verified Identity Node</p>
-                                    </div>
+                    <div className="space-y-8">
+                        <header className="flex flex-col gap-8">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">Saved Stories</h1>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">My Personal Archive</p>
                                 </div>
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={handleSyncAll} 
-                                    disabled={isSyncingAll || filteredAndSortedList.length === 0}
-                                    className="rounded-full gap-2 border-primary/20 hover:border-primary hover:bg-primary/5 font-bold text-[10px] uppercase tracking-widest transition-all shadow-sm"
-                                >
-                                    {isSyncingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
-                                    {isSyncingAll ? 'Syncing...' : 'Sync for Offline'}
-                                </Button>
+                                <div className="flex items-center gap-3">
+                                    <span className="hidden sm:inline-block text-[11px] font-black uppercase tracking-widest text-primary">Library</span>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={handleSyncAll} 
+                                        disabled={isSyncingAll || filteredAndSortedList.length === 0}
+                                        className="rounded-full gap-2 border-primary/20 hover:border-primary hover:bg-primary/5 font-black text-[9px] uppercase tracking-widest h-9 px-4 shadow-sm transition-all active:scale-95"
+                                    >
+                                        {isSyncingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <DownloadCloud className="h-3 w-3" />}
+                                        {isSyncingAll ? 'Saving...' : 'Save all to device'}
+                                    </Button>
+                                </div>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
                                 <div className="relative flex-grow group">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
                                     <Input 
-                                        placeholder="Filter by title or author..."
-                                        className="pl-10 rounded-xl bg-muted/30 border-none h-11 focus-visible:ring-primary/20"
+                                        placeholder="Find in my library..."
+                                        className="pl-11 rounded-2xl bg-muted/30 border-none h-12 focus-visible:ring-primary/20 shadow-inner"
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                     />
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 h-12">
                                     <Select value={sortBy} onValueChange={setSortBy}>
-                                        <SelectTrigger className="w-full sm:w-[160px] rounded-xl bg-card border-none shadow-sm h-11">
-                                            <SelectValue placeholder="Sort by" />
+                                        <SelectTrigger className="flex-1 sm:w-44 rounded-2xl bg-card border border-border/40 shadow-sm">
+                                            <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent className="rounded-xl border-none shadow-2xl">
-                                            <SelectItem value="updated-desc">Recently Updated</SelectItem>
-                                            <SelectItem value="added-desc">Recently Added</SelectItem>
-                                            <SelectItem value="title-asc">A-Z</SelectItem>
+                                        <SelectContent className="rounded-2xl border-none shadow-2xl">
+                                            <SelectItem value="updated-desc" className="rounded-lg">Recently Updated</SelectItem>
+                                            <SelectItem value="added-desc" className="rounded-lg">Recently Added</SelectItem>
+                                            <SelectItem value="title-asc" className="rounded-lg">Alphabetical (A-Z)</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <Select value={filterStatus} onValueChange={setFilterStatus}>
-                                        <SelectTrigger className="w-full sm:w-[140px] rounded-xl bg-card border-none shadow-sm h-11">
-                                            <SelectValue placeholder="Status" />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl border-none shadow-2xl">
-                                            <SelectItem value="all">All</SelectItem>
-                                            <SelectItem value="Ongoing">Ongoing</SelectItem>
-                                            <SelectItem value="Completed">Completed</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <div className="flex items-center rounded-xl border-none bg-card p-1 shadow-sm h-11">
-                                        <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} aria-label="Grid View" className="rounded-lg h-9 w-9">
+                                    <div className="flex items-center rounded-2xl border border-border/40 bg-card p-1 shadow-sm">
+                                        <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} className="rounded-xl h-10 w-10">
                                             <Grid className="h-4 w-4"/>
                                         </Button>
-                                        <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')} aria-label="List View" className="rounded-lg h-9 w-9">
+                                        <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')} className="rounded-xl h-10 w-10">
                                             <List className="h-4 w-4" />
                                         </Button>
                                     </div>
@@ -210,30 +195,34 @@ export default function LibraryPage() {
                         </header>
 
                         {filteredAndSortedList.length > 0 ? (
-                            viewMode === 'grid' ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-10">
-                                    {filteredAndSortedList.map(item => (
-                                        <YourStoryCard key={item.id} story={item} />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {filteredAndSortedList.map(item => (
-                                        <LibraryListItemCard key={item.id} story={item} />
-                                    ))}
-                                </div>
-                            )
+                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-700">
+                                {viewMode === 'grid' ? (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-12">
+                                        {filteredAndSortedList.map(item => (
+                                            <YourStoryCard key={item.id} story={item} />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4 max-w-4xl mx-auto">
+                                        {filteredAndSortedList.map(item => (
+                                            <LibraryListItemCard key={item.id} story={item} />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         ) : (
-                            <div className="text-center py-32 bg-card/40 rounded-[40px] border-2 border-dashed border-border/40">
-                                <BookOpen className="h-16 w-16 text-muted-foreground/20 mx-auto mb-4" />
-                                <h2 className="text-xl font-headline font-bold text-foreground">
-                                    {searchTerm || filterStatus !== 'all' ? "No matches found" : "Your Library is Clean"}
+                            <div className="text-center py-40 bg-card/20 rounded-[3rem] border-2 border-dashed border-border/40 max-w-2xl mx-auto flex flex-col items-center">
+                                <div className="p-6 rounded-full bg-muted/30 mb-6">
+                                    <BookOpen className="h-10 w-10 text-muted-foreground/30" />
+                                </div>
+                                <h2 className="text-2xl font-headline font-bold text-foreground mb-2">
+                                    {searchTerm || filterStatus !== 'all' ? "No matches found" : "Empty Archive"}
                                 </h2>
-                                <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-2">
-                                    {searchTerm || filterStatus !== 'all' ? "Try adjusting your filters." : "Discover new manuscripts and add them to your archive."}
+                                <p className="text-sm text-muted-foreground max-w-xs px-10">
+                                    {searchTerm || filterStatus !== 'all' ? "Try adjusting your search terms." : "Find something new to read and add it to your library!"}
                                 </p>
-                                <Link href="/stories" passHref className="inline-block mt-8">
-                                    <Button className="rounded-full px-8 h-12 shadow-lg shadow-primary/20 font-bold uppercase tracking-widest text-xs">Explore Now</Button>
+                                <Link href="/stories" className="mt-8">
+                                    <Button className="rounded-full px-10 h-12 font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">Explore Discoveries</Button>
                                 </Link>
                             </div>
                         )}
