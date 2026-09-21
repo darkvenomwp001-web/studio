@@ -86,7 +86,8 @@ import {
   Zap,
   Scaling,
   MousePointer,
-  Tally3
+  Tally3,
+  ShieldAlert
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -202,6 +203,23 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       editor.commands.setContent(currentChapter.content, false);
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
+
+  // Anti-Plagiarism Protocol: Block Copy Action
+  useEffect(() => {
+    const handleCopy = (e: ClipboardEvent) => {
+      // Prevent outside copy source to avoid plagiarism
+      e.preventDefault();
+      showIsland({
+        title: "Manuscript Protected",
+        description: "Authors' work is preserved. Copying is disabled.",
+        type: 'info',
+        icon: <ShieldAlert className="h-4 w-4 text-red-500" />
+      });
+    };
+
+    document.addEventListener('copy', handleCopy);
+    return () => document.removeEventListener('copy', handleCopy);
+  }, [showIsland]);
 
   // Reading Time Estimation
   const wordCount = useMemo(() => editor?.storage.characterCount.words() || 0, [editor?.storage.characterCount.words()]);
