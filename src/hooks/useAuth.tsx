@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
@@ -60,6 +61,11 @@ interface AppUser extends AppUserType {
   writtenStories?: Story[];
 }
 
+interface SavedIdentity extends UserSummary {
+  password?: string; // Stored for frictionless switching in prototype
+  email?: string;
+}
+
 interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
@@ -70,7 +76,7 @@ interface AuthContextType {
   requiresPasswordSetup: boolean;
   notificationPermission: NotificationPermission;
   fcmToken: string | null;
-  savedAccounts: UserSummary[];
+  savedAccounts: SavedIdentity[];
   addNotification: (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
@@ -92,7 +98,7 @@ interface AuthContextType {
   setRequiresPasswordSetup: (requires: boolean) => void;
   setNewUserPassword: (password: string) => Promise<boolean>;
   clearAppCache: () => Promise<void>;
-  switchAccount: (account: UserSummary) => Promise<void>;
+  switchAccount: (account: SavedIdentity) => Promise<void>;
   removeSavedAccount: (userId: string) => void;
 }
 
@@ -111,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   });
 
-  const [savedAccounts, setSavedAccounts] = useState<UserSummary[]>([]);
+  const [savedAccounts, setSavedAccounts] = useState<SavedIdentity[]>([]);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
@@ -126,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const { showIsland } = useDynamicIsland();
 
-  // Load known identities from local storage
+  // Load saved identities from local storage
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const stored = localStorage.getItem(SAVED_ACCOUNTS_STORAGE_NAME);
@@ -134,15 +140,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const addSavedAccount = useCallback((account: UserSummary) => {
+  const addSavedAccount = useCallback((account: SavedIdentity) => {
     setSavedAccounts(prev => {
         const exists = prev.some(a => a.id === account.id);
+        let next;
         if (exists) {
-            const updated = prev.map(a => a.id === account.id ? account : a);
-            localStorage.setItem(SAVED_ACCOUNTS_STORAGE_NAME, JSON.stringify(updated));
-            return updated;
+            next = prev.map(a => a.id === account.id ? { ...a, ...account } : a);
+        } else {
+            next = [...prev, account];
         }
-        const next = [...prev, account];
         localStorage.setItem(SAVED_ACCOUNTS_STORAGE_NAME, JSON.stringify(next));
         return next;
     });
@@ -156,22 +162,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const switchAccount = useCallback(async (account: UserSummary) => {
+  const switchAccount = useCallback(async (account: SavedIdentity) => {
+    if (authLoading) return;
     setAuthLoading(true);
     try {
-        // Sign out current session to allow switching
-        await signOut(auth);
-        sessionStorage.removeItem(USER_STORAGE_NAME);
-        
-        // Use a hint to pre-fill the username on the sign-in page
-        router.push(`/auth/signin?hint=${account.username}`);
-        showIsland({ title: `Switching to @${account.username}`, type: 'info' });
-    } catch (e) {
-        toast({ title: "Failed to switch accounts", variant: "destructive" });
+        // If we have saved credentials, perform a silent re-auth for frictionless switching
+        if (account.email && account.password) {
+            await signOut(auth);
+            sessionStorage.removeItem(USER_STORAGE_NAME);
+            await firebaseSignInWithEmailAndPassword(auth, account.email, account.password);
+            showIsland({ title: `Switched to @${account.username}`, type: 'success' });
+            router.push(DEFAULT_HOME_PATH);
+        } else {
+            // Fallback: manual re-entry if credentials missing
+            await signOut(auth);
+            sessionStorage.removeItem(USER_STORAGE_NAME);
+            router.push(`/auth/signin?hint=${account.username}`);
+            showIsland({ title: `Enter password for @${account.username}`, type: 'info' });
+        }
+    } catch (e: any) {
+        console.error("Switch error:", e);
+        toast({ title: "Failed to switch accounts", description: e.message, variant: "destructive" });
+        router.push(DEFAULT_LOGIN_PATH);
     } finally {
         setAuthLoading(false);
     }
-  }, [router, showIsland, toast]);
+  }, [router, showIsland, toast, authLoading]);
 
   const handleAchievementUnlock = useCallback((newAchievements: Achievement[], oldAchievements: Achievement[]) => {
       if (newAchievements.length > oldAchievements.length) {
@@ -264,13 +280,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(fullUser);
             if (typeof window !== 'undefined') sessionStorage.setItem(USER_STORAGE_NAME, JSON.stringify(fullUser));
             
-            // Save this identity to the local Switcher Hub
+            // Sync this identity to the local saved list (without password here, that's handled in sign-in)
             if (!firebaseUser.isAnonymous) {
               addSavedAccount({ 
                 id: fullUser.id, 
                 username: fullUser.username, 
                 displayName: fullUser.displayName, 
-                avatarUrl: fullUser.avatarUrl 
+                avatarUrl: fullUser.avatarUrl,
+                email: fullUser.email
               });
             }
 
@@ -290,7 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         });
         
-        // Activity Monitoring
+        // Activity Area
         const notifsQuery = query(collection(db, 'notifications'), where('userId', '==', firebaseUser.uid), orderBy('timestamp', 'desc'), limit(100));
         unsubscribeNotifs = onSnapshot(notifsQuery, (snapshot) => {
             const fetchedNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NotificationType));
@@ -312,13 +329,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'notifications', operation: 'list' }));
         });
 
-        // Mailbox Monitoring
+        // Inbox Monitoring
         const lettersQuery = query(collection(db, 'letters'), where('authorId', '==', firebaseUser.uid), where('isReadByAuthor', '==', false));
         unsubscribeLetters = onSnapshot(lettersQuery, (snapshot) => {
           setUnreadLettersCount(snapshot.size);
         });
 
-        // Chat Monitoring
         const convsQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', firebaseUser.uid));
         unsubscribeConvs = onSnapshot(convsQuery, (snapshot) => {
           const count = snapshot.docs.filter(d => {
@@ -352,7 +368,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAuthRoute = AUTH_PAGES.includes(pathname);
     const isAuthenticated = user && !user.isAnonymous;
     
-    // Check for "Add Account" intent signal to bypass automatic redirection
     const isAddingAccount = searchParams.get('mode') === 'addAccount';
 
     if (isAuthenticated) {
@@ -431,29 +446,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUpWithEmailPassword = useCallback(async ({ username, email, passwordOne }: { username: string; email: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, passwordOne);
+      const res = await createUserWithEmailAndPassword(auth, email, passwordOne);
+      // Cache credentials for frictionless switching
+      addSavedAccount({ 
+        id: res.user.uid, 
+        username, 
+        email, 
+        password: passwordOne 
+      });
       showIsland({ title: "Account Created", type: 'success' });
     } catch (error: any) {
       toast({ title: "Sign Up Error", description: error.message, variant: "destructive" });
     } finally { setAuthLoading(false); }
-  }, [toast, showIsland]);
+  }, [toast, showIsland, addSavedAccount]);
 
   const signInWithEmailAndPassword = useCallback(async ({ emailOrUsername, passwordOne }: { emailOrUsername: string; passwordOne: string; }) => {
     setAuthLoading(true);
     try {
       let email = emailOrUsername;
+      let username = '';
       if (!emailOrUsername.includes('@')) {
         const q = query(collection(db, 'users'), where('username', '==', emailOrUsername.toLowerCase()));
         const snapshot = await getDocs(q);
-        if (!snapshot.empty) email = snapshot.docs[0].data().email;
+        if (!snapshot.empty) {
+            email = snapshot.docs[0].data().email;
+            username = snapshot.docs[0].data().username;
+        }
         else throw new Error("No user found with that handle.");
       }
-      await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
+      const res = await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
+      // Cache credentials for frictionless switching
+      addSavedAccount({ 
+        id: res.user.uid, 
+        username: username || emailOrUsername, 
+        email, 
+        password: passwordOne 
+      });
       showIsland({ title: "Welcome back!", type: 'success' });
     } catch (error: any) {
       toast({ title: "Sign In Error", description: error.message, variant: "destructive" });
     } finally { setAuthLoading(false); }
-  }, [toast, showIsland]);
+  }, [toast, showIsland, addSavedAccount]);
 
   const signOutFirebase = useCallback(async () => {
     setAuthLoading(true);
@@ -463,7 +496,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await set(userStatusRef, { state: 'offline', last_changed: rtdbTimestamp(), active_path: null });
       }
       await signOut(auth);
-      if (typeof window !== 'undefined') sessionStorage.removeItem(USER_STORAGE_NAME);
+      if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(USER_STORAGE_NAME);
+          localStorage.removeItem(SAVED_ACCOUNTS_STORAGE_NAME);
+          setSavedAccounts([]);
+      }
       router.push('/auth/signin');
       showIsland({ title: "Signed out", type: 'info' });
     } catch (error) { console.error(error); } finally { setAuthLoading(false); }
