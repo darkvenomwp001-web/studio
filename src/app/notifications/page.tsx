@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useTransition, useMemo, ChangeEvent, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, useTransition, useMemo, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -29,17 +29,10 @@ import {
   User,
   ImageIcon,
   Mic,
-  FileUp,
   MoreHorizontal,
-  Link2 as LinkIcon,
   Repeat,
-  PhoneOff,
-  VideoOff,
   BellOff,
-  FileText,
   X,
-  Play,
-  Square,
   Music,
   AlertCircle
 } from 'lucide-react';
@@ -65,7 +58,7 @@ import {
   deleteDoc
 } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -85,17 +78,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { getConversationStarters } from '@/app/actions/aiActions';
@@ -103,17 +85,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import StatusFeature from '@/components/status/StatusFeature';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import Image from 'next/image';
 
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: NodeJS.Timeout;
   return (...args: Parameters<F>): Promise<ReturnType<F>> =>
     new Promise(resolve => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
+      if (timeout) clearTimeout(timeout);
       timeout = setTimeout(() => resolve(func(...args)), waitFor);
     });
 }
@@ -139,9 +118,7 @@ function NotificationsList() {
         const unsubscribe = onValue(statusRef, (snapshot) => {
             const data = snapshot.val() || {};
             const statuses: Record<string, 'online' | 'offline'> = {};
-            Object.keys(data).forEach(uid => {
-                statuses[uid] = data[uid].state;
-            });
+            Object.keys(data).forEach(uid => { statuses[uid] = data[uid].state; });
             setUserStatuses(statuses);
         });
         return () => unsubscribe();
@@ -149,27 +126,16 @@ function NotificationsList() {
 
     const handleNotificationClick = async (notification: NotificationType) => {
         if (!notification.isRead) {
-            try {
-                await markNotificationAsRead(notification.id);
-            } catch (error) {
-                toast({ title: "Error", description: "Failed to mark as read.", variant: "destructive"});
-            }
+            try { await markNotificationAsRead(notification.id); } 
+            catch (error) { toast({ title: "Sync failed", variant: "destructive"}); }
         }
-        if (notification.link) {
-            router.push(notification.link);
-        }
+        if (notification.link) router.push(notification.link);
     };
 
     const handleMarkAllRead = async () => {
-        if (notifications.every(n => n.isRead)) {
-            toast({ title: "All Read", description: "No unread items to mark." });
-            return;
-        }
-        try {
-            await markAllNotificationsAsRead();
-        } catch (error) {
-            toast({ title: "Error", description: "Failed to mark all as read.", variant: "destructive"});
-        }
+        if (notifications.every(n => n.isRead)) return;
+        try { await markAllNotificationsAsRead(); } 
+        catch (error) { toast({ title: "Update failed", variant: "destructive"}); }
     };
 
     const getNotificationIcon = (type: NotificationType['type']) => {
@@ -182,10 +148,6 @@ function NotificationsList() {
             case 'new_letter': return <Mail className="h-4 w-4 text-cyan-500" />;
             case 'letter_response': return <MailCheck className="h-4 w-4 text-teal-500" />;
             case 'achievement_unlocked': return <Bell className="h-4 w-4 text-yellow-500" />;
-            case 'announcement': return <Bell className="h-4 w-4 text-orange-500" />;
-            case 'app_update': return <MessageSquare className="h-4 w-4 text-primary" />;
-            case 'user_update': return <User className="h-4 w-4 text-blue-400" />;
-            case 'notice_update': return <AlertCircle className="h-4 w-4 text-orange-400" />;
             default: return <Bell className="h-4 w-4 text-muted-foreground" />;
         }
     };
@@ -193,135 +155,90 @@ function NotificationsList() {
     const filteredNotifications = useMemo(() => {
         if (!searchTerm.trim()) return notifications;
         const term = searchTerm.toLowerCase();
-        return notifications.filter(n => 
-            n.message.toLowerCase().includes(term) || 
-            n.actor.username.toLowerCase().includes(term) ||
-            n.actor.displayName?.toLowerCase().includes(term)
-        );
+        return notifications.filter(n => n.message.toLowerCase().includes(term) || n.actor.username.toLowerCase().includes(term));
     }, [notifications, searchTerm]);
 
     const groupedNotifications = useMemo(() => {
-        const groups: { [key: string]: NotificationType[] } = {
-            Today: [],
-            "This Week": [],
-            "Earlier": [],
-        };
-
+        const groups: { [key: string]: NotificationType[] } = { Today: [], "This Week": [], "Earlier": [] };
         filteredNotifications.forEach(notif => {
             const date = parseSafeDate(notif.timestamp);
             if (!date) return;
-            
-            if (isToday(date)) {
-                groups.Today.push(notif);
-            } else if (isThisWeek(date)) {
-                groups["This Week"].push(notif);
-            } else {
-                groups.Earlier.push(notif);
-            }
+            if (isToday(date)) groups.Today.push(notif);
+            else if (isThisWeek(date)) groups["This Week"].push(notif);
+            else groups.Earlier.push(notif);
         });
-
         return groups;
     }, [filteredNotifications]);
 
-    if (authLoading && notifications.length === 0) {
-        return (
-             <div className="text-center py-20 text-muted-foreground flex flex-col items-center justify-center">
-                <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-                <p className="font-headline font-semibold">Updating activity...</p>
-            </div>
-        );
-    }
-    
     return (
-        <Card className="shadow-none bg-transparent border-0 max-w-3xl mx-auto w-full">
-            <CardHeader className="flex flex-col gap-4 px-4 pt-4 pb-6">
-                <div className="flex flex-row justify-between items-center">
-                    <CardTitle className="text-2xl font-headline font-bold">Activity</CardTitle>
+        <Card className="shadow-none bg-transparent border-0 max-w-3xl mx-auto w-full px-4">
+            <CardHeader className="flex flex-col gap-4 px-0 pt-0 pb-6">
+                <div className="flex justify-between items-center">
+                    <CardTitle className="text-3xl font-headline font-bold">Activity</CardTitle>
                     {notifications.some(n => !n.isRead) && (
-                        <Button variant="ghost" size="sm" onClick={handleMarkAllRead} disabled={authLoading} className="text-primary hover:text-primary/80 font-bold uppercase tracking-wider text-[10px]">
-                            Mark all as read
+                        <Button variant="ghost" size="sm" onClick={handleMarkAllRead} className="text-primary font-black uppercase text-[10px] tracking-widest">
+                            Mark all read
                         </Button>
                     )}
                 </div>
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <div className="relative group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
                         placeholder="Search your activity..." 
-                        className="pl-10 bg-muted/50 border-none h-10 rounded-full focus-visible:ring-primary/30" 
+                        className="pl-10 bg-muted/30 border-none h-11 rounded-2xl focus-visible:ring-primary/20" 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="px-0">
                 {filteredNotifications.length > 0 ? (
-                    <div className="space-y-8 pb-20">
+                    <div className="space-y-8 pb-32">
                         {Object.entries(groupedNotifications).map(([group, notifs]) => 
                          notifs.length > 0 && (
-                            <div key={group}>
-                                <h3 className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground/60 px-4 mb-3 flex items-center gap-2">
-                                    <span className="flex-shrink-0">{group}</span>
-                                    <div className="h-px w-full bg-border/40" />
-                                </h3>
-                                <div className="space-y-1 px-2">
-                                    {notifs.map((notif) => {
-                                        const displayDate = parseSafeDate(notif.timestamp);
-                                        const isOnline = userStatuses[notif.actor.id] === 'online';
-                                        return (
-                                            <div
-                                                key={notif.id}
-                                                onClick={() => handleNotificationClick(notif)}
-                                                className={cn(
-                                                    "p-4 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-4 group relative",
-                                                    !notif.isRead ? 'bg-primary/5 hover:bg-primary/10 border border-primary/10' : 'hover:bg-muted/50 border border-transparent'
-                                                )}
-                                            >
+                            <div key={group} className="space-y-3">
+                                <h3 className="font-black text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60 px-1">{group}</h3>
+                                <div className="space-y-2">
+                                    {notifs.map((notif) => (
+                                        <div
+                                            key={notif.id}
+                                            onClick={() => handleNotificationClick(notif)}
+                                            className={cn(
+                                                "p-4 rounded-3xl cursor-pointer transition-all duration-300 flex items-center gap-4 group relative",
+                                                !notif.isRead ? 'bg-primary/5 border border-primary/10 shadow-sm' : 'hover:bg-muted/30 border border-transparent'
+                                            )}
+                                        >
                                             <div className="relative flex-shrink-0">
-                                                <Avatar className="h-12 w-12 border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
-                                                    <AvatarImage src={notif.actor.avatarUrl} alt={notif.actor.username} data-ai-hint="profile person"/>
+                                                <Avatar className="h-12 w-12 border-2 border-background shadow-md group-hover:scale-105 transition-transform">
+                                                    <AvatarImage src={notif.actor.avatarUrl} />
                                                     <AvatarFallback className="bg-muted text-primary font-bold">{notif.actor.username.substring(0, 1).toUpperCase()}</AvatarFallback>
                                                 </Avatar>
-                                                <div className="absolute -bottom-1 -right-1 bg-card p-1 rounded-full shadow-sm ring-2 ring-background">
+                                                <div className="absolute -bottom-1 -right-1 bg-card p-1 rounded-full shadow-lg ring-2 ring-background">
                                                     {getNotificationIcon(notif.type)}
                                                 </div>
-                                                {isOnline && (
-                                                    <div className="absolute top-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse" title="Active now" />
-                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm leading-snug text-foreground/90">
-                                                    <span className="font-bold text-foreground hover:underline" onClick={(e) => { e.stopPropagation(); router.push(`/profile/${notif.actor.id}`); }}>
-                                                        {notif.actor.displayName || `@${notif.actor.username}`}
-                                                    </span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
+                                                <p className="text-sm leading-snug text-foreground/90 font-medium">
+                                                    <span className="font-black text-foreground">{notif.actor.displayName || `@${notif.actor.username}`}</span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
                                                 </p>
-                                                <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-tighter mt-1">
-                                                {displayDate ? formatDistanceToNow(displayDate, { addSuffix: true }) : 'A while ago'}
+                                                <p className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-tight mt-1">
+                                                    {notif.timestamp ? formatDistanceToNow(parseSafeDate(notif.timestamp)!, { addSuffix: true }) : 'Just now'}
                                                 </p>
                                             </div>
                                             {!notif.isRead && (
-                                                <div className="flex-shrink-0 self-center ml-auto">
-                                                    <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" title="Unread"></div>
-                                                </div>
+                                                <div className="w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
                                             )}
-                                            </div>
-                                        );
-                                    })}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                          )
                         )}
                     </div>
                 ) : (
-                    <div className="text-center py-24 text-muted-foreground space-y-4 px-4">
-                        <div className="bg-muted/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Bell className="h-10 w-10 text-muted-foreground/40" />
-                        </div>
-                        <h3 className="font-headline text-lg font-bold text-foreground">
-                            {searchTerm ? 'No matches found' : 'All caught up!'}
-                        </h3>
-                        <p className="text-sm max-w-[200px] mx-auto">
-                            {searchTerm ? `Try searching for something else.` : 'No new activity to show right now. Go explore some stories!'}
-                        </p>
+                    <div className="text-center py-32 opacity-40">
+                        <Bell className="h-12 w-12 mx-auto mb-4" />
+                        <h3 className="font-bold text-sm uppercase tracking-widest">No activity found</h3>
                     </div>
                 )}
             </CardContent>
@@ -330,7 +247,7 @@ function NotificationsList() {
 }
 
 function MessagesClient() {
-  const { user: currentUser, loading: authLoading } = useAuth();
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -348,8 +265,6 @@ function MessagesClient() {
   const [searchUsername, setSearchUsername] = useState('');
   const [searchedUsers, setSearchedUsers] = useState<UserSummary[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
-  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
-  const [isQueryHandled, setIsQueryHandled] = useState(false);
   const [sidebarSearch, setSidebarSearch] = useState('');
 
   const [isGeneratingStarters, startStarterTransition] = useTransition();
@@ -367,86 +282,40 @@ function MessagesClient() {
 
   useEffect(() => {
     const statusRef = ref(rtdb, 'status');
-    const unsubscribe = onValue(statusRef, (snapshot) => {
+    const unsub = onValue(statusRef, (snapshot) => {
         const data = snapshot.val() || {};
         const statuses: Record<string, 'online' | 'offline'> = {};
-        Object.keys(data).forEach(uid => {
-            statuses[uid] = data[uid].state;
-        });
+        Object.keys(data).forEach(uid => { statuses[uid] = data[uid].state; });
         setUserStatuses(statuses);
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
   useEffect(() => {
     if (!activeConversation || !currentUser) return;
     const otherId = activeConversation.participantIds.find(id => id !== currentUser.id);
     if (!otherId) return;
-
     const typingRef = ref(rtdb, `typing/${activeConversation.id}/${otherId}`);
-    const unsubscribe = onValue(typingRef, (snapshot) => {
-        setOtherUserTyping(!!snapshot.val());
-    });
-    return () => {
-        unsubscribe();
-        setOtherUserTyping(false);
-    }
+    return onValue(typingRef, (snapshot) => { setOtherUserTyping(!!snapshot.val()); });
   }, [activeConversation, currentUser]);
 
   useEffect(() => {
-    if (!currentUser?.id) {
-      if (!authLoading) setIsLoadingConversations(false);
-      return;
-    }
-
-    setIsLoadingConversations(true);
-    const q = query(
-      collection(db, 'conversations'),
-      where('participantIds', 'array-contains', currentUser.id),
-      orderBy('updatedAt', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedConversations = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      } as Conversation));
-      setConversations(fetchedConversations);
-      setIsLoadingConversations(false);
-    }, (error) => {
-      console.error("Error fetching conversations: ", error);
+    if (!currentUser?.id) return;
+    const q = query(collection(db, 'conversations'), where('participantIds', 'array-contains', currentUser.id), orderBy('updatedAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      setConversations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Conversation)));
       setIsLoadingConversations(false);
     });
-
-    return () => unsubscribe();
-  }, [currentUser, authLoading]);
+  }, [currentUser]);
 
   useEffect(() => {
-    if (!activeConversation?.id) {
-      setMessages([]);
-      return;
-    }
-
+    if (!activeConversation?.id) { setMessages([]); return; }
     setIsLoadingMessages(true);
-    const messagesQuery = query(
-      collection(db, 'conversations', activeConversation.id, 'messages'),
-      orderBy('timestamp', 'asc'),
-      limit(100) 
-    );
-
-    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      const fetchedMessages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      } as Message));
-      setMessages(fetchedMessages);
-      setIsLoadingMessages(false);
-    }, (error) => {
-      console.error(`Error fetching messages: `, error);
+    const q = query(collection(db, 'conversations', activeConversation.id, 'messages'), orderBy('timestamp', 'asc'), limit(100));
+    return onSnapshot(q, (snapshot) => {
+      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
       setIsLoadingMessages(false);
     });
-
-    return () => unsubscribe();
   }, [activeConversation]);
 
   const handleSelectConversation = (conversation: Conversation) => {
@@ -463,664 +332,291 @@ function MessagesClient() {
     try {
       const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
       remove(typingRef);
-
       const messageRef = await addDoc(collection(db, 'conversations', activeConversation.id, 'messages'), {
         senderId: currentUser.id,
         content: finalContent.trim(),
         timestamp: serverTimestamp(),
         type: 'text',
       });
-
       await updateDoc(doc(db, 'conversations', activeConversation.id), {
-        lastMessage: {
-          id: messageRef.id,
-          content: finalContent.trim(),
-          senderId: currentUser.id,
-          timestamp: serverTimestamp(), 
-          isRead: false
-        },
+        lastMessage: { id: messageRef.id, content: finalContent.trim(), senderId: currentUser.id, timestamp: serverTimestamp(), isRead: false },
         updatedAt: serverTimestamp(),
       });
-
       setNewMessageContent('');
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      toast({ title: "Send Failed", description: "Could not deliver message.", variant: "destructive" });
-    } finally {
-      setIsSendingMessage(false);
-    }
+    } catch (error) { toast({ title: "Delivery failed", variant: "destructive" }); }
+    finally { setIsSendingMessage(false); }
   };
   
   const getOtherParticipant = (conversation: Conversation): AppUserType | undefined => {
-    if (!currentUser || !conversation.participantIds || !conversation.participantInfo) return undefined;
-    const otherId = conversation.participantIds.find(id => id !== currentUser.id);
-    return otherId ? (conversation.participantInfo[otherId] as unknown as AppUserType) : undefined;
+    const otherId = conversation.participantIds.find(id => id !== currentUser?.id);
+    return otherId ? (conversation.participantInfo[otherId] as any) : undefined;
   };
 
   const performUserSearch = async (searchTerm: string) => {
-    if (!searchTerm.trim() || !currentUser) {
-      setSearchedUsers([]);
-      setIsSearchingUsers(false);
-      return;
-    }
+    if (!searchTerm.trim() || !currentUser) { setSearchedUsers([]); return; }
     setIsSearchingUsers(true);
     try {
-      const usersRef = collection(db, 'users');
-      const usernameQuery = query(
-        usersRef, where('username', '>=', searchTerm.trim()), where('username', '<=', searchTerm.trim() + '\uf8ff'), orderBy('username'), limit(5)
-      );
-      const usernameSnapshot = await getDocs(usernameQuery);
-      
-      const uniqueUsers = new Map<string, UserSummary>();
-      usernameSnapshot.docs
-        .filter(d => d.id !== currentUser.id) 
-        .forEach(d => {
-            const u = d.data();
-            uniqueUsers.set(d.id, { 
-                id: d.id, username: u.username, displayName: u.displayName || u.username, avatarUrl: u.avatarUrl
-            });
-        });
-      setSearchedUsers(Array.from(uniqueUsers.values()));
-    } catch (error) {
-      console.error("Error searching users:", error);
-    } finally {
-      setIsSearchingUsers(false);
-    }
+      const q = query(collection(db, 'users'), where('username', '>=', searchTerm.trim().toLowerCase()), where('username', '<=', searchTerm.trim().toLowerCase() + '\uf8ff'), limit(5));
+      const snapshot = await getDocs(q);
+      setSearchedUsers(snapshot.docs.filter(d => d.id !== currentUser.id).map(d => ({ id: d.id, ...d.data() } as UserSummary)));
+    } finally { setIsSearchingUsers(false); }
   };
   
   const debouncedSearch = useCallback(debounce(performUserSearch, 500), [currentUser]);
 
   useEffect(() => {
-    if (searchUsername.trim().length > 0) {
-      setIsSearchingUsers(true);
-      debouncedSearch(searchUsername);
-    } else {
-      setSearchedUsers([]); 
-      setIsSearchingUsers(false);
-    }
+    if (searchUsername.trim()) debouncedSearch(searchUsername);
+    else setSearchedUsers([]);
   }, [searchUsername, debouncedSearch]);
 
-
-  const handleStartNewConversation = useCallback(async (targetUser: UserSummary) => {
+  const handleStartNewConversation = async (targetUser: UserSummary) => {
     if (!currentUser) return;
-    setIsCreatingConversation(true);
-
-    try {
-      const q = query(
-        collection(db, 'conversations'),
-        where('participantIds', 'array-contains', currentUser.id)
-      );
-      const snap = await getDocs(q);
-      const existingConvDoc = snap.docs.find(d => {
-          const data = d.data();
-          return data.participantIds.includes(targetUser.id) && !data.isGroup;
-      });
-
-      if (existingConvDoc) {
-        handleSelectConversation({ id: existingConvDoc.id, ...existingConvDoc.data() } as Conversation);
-        setIsNewConversationDialogOpen(false);
-        setSearchUsername(''); 
-        setSearchedUsers([]);
-      } else {
-        const currentUserSummary: UserSummary = {
-            id: currentUser.id, username: currentUser.username, displayName: currentUser.displayName || currentUser.username, avatarUrl: currentUser.avatarUrl,
-        };
-        const newConversationData: Omit<Conversation, 'id'> = {
-          participantIds: [currentUser.id, targetUser.id].sort(),
-          participantInfo: { [currentUser.id]: currentUserSummary, [targetUser.id]: targetUser },
-          updatedAt: serverTimestamp(),
-          lastMessage: { id: '', content: 'Conversation started.', senderId: '', timestamp: serverTimestamp() },
-          isGroup: false,
-        };
-        
-        const convRef = await addDoc(collection(db, 'conversations'), newConversationData);
-        handleSelectConversation({ id: convRef.id, ...newConversationData } as Conversation);
-        setIsNewConversationDialogOpen(false);
-        setSearchUsername('');
-        setSearchedUsers([]);
-      }
-    } catch (error) {
-      console.error("Error starting conversation:", error);
-      toast({ title: "Error", description: "Could not start new chat.", variant: "destructive" });
-    } finally {
-      setIsCreatingConversation(false);
-    }
-  }, [currentUser, toast]);
-
-  const handleGenerateStarters = () => {
-    if (!activeConversation) return;
-    const otherParticipant = getOtherParticipant(activeConversation);
-    if (!otherParticipant || !currentUser) return;
+    const participants = [currentUser.id, targetUser.id].sort();
+    const q = query(collection(db, 'conversations'), where('participantIds', '==', participants));
+    const snap = await getDocs(q);
     
-    startStarterTransition(async () => {
-        const result = await getConversationStarters({
-            user1_bio: currentUser.bio,
-            user2_bio: otherParticipant.bio,
-        });
-        if ('error' in result) {
-            toast({ title: 'Error', description: result.error, variant: 'destructive'});
-        } else {
-            setConversationStarters(result.starters);
-        }
-    });
-  };
-
-  const handleInputChange = (val: string) => {
-    setNewMessageContent(val);
-    if (!activeConversation || !currentUser) return;
-    
-    const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
-    if (val.trim().length > 0) {
-        set(typingRef, true);
+    if (!snap.empty) {
+      handleSelectConversation({ id: snap.docs[0].id, ...snap.docs[0].data() } as Conversation);
     } else {
-        remove(typingRef);
+      const newConv = await addDoc(collection(db, 'conversations'), {
+        participantIds: participants,
+        participantInfo: { [currentUser.id]: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl }, [targetUser.id]: targetUser },
+        updatedAt: serverTimestamp(),
+        lastMessage: { id: '', content: 'Thread initiated.', senderId: '', timestamp: serverTimestamp() },
+        isGroup: false,
+      });
+      handleSelectConversation({ id: newConv.id, participantIds: participants } as any);
     }
+    setIsNewConversationDialogOpen(false);
   };
 
-  const handleEmojiClick = (emojiData: EmojiClickData) => {
-    handleInputChange(newMessageContent + emojiData.emoji);
-  };
+  const filteredConversations = useMemo(() => {
+    if (!sidebarSearch.trim()) return conversations;
+    const term = sidebarSearch.toLowerCase();
+    return conversations.filter(conv => getOtherParticipant(conv)?.username.toLowerCase().includes(term));
+  }, [conversations, sidebarSearch]);
 
-  useEffect(() => {
-    const startConversationWithId = searchParams.get('startConversationWith');
-    if (startConversationWithId && currentUser && !isLoadingConversations && !isQueryHandled) {
-      setIsQueryHandled(true);
-      const existingConversation = conversations.find(c => c.participantIds.includes(startConversationWithId));
-      if (existingConversation) {
-        if (activeConversation?.id !== existingConversation.id) handleSelectConversation(existingConversation);
-        return;
-      }
-      const fetchAndStart = async () => {
-        const userDocRef = doc(db, 'users', startConversationWithId);
-        const userSnap = await getDoc(userDocRef);
-        if (userSnap.exists()) {
-          const uData = userSnap.data();
-          const targetUser: UserSummary = {
-            id: userSnap.id, username: uData.username, displayName: uData.displayName, avatarUrl: uData.avatarUrl,
-          };
-          await handleStartNewConversation(targetUser);
-        } else {
-          toast({ title: "User not found", variant: "destructive" });
-        }
-      };
-      fetchAndStart();
-    }
-  }, [searchParams, currentUser, isLoadingConversations, conversations, handleStartNewConversation, toast, isQueryHandled, activeConversation?.id]);
-  
-    useEffect(() => {
-        if (!activeConversation) {
-            setMobileView('list');
-        }
-    }, [activeConversation]);
-
-    const filteredConversations = useMemo(() => {
-        if (!sidebarSearch.trim()) return conversations;
-        const term = sidebarSearch.toLowerCase();
-        return conversations.filter(conv => {
-            const other = getOtherParticipant(conv);
-            return other?.username?.toLowerCase().includes(term) || other?.displayName?.toLowerCase().includes(term);
-        });
-    }, [conversations, sidebarSearch]);
-
-    const renderMessageList = () => {
-        const elements: JSX.Element[] = [];
-        let lastDateString = "";
-
-        messages.forEach((msg, index) => {
-            const msgDate = parseSafeDate(msg.timestamp) || new Date();
-            let currentDateString = "";
-            
-            if (isToday(msgDate)) currentDateString = "Today";
-            else if (isYesterday(msgDate)) currentDateString = "Yesterday";
-            else if (isThisWeek(msgDate)) currentDateString = format(msgDate, "EEEE");
-            else currentDateString = format(msgDate, "MMM d, yyyy");
-
-            if (currentDateString !== lastDateString) {
-                elements.push(
-                    <div key={`date-${index}`} className="flex justify-center my-6">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 bg-muted/30 px-3 py-1 rounded-full">{currentDateString}</span>
-                    </div>
-                );
-                lastDateString = currentDateString;
-            }
-
-            const isCurrentUserSender = msg.senderId === currentUser?.id;
-            const isNextSameSender = messages[index + 1]?.senderId === msg.senderId;
-            const isPrevSameSender = messages[index - 1]?.senderId === msg.senderId;
-            const isLastInGroup = !isNextSameSender;
-            const senderInfo = msg.senderId && activeConversation?.participantInfo ? activeConversation.participantInfo[msg.senderId] : undefined;
-
-            elements.push(
-                <div key={msg.id} className={cn(
-                    "flex items-end gap-2 max-w-[85%] sm:max-w-[70%] group/msg", 
-                    isCurrentUserSender ? "self-end flex-row-reverse" : "self-start",
-                    isLastInGroup ? "mb-4" : "mb-0.5"
-                )}>
-                    {!isCurrentUserSender && isLastInGroup && senderInfo && (
-                        <Avatar className="h-8 w-8 self-end flex-shrink-0 shadow-sm">
-                            <AvatarImage src={senderInfo?.avatarUrl} data-ai-hint="profile person" />
-                            <AvatarFallback className="bg-muted text-[10px] font-bold">{senderInfo?.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                        </Avatar>
-                    )}
-                    {(!isCurrentUserSender && !isLastInGroup) && <div className="w-8" />}
-                    
-                    <div className={cn(
-                        "p-3 rounded-2xl shadow-sm text-sm transition-all", 
-                        isCurrentUserSender 
-                            ? "bg-primary text-primary-foreground rounded-br-none" 
-                            : "bg-muted text-foreground rounded-bl-none",
-                        !isLastInGroup && (isCurrentUserSender ? "rounded-br-2xl" : "rounded-bl-2xl"),
-                        !isPrevSameSender && (isCurrentUserSender ? "rounded-tr-2xl" : "rounded-tl-2xl")
-                    )}>
-                        <p className="whitespace-pre-line leading-relaxed">{msg.content}</p>
-                    </div>
+  return (
+    <div className="flex h-[calc(100vh-14rem)] md:h-[800px] border-none sm:border rounded-none sm:rounded-[3rem] bg-card sm:shadow-3xl overflow-hidden mb-10 border-border/40 w-full max-w-7xl mx-auto">
+        <aside className={cn(
+            "w-full md:w-[360px] border-r flex flex-col bg-background/40 backdrop-blur-xl transition-all duration-300",
+            mobileView === 'chat' ? 'hidden md:flex' : 'flex'
+        )}>
+            <div className="p-6 space-y-6">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-3xl font-headline font-bold">Threads</h2>
+                    <Button variant="outline" size="icon" className="rounded-full shadow-sm" onClick={() => setIsNewConversationDialogOpen(true)}>
+                        <Plus className="h-5 w-5" />
+                    </Button>
                 </div>
-            );
-        });
-
-        return elements;
-    };
-
-    const isOtherParticipantOnline = activeConversation ? userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' : false;
-
-    return (
-        <Dialog open={isNewConversationDialogOpen} onOpenChange={(isOpen) => {
-            setIsNewConversationDialogOpen(isOpen);
-            if (!isOpen) { setSearchUsername(''); setSearchedUsers([]); }
-        }}>
-        <TooltipProvider>
-        <div className="flex h-[calc(100vh-14rem)] md:h-[800px] border-none sm:border rounded-none sm:rounded-[2.5rem] bg-card sm:shadow-2xl overflow-hidden mb-10 border-border/40 w-full max-w-full">
-            <aside className={cn(
-                "w-full md:w-[340px] lg:w-[400px] border-r flex flex-col bg-background/40 backdrop-blur-xl transition-all duration-300",
-                mobileView === 'chat' ? 'hidden md:flex' : 'flex'
-            )}>
-                <div className="p-6 border-b space-y-4">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-2xl font-headline font-bold tracking-tight">Threads</h2>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="icon" className="rounded-full shadow-sm hover:bg-primary hover:text-primary-foreground transition-all">
-                                <Plus className="h-5 w-5" />
-                                <span className="sr-only">New Chat</span>
-                            </Button>
-                        </DialogTrigger>
-                    </div>
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            placeholder="Search chats..." 
-                            className="pl-10 h-10 rounded-full bg-muted/50 border-none focus-visible:ring-primary/50" 
-                            value={sidebarSearch}
-                            onChange={(e) => setSidebarSearch(e.target.value)}
-                        />
-                    </div>
+                <div className="relative group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Input 
+                        placeholder="Search chats..." 
+                        className="pl-10 h-11 rounded-2xl bg-muted/30 border-none focus-visible:ring-primary/40" 
+                        value={sidebarSearch}
+                        onChange={(e) => setSidebarSearch(e.target.value)}
+                    />
                 </div>
-                 <div className="p-2 px-4 border-b">
-                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2 ml-2">Active Now</p>
-                   <StatusFeature />
-                </div>
-                <ScrollArea className="flex-1">
-                    {isLoadingConversations ? (
-                        <div className="p-10 text-center text-muted-foreground flex flex-col items-center justify-center gap-3">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            <span className="text-xs font-bold uppercase tracking-widest opacity-50">Syncing inbox...</span>
-                        </div>
-                    ) : filteredConversations.length === 0 ? (
-                        <div className="p-12 text-center text-muted-foreground space-y-4 px-4">
-                            <div className="bg-muted/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
-                                <MessageSquare className="h-8 w-8 text-muted-foreground/40"/>
-                            </div>
-                            <h3 className="font-headline font-bold text-foreground">No threads found</h3>
-                            <p className="text-sm">Start a new message to begin a conversation.</p>
-                        </div>
-                    ) : (
-                    <div className="space-y-0.5 p-2">
-                        {filteredConversations.map(conv => {
-                            const otherParticipant = getOtherParticipant(conv);
-                            const lastMessageDate = parseSafeDate(conv.lastMessage?.timestamp);
-                            let lastMessageDisplayTime = '';
-                            if (lastMessageDate) {
-                                lastMessageDisplayTime = formatDistanceToNow(lastMessageDate, { addSuffix: true });
-                            }
-                            const isActive = activeConversation?.id === conv.id;
-                            const isUnread = conv.lastMessage?.senderId !== currentUser?.id && !conv.lastMessage?.isRead;
-                            const isOnline = otherParticipant ? userStatuses[otherParticipant.id] === 'online' : false;
+            </div>
+            <ScrollArea className="flex-1">
+                <div className="px-3 pb-20 space-y-1">
+                    {filteredConversations.map(conv => {
+                        const other = getOtherParticipant(conv);
+                        const isActive = activeConversation?.id === conv.id;
+                        const isUnread = conv.lastMessage?.senderId !== currentUser?.id && !conv.lastMessage?.isRead;
+                        const isOnline = other ? userStatuses[other.id] === 'online' : false;
 
-                            return (
+                        return (
                             <div 
                                 key={conv.id} 
-                                className={cn( 
-                                    "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative", 
-                                    isActive ? 'bg-primary/10' : 'hover:bg-muted/50'
-                                )}
                                 onClick={() => handleSelectConversation(conv)}
+                                className={cn(
+                                    "flex items-center gap-4 p-4 cursor-pointer rounded-[2rem] transition-all group relative transform-gpu active:scale-[0.98]",
+                                    isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'hover:bg-muted/50'
+                                )}
                             >
                                 <div className="relative">
-                                    {otherParticipant && (
-                                        <Avatar className="h-14 w-14 border-2 border-background shadow-md group-hover:scale-105 transition-transform">
-                                            <AvatarImage src={otherParticipant.avatarUrl} alt={otherParticipant.username} data-ai-hint="profile person" />
-                                            <AvatarFallback className="bg-muted text-primary font-bold">{otherParticipant.username?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                                        </Avatar>
-                                    )}
-                                    {isOnline && <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse"></div>}
+                                    <Avatar className="h-14 w-14 border-2 border-background shadow-md">
+                                        <AvatarImage src={other?.avatarUrl} />
+                                        <AvatarFallback className="bg-muted text-primary font-bold">{other?.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                    {isOnline && <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse" />}
                                 </div>
-                                <div className="flex-1 overflow-hidden">
+                                <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
-                                        <h3 className={cn("font-bold truncate text-sm", isActive ? 'text-primary' : 'text-foreground')}>
-                                            {otherParticipant?.displayName || `@${otherParticipant?.username}` || 'Unknown User'}
-                                        </h3>
-                                        <span className={cn("text-[10px] font-semibold uppercase tracking-tighter whitespace-nowrap", isUnread ? 'text-primary' : 'text-muted-foreground/60')}>
-                                            {lastMessageDisplayTime}
+                                        <h3 className="font-black text-sm truncate">@{other?.username}</h3>
+                                        <span className={cn("text-[9px] font-bold uppercase tracking-tighter opacity-60", isActive ? "text-white/80" : "text-muted-foreground")}>
+                                            {conv.updatedAt ? formatDistanceToNow(parseSafeDate(conv.updatedAt)!, { addSuffix: false }) : ''}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                        <p className={cn("text-xs truncate", isUnread ? 'text-foreground font-bold' : 'text-muted-foreground')}>
-                                            {conv.lastMessage?.senderId === currentUser?.id && <span className="font-bold opacity-50 mr-1">You:</span>}
-                                            {conv.lastMessage?.content || 'Started a conversation'}
-                                        </p>
-                                        {isUnread && <div className="w-2.5 h-2.5 bg-primary rounded-full flex-shrink-0 ml-2 shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>}
-                                    </div>
+                                    <p className={cn("text-xs truncate", isActive ? "text-white/70" : "text-muted-foreground", isUnread && "font-black text-foreground")}>
+                                        {conv.lastMessage?.content || 'Started a conversation'}
+                                    </p>
                                 </div>
-                                {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-primary rounded-r-full"></div>}
+                                {isUnread && !isActive && (
+                                    <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--primary),0.5)]"></div>
+                                )}
                             </div>
-                            );
-                        })}
-                    </div>
-                    )}
-                </ScrollArea>
-            </aside>
+                        );
+                    })}
+                </div>
+            </ScrollArea>
+        </aside>
 
-            <main className={cn(
-                "flex-1 flex-col bg-background h-full max-w-full overflow-hidden",
-                mobileView === 'chat' ? 'flex' : 'hidden md:flex'
-            )}>
-                {activeConversation ? (
-                    <>
-                    <header className="p-4 border-b bg-card/50 backdrop-blur-md flex items-center justify-between gap-3 shadow-sm z-10 w-full">
-                        <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                             <Button variant="ghost" size="icon" className="md:hidden -ml-2 shrink-0" onClick={() => setMobileView('list')}>
+        <main className={cn(
+            "flex-1 flex flex-col bg-background h-full max-w-full overflow-hidden",
+            mobileView === 'chat' ? 'flex' : 'hidden md:flex'
+        )}>
+            {activeConversation ? (
+                <>
+                    <header className="p-4 border-b bg-card/40 backdrop-blur-xl flex items-center justify-between gap-3 shadow-sm z-10">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <Button variant="ghost" size="icon" className="md:hidden shrink-0" onClick={() => setMobileView('list')}>
                                 <ArrowLeft className="h-5 w-5" />
                             </Button>
                             {getOtherParticipant(activeConversation) && (
-                                <Link href={`/profile/${getOtherParticipant(activeConversation)!.id}`} className="shrink-0">
-                                    <div className="relative">
-                                        <Avatar className="h-10 w-10 border shadow-sm hover:scale-105 transition-transform">
-                                            <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} alt={getOtherParticipant(activeConversation)!.username} data-ai-hint="profile person" />
-                                            <AvatarFallback className="bg-muted text-primary font-bold">{getOtherParticipant(activeConversation)!.username?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                                        </Avatar>
-                                        {isOtherParticipantOnline && (
-                                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background animate-pulse"></div>
-                                        )}
-                                    </div>
+                                <Link href={`/profile/${getOtherParticipant(activeConversation)!.id}`} className="relative shrink-0">
+                                    <Avatar className="h-10 w-10 border shadow-sm">
+                                        <AvatarImage src={getOtherParticipant(activeConversation)!.avatarUrl} />
+                                        <AvatarFallback className="font-bold">{getOtherParticipant(activeConversation)!.username.substring(0,2).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                    {userStatuses[getOtherParticipant(activeConversation)!.id] === 'online' && (
+                                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background animate-pulse" />
+                                    )}
                                 </Link>
                             )}
-                            <div className="truncate flex-1 min-w-0">
-                                <h3 className="font-bold text-sm md:text-base truncate">
-                                    {getOtherParticipant(activeConversation)?.displayName || `@${getOtherParticipant(activeConversation)?.username}` || 'Unknown User'}
-                                </h3>
-                                {otherUserTyping ? (
-                                    <p className="text-[10px] text-primary font-bold uppercase tracking-widest animate-pulse">
-                                        Typing...
-                                    </p>
-                                ) : isOtherParticipantOnline ? (
-                                    <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                                        Online
-                                    </p>
-                                ) : (
-                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-                                        Away
-                                    </p>
-                                )}
+                            <div className="truncate">
+                                <h3 className="font-black text-sm md:text-base truncate">@{getOtherParticipant(activeConversation)?.username}</h3>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-primary leading-none">
+                                    {otherUserTyping ? "Transmitting..." : (userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? "Online" : "Away")}
+                                </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className={cn("rounded-full h-10 w-10", isOtherParticipantOnline ? "text-primary" : "text-muted-foreground/40")}
-                                        onClick={() => !isOtherParticipantOnline && toast({ title: "User is away" })}
-                                    >
-                                        <Phone className="h-5 w-5" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent className="text-[10px] font-bold uppercase">Audio Call</TooltipContent>
-                            </Tooltip>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
-                                        <MoreHorizontal className="h-5 w-5" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56 rounded-xl">
-                                    <DropdownMenuLabel>Chat Options</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => router.push(`/profile/${getOtherParticipant(activeConversation)?.id}`)}>
-                                        <User className="mr-2 h-4 w-4" /> View Profile
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => toast({ title: "Muted" })}>
-                                        <BellOff className="mr-2 h-4 w-4" /> Mute Notifications
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
-                                        <Trash2 className="mr-2 h-4 w-4" /> Delete Thread
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                        <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><Phone className="h-5 w-5" /></Button>
+                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><MoreHorizontal className="h-5 w-5" /></Button>
                         </div>
                     </header>
                     
-                    <ScrollArea className="flex-1 p-4 md:p-6">
-                        <div className="flex flex-col min-h-full">
-                            {isLoadingMessages ? (
-                                <div className="flex justify-center items-center h-40">
-                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                </div>
-                            ) : messages.length === 0 ? (
-                                <div className="flex-1 flex flex-col items-center justify-center text-center py-20 gap-6 text-muted-foreground px-4">
-                                    <div className="bg-muted/20 p-6 rounded-full relative">
-                                        <Sparkles className="w-12 h-12 text-primary/40"/>
-                                        <div className="absolute -top-1 -right-1 bg-primary text-white p-1 rounded-full"><Plus className="h-3 w-3" /></div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <h3 className="font-headline text-xl font-bold text-foreground">Start the Conversation</h3>
-                                        <p className="text-sm max-w-[200px] mx-auto">Send a wave or use AI to break the ice.</p>
-                                    </div>
-                                    <div className="flex flex-col gap-2 w-full max-w-xs">
-                                        <Button onClick={handleGenerateStarters} disabled={isGeneratingStarters} className="rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all">
-                                            {isGeneratingStarters ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Sparkles className="h-4 w-4 mr-2" />}
-                                            Get AI Icebreakers
-                                        </Button>
-                                        <Button variant="outline" className="rounded-full" onClick={() => handleSendMessage("👋")}>
-                                            Wave 👋
-                                        </Button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="flex flex-col gap-1">
-                                        {renderMessageList()}
-                                    </div>
-                                    {otherUserTyping && (
-                                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest animate-pulse ml-10 mb-4">
-                                            Typing...
+                    <ScrollArea className="flex-1 p-6">
+                        <div className="flex flex-col gap-1.5 pb-10">
+                            {messages.map((msg, index) => {
+                                const isMe = msg.senderId === currentUser?.id;
+                                const isNextSame = messages[index + 1]?.senderId === msg.senderId;
+                                const isPrevSame = messages[index - 1]?.senderId === msg.senderId;
+                                return (
+                                    <div key={msg.id} className={cn(
+                                        "flex flex-col max-w-[85%] sm:max-w-[70%] group",
+                                        isMe ? "self-end items-end" : "self-start items-start",
+                                        !isNextSame && "mb-4"
+                                    )}>
+                                        <div className={cn(
+                                            "p-4 text-sm shadow-sm transition-all transform-gpu hover:scale-[1.01]",
+                                            isMe ? "bg-primary text-white rounded-[2rem] rounded-br-lg" : "bg-muted text-foreground rounded-[2rem] rounded-bl-lg",
+                                            isPrevSame && (isMe ? "rounded-tr-[2rem]" : "rounded-tl-[2rem]"),
+                                            isNextSame && (isMe ? "rounded-br-[2rem]" : "rounded-bl-[2rem]")
+                                        )}>
+                                            <p className="whitespace-pre-line leading-relaxed">{msg.content}</p>
                                         </div>
-                                    )}
-                                </>
-                            )}
+                                    </div>
+                                );
+                            })}
                             <div ref={messagesEndRef} />
                         </div>
                     </ScrollArea>
 
-                    <footer className="p-3 md:p-4 border-t bg-card/50 backdrop-blur-md w-full">
-                        <div className="flex items-center gap-2 md:gap-3 w-full">
-                            <div className="flex items-center gap-1 shrink-0">
-                                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-primary hover:bg-primary/10 transition-colors">
-                                    <ImageIcon className="h-5 w-5" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-primary hover:bg-primary/10 transition-colors">
-                                    <Mic className="h-5 w-5" />
-                                </Button>
+                    <footer className="p-4 border-t bg-card/40 backdrop-blur-xl">
+                        <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center gap-3 w-full">
+                            <div className="flex shrink-0 gap-1">
+                                <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10"><ImageIcon className="h-5 w-5" /></Button>
+                                <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10"><Mic className="h-5 w-5" /></Button>
                             </div>
-                            <div className="relative flex-1 group min-w-0">
-                                <Input 
-                                    type="text" 
-                                    placeholder="Type a message..." 
-                                    className="w-full bg-background focus-visible:ring-primary/20 rounded-full px-5 pr-10 h-11 border-none shadow-inner" 
-                                    value={newMessageContent} 
-                                    onChange={(e) => handleInputChange(e.target.value)} 
-                                    disabled={isSendingMessage} 
-                                    onKeyDown={(e) => e.key === 'Enter' && !isSendingMessage && handleSendMessage()} 
-                                />
-                                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary transition-colors">
-                                                <Smile className="h-5 w-5" />
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden" side="top" align="end">
-                                            <EmojiPicker onEmojiClick={handleEmojiClick} />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
-                            </div>
-                            <Button 
-                                type="button" 
-                                size="icon" 
-                                className="bg-primary hover:bg-primary/90 rounded-full h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20" 
-                                disabled={isSendingMessage || !newMessageContent.trim()} 
-                                onClick={() => handleSendMessage()}
-                            >
+                            <Input 
+                                placeholder="Write a message..." 
+                                className="flex-1 h-12 bg-background/50 border-none rounded-2xl shadow-inner px-5 focus-visible:ring-primary/40" 
+                                value={newMessageContent} 
+                                onChange={(e) => {
+                                    setNewMessageContent(e.target.value);
+                                    if (activeConversation && currentUser) {
+                                        const r = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
+                                        if (e.target.value.trim()) set(r, true); else remove(r);
+                                    }
+                                }} 
+                            />
+                            <Button type="submit" disabled={isSendingMessage || !newMessageContent.trim()} className="rounded-full h-12 w-12 bg-primary shadow-xl shadow-primary/30 shrink-0 transform-gpu active:scale-90">
                                 {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                             </Button>
-                        </div>
+                        </form>
                     </footer>
-                    </>
-                ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-background/20 backdrop-blur-sm">
-                        <MessageSquare className="h-24 md:h-32 w-24 md:w-32 text-primary/30 mb-8" />
-                        <h2 className="text-2xl md:text-3xl font-headline font-bold mb-3 tracking-tight">Direct Threads</h2>
-                        <p className="text-muted-foreground max-xs leading-relaxed text-sm md:text-base">Select a conversation to start chatting with your fellow creators.</p>
-                        <DialogTrigger asChild>
-                            <Button className="mt-8 rounded-full px-8 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20">
-                                <Plus className="mr-2 h-5 w-5" /> New Message
-                            </Button>
-                        </DialogTrigger>
-                    </div>
-                )}
-            </main>
-        </div>
-        </TooltipProvider>
-        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none rounded-[2.5rem] shadow-3xl mx-auto w-[92vw]">
-            <DialogHeader className="p-6 bg-muted/30 border-b">
-                <DialogTitle className="text-xl font-headline font-bold">New Thread</DialogTitle>
-                <DialogDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Initiate a direct signal</DialogDescription>
-            </DialogHeader>
-            <div className="p-6 space-y-6">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                        id="search-username" 
-                        value={searchUsername} 
-                        onChange={(e) => setSearchUsername(e.target.value)}
-                        placeholder="Search by handle..." 
-                        disabled={isCreatingConversation} 
-                        className="pl-10 h-12 rounded-2xl bg-muted/50 border-none shadow-inner"
-                    />
-                    {isSearchingUsers && <div className="absolute right-3 top-1/2 -translate-y-1/2"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}
+                </>
+            ) : (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 opacity-20">
+                    <MessageSquare className="h-32 w-32 mb-8" />
+                    <h2 className="text-3xl font-headline font-bold">Select a thread</h2>
                 </div>
-                
-                <ScrollArea className="max-h-[300px] -mx-2 px-2">
-                    {searchedUsers.length > 0 ? (
+            )}
+        </main>
+
+        <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
+            <DialogContent className="rounded-[3rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
+                <DialogHeader className="mb-6">
+                    <DialogTitle className="text-3xl font-headline font-bold">New Thread</DialogTitle>
+                    <DialogDescription className="text-xs font-black uppercase tracking-widest opacity-60">Initiate a direct transmission</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-6">
+                    <div className="relative group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        <Input 
+                            placeholder="Enter handle..." 
+                            value={searchUsername} 
+                            onChange={e => setSearchUsername(e.target.value)} 
+                            className="pl-12 h-14 rounded-2xl bg-muted/20 border-none shadow-inner text-lg"
+                        />
+                    </div>
+                    <ScrollArea className="h-60 border-t border-border/20 pt-4">
                         <div className="space-y-2">
                             {searchedUsers.map(u => (
-                                <div 
-                                    key={u.id} 
-                                    className="flex items-center justify-between p-3 rounded-2xl border border-transparent hover:border-primary/20 hover:bg-primary/5 cursor-pointer transition-all"
-                                    onClick={() => !isCreatingConversation && handleStartNewConversation(u)}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
-                                            <AvatarImage src={u.avatarUrl} alt={u.username} data-ai-hint="profile person" />
-                                            <AvatarFallback className="bg-muted font-bold text-primary">{u.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="min-w-0">
-                                            <p className="font-bold text-sm truncate">@{u.username}</p>
-                                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">{u.displayName}</p>
-                                        </div>
-                                    </div>
-                                    <Button variant="ghost" size="icon" className="rounded-full shrink-0">
-                                        <MessageSquare className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                                <button key={u.id} className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-primary/5 transition-all text-left" onClick={() => handleStartNewConversation(u)}>
+                                    <Avatar className="border shadow-sm"><AvatarImage src={u.avatarUrl} /></Avatar>
+                                    <span className="font-black text-sm">@{u.username}</span>
+                                </button>
                             ))}
                         </div>
-                    ) : (
-                        <div className="py-10 text-center text-muted-foreground italic text-xs">
-                            Search for authors by handle...
-                        </div>
-                    )}
-                </ScrollArea>
-            </div>
-            <DialogFooter className="p-4 bg-muted/20 border-t">
-                <DialogClose asChild><Button type="button" variant="ghost" className="rounded-full px-6 font-bold uppercase text-[10px] tracking-widest" disabled={isCreatingConversation}>Cancel</Button></DialogClose>
-            </DialogFooter>
-        </DialogContent>
+                    </ScrollArea>
+                </div>
+            </DialogContent>
         </Dialog>
-    );
+    </div>
+  );
 }
 
 export default function UnifiedInboxPage() {
     const { user, loading } = useAuth();
     const router = useRouter();
-    const searchParamsHook = useSearchParams();
-    const defaultTab = searchParamsHook.get('tab') || 'messages'; 
+    const searchParams = useSearchParams();
+    const defaultTab = searchParams.get('tab') || 'messages'; 
 
-    if (loading && !user) {
-        return (
-            <div className="flex flex-col justify-center items-center min-h-screen gap-4">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="font-headline font-bold text-xl">Updating inbox...</p>
-            </div>
-        );
-    }
-    
-    if (!user && !loading) {
-        router.push('/auth/signin');
-        return null;
-    }
-
-    const handleTabChange = (value: string) => {
-        router.push(`/notifications?tab=${value}`, { scroll: false });
-    };
+    if (loading) return <div className="flex flex-col justify-center items-center min-h-screen gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Syncing inbox...</p></div>;
+    if (!user) { router.push('/auth/signin'); return null; }
 
     return (
-        <Suspense fallback={<div className="flex flex-col justify-center items-center min-h-screen gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-headline font-bold text-xl">Loading inbox...</p></div>}>
+        <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
             <Header />
-            <div className="max-w-7xl mx-auto space-y-6 pt-6 pb-24 md:pb-12 px-0 sm:px-4 md:px-6 w-full overflow-x-hidden">
-                <Tabs defaultValue={defaultTab} className="w-full" onValueChange={handleTabChange}>
-                    <div className="flex justify-center mb-6 px-4">
-                        <TabsList className="grid grid-cols-2 w-full max-w-xs sm:max-w-[400px] h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-sm">
-                            <TabsTrigger value="messages" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2 text-xs md:text-sm">
-                                <MessageSquare className="h-4 w-4" /> 
-                                Messages
+            <div className="max-w-7xl mx-auto space-y-10 pt-10 pb-32">
+                <Tabs defaultValue={defaultTab} className="w-full">
+                    <div className="flex justify-center mb-10 px-4">
+                        <TabsList className="h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-md w-full max-w-sm">
+                            <TabsTrigger value="messages" className="rounded-full font-black uppercase text-[10px] tracking-widest flex-1 gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">
+                                <MessageSquare className="h-4 w-4" /> Threads
                             </TabsTrigger>
-                            <TabsTrigger value="notifications" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-md font-bold transition-all gap-2 text-xs md:text-sm">
-                                <Bell className="h-4 w-4" /> 
-                                Activity
+                            <TabsTrigger value="notifications" className="rounded-full font-black uppercase text-[10px] tracking-widest flex-1 gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">
+                                <Bell className="h-4 w-4" /> Activity
                             </TabsTrigger>
                         </TabsList>
                     </div>
-                    
-                    <TabsContent value="notifications" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500 px-0">
-                        <NotificationsList />
-                    </TabsContent>
-                    
-                    <TabsContent value="messages" className="mt-0 focus-visible:outline-none animate-in fade-in duration-500 px-0">
-                        <MessagesClient />
-                    </TabsContent>
+                    <TabsContent value="notifications" className="animate-in fade-in duration-700"><NotificationsList /></TabsContent>
+                    <TabsContent value="messages" className="animate-in fade-in duration-700 px-4 sm:px-0"><MessagesClient /></TabsContent>
                 </Tabs>
             </div>
             <BottomNavigationBar />
