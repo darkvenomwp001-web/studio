@@ -130,7 +130,17 @@ export default function Header() {
                 <div className="h-7 w-7 bg-muted rounded-full animate-pulse" />
             </div>
           ) : user ? (
-            <DropdownMenu open={isSwitcherOpen} onOpenChange={setIsSwitcherOpen}>
+            <DropdownMenu 
+              open={isSwitcherOpen} 
+              onOpenChange={(open) => {
+                // Only allow closing via the standard way (clicking outside, etc.)
+                // Opening is ONLY handled by the 6.5s timer in the profile button.
+                if (!open) {
+                  setIsSwitcherOpen(false);
+                  setIsLongPressDetected(false);
+                }
+              }}
+            >
                 <DropdownMenuTrigger asChild>
                     <button 
                         className="relative h-10 w-10 md:h-11 md:w-11 rounded-full outline-none group transition-transform active:scale-95 touch-none"

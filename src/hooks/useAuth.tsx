@@ -262,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(fullUser);
             if (typeof window !== 'undefined') sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(fullUser));
             
-            // Sync saved accounts in the hub
+            // Update saved account list
             if (!firebaseUser.isAnonymous) {
               addSavedAccount({ 
                 id: fullUser.id, 
