@@ -22,7 +22,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-} from '@/components/ui/dialog';
+} from '@/components/ui/drawer';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -186,6 +186,9 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   // High-Velocity Swipe Engine
   const touchStartY = useRef(0);
   const touchStartX = useRef(0);
+  
+  // Anti-Plagiarism State Ref
+  const hasShownCopyAlert = useRef(false);
 
   const editor = useEditor({
     extensions: [
@@ -208,12 +211,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   useEffect(() => {
     const blockAction = (e: Event) => {
       e.preventDefault();
-      showIsland({
-        title: "Content Protected",
-        description: "Manuscripts are protected from unauthorized copying.",
-        type: 'error',
-        icon: <ShieldAlert className="h-4 w-4 text-red-500" />
-      });
+      if (!hasShownCopyAlert.current) {
+        showIsland({
+          title: "Content Protected",
+          description: "Manuscripts are protected from unauthorized copying.",
+          type: 'error',
+          icon: <ShieldAlert className="h-4 w-4 text-red-500" />
+        });
+        hasShownCopyAlert.current = true;
+      }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -881,7 +887,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         editor={editor} 
                         shouldShow={({ editor }) => editor ? !editor.state.selection.empty : false}
                         tippyOptions={{ duration: 150, zIndex: 10000, appendTo: 'parent' }}
-                        className="flex items-center gap-1 p-1.5 bg-card/95 backdrop-blur-3xl border border-white/20 rounded-full shadow-3xl transform-gpu animate-in zoom-in-95 duration-200"
+                        className="flex items-center gap-1.5 p-1.5 bg-card/95 backdrop-blur-3xl border border-white/20 rounded-full shadow-3xl transform-gpu animate-in zoom-in-95 duration-200"
                     >
                         <Button variant="ghost" size="icon" onClick={() => handleAnnotationAction('highlight')} className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-95 flex items-center justify-center" title="Highlight"><Highlighter className="h-5 w-5" /></Button>
                         <div className="w-px h-6 bg-border/40 mx-0.5" />
