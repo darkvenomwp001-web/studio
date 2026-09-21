@@ -17,16 +17,6 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { Badge } from '../ui/badge';
-
-const NavLink = ({ href, children, icon }: { href: string; children: React.ReactNode; icon?: React.ReactNode }) => (
-  <Link href={href} passHref>
-    <Button variant="ghost" className="flex items-center gap-2 text-sm hover:bg-accent/50 hover:text-accent-foreground">
-      {icon}
-      {children}
-    </Button>
-  </Link>
-);
 
 export default function Header() {
   const [mounted, setMounted] = useState(false);
@@ -75,22 +65,23 @@ export default function Header() {
   };
 
   const handleProfileClick = (e: React.MouseEvent | React.KeyboardEvent) => {
-      // Detect if it was a long press.
+      // 1. Critical: Stop event propagation to prevent Radix from opening on click
+      e.preventDefault();
+      e.stopPropagation();
+
+      // 2. If it was a long press, the switcher is already open via the timer.
       if (isLongPressDetected) {
-          // If it was a long press, the switcher is already open via the timer.
-          // We prevent the click from redirecting to the profile page.
-          e.preventDefault();
+          // Reset detection for next time
+          setTimeout(() => setIsLongPressDetected(false), 200);
           return;
       }
 
-      // If it's a normal single tap (not a long press):
-      // 1. Prevent the DropdownMenuTrigger from opening the menu automatically.
-      e.preventDefault();
-      
-      // 2. Redirect to the profile page as normal.
+      // 3. If it's a normal single tap (not a long press):
+      // Redirect to the profile page as normal.
       if (user) {
         router.push(`/profile/${user.id}`);
       }
+      // Ensure the switcher remains closed
       setIsSwitcherOpen(false);
   };
 
@@ -105,11 +96,33 @@ export default function Header() {
 
         <nav className="flex items-center gap-2 md:gap-3">
           <div className="hidden md:flex items-center gap-1">
-            <NavLink href="/"><Home className="h-5 w-5" /> Home</NavLink>
-            <NavLink href="/library"><Library className="h-5 w-5" /> Library</NavLink>
-            <NavLink href="/search"><Search className="h-5 w-5" /> Search</NavLink>
-            {user && <NavLink href="/write"><Edit3 className="h-5 w-5" /> Write</NavLink>}
-            <NavLink href="/notifications"><Bell className="h-5 w-5" /> Inbox</NavLink>
+            <Link href="/" passHref>
+              <Button variant="ghost" className="flex items-center gap-2 text-sm hover:bg-accent/50 hover:text-accent-foreground">
+                <Home className="h-5 w-5" /> Home
+              </Button>
+            </Link>
+            <Link href="/library" passHref>
+              <Button variant="ghost" className="flex items-center gap-2 text-sm hover:bg-accent/50 hover:text-accent-foreground">
+                <Library className="h-5 w-5" /> Library
+              </Button>
+            </Link>
+            <Link href="/search" passHref>
+              <Button variant="ghost" className="flex items-center gap-2 text-sm hover:bg-accent/50 hover:text-accent-foreground">
+                <Search className="h-5 w-5" /> Search
+              </Button>
+            </Link>
+            {user && (
+              <Link href="/write" passHref>
+                <Button variant="ghost" className="flex items-center gap-2 text-sm hover:bg-accent/50 hover:text-accent-foreground">
+                  <Edit3 className="h-5 w-5" /> Write
+                </Button>
+              </Link>
+            )}
+            <Link href="/notifications" passHref>
+              <Button variant="ghost" className="flex items-center gap-2 text-sm hover:bg-accent/50 hover:text-accent-foreground">
+                <Bell className="h-5 w-5" /> Inbox
+              </Button>
+            </Link>
           </div>
           
           {loading ? (
@@ -120,7 +133,7 @@ export default function Header() {
             <DropdownMenu open={isSwitcherOpen} onOpenChange={setIsSwitcherOpen}>
                 <DropdownMenuTrigger asChild>
                     <button 
-                        className="relative h-10 w-10 md:h-11 md:w-11 rounded-full outline-none group transition-transform active:scale-95"
+                        className="relative h-10 w-10 md:h-11 md:w-11 rounded-full outline-none group transition-transform active:scale-95 touch-none"
                         onPointerDown={handleStart}
                         onPointerUp={handleEnd}
                         onPointerLeave={handleEnd}
