@@ -1,5 +1,6 @@
 'use client';
 
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -14,7 +15,7 @@ export default function DynamicIsland() {
     <div className="fixed top-2 left-0 right-0 z-[200] flex justify-center pointer-events-none px-4 md:px-0">
       <div 
         className={cn(
-          "bg-black text-white shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3 p-1.5 pr-5 transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] transform-gpu",
+          "bg-black text-white shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3 p-1.5 pr-5 transition-all duration-700 ease-morphic transform-gpu",
           "rounded-[28px] border border-white/10 backdrop-blur-xl",
           "animate-in slide-in-from-top-8 fade-in zoom-in-95",
           activeMessage ? "w-auto max-w-[90vw] min-w-[180px]" : "w-10 h-10 opacity-0"

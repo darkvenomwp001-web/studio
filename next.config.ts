@@ -37,6 +37,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    turbo: {
+      resolveAlias: {
+        '@opentelemetry/exporter-jaeger': 'empty-module',
+        '@opentelemetry/otlp-grpc-exporter-base': 'empty-module',
+        '@opentelemetry/otlp-proto-exporter-base': 'empty-module',
+        '@opentelemetry/otlp-transformer': 'empty-module',
+      },
+    },
+  },
   webpack: (config) => {
     // Fix for @opentelemetry/exporter-jaeger error on Vercel/Genkit
     config.resolve.alias = {

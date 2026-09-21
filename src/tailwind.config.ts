@@ -21,6 +21,9 @@ export default {
         headline: ['var(--font-space-grotesk)', 'Space Grotesk', 'sans-serif'],
         code: ['monospace'],
       },
+      transitionTimingFunction: {
+        morphic: 'cubic-bezier(0.4, 0, 0.2, 1)',
+      },
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
