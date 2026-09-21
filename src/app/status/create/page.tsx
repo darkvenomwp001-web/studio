@@ -680,7 +680,7 @@ export default function CreateStatusPage() {
                     >
                         <LucideImageIcon className="h-5 w-5" />
                     </button>
-                    <input type="file" setMediaPreviews={setMediaPreviews} ref={mediaInputRef} className="hidden" accept="image/*,video/*" multiple onChange={handleMediaSelect} />
+                    <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" multiple onChange={handleMediaSelect} />
                     
                     <button 
                         className="w-11 h-11 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-all active:scale-90"
