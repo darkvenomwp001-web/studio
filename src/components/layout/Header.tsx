@@ -74,14 +74,23 @@ export default function Header() {
     }
   };
 
-  const handleProfileClick = (e: React.MouseEvent) => {
-      // If the hold was completed, the switcher was already opened via state
+  const handleProfileClick = (e: React.MouseEvent | React.KeyboardEvent) => {
+      // Detect if it was a long press.
       if (isLongPressDetected) {
+          // If it was a long press, the switcher is already open via the timer.
+          // We prevent the click from redirecting to the profile page.
           e.preventDefault();
           return;
       }
-      // Short tap redirects to profile
-      router.push(`/profile/${user?.id}`);
+
+      // If it's a normal single tap (not a long press):
+      // 1. Prevent the DropdownMenuTrigger from opening the menu automatically.
+      e.preventDefault();
+      
+      // 2. Redirect to the profile page as normal.
+      if (user) {
+        router.push(`/profile/${user.id}`);
+      }
       setIsSwitcherOpen(false);
   };
 
