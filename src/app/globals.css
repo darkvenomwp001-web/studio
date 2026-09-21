@@ -190,7 +190,6 @@ body.parchment-mode::after {
 .prose p, 
 .ProseMirror p {
   @apply mb-6 leading-relaxed;
-  margin-bottom: 1.5em !important;
 }
 
 .prose p:last-child, 

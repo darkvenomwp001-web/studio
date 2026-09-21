@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import CommentSection from '@/components/comments/CommentSection';
-import { Loader2, ArrowLeft, Quote, BookOpen, MessageSquare } from 'lucide-react';
+import { Loader2, ArrowLeft, Quote, BookOpen, MessageSquare, Sparkles } from 'lucide-react';
 import type { Story, Chapter } from '@/types';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -66,49 +66,61 @@ function CommentsContent() {
     
     if (isLoading) {
         return (
-            <div className="flex flex-col justify-center items-center min-h-screen gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="text-muted-foreground font-bold text-xs uppercase tracking-widest animate-pulse">Gathering the conversation...</p>
+            <div className="flex flex-col justify-center items-center min-h-screen gap-4 bg-background">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-muted-foreground font-black text-[10px] uppercase tracking-[0.2em] animate-pulse">Scanning the discussion hub...</p>
             </div>
         );
     }
     
     return (
-        <div className="min-h-screen bg-background">
-            <div className="container mx-auto max-w-2xl py-10 px-4 md:px-6 space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <header className="space-y-6">
-                    <Button variant="ghost" onClick={() => router.back()} className="group -ml-2 text-muted-foreground hover:text-foreground">
-                        <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1"/>
-                        Back to Chapter
-                    </Button>
+        <div className="min-h-screen bg-background animate-in fade-in duration-700">
+            <div className="max-w-3xl mx-auto py-10 px-4 md:px-6 space-y-12">
+                <header className="space-y-8">
+                    <div className="flex items-center justify-between">
+                        <Button 
+                            variant="ghost" 
+                            onClick={() => router.back()} 
+                            className="group rounded-full h-11 px-4 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                        >
+                            <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1"/>
+                            Back to Part
+                        </Button>
+                        
+                        <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-full px-4 py-1.5 shadow-sm">
+                            <Sparkles className="h-3 w-3 text-primary animate-pulse" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-primary">Discussion Node</span>
+                        </div>
+                    </div>
                     
                     {chapter && story && (
-                        <div className="text-center space-y-2">
-                            <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-primary mb-1">
+                        <div className="text-center space-y-3">
+                            <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 mb-1 px-4 py-1 bg-muted/30 rounded-full border border-border/40">
                                 <BookOpen className="h-3 w-3" />
                                 <span>{story.title}</span>
                             </div>
-                            <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground leading-tight tracking-tight">
+                            <h1 className="text-4xl md:text-6xl font-headline font-bold text-foreground leading-tight tracking-tight">
                                 {chapter.title}
                             </h1>
-                            <div className="flex items-center justify-center gap-2 text-muted-foreground pt-2">
-                                <MessageSquare className="h-4 w-4" />
-                                <p className="text-sm font-medium">Chapter Discussion</p>
+                            <div className="flex items-center justify-center gap-2 text-primary font-bold text-[10px] uppercase tracking-widest pt-2">
+                                <MessageSquare className="h-4 w-4 fill-primary/10" />
+                                <p>Interactive Chapter Log</p>
                             </div>
                         </div>
                     )}
 
                     {quote && (
-                        <div className="relative pt-4">
-                            <Card className="border-l-4 border-l-primary bg-muted/30 border-none shadow-inner overflow-hidden">
-                                <CardContent className="p-6 relative">
-                                    <Quote className="absolute top-4 right-4 h-12 w-12 text-primary/10 -scale-x-100" />
-                                    <p className="italic text-lg text-foreground/80 font-serif leading-relaxed relative z-10">
-                                        "{quote}"
+                        <div className="relative pt-6 animate-in slide-in-from-top-4 duration-1000">
+                            <Card className="rounded-[2.5rem] border-none bg-primary/5 shadow-inner overflow-hidden group">
+                                <CardContent className="p-10 relative">
+                                    <Quote className="absolute top-6 right-8 h-16 w-16 text-primary/10 -scale-x-100 transition-transform group-hover:scale-110 duration-700" />
+                                    <p className="italic text-xl md:text-2xl text-foreground/90 font-serif leading-relaxed relative z-10 text-center">
+                                        “{quote}”
                                     </p>
-                                    <div className="mt-4 flex items-center gap-2">
-                                        <div className="h-px w-8 bg-primary/30" />
-                                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Highlight snippet</span>
+                                    <div className="mt-8 flex items-center justify-center gap-3">
+                                        <div className="h-[2px] w-8 bg-primary/30 rounded-full" />
+                                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/60">Archive Snippet</span>
+                                        <div className="h-[2px] w-8 bg-primary/30 rounded-full" />
                                     </div>
                                 </CardContent>
                             </Card>
@@ -116,9 +128,9 @@ function CommentsContent() {
                     )}
                 </header>
 
-                <Separator className="opacity-50" />
+                <Separator className="opacity-40" />
                 
-                <main className="pb-20">
+                <main className="pb-32">
                     <CommentSection storyId={storyId} chapterId={chapterId} quote={quote || undefined} />
                 </main>
             </div>
@@ -128,7 +140,7 @@ function CommentsContent() {
 
 export default function CommentsPage() {
     return (
-        <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
+        <Suspense fallback={<div className="flex justify-center items-center h-screen bg-background"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>}>
             <CommentsContent />
         </Suspense>
     );

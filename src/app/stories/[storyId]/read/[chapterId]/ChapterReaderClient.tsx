@@ -308,23 +308,24 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
     const diffX = touchStartX.current - touchEndX.current;
     const diffY = touchStartY.current - touchEndY.current;
-    const threshold = 100;
+    const horizontalThreshold = 100;
+    const verticalThreshold = 80;
 
     if (currentUser.readerSettings.navigationStyle === 'horizontal') {
         if (Math.abs(diffX) > Math.abs(diffY)) {
-            if (diffX > threshold && nextChapterId) {
+            if (diffX > horizontalThreshold && nextChapterId) {
                 router.push(`/stories/${storyId}/read/${nextChapterId}`);
-            } else if (diffX < -threshold && prevChapterId) {
+            } else if (diffX < -horizontalThreshold && prevChapterId) {
                 router.push(`/stories/${storyId}/read/${prevChapterId}`);
             }
         }
     } else if (currentUser.readerSettings.navigationStyle === 'vertical') {
-        const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 150;
-        const isAtTop = window.scrollY <= 100;
+        const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 50;
+        const isAtTop = window.scrollY <= 10;
 
-        if (isAtBottom && diffY > threshold && nextChapterId) {
+        if (isAtBottom && diffY > verticalThreshold && nextChapterId) {
              router.push(`/stories/${storyId}/read/${nextChapterId}`);
-        } else if (isAtTop && diffY < -threshold && prevChapterId) {
+        } else if (isAtTop && diffY < -verticalThreshold && prevChapterId) {
              router.push(`/stories/${storyId}/read/${prevChapterId}`);
         }
     }
@@ -493,7 +494,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         transform: scale(1.02);
     }
     .ProseMirror {
-        padding-bottom: 2rem !important;
+        padding-bottom: 0 !important;
         outline: none !important;
     }
     .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -665,7 +666,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
           </SheetContent>
       </Sheet>
 
-      <main className="pt-28 pb-32 min-h-screen">
+      <main className="pt-28 pb-10 min-h-screen">
         <AlertDialog open={isDisclaimerOpen} onOpenChange={setIsDisclaimerOpen}>
             <AlertDialogContent className="max-w-xl rounded-[3rem] border-none shadow-3xl p-0 overflow-hidden bg-background/95 backdrop-blur-3xl">
                 <AlertDialogHeader className="p-10 bg-muted/30 border-b">
@@ -735,8 +736,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     </div>
                     <EditorContent editor={editor} />
                     
-                    {/* End of Chapter Action Pill */}
-                    <div className="max-w-2xl mx-auto mt-32 px-6">
+                    {/* End of Chapter Action Pill - Tightened spacing */}
+                    <div className="max-w-2xl mx-auto mt-12 px-6 pb-4">
                         <Card className="rounded-[3rem] border-none shadow-2xl bg-primary/5 backdrop-blur-md overflow-hidden transform-gpu transition-all hover:shadow-primary/5">
                             <CardContent className="p-10 flex flex-col items-center text-center gap-6">
                                 <div className="p-5 rounded-[2rem] bg-primary text-white shadow-xl shadow-primary/20 animate-bounce">
