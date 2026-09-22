@@ -20,30 +20,33 @@ import {
   Search, 
   Sparkles, 
   ArrowLeft, 
-  CheckCheck, 
   Plus, 
-  Users, 
-  Phone, 
-  Video, 
-  Smile, 
+  MoreHorizontal, 
+  Trash2, 
+  User, 
+  ImageIcon, 
+  Mic, 
   Send,
-  Trash2,
-  User,
-  ImageIcon,
-  Mic,
-  MoreHorizontal,
-  Repeat,
+  Pin,
+  PinOff,
   BellOff,
+  Archive,
+  Volume2,
+  VolumeX,
   X,
-  Music,
-  AlertCircle,
   Palette,
-  Heart,
+  Edit3,
+  Repeat,
   Quote,
-  Edit3
+  ShieldAlert,
+  Reply,
+  Forward,
+  Clock,
+  Music,
+  Disc
 } from 'lucide-react';
-import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
-import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
+import { formatDistanceToNow, isToday, isThisWeek, format } from 'date-fns';
+import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType, Song } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { db, rtdb } from '@/lib/firebase';
@@ -60,9 +63,7 @@ import {
   serverTimestamp,
   limit,
   getDocs,
-  getDoc,
   deleteDoc,
-  deleteField,
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
@@ -89,13 +90,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
-import { getConversationStarters } from '@/app/actions/aiActions';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import StatusFeature from '@/components/status/StatusFeature';
-import Header from '@/components/layout/Header';
-import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
+import { toggleArchiveThread, toggleIgnoreThread, togglePinThread, setThreadNickname, unsendMessage, deleteMessageForMe, editSentMessage } from '@/app/actions/threadActions';
 
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: NodeJS.Timeout;
@@ -125,22 +124,10 @@ const CHAT_THEMES = [
 ];
 
 function NotificationsList() {
-    const { user, notifications, markNotificationAsRead, markAllNotificationsAsRead, authLoading } = useAuth();
+    const { user, notifications, markNotificationAsRead, markAllNotificationsAsRead } = useAuth();
     const router = useRouter();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
-    const [userStatuses, setUserStatuses] = useState<Record<string, 'online' | 'offline'>>({});
-
-    useEffect(() => {
-        const statusRef = ref(rtdb, 'status');
-        const unsubscribe = onValue(statusRef, (snapshot) => {
-            const data = snapshot.val() || {};
-            const statuses: Record<string, 'online' | 'offline'> = {};
-            Object.keys(data).forEach(uid => { statuses[uid] = data[uid].state; });
-            setUserStatuses(statuses);
-        });
-        return () => unsubscribe();
-    }, []);
 
     const handleNotificationClick = async (notification: NotificationType) => {
         if (!notification.isRead) {
@@ -202,7 +189,7 @@ function NotificationsList() {
                 <div className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
-                        placeholder="Search your activity..." 
+                        placeholder="Search activity..." 
                         className="pl-10 bg-muted/30 border-none h-11 rounded-2xl focus-visible:ring-primary/20" 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -239,7 +226,7 @@ function NotificationsList() {
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm leading-snug text-foreground/90 font-medium">
-                                                        <span className="font-black text-foreground">{notif.actor.displayName || `@${notif.actor.username}`}</span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
+                                                        <span className="font-black text-foreground">{notif.actor.displayName || `@${notif.actor.username}`}</span> {notif.message}
                                                     </p>
                                                     <p className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-tight mt-1">
                                                         {date ? formatDistanceToNow(date, { addSuffix: true }) : 'Just now'}
@@ -269,6 +256,7 @@ function NotificationsList() {
 
 function MessagesClient() {
   const { user: currentUser } = useAuth();
+  const { showIsland } = useDynamicIsland();
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -298,6 +286,8 @@ function MessagesClient() {
   const [isRecording, setIsRecording] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -314,7 +304,6 @@ function MessagesClient() {
         Object.keys(data).forEach(uid => { statuses[uid] = data[uid].state; });
         setUserStatuses(statuses);
         
-        // Calibrate Online Friends Row
         if (currentUser) {
             const online: UserSummary[] = [];
             conversations.forEach(conv => {
@@ -323,7 +312,6 @@ function MessagesClient() {
                     online.push(conv.participantInfo[other]);
                 }
             });
-            // Deduplicate
             const uniqueOnline = Array.from(new Map(online.map(u => [u.id, u])).values());
             setOnlineFriends(uniqueOnline);
         }
@@ -347,12 +335,7 @@ function MessagesClient() {
         setConversations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Conversation)));
         setIsLoadingConversations(false);
       },
-      async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: 'conversations',
-          operation: 'list',
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
+      async (error) => {
         setIsLoadingConversations(false);
       }
     );
@@ -364,22 +347,18 @@ function MessagesClient() {
     const q = query(collection(db, 'conversations', activeConversation.id, 'messages'), orderBy('timestamp', 'asc'), limit(100));
     const unsub = onSnapshot(q, 
       (snapshot) => {
-        setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
+        const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+        // Filter out messages deleted for me locally
+        setMessages(fetched.filter(m => !m.deletedFor?.includes(currentUser?.id || '')));
         setIsLoadingMessages(false);
       },
-      async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: `conversations/${activeConversation.id}/messages`,
-          operation: 'list',
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
+      async (error) => {
         setIsLoadingMessages(false);
       }
     );
 
     if (currentUser && activeConversation.lastMessage?.senderId !== currentUser.id && activeConversation.lastMessage?.isRead === false) {
-        updateDoc(doc(db, 'conversations', activeConversation.id), { 'lastMessage.isRead': true })
-            .catch(() => {});
+        updateDoc(doc(db, 'conversations', activeConversation.id), { 'lastMessage.isRead': true }).catch(() => {});
     }
 
     return () => unsub();
@@ -389,6 +368,7 @@ function MessagesClient() {
     setActiveConversation(conversation);
     setMobileView('chat');
     setReplyingTo(null);
+    setEditingMessage(null);
   };
 
   const uploadMedia = async (file: File): Promise<string> => {
@@ -406,6 +386,19 @@ function MessagesClient() {
     const finalContent = contentInput || newMessageContent;
     if (!currentUser || !activeConversation || (!finalContent.trim() && !imageFile)) return;
 
+    if (editingMessage) {
+        setIsSendingMessage(true);
+        const result = await editSentMessage(activeConversation.id, editingMessage.id, currentUser.id, finalContent.trim());
+        if (result.success) {
+            setNewMessageContent('');
+            setEditingMessage(null);
+        } else {
+            toast({ title: "Edit failed", variant: "destructive" });
+        }
+        setIsSendingMessage(false);
+        return;
+    }
+
     setIsSendingMessage(true);
     let mediaUrl = '';
     if (imageFile) {
@@ -420,7 +413,9 @@ function MessagesClient() {
       timestamp: serverTimestamp(),
       type: mediaUrl ? 'image' : 'text',
       mediaUrl: mediaUrl || null,
-      replyTo: replyingTo ? { id: replyingTo.id, content: replyingTo.content, username: activeConversation.participantInfo[replyingTo.senderId].username } : null
+      replyTo: replyingTo ? { id: replyingTo.id, content: replyingTo.content, username: activeConversation.participantInfo[replyingTo.senderId].username } : null,
+      reactions: {},
+      deletedFor: []
     };
 
     const convRef = doc(db, 'conversations', activeConversation.id);
@@ -453,8 +448,7 @@ function MessagesClient() {
   const handleReaction = async (messageId: string, emoji: string) => {
     if (!currentUser || !activeConversation) return;
     const messageRef = doc(db, 'conversations', activeConversation.id, 'messages', messageId);
-    updateDoc(messageRef, { [`reactions.${currentUser.id}`]: emoji })
-        .catch(() => {});
+    updateDoc(messageRef, { [`reactions.${currentUser.id}`]: emoji }).catch(() => {});
   };
 
   const handleSetTheme = async (color: string) => {
@@ -465,8 +459,9 @@ function MessagesClient() {
 
   const handleSetNickname = async (targetId: string, nickname: string) => {
     if (!activeConversation) return;
-    updateDoc(doc(db, 'conversations', activeConversation.id), { [`nicknames.${targetId}`]: nickname })
-        .then(() => toast({ title: "Nickname saved" }));
+    const result = await setThreadNickname(activeConversation.id, targetId, nickname);
+    if (result.success) toast({ title: "Nickname saved" });
+    else toast({ title: "Update failed", variant: "destructive" });
   };
 
   const handleMute = async () => {
@@ -475,7 +470,19 @@ function MessagesClient() {
     const ref = doc(db, 'conversations', activeConversation.id);
     updateDoc(ref, { 
         mutedBy: isMuted ? arrayRemove(currentUser.id) : arrayUnion(currentUser.id) 
-    }).then(() => toast({ title: isMuted ? "Notifications restored" : "Thread muted" }));
+    }).then(() => toast({ title: isMuted ? "Alerts restored" : "Thread silenced" }));
+  };
+
+  const handleDeleteForMe = async (messageId: string) => {
+      if (!activeConversation || !currentUser) return;
+      const result = await deleteMessageForMe(activeConversation.id, messageId, currentUser.id);
+      if (result.success) toast({ title: "Message removed for you" });
+  };
+
+  const handleUnsend = async (messageId: string) => {
+      if (!activeConversation || !currentUser) return;
+      const result = await unsendMessage(activeConversation.id, messageId, currentUser.id);
+      if (result.success) toast({ title: "Message unsent" });
   };
 
   const getOtherParticipant = (conversation: Conversation): AppUserType | undefined => {
@@ -517,7 +524,7 @@ function MessagesClient() {
             [targetUser.id]: { id: targetUser.id, username: targetUser.username, avatarUrl: targetUser.avatarUrl, displayName: targetUser.displayName } 
         },
         updatedAt: serverTimestamp(),
-        lastMessage: { id: '', content: 'Thread started.', senderId: '', timestamp: serverTimestamp(), isRead: true },
+        lastMessage: { id: '', content: 'Started a thread.', senderId: '', timestamp: serverTimestamp(), isRead: true },
         isGroup: false,
         themeColor: 'hsl(var(--primary))'
       };
@@ -529,24 +536,6 @@ function MessagesClient() {
       }
     }
     setIsNewConversationDialogOpen(false);
-  };
-
-  const handleDeleteConversation = async (convId: string) => {
-      if (!confirm("Are you sure you want to delete this thread?")) return;
-      const convRef = doc(db, 'conversations', convId);
-      
-      deleteDoc(convRef)
-        .then(() => {
-            toast({ title: "Thread deleted" });
-            if (activeConversation?.id === convId) {
-                setActiveConversation(null);
-                setMobileView('list');
-            }
-            setConversations(prev => prev.filter(c => c.id !== convId));
-        })
-        .catch(async (error) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: convRef.path, operation: 'delete' }));
-        });
   };
 
   const filteredMessages = useMemo(() => {
@@ -572,7 +561,7 @@ function MessagesClient() {
         )}>
             <div className="p-6 space-y-6">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-3xl font-headline font-bold tracking-tight">Inbox</h2>
+                    <h2 className="text-3xl font-headline font-bold tracking-tight">Threads</h2>
                     <Button variant="outline" size="icon" className="rounded-full shadow-sm" onClick={() => setIsNewConversationDialogOpen(true)}>
                         <Plus className="h-5 w-5" />
                     </Button>
@@ -580,14 +569,13 @@ function MessagesClient() {
                 <div className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
-                        placeholder="Search conversations..." 
+                        placeholder="Find threads..." 
                         className="pl-10 h-11 rounded-2xl bg-muted/30 border-none focus-visible:ring-primary/40" 
                         value={sidebarSearch}
                         onChange={(e) => setSidebarSearch(e.target.value)}
                     />
                 </div>
                 
-                {/* Active Now Row (Restored) */}
                 <div className="pt-2">
                     <ScrollArea className="w-full whitespace-nowrap scrollbar-hide">
                         <div className="flex gap-4 px-1 pb-2">
@@ -631,36 +619,50 @@ function MessagesClient() {
                         const nickname = conv.nicknames?.[other?.id || ''];
 
                         return (
-                            <div 
-                                key={conv.id} 
-                                onClick={() => handleSelectConversation(conv)}
-                                className={cn(
-                                    "flex items-center gap-4 p-4 cursor-pointer rounded-[2rem] transition-all group relative transform-gpu active:scale-[0.98]",
-                                    isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'hover:bg-muted/50'
-                                )}
-                            >
-                                <div className="relative">
-                                    <Avatar className="h-14 w-14 border-2 border-background shadow-md">
-                                        <AvatarImage src={other?.avatarUrl} />
-                                        <AvatarFallback className="bg-muted text-primary font-bold">{other?.username.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                                    </Avatar>
-                                    {isOnline && <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-center mb-0.5">
-                                        <h3 className="font-black text-sm truncate">{nickname ? nickname : `@${other?.username || 'user'}`}</h3>
-                                        <span className={cn("text-[9px] font-bold uppercase tracking-tighter opacity-60", isActive ? "text-white/80" : "text-muted-foreground")}>
-                                            {date ? formatDistanceToNow(date, { addSuffix: false }) : ''}
-                                        </span>
+                            <DropdownMenu key={conv.id}>
+                                <DropdownMenuTrigger asChild>
+                                    <div 
+                                        onClick={() => handleSelectConversation(conv)}
+                                        className={cn(
+                                            "flex items-center gap-4 p-4 cursor-pointer rounded-[2rem] transition-all group relative transform-gpu active:scale-[0.98]",
+                                            isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'hover:bg-muted/50'
+                                        )}
+                                    >
+                                        <div className="relative">
+                                            <Avatar className="h-14 w-14 border-2 border-background shadow-md">
+                                                <AvatarImage src={other?.avatarUrl} />
+                                                <AvatarFallback className="bg-muted text-primary font-bold">{other?.username.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+                                            </Avatar>
+                                            {isOnline && <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse" />}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-center mb-0.5">
+                                                <h3 className="font-black text-sm truncate">{nickname ? nickname : `@${other?.username || 'user'}`}</h3>
+                                                <span className={cn("text-[9px] font-bold uppercase tracking-tighter opacity-60", isActive ? "text-white/80" : "text-muted-foreground")}>
+                                                    {date ? formatDistanceToNow(date, { addSuffix: false }) : ''}
+                                                </span>
+                                            </div>
+                                            <p className={cn("text-xs truncate", isActive ? "text-white/70" : "text-muted-foreground", isUnread && "font-black text-foreground")}>
+                                                {conv.lastMessage?.content || 'Started a thread'}
+                                            </p>
+                                        </div>
+                                        {isUnread && !isActive && (
+                                            <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--primary),0.5)]"></div>
+                                        )}
                                     </div>
-                                    <p className={cn("text-xs truncate", isActive ? "text-white/70" : "text-muted-foreground", isUnread && "font-black text-foreground")}>
-                                        {conv.lastMessage?.content || 'Started a conversation'}
-                                    </p>
-                                </div>
-                                {isUnread && !isActive && (
-                                    <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--primary),0.5)]"></div>
-                                )}
-                            </div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="rounded-[1.5rem] w-48 border-none shadow-3xl">
+                                    <DropdownMenuItem onClick={() => togglePinThread(conv.id, currentUser!.id, !conv.pinnedBy?.includes(currentUser!.id))} className="gap-2 rounded-xl">
+                                        <Pin className="h-4 w-4" /> {conv.pinnedBy?.includes(currentUser!.id) ? 'Unpin' : 'Pin'}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => toggleArchiveThread(conv.id, currentUser!.id, true)} className="gap-2 rounded-xl">
+                                        <Archive className="h-4 w-4" /> Archive
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => toggleIgnoreThread(conv.id, currentUser!.id, true)} className="gap-2 rounded-xl text-destructive">
+                                        <BellOff className="h-4 w-4" /> Ignore
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         );
                     })}
                 </div>
@@ -701,7 +703,7 @@ function MessagesClient() {
                         <div className="flex items-center gap-1">
                             <div className="relative group/search hidden sm:block">
                                 <Input 
-                                    placeholder="Find message..." 
+                                    placeholder="Find..." 
                                     value={chatSearch} 
                                     onChange={e => setChatSearch(e.target.value)} 
                                     className="w-32 h-8 rounded-full bg-muted/40 border-none text-[10px] pr-8 focus:w-48 transition-all"
@@ -713,7 +715,6 @@ function MessagesClient() {
                                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><MoreHorizontal className="h-5 w-5" /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="rounded-[1.5rem] w-56 border-none shadow-3xl p-2">
-                                    <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest opacity-40 px-3 pt-2">Thread Control</DropdownMenuLabel>
                                     <DropdownMenuItem onClick={() => router.push(`/profile/${getOtherParticipant(activeConversation)?.id}`)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
                                         <User className="h-4 w-4" /> View Profile
                                     </DropdownMenuItem>
@@ -721,10 +722,10 @@ function MessagesClient() {
                                         const nick = prompt("Set nickname for other user:");
                                         if (nick !== null) handleSetNickname(getOtherParticipant(activeConversation)?.id || '', nick);
                                     }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                        <Edit3 className="h-4 w-4" /> Edit Nicknames
+                                        <Edit3 className="h-4 w-4" /> Nicknames
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={handleMute} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                        <BellOff className="h-4 w-4" /> {activeConversation.mutedBy?.includes(currentUser?.id || '') ? 'Unmute Signal' : 'Mute Notifications'}
+                                        <BellOff className="h-4 w-4" /> {activeConversation.mutedBy?.includes(currentUser?.id || '') ? 'Unmute' : 'Mute Alerts'}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator className="bg-border/10 mx-2" />
                                     <DropdownMenuItem onSelect={e => e.preventDefault()} className="rounded-xl px-3 py-2">
@@ -738,8 +739,14 @@ function MessagesClient() {
                                         </div>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator className="bg-border/10 mx-2" />
-                                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2 rounded-xl h-10 px-3 font-bold text-xs" onClick={() => handleDeleteConversation(activeConversation.id)}>
-                                        <Trash2 className="h-4 w-4" /> Delete Thread
+                                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2 rounded-xl h-10 px-3 font-bold text-xs" onClick={() => {
+                                        if(confirm("Erase thread archives?")) {
+                                            deleteDoc(doc(db, 'conversations', activeConversation.id))
+                                                .then(() => { setActiveConversation(null); setMobileView('list'); })
+                                                .catch(async e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `conversations/${activeConversation.id}`, operation: 'delete' })));
+                                        }
+                                    }}>
+                                        <Trash2 className="h-4 w-4" /> Erase History
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -759,26 +766,27 @@ function MessagesClient() {
                                         isMe ? "self-end items-end" : "self-start items-start",
                                         !isNextSame && "mb-4"
                                     )}>
-                                        {msg.replyTo && (
-                                            <div className="bg-muted/40 p-2 px-4 rounded-t-2xl text-[10px] mb-[-10px] w-fit max-w-full truncate border border-border/20 italic text-muted-foreground">
-                                                <Quote className="h-2 w-2 inline mr-1" />
-                                                {msg.replyTo.content}
-                                            </div>
-                                        )}
-                                        <Popover>
-                                            <PopoverTrigger asChild>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
                                                 <div className={cn(
                                                     "p-4 text-sm shadow-sm transition-all transform-gpu hover:scale-[1.01] relative cursor-pointer",
                                                     isMe ? "text-white rounded-[2rem] rounded-br-lg" : "bg-muted text-foreground rounded-[2rem] rounded-bl-lg",
                                                 )} style={{ backgroundColor: isMe ? (activeConversation.themeColor || 'hsl(var(--primary))') : undefined }}>
-                                                    {msg.type === 'image' && msg.mediaUrl ? (
-                                                        <div className="relative w-48 h-48 rounded-2xl overflow-hidden mb-2 shadow-lg border border-white/10">
-                                                            <NextImage src={msg.mediaUrl} alt="Shared archival visual" fill className="object-cover" />
+                                                    {msg.replyTo && (
+                                                        <div className="bg-black/20 p-2 px-3 rounded-xl text-[10px] mb-2 border border-white/10 italic truncate">
+                                                            <Quote className="h-2 w-2 inline mr-1" />
+                                                            {msg.replyTo.content}
                                                         </div>
-                                                    ) : null}
+                                                    )}
+                                                    {msg.type === 'image' && msg.mediaUrl && (
+                                                        <div className="relative w-48 h-48 rounded-2xl overflow-hidden mb-2 shadow-lg border border-white/10">
+                                                            <NextImage src={msg.mediaUrl} alt="Visual" fill className="object-cover" />
+                                                        </div>
+                                                    )}
                                                     <p className="whitespace-pre-line leading-relaxed">{msg.content}</p>
                                                     <div className="flex items-center justify-between gap-4 mt-1 opacity-40 group-hover:opacity-100 transition-opacity">
                                                         <span className="text-[8px] font-black uppercase tracking-widest">{date ? format(date, 'h:mm a') : '...'}</span>
+                                                        {msg.isEdited && <span className="text-[8px] font-black uppercase tracking-widest italic">Edited</span>}
                                                     </div>
                                                     {msg.reactions && Object.keys(msg.reactions).length > 0 && (
                                                         <div className="absolute -bottom-2 right-0 flex gap-0.5 bg-background border border-border/40 rounded-full px-1.5 py-0.5 shadow-xl scale-90">
@@ -786,15 +794,31 @@ function MessagesClient() {
                                                         </div>
                                                     )}
                                                 </div>
-                                            </PopoverTrigger>
-                                            <PopoverContent side="top" className="p-1 rounded-full w-auto bg-background/95 backdrop-blur-3xl border border-white/10 shadow-3xl flex gap-1 animate-in slide-in-from-bottom-2 duration-300">
-                                                {['❤️', '👍', '😂', '😮', '😢', '😡'].map(e => (
-                                                    <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-9 w-9 hover:scale-125 transition-transform flex items-center justify-center text-xl">{e}</button>
-                                                ))}
-                                                <div className="w-[1px] h-4 bg-border/20 self-center mx-1" />
-                                                <button onClick={() => setReplyingTo(msg)} className="h-9 px-3 hover:bg-primary/10 rounded-full transition-colors"><Repeat className="h-4 w-4 text-primary" /></button>
-                                            </PopoverContent>
-                                        </Popover>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent className="rounded-[1.5rem] border-none shadow-3xl p-1 bg-background/95 backdrop-blur-3xl">
+                                                <div className="flex gap-1 p-2 border-b border-white/5">
+                                                    {['❤️', '👍', '😂', '😮', '😢', '😡'].map(e => (
+                                                        <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-9 w-9 hover:scale-125 transition-transform flex items-center justify-center text-xl">{e}</button>
+                                                    ))}
+                                                </div>
+                                                <DropdownMenuItem onClick={() => setReplyingTo(msg)} className="gap-2 rounded-xl">
+                                                    <Reply className="h-4 w-4" /> Reply
+                                                </DropdownMenuItem>
+                                                {isMe && (
+                                                    <>
+                                                        <DropdownMenuItem onClick={() => { setEditingMessage(msg); setNewMessageContent(msg.content); }} className="gap-2 rounded-xl">
+                                                            <Edit3 className="h-4 w-4" /> Edit
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleUnsend(msg.id)} className="gap-2 rounded-xl text-destructive">
+                                                            <X className="h-4 w-4" /> Unsend
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                                <DropdownMenuItem onClick={() => handleDeleteForMe(msg.id)} className="gap-2 rounded-xl text-destructive">
+                                                    <Trash2 className="h-4 w-4" /> Remove for me
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 );
                             })}
@@ -806,29 +830,37 @@ function MessagesClient() {
                         {replyingTo && (
                             <div className="absolute bottom-full left-0 right-0 bg-muted/90 backdrop-blur-xl p-3 px-6 flex items-center justify-between border-t animate-in slide-in-from-bottom-2 duration-300">
                                 <div className="truncate">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-primary">Replying to {replyingTo.senderId === currentUser?.id ? 'Yourself' : `@${activeConversation.participantInfo[replyingTo.senderId].username}`}</p>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-primary">Replying to @{activeConversation.participantInfo[replyingTo.senderId].username}</p>
                                     <p className="text-xs text-muted-foreground truncate italic">"{replyingTo.content}"</p>
                                 </div>
                                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/10" onClick={() => setReplyingTo(null)}><X className="h-3 w-3"/></Button>
                             </div>
                         )}
+                        {editingMessage && (
+                             <div className="absolute bottom-full left-0 right-0 bg-primary/10 backdrop-blur-xl p-3 px-6 flex items-center justify-between border-t animate-in slide-in-from-bottom-2 duration-300">
+                                <div className="truncate">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-primary">Editing Message</p>
+                                </div>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/10" onClick={() => { setEditingMessage(null); setNewMessageContent(''); }}><X className="h-3 w-3"/></Button>
+                            </div>
+                        )}
                         
                         <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center gap-3 w-full">
                             <div className="flex shrink-0 gap-1">
-                                <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => mediaInputRef.current?.click()}><ImageIcon className="h-5 w-5" /></Button>
-                                <input type="file" min-size="1" ref={mediaInputRef} className="hidden" accept="image/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
-                                <Button type="button" variant="ghost" size="icon" className={cn("h-10 w-10 rounded-full text-primary transition-all", isRecording && "bg-red-500 text-white animate-pulse shadow-lg")} onClick={() => setIsRecording(!isRecording)}><Mic className="h-5 w-5" /></Button>
+                                <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => mediaInputRef.current?.click()} disabled={isSendingMessage}><ImageIcon className="h-5 w-5" /></Button>
+                                <input type="file" ref={mediaInputRef} className="hidden" accept="image/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
+                                <Button type="button" variant="ghost" size="icon" className={cn("h-10 w-10 rounded-full text-primary", isRecording && "bg-red-500 text-white animate-pulse")} onClick={() => setIsRecording(!isRecording)}><Mic className="h-5 w-5" /></Button>
                             </div>
                             
                             <div className="flex-1 relative group">
                                 {imageFile && (
                                     <div className="absolute bottom-full mb-3 left-0 p-2 bg-background border border-border/40 rounded-2xl shadow-3xl flex items-center gap-2 animate-in zoom-in-95">
-                                        <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-border/20 shadow-sm"><NextImage src={URL.createObjectURL(imageFile)} alt="Preview" fill className="object-cover"/></div>
+                                        <div className="relative w-14 h-14 rounded-xl overflow-hidden"><NextImage src={URL.createObjectURL(imageFile)} alt="Preview" fill className="object-cover"/></div>
                                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-muted/40" onClick={() => setImageFile(null)}><X className="h-3 w-3"/></Button>
                                     </div>
                                 )}
                                 <Input 
-                                    placeholder={isRecording ? "Listening to signal..." : "Write a message..."} 
+                                    placeholder={editingMessage ? "Save edit..." : "Archive your thought..."} 
                                     className="h-12 bg-background/50 border-none rounded-2xl shadow-inner px-5 focus-visible:ring-primary/40 text-sm" 
                                     value={newMessageContent} 
                                     onChange={(e) => {
@@ -850,16 +882,16 @@ function MessagesClient() {
             ) : (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 opacity-20 transform-gpu animate-in fade-in duration-1000">
                     <MessageSquare className="h-40 w-40 mb-10 text-primary/40" />
-                    <h2 className="text-3xl font-headline font-bold uppercase tracking-widest">Select a Thread</h2>
+                    <h2 className="text-3xl font-headline font-bold uppercase tracking-widest text-center">Select a Discussion Thread</h2>
                 </div>
             )}
         </main>
 
         <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
-            <DialogContent className="rounded-[3rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md animate-in zoom-in-95 duration-300">
+            <DialogContent className="rounded-[3rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
                 <DialogHeader className="mb-6">
                     <DialogTitle className="text-3xl font-headline font-bold">New Thread</DialogTitle>
-                    <DialogDescription className="text-xs font-black uppercase tracking-widest opacity-60">Signal a fellow writer</DialogDescription>
+                    <DialogDescription className="text-xs font-black uppercase tracking-widest opacity-60">Signal a fellow creator</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-6">
                     <div className="relative group">
@@ -884,9 +916,6 @@ function MessagesClient() {
                                     <Plus className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
                             ))}
-                            {searchUsername && searchedUsers.length === 0 && !isSearchingUsers && (
-                                <p className="text-center py-20 text-[10px] font-black uppercase tracking-widest opacity-40">Archive node not found</p>
-                            )}
                         </div>
                     </ScrollArea>
                 </div>
@@ -902,7 +931,7 @@ export default function UnifiedInboxPage() {
     const searchParams = useSearchParams();
     const defaultTab = searchParams.get('tab') || 'messages'; 
 
-    if (loading) return <div className="flex flex-col justify-center items-center min-h-screen gap-4 transform-gpu"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Syncing Communication Hub...</p></div>;
+    if (loading) return <div className="flex flex-col justify-center items-center min-h-screen gap-4 transform-gpu"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Syncing Communications...</p></div>;
     if (!user) { router.push('/auth/signin'); return null; }
 
     return (

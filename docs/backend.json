@@ -1,0 +1,78 @@
+
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Core identity and archival settings for a creator.",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "bio": { "type": "string" },
+        "privacy": {
+          "type": "object",
+          "properties": {
+            "lastSeen": { "type": "string", "enum": ["everyone", "following", "none"] },
+            "onlineStatus": { "type": "string", "enum": ["everyone", "following", "none"] },
+            "profilePhoto": { "type": "string", "enum": ["everyone", "following", "none"] },
+            "readReceipts": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "Thread": {
+      "title": "Thread",
+      "description": "A high-fidelity communication node between creators.",
+      "type": "object",
+      "properties": {
+        "participantIds": { "type": "array" },
+        "participantInfo": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "lastMessage": { "type": "object" },
+        "themeColor": { "type": "string" },
+        "nicknames": { "type": "object" },
+        "mutedBy": { "type": "array" },
+        "archivedBy": { "type": "array" },
+        "ignoredBy": { "type": "array" },
+        "pinnedBy": { "type": "array" }
+      }
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A discrete archival entry within a thread.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["text", "image", "video", "audio", "file", "music"] },
+        "mediaUrl": { "type": "string" },
+        "isDisappearing": { "type": "boolean" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "replyTo": { "type": "object" },
+        "reactions": { "type": "object" },
+        "isEdited": { "type": "boolean" },
+        "deletedFor": { "type": "array" },
+        "isPinned": { "type": "boolean" }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["google.com", "password"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Archival nodes for creator identities."
+    },
+    "/conversations/{threadId}": {
+      "schema": "Thread",
+      "description": "Communication hubs."
+    },
+    "/conversations/{threadId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Individual message transmissions."
+    }
+  }
+}

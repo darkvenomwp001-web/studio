@@ -25,7 +25,7 @@ export interface User {
   email?: string;
   emailVerified?: boolean;
   bio?: string;
-  authorBio?: string; // Dedicated field for the About Author hub
+  authorBio?: string;
   avatarUrl?: string; 
   coverImageUrl?: string;
   displayName?: string;
@@ -36,33 +36,19 @@ export interface User {
   closeFriendIds?: string[]; 
   blockedUserIds?: string[]; 
   fcmTokens?: string[]; 
-  writtenStories?: Story[]; 
   readingList?: ReadingListItem[];
-  readChapters?: { [storyId: string]: string[] }; 
-  shelves?: Shelf[]; 
   level?: number;
   xp?: number;
   achievements?: Achievement[];
-  profileSongUrl?: string;
-  profileSongNote?: string;
   writingStatus?: WritingStatus;
-  profilePrivacy?: 'public' | 'private' | 'locked'; // Added for Account Privacy Hub
-  commentingPreference?: 'everyone' | 'following' | 'none';
-  taggingPreference?: 'everyone' | 'following' | 'none';
-  presencePreference?: 'everyone' | 'following' | 'none';
-  lifeTags?: string[]; // Added for Author favorites
-  createdAt?: any;
-  updatedAt?: any;
-  dataAiHint?: string; 
-  isAnonymous?: boolean;
-  isBanned?: boolean; 
-  isVerified?: boolean; 
+  profilePrivacy?: 'public' | 'private' | 'locked';
   messagingPreference?: 'everyone' | 'following' | 'none';
-  notificationSettings?: {
-    emailOnNewFollower: boolean;
-    emailOnCommentReply: boolean;
-    emailOnNewLetter: boolean;
-    emailOnNews: boolean;
+  privacySettings?: {
+      lastSeen?: 'everyone' | 'following' | 'none';
+      onlineStatus?: 'everyone' | 'following' | 'none';
+      profilePhoto?: 'everyone' | 'following' | 'none';
+      stories?: 'everyone' | 'following' | 'none';
+      readReceipts?: boolean;
   };
   appearanceSettings?: {
     accentColor: string;
@@ -81,6 +67,11 @@ export interface User {
     navigationStyle: 'horizontal' | 'vertical';
     autoNextChapter: boolean;
   };
+  createdAt?: any;
+  updatedAt?: any;
+  isAnonymous?: boolean;
+  isBanned?: boolean; 
+  isVerified?: boolean; 
 }
 
 export interface UserSummary {
@@ -102,14 +93,9 @@ export interface Story {
   visibility: 'Public' | 'Private' | 'Unlisted';
   lastUpdated: any; 
   coverImageUrl?: string;
-  language?: string;
-  isMature?: boolean;
   tags: string[];
   views?: number;
-  collaborators?: UserSummary[];
   collaboratorIds?: string[];
-  dataAiHint?: string;
-  rating?: number;
   notes?: string;
   disclaimer?: string;
 }
@@ -123,28 +109,19 @@ export interface Chapter {
   wordCount?: number;
   votes?: number;
   voterIds?: string[];
-  publishedDate?: string;
   accessType: 'public' | 'premium' | 'exclusive';
-  allowedUsers?: AllowedUser[];
   invitedUserIds?: string[];
   scheduledAt?: any;
   artworkUrl?: string;
-  tags?: string[];
   views?: number;
   commentsCount?: number;
-}
-
-export interface AllowedUser {
-  userId: string;
-  username: string;
-  expiresAt: any; 
 }
 
 export interface Comment {
   id: string;
   user: UserSummary;
-  storyId: string;
-  chapterId: string;
+  storyId?: string;
+  chapterId?: string;
   content: string; 
   timestamp: any; 
   parentId?: string | null;
@@ -160,15 +137,7 @@ export interface ReadingListItem {
   chapters: Chapter[];
   lastUpdated: any;
   coverImageUrl?: string;
-  dataAiHint?: string;
   status?: 'Ongoing' | 'Completed' | 'Draft';
-}
-
-export interface Shelf {
-    id: string;
-    name: string;
-    storyIds: string[];
-    createdAt: any;
 }
 
 export interface Annotation {
@@ -217,18 +186,6 @@ export interface Letter {
     authorResponse?: string;
 }
 
-export interface Question {
-  id: string;
-  asker: UserSummary;
-  authorId: string;
-  questionText: string;
-  status: 'unanswered' | 'answered';
-  createdAt: any;
-  answerText?: string;
-  answeredAt?: any;
-  answerer?: UserSummary;
-}
-
 export interface Conversation {
     id: string;
     participantIds: string[];
@@ -242,11 +199,12 @@ export interface Conversation {
         isRead?: boolean;
     };
     isGroup: boolean;
-    groupName?: string;
-    groupAvatar?: string;
     themeColor?: string;
     nicknames?: Record<string, string>;
-    mutedBy?: string[]; // Users who have muted this thread
+    mutedBy?: string[];
+    archivedBy?: string[];
+    ignoredBy?: string[];
+    pinnedBy?: string[];
 }
 
 export interface Message {
@@ -254,30 +212,19 @@ export interface Message {
     senderId: string;
     content: string;
     timestamp: any;
-    type?: 'text' | 'poll' | 'image' | 'video' | 'file' | 'audio';
+    type: 'text' | 'image' | 'video' | 'audio' | 'file' | 'music';
     mediaUrl?: string;
-    fileName?: string;
-    reactions?: Record<string, string>; // userId -> emoji
+    isDisappearing?: boolean;
+    expiresAt?: any;
     replyTo?: {
         id: string;
         content: string;
         username: string;
     };
-}
-
-export interface GlobalChatMessage {
-    id: string;
-    author: UserSummary;
-    content: string;
-    timestamp: any; 
-}
-
-export interface Poll {
-    id: string;
-    authorId: string;
-    question: string;
-    options: { id: string; text: string; votes: string[] }[];
-    createdAt: any;
+    reactions?: Record<string, string>;
+    isEdited?: boolean;
+    deletedFor?: string[]; // Array of UIDs who deleted for themselves
+    isPinned?: boolean;
 }
 
 export type ReactionType = 'like' | 'love' | 'haha' | 'sad' | 'angry' | 'happy';
@@ -297,10 +244,7 @@ export interface ThreadPost {
     storyTitle?: string;
     storyCoverUrl?: string;
     imageUrl?: string;
-    images?: { url: string; caption?: string }[]; // Added for multi-photo identity posts
-    dataAiHint?: string;
-    songUrl?: string;
-    songLyricSnippet?: string;
+    images?: { url: string; caption?: string }[];
     timestamp: any;
     reactionsCount?: number;
     reactionCounts?: Record<ReactionType, number>;
@@ -309,17 +253,6 @@ export interface ThreadPost {
     isPinned?: boolean;
     isHidden?: boolean;
     type: 'original' | 'repost' | 'studio_journal' | 'identity_visual';
-    originalPost?: {
-      id: string;
-      author: UserSummary;
-      content: string;
-      timestamp: any;
-      storyId?: string;
-      storyTitle?: string;
-      storyCoverUrl?: string;
-      imageUrl?: string;
-      songUrl?: string;
-    }
 }
 
 export interface Broadcast {
@@ -337,22 +270,14 @@ export interface Broadcast {
   commentsCount: number;
 }
 
-export interface Prompt {
+export interface Song {
     id: string;
     title: string;
-    prompt: string;
-    genre: string;
-    createdAt: any;
-    author: UserSummary;
-    isArchived: boolean;
-    archivedAt?: any;
-}
-
-export interface TextOverlayStyle {
-    font: 'sans' | 'serif' | 'mono';
-    color: string;
-    alignment: 'left' | 'center' | 'right';
-    background: 'none' | 'solid' | 'translucent';
+    artist: string;
+    cover: string;
+    previewUrl?: string;
+    source?: 'spotify' | 'itunes';
+    lyrics: { time: number, text: string }[];
 }
 
 export interface StatusUpdate {
@@ -364,62 +289,22 @@ export interface StatusUpdate {
     images?: { url: string; mediaType: 'image' | 'video' }[];
     collageLayout?: 'single' | '2-v' | '2-h' | '3-t' | '4-g';
     textOverlay?: string;
-    textOverlayStyle?: TextOverlayStyle;
-    textOverlayPosition?: { x: number; y: number };
-    note?: string;
-    noteStyle?: { font: 'sans' | 'serif' | 'mono', alignment: 'left' | 'center' | 'right' };
-    backgroundStyle?: string;
-    spotifyUrl?: string;
-    songUrl?: string; // New generic field for all music APIs
-    songLyricSnippet?: string;
-    dynamicBgColor?: string;
-    vibeTags?: string[];
-    poll?: Poll;
-    sharedStoryId?: string;
-    prompt?: string;
     expiresAt: any | null;
     createdAt: any;
     status: 'published' | 'draft';
     visibility: 'public' | 'close-friends';
     isHidden?: boolean;
-    stickers?: { emoji: string, position: { x: number, y: number } }[];
-    mentions?: { userId: string, username: string, position: { x: number, y: number } }[];
     mediaTransform?: { scale: number; rotation: number; x: number; y: number };
     reactionsCount?: number;
     reactionCounts?: Record<string, number>;
-    repostsCount?: number;
-}
-
-export interface Song {
-    id: string;
-    title: string;
-    artist: string;
-    cover: string;
-    previewUrl?: string;
-    source?: 'spotify' | 'itunes';
-    lyrics: {
-        time: number;
-        text: string;
-    }[];
-}
-
-export interface Announcement {
-    id: string;
-    author: UserSummary;
-    content: string;
-    timestamp: any;
 }
 
 export interface CarouselSlide {
     id: string;
     title: string;
-    subtitle?: string;
     imageUrl: string;
-    storyId?: string;
-    ctaText?: string;
     ctaLink: string;
     order: number;
     isActive: boolean;
-    authorUsername: string;
     createdAt: any;
 }
