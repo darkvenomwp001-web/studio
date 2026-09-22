@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useTransition, useMemo, Suspe
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import NextImage from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,8 @@ import {
   AlertCircle,
   Palette,
   Heart,
-  Quote
+  Quote,
+  Edit3
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -288,7 +290,6 @@ function MessagesClient() {
   const [userStatuses, setUserStatuses] = useState<Record<string, 'online' | 'offline'>>({});
   const [otherUserTyping, setOtherUserTyping] = useState<boolean>(false);
   
-  // 7 New Features States
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
