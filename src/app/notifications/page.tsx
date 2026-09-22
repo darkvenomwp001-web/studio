@@ -1249,7 +1249,7 @@ function MessagesClient() {
   );
 }
 
-export default function UnifiedInboxPage() {
+function InboxContent() {
     const { user, loading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -1265,7 +1265,7 @@ export default function UnifiedInboxPage() {
     if (!user) return null;
 
     return (
-        <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
+        <>
             <Header />
             <div className="max-w-7xl mx-auto space-y-10 pt-10 pb-32">
                 <Tabs defaultValue={defaultTab} className="w-full">
@@ -1284,6 +1284,14 @@ export default function UnifiedInboxPage() {
                 </Tabs>
             </div>
             <BottomNavigationBar />
+        </>
+    );
+}
+
+export default function UnifiedInboxPage() {
+    return (
+        <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
+            <InboxContent />
         </Suspense>
     );
 }

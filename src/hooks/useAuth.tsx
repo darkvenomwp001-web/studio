@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import type { User as AppUserType, NotificationType, Story, ReadingListItem, Achievement, UserSummary } from '@/types';
 import { auth, db, rtdb } from '@/lib/firebase';
@@ -107,6 +107,33 @@ const AUTH_PAGES = ['/auth/signin', '/auth/signup'];
 const DEFAULT_HOME_PATH = '/';
 const DEFAULT_LOGIN_PATH = '/auth/signin';
 
+function AuthGuard() {
+  const { user, loading, authLoading, isSwitchingIdentities } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (loading || authLoading || isSwitchingIdentities) return;
+    const isAuthRoute = AUTH_PAGES.includes(pathname);
+    const isAuthenticated = user && !user.isAnonymous;
+    
+    const isAddingAccount = searchParams.get('mode') === 'addAccount';
+
+    if (isAuthenticated) {
+        if (isAuthRoute && !isAddingAccount) {
+            router.push(DEFAULT_HOME_PATH);
+        }
+    } else {
+        if (!isAuthRoute) {
+            router.push(DEFAULT_LOGIN_PATH);
+        }
+    }
+  }, [user, loading, authLoading, pathname, router, searchParams, isSwitchingIdentities]);
+
+  return null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(() => {
     if (typeof window !== 'undefined') {
@@ -127,8 +154,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [fcmToken, setFcmToken] = useState<string | null>(null);
   const [isSwitchingIdentities, setIsSwitchingIdentities] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { showIsland } = useDynamicIsland();
 
@@ -218,14 +243,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsub = onValue(connectedRef, (snap) => {
       if (snap.val() === false) return;
       onDisconnect(userStatusRef).set({ state: 'offline', last_changed: rtdbTimestamp(), active_path: null }).then(() => {
-        set(userStatusRef, { state: 'online', last_changed: rtdbTimestamp(), active_path: pathname });
+        set(userStatusRef, { state: 'online', last_changed: rtdbTimestamp(), active_path: window.location.pathname });
       });
     });
     return () => {
       unsub();
       set(userStatusRef, { state: 'offline', last_changed: rtdbTimestamp(), active_path: null });
     };
-  }, [user, pathname]);
+  }, [user]);
 
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | undefined;
@@ -360,24 +385,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (unsubscribeConvs) unsubscribeConvs();
     };
   }, [handleAchievementUnlock, toast, showIsland, addSavedAccount]);
-
-  useEffect(() => {
-    if (loading || authLoading || isSwitchingIdentities) return;
-    const isAuthRoute = AUTH_PAGES.includes(pathname);
-    const isAuthenticated = user && !user.isAnonymous;
-    
-    const isAddingAccount = searchParams.get('mode') === 'addAccount';
-
-    if (isAuthenticated) {
-        if (isAuthRoute && !isAddingAccount) {
-            router.push(DEFAULT_HOME_PATH);
-        }
-    } else {
-        if (!isAuthRoute) {
-            router.push(DEFAULT_LOGIN_PATH);
-        }
-    }
-  }, [user, loading, authLoading, pathname, router, searchParams, isSwitchingIdentities]);
 
   const addNotification = useCallback(async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
     const newNotifData = { ...notificationData, timestamp: serverTimestamp(), isRead: false };
@@ -714,6 +721,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={contextValue}>
+      <Suspense fallback={null}>
+        <AuthGuard />
+      </Suspense>
       {children}
     </AuthContext.Provider>
   );
