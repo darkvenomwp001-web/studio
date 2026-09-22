@@ -243,6 +243,8 @@ export interface Conversation {
     isGroup: boolean;
     groupName?: string;
     groupAvatar?: string;
+    themeColor?: string;
+    nicknames?: Record<string, string>;
 }
 
 export interface Message {
@@ -253,6 +255,12 @@ export interface Message {
     type?: 'text' | 'poll' | 'image' | 'video' | 'file' | 'audio';
     mediaUrl?: string;
     fileName?: string;
+    reactions?: Record<string, string>; // userId -> emoji
+    replyTo?: {
+        id: string;
+        content: string;
+        username: string;
+    };
 }
 
 export interface GlobalChatMessage {

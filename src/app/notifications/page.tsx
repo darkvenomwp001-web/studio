@@ -34,7 +34,10 @@ import {
   BellOff,
   X,
   Music,
-  AlertCircle
+  AlertCircle,
+  Palette,
+  Heart,
+  Quote
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, isYesterday, format } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -55,7 +58,8 @@ import {
   limit,
   getDocs,
   getDoc,
-  deleteDoc
+  deleteDoc,
+  deleteField
 } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -105,6 +109,15 @@ const parseSafeDate = (timestamp: any): Date | null => {
     const date = new Date(timestamp);
     return isNaN(date.getTime()) ? null : date;
 };
+
+const CHAT_THEMES = [
+    { name: 'Classic', color: 'hsl(var(--primary))' },
+    { name: 'Rose', color: '#f43f5e' },
+    { name: 'Emerald', color: '#10b981' },
+    { name: 'Indigo', color: '#6366f1' },
+    { name: 'Amber', color: '#f59e0b' },
+    { name: 'Violet', color: '#8b5cf6' },
+];
 
 function NotificationsList() {
     const { user, notifications, markNotificationAsRead, markAllNotificationsAsRead, authLoading } = useAuth();
@@ -269,15 +282,20 @@ function MessagesClient() {
   const [searchedUsers, setSearchedUsers] = useState<UserSummary[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [sidebarSearch, setSidebarSearch] = useState('');
-
-  const [isGeneratingStarters, startStarterTransition] = useTransition();
-  const [conversationStarters, setConversationStarters] = useState<string[]>([]);
+  const [chatSearch, setChatSearch] = useState('');
 
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const [userStatuses, setUserStatuses] = useState<Record<string, 'online' | 'offline'>>({});
   const [otherUserTyping, setOtherUserTyping] = useState<boolean>(false);
+  
+  // 7 New Features States
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -340,12 +358,9 @@ function MessagesClient() {
       }
     );
 
-    // Mark as Read Protocol
     if (currentUser && activeConversation.lastMessage?.senderId !== currentUser.id && activeConversation.lastMessage?.isRead === false) {
         updateDoc(doc(db, 'conversations', activeConversation.id), { 'lastMessage.isRead': true })
-            .catch(async (error) => {
-                 // Silent catch, standard read updates don't block UI
-            });
+            .catch(() => {});
     }
 
     return () => unsub();
@@ -353,20 +368,40 @@ function MessagesClient() {
 
   const handleSelectConversation = (conversation: Conversation) => {
     setActiveConversation(conversation);
-    setConversationStarters([]);
     setMobileView('chat');
+    setReplyingTo(null);
+  };
+
+  const uploadMedia = async (file: File): Promise<string> => {
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset!);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+    const data = await res.json();
+    return data.secure_url;
   };
 
   const handleSendMessage = async (contentInput?: string) => {
     const finalContent = contentInput || newMessageContent;
-    if (!currentUser || !activeConversation || !finalContent.trim()) return;
+    if (!currentUser || !activeConversation || (!finalContent.trim() && !imageFile)) return;
 
     setIsSendingMessage(true);
-    const messageData = {
+    let mediaUrl = '';
+    if (imageFile) {
+        setIsUploading(true);
+        try { mediaUrl = await uploadMedia(imageFile); } catch (e) { toast({ title: "Upload failed" }); }
+        finally { setIsUploading(false); }
+    }
+
+    const messageData: any = {
       senderId: currentUser.id,
       content: finalContent.trim(),
       timestamp: serverTimestamp(),
-      type: 'text',
+      type: mediaUrl ? 'image' : 'text',
+      mediaUrl: mediaUrl || null,
+      replyTo: replyingTo ? { id: replyingTo.id, content: replyingTo.content, username: activeConversation.participantInfo[replyingTo.senderId].username } : null
     };
 
     const convRef = doc(db, 'conversations', activeConversation.id);
@@ -381,7 +416,7 @@ function MessagesClient() {
       await updateDoc(convRef, {
         lastMessage: { 
           id: messageRef.id, 
-          content: finalContent.trim(), 
+          content: mediaUrl ? 'Sent a photo' : finalContent.trim(), 
           senderId: currentUser.id, 
           timestamp: serverTimestamp(), 
           isRead: false 
@@ -389,17 +424,32 @@ function MessagesClient() {
         updatedAt: serverTimestamp(),
       });
       setNewMessageContent('');
+      setImageFile(null);
+      setReplyingTo(null);
     } catch (error: any) { 
-        const permissionError = new FirestorePermissionError({
-            path: `conversations/${activeConversation.id}/messages`,
-            operation: 'create',
-            requestResourceData: messageData,
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-    }
-    finally { setIsSendingMessage(false); }
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `conversations/${activeConversation.id}/messages`, operation: 'create', requestResourceData: messageData }));
+    } finally { setIsSendingMessage(false); }
   };
   
+  const handleReaction = async (messageId: string, emoji: string) => {
+    if (!currentUser || !activeConversation) return;
+    const messageRef = doc(db, 'conversations', activeConversation.id, 'messages', messageId);
+    updateDoc(messageRef, { [`reactions.${currentUser.id}`]: emoji })
+        .catch(() => {});
+  };
+
+  const handleSetTheme = async (color: string) => {
+    if (!activeConversation) return;
+    updateDoc(doc(db, 'conversations', activeConversation.id), { themeColor: color })
+        .then(() => toast({ title: "Theme updated" }));
+  };
+
+  const handleSetNickname = async (targetId: string, nickname: string) => {
+    if (!activeConversation) return;
+    updateDoc(doc(db, 'conversations', activeConversation.id), { [`nicknames.${targetId}`]: nickname })
+        .then(() => toast({ title: "Nickname saved" }));
+  };
+
   const getOtherParticipant = (conversation: Conversation): AppUserType | undefined => {
     if (!currentUser) return undefined;
     const otherId = conversation.participantIds.find(id => id !== currentUser.id);
@@ -413,9 +463,7 @@ function MessagesClient() {
       const q = query(collection(db, 'users'), where('username', '>=', searchTerm.trim().toLowerCase()), where('username', '<=', searchTerm.trim().toLowerCase() + '\uf8ff'), limit(5));
       const snapshot = await getDocs(q);
       setSearchedUsers(snapshot.docs.filter(d => d.id !== currentUser.id).map(d => ({ id: d.id, ...d.data() } as UserSummary)));
-    } catch (error) {
-        // Handle search error silently
-    } finally { setIsSearchingUsers(false); }
+    } catch (error) {} finally { setIsSearchingUsers(false); }
   };
   
   const debouncedSearch = useCallback(debounce(performUserSearch, 500), [currentUser]);
@@ -443,18 +491,13 @@ function MessagesClient() {
         updatedAt: serverTimestamp(),
         lastMessage: { id: '', content: 'Thread started.', senderId: '', timestamp: serverTimestamp(), isRead: true },
         isGroup: false,
+        themeColor: 'hsl(var(--primary))'
       };
-
       try {
         const newConv = await addDoc(collection(db, 'conversations'), newConvData);
         handleSelectConversation({ id: newConv.id, ...newConvData } as any);
       } catch (error) {
-        const permissionError = new FirestorePermissionError({
-            path: 'conversations',
-            operation: 'create',
-            requestResourceData: newConvData,
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'conversations', operation: 'create', requestResourceData: newConvData }));
       }
     }
     setIsNewConversationDialogOpen(false);
@@ -463,6 +506,7 @@ function MessagesClient() {
   const handleDeleteConversation = async (convId: string) => {
       if (!confirm("Are you sure you want to delete this thread?")) return;
       const convRef = doc(db, 'conversations', convId);
+      
       deleteDoc(convRef)
         .then(() => {
             toast({ title: "Thread deleted" });
@@ -470,15 +514,18 @@ function MessagesClient() {
                 setActiveConversation(null);
                 setMobileView('list');
             }
+            setConversations(prev => prev.filter(c => c.id !== convId));
         })
         .catch(async (error) => {
-            const permissionError = new FirestorePermissionError({
-                path: convRef.path,
-                operation: 'delete',
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: convRef.path, operation: 'delete' }));
         });
   };
+
+  const filteredMessages = useMemo(() => {
+    if (!chatSearch.trim()) return messages;
+    const term = chatSearch.toLowerCase();
+    return messages.filter(m => m.content.toLowerCase().includes(term));
+  }, [messages, chatSearch]);
 
   const filteredConversations = useMemo(() => {
     if (!sidebarSearch.trim()) return conversations;
@@ -520,6 +567,7 @@ function MessagesClient() {
                         const isUnread = conv.lastMessage?.senderId !== currentUser?.id && conv.lastMessage?.isRead === false;
                         const isOnline = other ? userStatuses[other.id] === 'online' : false;
                         const date = parseSafeDate(conv.updatedAt);
+                        const nickname = conv.nicknames?.[other?.id || ''];
 
                         return (
                             <div 
@@ -539,7 +587,7 @@ function MessagesClient() {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
-                                        <h3 className="font-black text-sm truncate">@{other?.username || 'user'}</h3>
+                                        <h3 className="font-black text-sm truncate">{nickname ? nickname : `@${other?.username || 'user'}`}</h3>
                                         <span className={cn("text-[9px] font-bold uppercase tracking-tighter opacity-60", isActive ? "text-white/80" : "text-muted-foreground")}>
                                             {date ? formatDistanceToNow(date, { addSuffix: false }) : ''}
                                         </span>
@@ -554,9 +602,6 @@ function MessagesClient() {
                             </div>
                         );
                     })}
-                    {filteredConversations.length === 0 && !isLoadingConversations && (
-                        <div className="text-center py-10 opacity-30 italic text-xs">No active threads.</div>
-                    )}
                 </div>
             </ScrollArea>
         </aside>
@@ -584,19 +629,46 @@ function MessagesClient() {
                                 </Link>
                             )}
                             <div className="truncate">
-                                <h3 className="font-black text-sm md:text-base truncate">@{getOtherParticipant(activeConversation)?.username || 'user'}</h3>
+                                <h3 className="font-black text-sm md:text-base truncate">
+                                    {activeConversation.nicknames?.[getOtherParticipant(activeConversation)?.id || ''] || `@${getOtherParticipant(activeConversation)?.username || 'user'}`}
+                                </h3>
                                 <p className="text-[9px] font-black uppercase tracking-widest text-primary leading-none">
                                     {otherUserTyping ? "Writing..." : (userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? "Online" : "Away")}
                                 </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><Phone className="h-5 w-5" /></Button>
+                            <div className="relative group/search hidden sm:block">
+                                <Input 
+                                    placeholder="Search chat..." 
+                                    value={chatSearch} 
+                                    onChange={e => setChatSearch(e.target.value)} 
+                                    className="w-32 h-8 rounded-full bg-muted/40 border-none text-[10px] pr-8 focus:w-48 transition-all"
+                                />
+                                <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            </div>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><MoreHorizontal className="h-5 w-5" /></Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="rounded-xl w-48">
+                                <DropdownMenuContent align="end" className="rounded-xl w-56">
+                                    <DropdownMenuLabel>Thread Settings</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => {
+                                        const nick = prompt("Set nickname for other user:");
+                                        if (nick !== null) handleSetNickname(getOtherParticipant(activeConversation)?.id || '', nick);
+                                    }} className="gap-2"><Edit3 className="h-4 w-4" /> Edit Nicknames</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                                        <div className="flex flex-col gap-2 w-full">
+                                            <p className="text-[10px] font-bold uppercase opacity-60">Chat Theme</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {CHAT_THEMES.map(t => (
+                                                    <button key={t.name} onClick={() => handleSetTheme(t.color)} className="h-5 w-5 rounded-full border border-white/20" style={{ background: t.color }} title={t.name} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2" onClick={() => handleDeleteConversation(activeConversation.id)}>
                                         <Trash2 className="h-4 w-4" /> Delete Thread
                                     </DropdownMenuItem>
@@ -607,24 +679,50 @@ function MessagesClient() {
                     
                     <ScrollArea className="flex-1 p-6">
                         <div className="flex flex-col gap-1.5 pb-10">
-                            {messages.map((msg, index) => {
+                            {filteredMessages.map((msg, index) => {
                                 const isMe = msg.senderId === currentUser?.id;
                                 const isNextSame = messages[index + 1]?.senderId === msg.senderId;
-                                const isPrevSame = messages[index - 1]?.senderId === msg.senderId;
+                                const date = parseSafeDate(msg.timestamp);
+
                                 return (
                                     <div key={msg.id} className={cn(
                                         "flex flex-col max-w-[85%] sm:max-w-[70%] group",
                                         isMe ? "self-end items-end" : "self-start items-start",
                                         !isNextSame && "mb-4"
                                     )}>
-                                        <div className={cn(
-                                            "p-4 text-sm shadow-sm transition-all transform-gpu hover:scale-[1.01]",
-                                            isMe ? "bg-primary text-white rounded-[2rem] rounded-br-lg" : "bg-muted text-foreground rounded-[2rem] rounded-bl-lg",
-                                            isPrevSame && (isMe ? "rounded-tr-[2rem]" : "rounded-tl-[2rem]"),
-                                            isNextSame && (isMe ? "rounded-br-[2rem]" : "rounded-bl-[2rem]")
-                                        )}>
-                                            <p className="whitespace-pre-line leading-relaxed">{msg.content}</p>
-                                        </div>
+                                        {msg.replyTo && (
+                                            <div className="bg-muted/40 p-2 rounded-t-2xl text-[10px] mb-[-10px] w-fit max-w-full truncate border border-border/20 italic text-muted-foreground">
+                                                <Quote className="h-2 w-2 inline mr-1" />
+                                                {msg.replyTo.content}
+                                            </div>
+                                        )}
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <div className={cn(
+                                                    "p-4 text-sm shadow-sm transition-all transform-gpu hover:scale-[1.01] relative cursor-pointer",
+                                                    isMe ? "text-white rounded-[2rem] rounded-br-lg" : "bg-muted text-foreground rounded-[2rem] rounded-bl-lg",
+                                                )} style={{ backgroundColor: isMe ? (activeConversation.themeColor || 'hsl(var(--primary))') : undefined }}>
+                                                    {msg.type === 'image' && msg.mediaUrl ? (
+                                                        <div className="relative w-48 h-48 rounded-xl overflow-hidden mb-2">
+                                                            <NextImage src={msg.mediaUrl} alt="Shared media" fill className="object-cover" />
+                                                        </div>
+                                                    ) : null}
+                                                    <p className="whitespace-pre-line leading-relaxed">{msg.content}</p>
+                                                    {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                                                        <div className="absolute -bottom-2 right-0 flex gap-0.5 bg-background border border-border/40 rounded-full px-1 py-0.5 shadow-sm scale-75">
+                                                            {Array.from(new Set(Object.values(msg.reactions))).map((e, i) => <span key={i}>{e}</span>)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </PopoverTrigger>
+                                            <PopoverContent side="top" className="p-1 rounded-full w-auto bg-background/90 backdrop-blur border border-white/20 flex gap-1">
+                                                {['❤️', '👍', '😂', '😮', '😢', '😡'].map(e => (
+                                                    <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-8 w-8 hover:scale-125 transition-transform">{e}</button>
+                                                ))}
+                                                <div className="w-[1px] h-4 bg-border/40 self-center mx-1" />
+                                                <button onClick={() => setReplyingTo(msg)} className="h-8 px-2 hover:bg-muted rounded-full"><Repeat className="h-4 w-4" /></button>
+                                            </PopoverContent>
+                                        </Popover>
                                     </div>
                                 );
                             })}
@@ -632,25 +730,46 @@ function MessagesClient() {
                         </div>
                     </ScrollArea>
 
-                    <footer className="p-4 border-t bg-card/40 backdrop-blur-xl">
+                    <footer className="p-4 border-t bg-card/40 backdrop-blur-xl relative">
+                        {replyingTo && (
+                            <div className="absolute bottom-full left-0 right-0 bg-muted/60 p-2 px-6 flex items-center justify-between border-t animate-in slide-in-from-bottom-2">
+                                <div className="truncate">
+                                    <p className="text-[10px] font-bold uppercase text-primary">Replying to {replyingTo.senderId === currentUser?.id ? 'Yourself' : `@${activeConversation.participantInfo[replyingTo.senderId].username}`}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{replyingTo.content}</p>
+                                </div>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setReplyingTo(null)}><X className="h-3 w-3"/></Button>
+                            </div>
+                        )}
+                        
                         <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center gap-3 w-full">
                             <div className="flex shrink-0 gap-1">
-                                <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10"><ImageIcon className="h-5 w-5" /></Button>
-                                <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10"><Mic className="h-5 w-5" /></Button>
+                                <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => mediaInputRef.current?.click()}><ImageIcon className="h-5 w-5" /></Button>
+                                <input type="file" ref={mediaInputRef} className="hidden" accept="image/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
+                                <Button type="button" variant="ghost" size="icon" className={cn("h-10 w-10 rounded-full text-primary transition-all", isRecording && "bg-red-500 text-white animate-pulse")} onClick={() => setIsRecording(!isRecording)}><Mic className="h-5 w-5" /></Button>
                             </div>
-                            <Input 
-                                placeholder="Write a message..." 
-                                className="flex-1 h-12 bg-background/50 border-none rounded-2xl shadow-inner px-5 focus-visible:ring-primary/40" 
-                                value={newMessageContent} 
-                                onChange={(e) => {
-                                    setNewMessageContent(e.target.value);
-                                    if (activeConversation && currentUser) {
-                                        const r = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
-                                        if (e.target.value.trim()) set(r, true); else remove(r);
-                                    }
-                                }} 
-                            />
-                            <Button type="submit" disabled={isSendingMessage || !newMessageContent.trim()} className="rounded-full h-12 w-12 bg-primary shadow-xl shadow-primary/30 shrink-0 transform-gpu active:scale-90">
+                            
+                            <div className="flex-1 relative group">
+                                {imageFile && (
+                                    <div className="absolute bottom-full mb-2 left-0 p-2 bg-background border rounded-2xl shadow-xl flex items-center gap-2">
+                                        <div className="relative w-12 h-12 rounded-lg overflow-hidden border"><NextImage src={URL.createObjectURL(imageFile)} alt="Preview" fill className="object-cover"/></div>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setImageFile(null)}><X className="h-4 w-4"/></Button>
+                                    </div>
+                                )}
+                                <Input 
+                                    placeholder={isRecording ? "Listening..." : "Write a message..."} 
+                                    className="h-12 bg-background/50 border-none rounded-2xl shadow-inner px-5 focus-visible:ring-primary/40" 
+                                    value={newMessageContent} 
+                                    onChange={(e) => {
+                                        setNewMessageContent(e.target.value);
+                                        if (activeConversation && currentUser) {
+                                            const r = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
+                                            if (e.target.value.trim()) set(r, true); else remove(r);
+                                        }
+                                    }} 
+                                />
+                            </div>
+                            
+                            <Button type="submit" disabled={isSendingMessage || (!newMessageContent.trim() && !imageFile)} className="rounded-full h-12 w-12 bg-primary shadow-xl shadow-primary/30 shrink-0 transform-gpu active:scale-90" style={{ background: activeConversation.themeColor }}>
                                 {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                             </Button>
                         </form>
@@ -703,7 +822,7 @@ export default function UnifiedInboxPage() {
     const searchParams = useSearchParams();
     const defaultTab = searchParams.get('tab') || 'messages'; 
 
-    if (loading) return <div className="flex flex-col justify-center items-center min-h-screen gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Updating inbox...</p></div>;
+    if (loading) return <div className="flex flex-col justify-center items-center min-screen gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Updating inbox...</p></div>;
     if (!user) { router.push('/auth/signin'); return null; }
 
     return (
