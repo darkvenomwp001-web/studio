@@ -46,7 +46,8 @@ import {
   History,
   Mic,
   ChevronDown,
-  Save
+  Save,
+  Square
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, format, isYesterday } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -316,6 +317,13 @@ function MessagesClient() {
   const [mgmtMenuConv, setMgmtMenuConv] = useState<Conversation | null>(null);
   const [isLongPressing, setIsLongPressing] = useState(false);
 
+  // Real-time Voice Recording Hub
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -405,16 +413,16 @@ function MessagesClient() {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', uploadPreset!);
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, { method: 'POST', body: formData });
     const data = await res.json();
     return data.secure_url;
   };
 
-  const handleSendMessage = async (contentInput?: string) => {
+  const handleSendMessage = async (contentInput?: string, explicitMediaUrl?: string, type: Message['type'] = 'text') => {
     const finalContent = contentInput || newMessageContent;
-    if (!currentUser || !activeConversation || (!finalContent.trim() && !imageFile)) return;
+    if (!currentUser || !activeConversation || (!finalContent.trim() && !imageFile && !explicitMediaUrl)) return;
 
-    if (editingMessage) {
+    if (editingMessage && type === 'text') {
         setIsSendingMessage(true);
         const result = await editSentMessage(activeConversation.id, editingMessage.id, currentUser.id, finalContent.trim());
         if (result.success) {
@@ -428,8 +436,8 @@ function MessagesClient() {
     }
 
     setIsSendingMessage(true);
-    let mediaUrl = '';
-    if (imageFile) {
+    let mediaUrl = explicitMediaUrl || '';
+    if (imageFile && !explicitMediaUrl) {
         setIsUploading(true);
         try { mediaUrl = await uploadMedia(imageFile); } catch (e) { toast({ title: "Upload failed" }); }
         finally { setIsUploading(false); }
@@ -439,7 +447,7 @@ function MessagesClient() {
       senderId: currentUser.id,
       content: finalContent.trim(),
       timestamp: serverTimestamp(),
-      type: mediaUrl ? 'image' : 'text',
+      type: mediaUrl ? (type === 'text' ? 'image' : type) : 'text',
       mediaUrl: mediaUrl || null,
       replyTo: replyingTo ? { id: replyingTo.id, content: replyingTo.content, username: activeConversation.participantInfo[replyingTo.senderId].username } : null,
       reactions: {},
@@ -459,7 +467,7 @@ function MessagesClient() {
       await updateDoc(convRef, {
         lastMessage: { 
           id: messageRef.id, 
-          content: mediaUrl ? 'Sent a photo' : finalContent.trim(), 
+          content: mediaUrl ? `Sent a ${type === 'audio' ? 'voice note' : 'photo'}` : finalContent.trim(), 
           senderId: currentUser.id, 
           timestamp: serverTimestamp(), 
           isRead: false 
@@ -472,6 +480,53 @@ function MessagesClient() {
     } catch (error: any) { 
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `conversations/${activeConversation.id}/messages`, operation: 'create', requestResourceData: messageData }));
     } finally { setIsSendingMessage(false); }
+  };
+
+  // Real-time Voice Logic
+  const startRecording = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            const file = new File([audioBlob], 'voice-note.webm', { type: 'audio/webm' });
+            setIsUploading(true);
+            try {
+                const url = await uploadMedia(file);
+                handleSendMessage('', url, 'audio');
+            } catch (e) {
+                toast({ title: "Recording failed to send" });
+            } finally {
+                setIsUploading(false);
+            }
+            stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorder.start();
+        setIsRecording(true);
+        setRecordingDuration(0);
+        recordingIntervalRef.current = setInterval(() => {
+            setRecordingDuration(prev => prev + 1);
+        }, 1000);
+        if (window.navigator.vibrate) window.navigator.vibrate(50);
+    } catch (e) {
+        toast({ title: "Microphone access denied" });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop();
+        setIsRecording(false);
+        if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    }
   };
   
   const handleReaction = async (messageId: string, emoji: string) => {
@@ -617,6 +672,12 @@ function MessagesClient() {
 
   const pinnedMessages = messages.filter(m => m.isPinned);
   const mediaMessages = messages.filter(m => m.type === 'image' || m.mediaUrl);
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="flex h-[calc(100vh-14rem)] md:h-[800px] border-none sm:border rounded-none sm:rounded-[2rem] bg-card sm:shadow-3xl overflow-hidden mb-10 border-border/40 w-full max-w-7xl mx-auto transform-gpu">
@@ -786,7 +847,7 @@ function MessagesClient() {
                                         <User className="h-4 w-4" /> View Profile
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
-                                        const nick = prompt("Set nickname for other user:");
+                                        const nick = prompt("Set nickname for this creator:");
                                         if (nick !== null) handleSetNickname(getOtherParticipant(activeConversation)?.id || '', nick);
                                     }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
                                         <Edit3 className="h-4 w-4" /> Edit Nicknames
@@ -881,6 +942,14 @@ function MessagesClient() {
                                                                     <NextImage src={msg.mediaUrl} alt="Visual" fill className="object-cover" />
                                                                 </div>
                                                             )}
+                                                            {msg.type === 'audio' && msg.mediaUrl && (
+                                                                <div className="flex items-center gap-3 py-1">
+                                                                    <div className="h-10 w-10 bg-white/20 rounded-full flex items-center justify-center">
+                                                                        <Volume2 className="h-5 w-5" />
+                                                                    </div>
+                                                                    <audio controls src={msg.mediaUrl} className="h-8 max-w-[150px] opacity-80" />
+                                                                </div>
+                                                            )}
                                                             <p className="whitespace-pre-line text-sm leading-relaxed">{msg.isUnsent ? 'Message unsent' : msg.content}</p>
                                                             {!msg.isUnsent && (
                                                                 <div className="flex items-center justify-between gap-4 mt-1 opacity-40 group-hover:opacity-100 transition-opacity">
@@ -955,11 +1024,30 @@ function MessagesClient() {
                                 <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center gap-3 w-full">
                                     <div className="flex shrink-0 gap-1">
                                         <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => mediaInputRef.current?.click()} disabled={isSendingMessage}><ImageIcon className="h-5 w-5" /></Button>
-                                        <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => toast({ title: "Voice recording feature coming soon" })} disabled={isSendingMessage}><Mic className="h-5 w-5" /></Button>
+                                        <Button 
+                                            type="button" 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className={cn("h-10 w-10 rounded-full text-primary transition-all", isRecording ? "bg-red-500/20 text-red-500 scale-125" : "hover:bg-primary/10")} 
+                                            onPointerDown={(e) => { e.preventDefault(); startRecording(); }}
+                                            onPointerUp={(e) => { e.preventDefault(); stopRecording(); }}
+                                            disabled={isSendingMessage}
+                                        >
+                                            {isRecording ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-5 w-5" />}
+                                        </Button>
                                         <input type="file" ref={mediaInputRef} className="hidden" accept="image/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
                                     </div>
                                     
                                     <div className="flex-1 relative group">
+                                        {isRecording && (
+                                            <div className="absolute inset-0 bg-background/95 rounded-2xl flex items-center justify-between px-4 animate-in fade-in duration-300 z-10">
+                                                <div className="flex items-center gap-3 text-red-500">
+                                                    <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+                                                    <span className="text-xs font-black font-mono">{formatDuration(recordingDuration)}</span>
+                                                </div>
+                                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-40 animate-pulse">Release to transmit signal</span>
+                                            </div>
+                                        )}
                                         {imageFile && (
                                             <div className="absolute bottom-full mb-3 left-0 p-2 bg-background border border-border/40 rounded-2xl shadow-3xl flex items-center gap-2 animate-in zoom-in-95">
                                                 <div className="relative w-14 h-14 rounded-xl overflow-hidden"><NextImage src={URL.createObjectURL(imageFile)} alt="Preview" fill className="object-cover"/></div>
