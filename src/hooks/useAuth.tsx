@@ -261,7 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               privacySettings: firestoreUserData.privacySettings || { lastSeen: 'everyone', onlineStatus: 'everyone', profilePhoto: 'everyone', stories: 'everyone', readReceipts: true },
               notificationSettings: firestoreUserData.notificationSettings || { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false },
               followersCount: firestoreUserData.followersCount || 0,
-              followingCount: firestoreUserData.followingIds?.length || 0,
+              followingCount: firestoreUserData.followingCount || firestoreUserData.followingIds?.length || 0,
               followingIds: firestoreUserData.followingIds || [],
               closeFriendIds: firestoreUserData.closeFriendIds || [],
               fcmTokens: firestoreUserData.fcmTokens || [],
@@ -572,9 +572,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const followUser = useCallback(async (targetUserId: string) => {
     if (!user || user.id === targetUserId) return;
     const batch = writeBatch(db);
-    batch.update(doc(db, 'users', user.id), { followingIds: arrayUnion(targetUserId) });
-    batch.update(doc(db, 'users', targetUserId), { followersCount: increment(1) });
+    const userRef = doc(db, 'users', user.id);
+    const targetRef = doc(db, 'users', targetUserId);
     
+    batch.update(userRef, { 
+      followingIds: arrayUnion(targetUserId),
+      followingCount: increment(1)
+    });
+    batch.update(targetRef, { 
+      followersCount: increment(1) 
+    });
+
     batch.commit()
       .then(async () => {
           await addNotification({
@@ -592,10 +600,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, showIsland, addNotification]);
 
   const unfollowUser = useCallback(async (targetUserId: string) => {
-    if (!user) return;
+    if (!user || user.id === targetUserId) return;
     const batch = writeBatch(db);
-    batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
-    batch.update(doc(db, 'users', targetUserId), { followersCount: increment(-1) });
+    const userRef = doc(db, 'users', user.id);
+    const targetRef = doc(db, 'users', targetUserId);
+
+    batch.update(userRef, { 
+      followingIds: arrayRemove(targetUserId),
+      followingCount: increment(-1)
+    });
+    batch.update(targetRef, { 
+      followersCount: increment(-1) 
+    });
+
     batch.commit()
       .then(() => showIsland({ title: "Signal severed", type: 'info' }))
       .catch(async (error) => {

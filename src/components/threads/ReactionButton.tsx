@@ -95,13 +95,13 @@ function ReactorsList({ postId, parentCollection }: { postId: string, parentColl
 
 interface ReactionButtonProps {
     postId: string;
-    targetUserId?: string;
+    authorId?: string; // Optional, used for notifications
     parentCollection?: 'feedPosts' | 'broadcasts' | 'annotations';
     initialReactionsCount: number;
     reactionCounts?: Record<string, number>;
 }
 
-export default function ReactionButton({ postId, targetUserId, parentCollection = 'feedPosts', initialReactionsCount, reactionCounts = {} }: ReactionButtonProps) {
+export default function ReactionButton({ postId, authorId, parentCollection = 'feedPosts', initialReactionsCount, reactionCounts = {} }: ReactionButtonProps) {
     const { user, addNotification } = useAuth();
     const { toast } = useToast();
     const [userReaction, setUserReaction] = useState<ReactionType | null>(null);
@@ -193,18 +193,17 @@ export default function ReactionButton({ postId, targetUserId, parentCollection 
                     reactionsCount: increment(1),
                     [`reactionCounts.${type}`]: increment(1)
                 });
-            }
-        })
-        .then(async () => {
-            // Signal the content author immediately
-            if (targetUserId && user.id !== targetUserId) {
-                await addNotification({
-                    userId: targetUserId,
-                    type: 'user_update',
-                    message: `reacted ${type} to your archival entry.`,
-                    link: parentCollection === 'annotations' ? '/?tab=annotations' : (parentCollection === 'broadcasts' ? '/?tab=broadcast' : '/'),
-                    actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
-                });
+                
+                // Trigger Notification
+                if (authorId && authorId !== user.id) {
+                    addNotification({
+                        userId: authorId,
+                        type: 'reaction',
+                        message: `reacted to your post with ${type}.`,
+                        link: `/?postId=${postId}`,
+                        actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+                    }).catch(() => {});
+                }
             }
         })
         .catch(async (serverError) => {

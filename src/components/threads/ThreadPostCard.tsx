@@ -28,7 +28,7 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 const OWNER_HANDLES = ['arnv'];
 
 export default function ThreadPostCard({ post }: { post: ThreadPost }) {
-  const { user } = useAuth();
+  const { user, addNotification } = useAuth();
   const { showIsland } = useDynamicIsland();
   const { toast } = useToast();
   const [isProcessing, startProcessingTransition] = useTransition();
@@ -104,6 +104,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
       };
       
       const originalPostId = post.type === 'repost' ? post.originalPost!.id : post.id;
+      const originalPostAuthorId = post.type === 'repost' ? post.originalPost!.author.id : post.author.id;
       const originalPostRef = doc(db, 'feedPosts', originalPostId);
       const newPostRef = doc(collection(db, 'feedPosts'));
 
@@ -139,6 +140,17 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
 
           transaction.set(newPostRef, newPostData);
           transaction.update(originalPostRef, { repostCount: increment(1) });
+          
+          // Trigger Notification to original author
+          if (originalPostAuthorId !== user.id) {
+              addNotification({
+                  userId: originalPostAuthorId,
+                  type: 'repost',
+                  message: `reposted your update.`,
+                  link: `/?postId=${newPostRef.id}`,
+                  actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+              }).catch(() => {});
+          }
       })
       .then(() => toast({ title: 'Reposted!' }))
       .catch(async (serverError) => {
@@ -322,7 +334,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
                 </div>
             </CardContent>
             <CardFooter className="p-2 border-t border-border/40 flex items-center justify-between">
-              <ReactionButton postId={post.id} parentCollection="feedPosts" initialReactionsCount={post.reactionsCount || 0} reactionCounts={post.reactionCounts} />
+              <ReactionButton postId={post.id} authorId={mainAuthor.id} parentCollection="feedPosts" initialReactionsCount={post.reactionsCount || 0} reactionCounts={post.reactionCounts} />
               <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary transition-colors gap-2">
                   <MessageCircle className="h-4 w-4" /> 
@@ -356,7 +368,7 @@ export default function ThreadPostCard({ post }: { post: ThreadPost }) {
               <DialogDescription className="sr-only">Discussion thread for the selected post.</DialogDescription>
             </DialogHeader>
             <div className="p-4">
-                <ThreadPostComments postId={post.id} />
+                <ThreadPostComments postId={post.id} postAuthorId={mainAuthor.id} />
             </div>
           </DialogContent>
 

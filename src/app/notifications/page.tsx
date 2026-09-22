@@ -869,7 +869,7 @@ function MessagesClient() {
                                                                     <NextImage src={msg.mediaUrl} alt="Visual" fill className="object-cover" />
                                                                 </div>
                                                             )}
-                                                            <p className="whitespace-pre-line leading-relaxed">{msg.isUnsent ? 'Message unsent' : msg.content}</p>
+                                                            <p className="whitespace-pre-line text-sm leading-relaxed">{msg.isUnsent ? 'Message unsent' : msg.content}</p>
                                                             {!msg.isUnsent && (
                                                                 <div className="flex items-center justify-between gap-4 mt-1 opacity-40 group-hover:opacity-100 transition-opacity">
                                                                     <span className="text-[8px] font-black uppercase tracking-widest">{date ? format(date, 'h:mm a') : '...'}</span>
