@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import type { ReactionType, Reaction } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ThumbsUp } from 'lucide-react';
-import { collection, doc, onSnapshot, runTransaction, serverTimestamp, increment } from 'firebase/firestore';
+import { collection, doc, onSnapshot, runTransaction, serverTimestamp, increment, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';

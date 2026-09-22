@@ -711,7 +711,7 @@ function MessagesClient() {
                                 }}
                                 className={cn(
                                     "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative transform-gpu active:scale-[0.98] select-none touch-pan-y",
-                                    isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'hover:bg-muted/50'
+                                    isActive ? "bg-primary text-white shadow-xl shadow-primary/20" : "hover:bg-muted/50"
                                 )}
                             >
                                 <div className="relative">
