@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useTransition, useMemo, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -24,14 +24,13 @@ import {
   Trash2, 
   User, 
   ImageIcon, 
-  Mic, 
   Send,
   Pin,
   PinOff,
   BellOff,
   Archive,
-  Volume2,
   VolumeX,
+  Volume2,
   X,
   Palette,
   Edit3,
@@ -41,13 +40,11 @@ import {
   Reply,
   Forward,
   Clock,
-  Music,
   Disc,
-  Link as LinkIcon,
-  Timer
+  Link as LinkIcon
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, format, isYesterday } from 'date-fns';
-import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType, Song } from '@/types';
+import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { db, rtdb } from '@/lib/firebase';
@@ -86,12 +83,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -275,7 +270,6 @@ function MessagesClient() {
   const { showIsland } = useDynamicIsland();
   const { toast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
@@ -937,7 +931,7 @@ function MessagesClient() {
                                         />
                                     </div>
                                     
-                                    <Button type="submit" disabled={isSendingMessage || (!newMessageContent.trim() && !imageFile)} className="rounded-full h-12 w-12 bg-primary shadow-xl shadow-primary/30 shrink-0 transform-gpu active:scale-90" style={{ background: activeConversation.themeColor }}>
+                                    <Button type="submit" disabled={isSendingMessage || (!newMessageContent.trim() && !imageFile)} className="rounded-full h-12 w-12 bg-primary shadow-xl shadow-primary/20 shrink-0 transform-gpu active:scale-90" style={{ background: activeConversation.themeColor }}>
                                         {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                                     </Button>
                                 </form>
@@ -980,7 +974,6 @@ function MessagesClient() {
             )}
         </main>
 
-        {/* THREAD MGMT POP-UP (5S HOLD GATEWAY) */}
         <Dialog open={!!mgmtMenuConv} onOpenChange={(o) => !o && setMgmtMenuConv(null)}>
             <DialogContent className="rounded-[2.5rem] max-w-xs p-0 overflow-hidden border-none shadow-3xl bg-background/95 backdrop-blur-3xl animate-in zoom-in-95 duration-300">
                 <DialogHeader className="p-6 bg-muted/30 border-b">
