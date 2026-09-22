@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type WritingStatus = 
@@ -245,6 +246,7 @@ export interface Conversation {
     groupAvatar?: string;
     themeColor?: string;
     nicknames?: Record<string, string>;
+    mutedBy?: string[]; // Users who have muted this thread
 }
 
 export interface Message {

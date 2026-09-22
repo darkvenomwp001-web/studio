@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useTransition, useMemo, Suspense } from 'react';
@@ -61,10 +62,12 @@ import {
   getDocs,
   getDoc,
   deleteDoc,
-  deleteField
+  deleteField,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -288,6 +291,7 @@ function MessagesClient() {
 
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const [userStatuses, setUserStatuses] = useState<Record<string, 'online' | 'offline'>>({});
+  const [onlineFriends, setOnlineFriends] = useState<UserSummary[]>([]);
   const [otherUserTyping, setOtherUserTyping] = useState<boolean>(false);
   
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -309,9 +313,23 @@ function MessagesClient() {
         const statuses: Record<string, 'online' | 'offline'> = {};
         Object.keys(data).forEach(uid => { statuses[uid] = data[uid].state; });
         setUserStatuses(statuses);
+        
+        // Calibrate Online Friends Row
+        if (currentUser) {
+            const online: UserSummary[] = [];
+            conversations.forEach(conv => {
+                const other = conv.participantIds.find(id => id !== currentUser.id);
+                if (other && statuses[other] === 'online') {
+                    online.push(conv.participantInfo[other]);
+                }
+            });
+            // Deduplicate
+            const uniqueOnline = Array.from(new Map(online.map(u => [u.id, u])).values());
+            setOnlineFriends(uniqueOnline);
+        }
     });
     return () => unsub();
-  }, []);
+  }, [currentUser, conversations]);
 
   useEffect(() => {
     if (!activeConversation || !currentUser) return;
@@ -451,6 +469,15 @@ function MessagesClient() {
         .then(() => toast({ title: "Nickname saved" }));
   };
 
+  const handleMute = async () => {
+    if (!activeConversation || !currentUser) return;
+    const isMuted = activeConversation.mutedBy?.includes(currentUser.id);
+    const ref = doc(db, 'conversations', activeConversation.id);
+    updateDoc(ref, { 
+        mutedBy: isMuted ? arrayRemove(currentUser.id) : arrayUnion(currentUser.id) 
+    }).then(() => toast({ title: isMuted ? "Notifications restored" : "Thread muted" }));
+  };
+
   const getOtherParticipant = (conversation: Conversation): AppUserType | undefined => {
     if (!currentUser) return undefined;
     const otherId = conversation.participantIds.find(id => id !== currentUser.id);
@@ -538,14 +565,14 @@ function MessagesClient() {
   }, [conversations, sidebarSearch, currentUser]);
 
   return (
-    <div className="flex h-[calc(100vh-14rem)] md:h-[800px] border-none sm:border rounded-none sm:rounded-[3rem] bg-card sm:shadow-3xl overflow-hidden mb-10 border-border/40 w-full max-w-7xl mx-auto">
+    <div className="flex h-[calc(100vh-14rem)] md:h-[800px] border-none sm:border rounded-none sm:rounded-[3rem] bg-card sm:shadow-3xl overflow-hidden mb-10 border-border/40 w-full max-w-7xl mx-auto transform-gpu">
         <aside className={cn(
             "w-full md:w-[360px] border-r flex flex-col bg-background/40 backdrop-blur-xl transition-all duration-300",
             mobileView === 'chat' ? 'hidden md:flex' : 'flex'
         )}>
             <div className="p-6 space-y-6">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-3xl font-headline font-bold">Threads</h2>
+                    <h2 className="text-3xl font-headline font-bold tracking-tight">Inbox</h2>
                     <Button variant="outline" size="icon" className="rounded-full shadow-sm" onClick={() => setIsNewConversationDialogOpen(true)}>
                         <Plus className="h-5 w-5" />
                     </Button>
@@ -553,11 +580,44 @@ function MessagesClient() {
                 <div className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
-                        placeholder="Search chats..." 
+                        placeholder="Search conversations..." 
                         className="pl-10 h-11 rounded-2xl bg-muted/30 border-none focus-visible:ring-primary/40" 
                         value={sidebarSearch}
                         onChange={(e) => setSidebarSearch(e.target.value)}
                     />
+                </div>
+                
+                {/* Active Now Row (Restored) */}
+                <div className="pt-2">
+                    <ScrollArea className="w-full whitespace-nowrap scrollbar-hide">
+                        <div className="flex gap-4 px-1 pb-2">
+                            {currentUser && (
+                                <div className="flex flex-col items-center gap-1.5 cursor-pointer group" onClick={() => router.push(`/profile/${currentUser.id}`)}>
+                                    <div className="relative">
+                                        <Avatar className="h-14 w-14 border-2 border-primary/20 p-0.5 group-hover:scale-105 transition-transform">
+                                            <AvatarImage src={currentUser.avatarUrl} />
+                                            <AvatarFallback className="font-bold">{currentUser.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm" />
+                                    </div>
+                                    <span className="text-[9px] font-black uppercase tracking-tighter opacity-60">My Status</span>
+                                </div>
+                            )}
+                            {onlineFriends.map(friend => (
+                                <div key={friend.id} className="flex flex-col items-center gap-1.5 cursor-pointer group" onClick={() => router.push(`/profile/${friend.id}`)}>
+                                    <div className="relative">
+                                        <Avatar className="h-14 w-14 border-2 border-background shadow-md group-hover:scale-105 transition-transform">
+                                            <AvatarImage src={friend.avatarUrl} />
+                                            <AvatarFallback className="font-bold">{friend.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse" />
+                                    </div>
+                                    <span className="text-[9px] font-black uppercase tracking-tighter truncate w-14 text-center">@{friend.username}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <ScrollBar orientation="horizontal" className="hidden" />
+                    </ScrollArea>
                 </div>
             </div>
             <ScrollArea className="flex-1">
@@ -608,7 +668,7 @@ function MessagesClient() {
         </aside>
 
         <main className={cn(
-            "flex-1 flex flex-col bg-background h-full max-w-full overflow-hidden",
+            "flex-1 flex flex-col bg-background h-full max-w-full overflow-hidden transition-all duration-500",
             mobileView === 'chat' ? 'flex' : 'hidden md:flex'
         )}>
             {activeConversation ? (
@@ -634,14 +694,14 @@ function MessagesClient() {
                                     {activeConversation.nicknames?.[getOtherParticipant(activeConversation)?.id || ''] || `@${getOtherParticipant(activeConversation)?.username || 'user'}`}
                                 </h3>
                                 <p className="text-[9px] font-black uppercase tracking-widest text-primary leading-none">
-                                    {otherUserTyping ? "Writing..." : (userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? "Online" : "Away")}
+                                    {otherUserTyping ? "Typing..." : (userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? "Online" : "Away")}
                                 </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-1">
                             <div className="relative group/search hidden sm:block">
                                 <Input 
-                                    placeholder="Search chat..." 
+                                    placeholder="Find message..." 
                                     value={chatSearch} 
                                     onChange={e => setChatSearch(e.target.value)} 
                                     className="w-32 h-8 rounded-full bg-muted/40 border-none text-[10px] pr-8 focus:w-48 transition-all"
@@ -652,25 +712,33 @@ function MessagesClient() {
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><MoreHorizontal className="h-5 w-5" /></Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="rounded-xl w-56">
-                                    <DropdownMenuLabel>Thread Settings</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
+                                <DropdownMenuContent align="end" className="rounded-[1.5rem] w-56 border-none shadow-3xl p-2">
+                                    <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest opacity-40 px-3 pt-2">Thread Control</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => router.push(`/profile/${getOtherParticipant(activeConversation)?.id}`)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
+                                        <User className="h-4 w-4" /> View Profile
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
                                         const nick = prompt("Set nickname for other user:");
                                         if (nick !== null) handleSetNickname(getOtherParticipant(activeConversation)?.id || '', nick);
-                                    }} className="gap-2"><Edit3 className="h-4 w-4" /> Edit Nicknames</DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                                    }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
+                                        <Edit3 className="h-4 w-4" /> Edit Nicknames
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleMute} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
+                                        <BellOff className="h-4 w-4" /> {activeConversation.mutedBy?.includes(currentUser?.id || '') ? 'Unmute Signal' : 'Mute Notifications'}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator className="bg-border/10 mx-2" />
+                                    <DropdownMenuItem onSelect={e => e.preventDefault()} className="rounded-xl px-3 py-2">
                                         <div className="flex flex-col gap-2 w-full">
-                                            <p className="text-[10px] font-bold uppercase opacity-60">Chat Theme</p>
+                                            <p className="text-[9px] font-black uppercase opacity-60">Visual Theme</p>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {CHAT_THEMES.map(t => (
-                                                    <button key={t.name} onClick={() => handleSetTheme(t.color)} className="h-5 w-5 rounded-full border border-white/20" style={{ background: t.color }} title={t.name} />
+                                                    <button key={t.name} onClick={() => handleSetTheme(t.color)} className="h-5 w-5 rounded-full border border-white/20 hover:scale-110 transition-transform" style={{ background: t.color }} title={t.name} />
                                                 ))}
                                             </div>
                                         </div>
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2" onClick={() => handleDeleteConversation(activeConversation.id)}>
+                                    <DropdownMenuSeparator className="bg-border/10 mx-2" />
+                                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2 rounded-xl h-10 px-3 font-bold text-xs" onClick={() => handleDeleteConversation(activeConversation.id)}>
                                         <Trash2 className="h-4 w-4" /> Delete Thread
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -687,12 +755,12 @@ function MessagesClient() {
 
                                 return (
                                     <div key={msg.id} className={cn(
-                                        "flex flex-col max-w-[85%] sm:max-w-[70%] group",
+                                        "flex flex-col max-w-[85%] sm:max-w-[70%] group animate-in slide-in-from-bottom-2 duration-300",
                                         isMe ? "self-end items-end" : "self-start items-start",
                                         !isNextSame && "mb-4"
                                     )}>
                                         {msg.replyTo && (
-                                            <div className="bg-muted/40 p-2 rounded-t-2xl text-[10px] mb-[-10px] w-fit max-w-full truncate border border-border/20 italic text-muted-foreground">
+                                            <div className="bg-muted/40 p-2 px-4 rounded-t-2xl text-[10px] mb-[-10px] w-fit max-w-full truncate border border-border/20 italic text-muted-foreground">
                                                 <Quote className="h-2 w-2 inline mr-1" />
                                                 {msg.replyTo.content}
                                             </div>
@@ -704,24 +772,27 @@ function MessagesClient() {
                                                     isMe ? "text-white rounded-[2rem] rounded-br-lg" : "bg-muted text-foreground rounded-[2rem] rounded-bl-lg",
                                                 )} style={{ backgroundColor: isMe ? (activeConversation.themeColor || 'hsl(var(--primary))') : undefined }}>
                                                     {msg.type === 'image' && msg.mediaUrl ? (
-                                                        <div className="relative w-48 h-48 rounded-xl overflow-hidden mb-2">
-                                                            <NextImage src={msg.mediaUrl} alt="Shared media" fill className="object-cover" />
+                                                        <div className="relative w-48 h-48 rounded-2xl overflow-hidden mb-2 shadow-lg border border-white/10">
+                                                            <NextImage src={msg.mediaUrl} alt="Shared archival visual" fill className="object-cover" />
                                                         </div>
                                                     ) : null}
                                                     <p className="whitespace-pre-line leading-relaxed">{msg.content}</p>
+                                                    <div className="flex items-center justify-between gap-4 mt-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                                                        <span className="text-[8px] font-black uppercase tracking-widest">{date ? format(date, 'h:mm a') : '...'}</span>
+                                                    </div>
                                                     {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                                                        <div className="absolute -bottom-2 right-0 flex gap-0.5 bg-background border border-border/40 rounded-full px-1 py-0.5 shadow-sm scale-75">
-                                                            {Array.from(new Set(Object.values(msg.reactions))).map((e, i) => <span key={i}>{e}</span>)}
+                                                        <div className="absolute -bottom-2 right-0 flex gap-0.5 bg-background border border-border/40 rounded-full px-1.5 py-0.5 shadow-xl scale-90">
+                                                            {Array.from(new Set(Object.values(msg.reactions))).map((e, i) => <span key={i} className="text-xs">{e}</span>)}
                                                         </div>
                                                     )}
                                                 </div>
                                             </PopoverTrigger>
-                                            <PopoverContent side="top" className="p-1 rounded-full w-auto bg-background/90 backdrop-blur border border-white/20 flex gap-1">
+                                            <PopoverContent side="top" className="p-1 rounded-full w-auto bg-background/95 backdrop-blur-3xl border border-white/10 shadow-3xl flex gap-1 animate-in slide-in-from-bottom-2 duration-300">
                                                 {['❤️', '👍', '😂', '😮', '😢', '😡'].map(e => (
-                                                    <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-8 w-8 hover:scale-125 transition-transform">{e}</button>
+                                                    <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-9 w-9 hover:scale-125 transition-transform flex items-center justify-center text-xl">{e}</button>
                                                 ))}
-                                                <div className="w-[1px] h-4 bg-border/40 self-center mx-1" />
-                                                <button onClick={() => setReplyingTo(msg)} className="h-8 px-2 hover:bg-muted rounded-full"><Repeat className="h-4 w-4" /></button>
+                                                <div className="w-[1px] h-4 bg-border/20 self-center mx-1" />
+                                                <button onClick={() => setReplyingTo(msg)} className="h-9 px-3 hover:bg-primary/10 rounded-full transition-colors"><Repeat className="h-4 w-4 text-primary" /></button>
                                             </PopoverContent>
                                         </Popover>
                                     </div>
@@ -731,34 +802,34 @@ function MessagesClient() {
                         </div>
                     </ScrollArea>
 
-                    <footer className="p-4 border-t bg-card/40 backdrop-blur-xl relative">
+                    <footer className="p-4 border-t bg-card/40 backdrop-blur-xl relative transform-gpu">
                         {replyingTo && (
-                            <div className="absolute bottom-full left-0 right-0 bg-muted/60 p-2 px-6 flex items-center justify-between border-t animate-in slide-in-from-bottom-2">
+                            <div className="absolute bottom-full left-0 right-0 bg-muted/90 backdrop-blur-xl p-3 px-6 flex items-center justify-between border-t animate-in slide-in-from-bottom-2 duration-300">
                                 <div className="truncate">
-                                    <p className="text-[10px] font-bold uppercase text-primary">Replying to {replyingTo.senderId === currentUser?.id ? 'Yourself' : `@${activeConversation.participantInfo[replyingTo.senderId].username}`}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{replyingTo.content}</p>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-primary">Replying to {replyingTo.senderId === currentUser?.id ? 'Yourself' : `@${activeConversation.participantInfo[replyingTo.senderId].username}`}</p>
+                                    <p className="text-xs text-muted-foreground truncate italic">"{replyingTo.content}"</p>
                                 </div>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setReplyingTo(null)}><X className="h-3 w-3"/></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/10" onClick={() => setReplyingTo(null)}><X className="h-3 w-3"/></Button>
                             </div>
                         )}
                         
                         <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center gap-3 w-full">
                             <div className="flex shrink-0 gap-1">
                                 <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => mediaInputRef.current?.click()}><ImageIcon className="h-5 w-5" /></Button>
-                                <input type="file" ref={mediaInputRef} className="hidden" accept="image/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
-                                <Button type="button" variant="ghost" size="icon" className={cn("h-10 w-10 rounded-full text-primary transition-all", isRecording && "bg-red-500 text-white animate-pulse")} onClick={() => setIsRecording(!isRecording)}><Mic className="h-5 w-5" /></Button>
+                                <input type="file" min-size="1" ref={mediaInputRef} className="hidden" accept="image/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
+                                <Button type="button" variant="ghost" size="icon" className={cn("h-10 w-10 rounded-full text-primary transition-all", isRecording && "bg-red-500 text-white animate-pulse shadow-lg")} onClick={() => setIsRecording(!isRecording)}><Mic className="h-5 w-5" /></Button>
                             </div>
                             
                             <div className="flex-1 relative group">
                                 {imageFile && (
-                                    <div className="absolute bottom-full mb-2 left-0 p-2 bg-background border rounded-2xl shadow-xl flex items-center gap-2">
-                                        <div className="relative w-12 h-12 rounded-lg overflow-hidden border"><NextImage src={URL.createObjectURL(imageFile)} alt="Preview" fill className="object-cover"/></div>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setImageFile(null)}><X className="h-4 w-4"/></Button>
+                                    <div className="absolute bottom-full mb-3 left-0 p-2 bg-background border border-border/40 rounded-2xl shadow-3xl flex items-center gap-2 animate-in zoom-in-95">
+                                        <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-border/20 shadow-sm"><NextImage src={URL.createObjectURL(imageFile)} alt="Preview" fill className="object-cover"/></div>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-muted/40" onClick={() => setImageFile(null)}><X className="h-3 w-3"/></Button>
                                     </div>
                                 )}
                                 <Input 
-                                    placeholder={isRecording ? "Listening..." : "Write a message..."} 
-                                    className="h-12 bg-background/50 border-none rounded-2xl shadow-inner px-5 focus-visible:ring-primary/40" 
+                                    placeholder={isRecording ? "Listening to signal..." : "Write a message..."} 
+                                    className="h-12 bg-background/50 border-none rounded-2xl shadow-inner px-5 focus-visible:ring-primary/40 text-sm" 
                                     value={newMessageContent} 
                                     onChange={(e) => {
                                         setNewMessageContent(e.target.value);
@@ -777,18 +848,18 @@ function MessagesClient() {
                     </footer>
                 </>
             ) : (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 opacity-20">
-                    <MessageSquare className="h-32 w-32 mb-8" />
-                    <h2 className="text-3xl font-headline font-bold">Select a thread</h2>
+                <div className="flex-1 flex flex-col items-center justify-center p-8 opacity-20 transform-gpu animate-in fade-in duration-1000">
+                    <MessageSquare className="h-40 w-40 mb-10 text-primary/40" />
+                    <h2 className="text-3xl font-headline font-bold uppercase tracking-widest">Select a Thread</h2>
                 </div>
             )}
         </main>
 
         <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
-            <DialogContent className="rounded-[3rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
+            <DialogContent className="rounded-[3rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md animate-in zoom-in-95 duration-300">
                 <DialogHeader className="mb-6">
                     <DialogTitle className="text-3xl font-headline font-bold">New Thread</DialogTitle>
-                    <DialogDescription className="text-xs font-black uppercase tracking-widest opacity-60">Send a direct message</DialogDescription>
+                    <DialogDescription className="text-xs font-black uppercase tracking-widest opacity-60">Signal a fellow writer</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-6">
                     <div className="relative group">
@@ -797,17 +868,25 @@ function MessagesClient() {
                             placeholder="Enter handle..." 
                             value={searchUsername} 
                             onChange={e => setSearchUsername(e.target.value)} 
-                            className="pl-12 h-14 rounded-2xl bg-muted/20 border-none shadow-inner text-lg"
+                            className="pl-12 h-14 rounded-2xl bg-muted/20 border-none shadow-inner text-lg font-bold"
+                            autoFocus
                         />
                     </div>
-                    <ScrollArea className="h-60 border-t border-border/20 pt-4">
-                        <div className="space-y-2">
+                    <ScrollArea className="h-72 border-t border-border/10 pt-4">
+                        <div className="space-y-1">
                             {searchedUsers.map(u => (
-                                <div key={u.id} className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-primary/5 transition-all text-left cursor-pointer" onClick={() => handleStartNewConversation(u)}>
-                                    <Avatar className="border shadow-sm"><AvatarImage src={u.avatarUrl} /></Avatar>
-                                    <span className="font-black text-sm">@{u.username}</span>
+                                <div key={u.id} className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-primary/5 transition-all text-left cursor-pointer group" onClick={() => handleStartNewConversation(u)}>
+                                    <Avatar className="border-2 border-background shadow-sm group-hover:scale-105 transition-transform"><AvatarImage src={u.avatarUrl} /></Avatar>
+                                    <div className="flex-1 min-w-0">
+                                        <span className="font-bold text-sm block">@{u.username}</span>
+                                        <span className="text-[10px] uppercase font-black opacity-40">{u.displayName}</span>
+                                    </div>
+                                    <Plus className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
                             ))}
+                            {searchUsername && searchedUsers.length === 0 && !isSearchingUsers && (
+                                <p className="text-center py-20 text-[10px] font-black uppercase tracking-widest opacity-40">Archive node not found</p>
+                            )}
                         </div>
                     </ScrollArea>
                 </div>
@@ -823,7 +902,7 @@ export default function UnifiedInboxPage() {
     const searchParams = useSearchParams();
     const defaultTab = searchParams.get('tab') || 'messages'; 
 
-    if (loading) return <div className="flex flex-col justify-center items-center min-screen gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Updating inbox...</p></div>;
+    if (loading) return <div className="flex flex-col justify-center items-center min-h-screen gap-4 transform-gpu"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Syncing Communication Hub...</p></div>;
     if (!user) { router.push('/auth/signin'); return null; }
 
     return (
@@ -841,8 +920,8 @@ export default function UnifiedInboxPage() {
                             </TabsTrigger>
                         </TabsList>
                     </div>
-                    <TabsContent value="notifications" className="animate-in fade-in duration-700"><NotificationsList /></TabsContent>
-                    <TabsContent value="messages" className="animate-in fade-in duration-700 px-4 sm:px-0"><MessagesClient /></TabsContent>
+                    <TabsContent value="notifications" className="animate-in fade-in duration-1000 transform-gpu"><NotificationsList /></TabsContent>
+                    <TabsContent value="messages" className="animate-in fade-in duration-1000 px-4 sm:px-0 transform-gpu"><MessagesClient /></TabsContent>
                 </Tabs>
             </div>
             <BottomNavigationBar />
