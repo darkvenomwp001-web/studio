@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Home, Edit3, Library, Search, Bell, UserPlus, UserX, ChevronDown, LogOut, Sparkles } from 'lucide-react';
+import { Home, Edit3, Library, Search, Bell, UserPlus, UserX, ChevronDown, LogOut, Sparkles, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,9 +17,11 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { Badge } from '../ui/badge';
 
 export default function Header() {
   const [mounted, setMounted] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const { user, loading, savedAccounts, switchAccount, removeSavedAccount, signOutFirebase } = useAuth(); 
   const router = useRouter();
   
@@ -27,7 +29,22 @@ export default function Header() {
   const [isLongPressDetected, setIsLongPressDetected] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    
+    // Connectivity Sensing Node
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    setIsOnline(navigator.onLine);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
   
   if (!mounted) { 
     return (
@@ -82,8 +99,14 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 border-b border-border/40">
       <div className="container mx-auto flex h-14 md:h-16 items-center justify-between px-4">
-        <div className="flex-shrink-0 origin-left">
+        <div className="flex items-center gap-4 flex-shrink-0 origin-left">
           <Logo />
+          {!isOnline && (
+            <Badge variant="outline" className="hidden sm:flex rounded-full bg-destructive/10 text-destructive border-destructive/20 gap-1.5 animate-in fade-in duration-1000 h-6 px-2.5">
+               <WifiOff className="h-3 w-3" />
+               <span className="text-[8px] font-black uppercase tracking-widest">Signal Lost</span>
+            </Badge>
+          )}
         </div>
 
         <nav className="flex items-center gap-2 md:gap-3">
@@ -139,7 +162,10 @@ export default function Header() {
                         onPointerLeave={handleEnd}
                         onClick={handleProfileClick}
                     >
-                        <Avatar className="h-full w-full border border-border/40 shadow-sm transition-all group-hover:border-primary/40">
+                        <Avatar className={cn(
+                          "h-full w-full border shadow-sm transition-all group-hover:border-primary/40",
+                          !isOnline ? "border-destructive/40" : "border-border/40"
+                        )}>
                             <AvatarImage src={user.avatarUrl} alt={displayName || 'User'} />
                             <AvatarFallback className="bg-primary/10 text-primary font-bold">{displayName ? displayName.substring(0,1).toUpperCase() : 'U'}</AvatarFallback>
                         </Avatar>
@@ -147,6 +173,9 @@ export default function Header() {
                             <div className="absolute -bottom-1 -right-1 bg-background border border-border/40 rounded-full p-0.5 shadow-sm text-primary group-hover:scale-110 transition-transform">
                                 <ChevronDown className="h-2.5 w-2.5" />
                             </div>
+                        )}
+                        {!isOnline && (
+                          <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-destructive rounded-full border-2 border-background animate-pulse" />
                         )}
                     </button>
                 </DropdownMenuTrigger>

@@ -16,6 +16,7 @@ import StoryPreviewDrawer from '@/components/story/StoryPreviewDrawer';
 import FirebaseErrorListener from '@/components/FirebaseErrorListener';
 import AppearanceManager from '@/components/layout/AppearanceManager';
 import NativePermissionGuard from '@/components/layout/NativePermissionGuard';
+import OfflineOverlay from '@/components/layout/OfflineOverlay';
 import { Loader2 } from 'lucide-react';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -45,11 +46,11 @@ export default function RootLayout({
             <AuthProvider>
               <AppearanceManager />
               <NativePermissionGuard />
+              <OfflineOverlay />
               <SplashWrapper>
                   <StoryPreviewProvider>
                     <FirebaseErrorListener />
                     <ScrollToTop />
-                    {/* DynamicIsland component removed in favor of unified top-center Toaster */}
                     <div className="relative flex min-h-screen flex-col overflow-x-hidden max-w-[100vw]">
                       <Suspense fallback={<div className="flex justify-center items-center h-screen bg-background"><Loader2 className="animate-spin text-primary" /></div>}>
                         {children}
