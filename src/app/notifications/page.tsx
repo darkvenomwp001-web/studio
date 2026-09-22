@@ -47,10 +47,11 @@ import {
   Mic,
   ChevronDown,
   Save,
-  Square
+  Square,
+  Music
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, format, isYesterday } from 'date-fns';
-import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
+import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType, Song } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { db, rtdb } from '@/lib/firebase';
@@ -110,6 +111,7 @@ import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import { toggleArchiveThread, toggleIgnoreThread, togglePinThread, setThreadNickname, unsendMessage, deleteMessageForMe, editSentMessage } from '@/app/actions/threadActions';
+import SongSearch from '@/components/status/SongSearch';
 
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: NodeJS.Timeout;
@@ -323,6 +325,9 @@ function MessagesClient() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Music Tool
+  const [isMusicToolActive, setIsMusicToolActive] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -583,7 +588,6 @@ function MessagesClient() {
   const handleThreadLongPress = (conv: Conversation) => {
     if (window.navigator.vibrate) window.navigator.vibrate(50);
     setMgmtMenuConv(conv);
-    setIsLongPressing(true);
   };
 
   const handleDeleteThread = async (convId: string) => {
@@ -747,13 +751,20 @@ function MessagesClient() {
                         return (
                             <div 
                                 key={conv.id}
-                                onPointerDown={(e) => {
-                                    setIsLongPressing(false); 
+                                onPointerDown={() => {
+                                    setIsLongPressing(false);
                                     longPressTimerRef.current = setTimeout(() => {
+                                        setIsLongPressing(true);
                                         handleThreadLongPress(conv);
-                                    }, 3000); 
+                                    }, 3000); // 3-second long press gateway
                                 }}
                                 onPointerUp={() => {
+                                    if (longPressTimerRef.current) {
+                                        clearTimeout(longPressTimerRef.current);
+                                        longPressTimerRef.current = null;
+                                    }
+                                }}
+                                onPointerLeave={() => {
                                     if (longPressTimerRef.current) {
                                         clearTimeout(longPressTimerRef.current);
                                         longPressTimerRef.current = null;
@@ -762,12 +773,6 @@ function MessagesClient() {
                                 onClick={() => {
                                     if (!isLongPressing) {
                                         handleSelectConversation(conv);
-                                    }
-                                }}
-                                onPointerLeave={() => {
-                                    if (longPressTimerRef.current) {
-                                        clearTimeout(longPressTimerRef.current);
-                                        longPressTimerRef.current = null;
                                     }
                                 }}
                                 className={cn(
@@ -950,6 +955,11 @@ function MessagesClient() {
                                                                     <audio controls src={msg.mediaUrl} className="h-8 max-w-[150px] opacity-80" />
                                                                 </div>
                                                             )}
+                                                            {msg.type === 'music' && msg.mediaUrl && (
+                                                                <div className="mb-2">
+                                                                    <SpotifyPlayer trackUrl={msg.mediaUrl} />
+                                                                </div>
+                                                            )}
                                                             <p className="whitespace-pre-line text-sm leading-relaxed">{msg.isUnsent ? 'Message unsent' : msg.content}</p>
                                                             {!msg.isUnsent && (
                                                                 <div className="flex items-center justify-between gap-4 mt-1 opacity-40 group-hover:opacity-100 transition-opacity">
@@ -1009,7 +1019,7 @@ function MessagesClient() {
                                             <p className="text-[9px] font-black uppercase tracking-widest text-primary">Replying to @{activeConversation.participantInfo[replyingTo.senderId].username}</p>
                                             <p className="text-xs text-muted-foreground truncate italic">"{replyingTo.content}"</p>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/10" onClick={() => setReplyingTo(null)}><X className="h-3 w-3"/></Button>
+                                        <button className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center" onClick={() => setReplyingTo(null)}><X className="h-3 w-3"/></button>
                                     </div>
                                 )}
                                 {editingMessage && (
@@ -1017,7 +1027,7 @@ function MessagesClient() {
                                         <div className="truncate">
                                             <p className="text-[9px] font-black uppercase tracking-widest text-primary">Editing Message</p>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/10" onClick={() => { setEditingMessage(null); setNewMessageContent(''); }}><X className="h-3 w-3"/></Button>
+                                        <button className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center" onClick={() => { setEditingMessage(null); setNewMessageContent(''); }}><X className="h-3 w-3"/></button>
                                     </div>
                                 )}
                                 
@@ -1035,6 +1045,7 @@ function MessagesClient() {
                                         >
                                             {isRecording ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-5 w-5" />}
                                         </Button>
+                                        <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => setIsMusicToolActive(true)} disabled={isSendingMessage}><Music className="h-5 w-5" /></Button>
                                         <input type="file" ref={mediaInputRef} className="hidden" accept="image/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
                                     </div>
                                     
@@ -1089,14 +1100,14 @@ function MessagesClient() {
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">Archived Songs</h4>
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">Archived Music</h4>
                                     <div className="grid gap-2">
-                                        {messages.filter(m => m.songUrl).map(m => (
+                                        {messages.filter(m => m.type === 'music').map(m => (
                                             <div key={m.id} className="rounded-xl border border-border/40 p-2 bg-muted/20">
-                                                <SpotifyPlayer trackUrl={m.songUrl} />
+                                                <SpotifyPlayer trackUrl={m.mediaUrl} />
                                             </div>
                                         ))}
-                                        {messages.filter(m => m.songUrl).length === 0 && <p className="text-center py-10 text-xs italic text-muted-foreground">No tracks shared.</p>}
+                                        {messages.filter(m => m.type === 'music').length === 0 && <p className="text-center py-10 text-xs italic text-muted-foreground">No tracks shared.</p>}
                                     </div>
                                 </div>
                             </div>
@@ -1182,6 +1193,21 @@ function MessagesClient() {
                         Collapse Menu
                     </Button>
                 </div>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog open={isMusicToolActive} onOpenChange={setIsMusicToolActive}>
+            <DialogContent className="rounded-3xl border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
+                <DialogHeader className="mb-6">
+                    <DialogTitle className="text-3xl font-headline font-bold">Share Music</DialogTitle>
+                    <DialogDescription className="text-[8px] font-bold uppercase tracking-widest opacity-60">Archive a song in the thread</DialogDescription>
+                </DialogHeader>
+                <SongSearch onSongSelect={(song) => {
+                    if (song) {
+                        handleSendMessage(song.title, song.previewUrl || `https://open.spotify.com/track/${song.id}`, 'music');
+                    }
+                    setIsMusicToolActive(false);
+                }} />
             </DialogContent>
         </Dialog>
 
