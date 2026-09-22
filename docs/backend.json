@@ -15,15 +15,8 @@
         "followingIds": { "type": "array" },
         "closeFriendIds": { "type": "array" },
         "blockedUserIds": { "type": "array" },
-        "privacy": {
-          "type": "object",
-          "properties": {
-            "lastSeen": { "type": "string", "enum": ["everyone", "following", "none"] },
-            "onlineStatus": { "type": "string", "enum": ["everyone", "following", "none"] },
-            "profilePhoto": { "type": "string", "enum": ["everyone", "following", "none"] },
-            "readReceipts": { "type": "boolean" }
-          }
-        }
+        "appearanceSettings": { "type": "object" },
+        "readerSettings": { "type": "object" }
       }
     },
     "Thread": {
@@ -60,6 +53,30 @@
         "isEdited": { "type": "boolean" },
         "deletedFor": { "type": "array" },
         "isPinned": { "type": "boolean" }
+      }
+    },
+    "Question": {
+      "title": "Question",
+      "description": "An inquiry directed towards an author.",
+      "type": "object",
+      "properties": {
+        "asker": { "type": "object" },
+        "authorId": { "type": "string" },
+        "questionText": { "type": "string" },
+        "status": { "type": "string", "enum": ["unanswered", "answered"] },
+        "answerText": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Poll": {
+      "title": "Poll",
+      "description": "An interactive voting node created by authors.",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "question": { "type": "string" },
+        "options": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -102,6 +119,14 @@
     "/statusUpdates/{statusId}": {
       "schema": "StatusUpdate",
       "description": "Temporary visual signals."
+    },
+    "/questions/{questionId}": {
+      "schema": "Question",
+      "description": "Author inquiry nodes."
+    },
+    "/polls/{pollId}": {
+      "schema": "Poll",
+      "description": "Interactive voting nodes."
     },
     "/broadcasts/{broadcastId}": {
       "schema": "Broadcast",

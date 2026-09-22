@@ -1,10 +1,9 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
+    // --- High-Fidelity Security Helpers ---
     
     function isSignedIn() {
       return request.auth != null;
@@ -14,6 +13,7 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
+    // Unified Owner Protocol: Specific UID anchor for absolute archival management.
     function isAppOwner() {
         return isSignedIn() && request.auth.uid in [
           'rpTmIq5pnKc91aSSgMJiF26zIYy2', // arnv
@@ -21,14 +21,16 @@ service cloud.firestore {
         ];
     }
 
-    // --- Collection Rules ---
+    // --- Core Identity Node ---
 
     match /users/{userId} {
       allow read: if true;
       allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isAppOwner() || (isSignedIn() && isOwner(userId)) || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['followersCount', 'followingIds', 'closeFriendIds']));
+      allow update: if isAppOwner() || (isSignedIn() && isOwner(userId)) || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['followersCount', 'followingIds', 'closeFriendIds', 'appearanceSettings', 'readerSettings']));
       allow delete: if isAppOwner();
     }
+
+    // --- Creative Manuscripts Node ---
 
     match /stories/{storyId} {
       allow read: if resource.data.visibility == 'Public' || resource.data.visibility == 'Unlisted' || (isSignedIn() && (request.auth.uid == resource.data.author.id || request.auth.uid in resource.data.collaboratorIds || isAppOwner()));
@@ -37,40 +39,111 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.author.id || isAppOwner());
     }
 
+    // --- Home Discovery Node ---
+
+    match /featuredCarousel/{slideId} {
+      allow read: if true;
+      allow write: if isAppOwner();
+    }
+
+    // --- Threads Hub ---
+
     match /conversations/{threadId} {
       allow read: if isSignedIn() && (request.auth.uid in resource.data.participantIds || isAppOwner());
       allow create: if isSignedIn() && request.auth.uid in request.resource.data.participantIds;
+      // Support for Archive, Ignore, Pin, Nicknames, and Theme
       allow update: if isSignedIn() && (request.auth.uid in resource.data.participantIds || isAppOwner());
       allow delete: if isSignedIn() && (request.auth.uid in resource.data.participantIds || isAppOwner());
-
-      match /messages/{messageId} {
-        allow read: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
-        allow create: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
-        // Edit/Delete for everyone/Reactions: Allow if participant
-        allow update: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
-        // Physical deletion is rare, usually we flag as deletedFor
-        allow delete: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
-      }
     }
+
+    // --- Message Transmissions ---
+
+    match /conversations/{threadId}/messages/{messageId} {
+      allow read: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
+      allow create: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
+      // Support for Edit, Unsend, and "Delete for Me"
+      allow update: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
+      allow delete: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
+    }
+
+    // --- Activity Alerts Node ---
+
+    match /notifications/{notificationId} {
+      allow read, list, update: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
+      allow create: if isSignedIn();
+      allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
+    }
+
+    // --- Writing Challenges Node ---
+
+    match /prompts/{promptId} {
+      allow read, list: if resource.data.isArchived == false || isAppOwner();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner());
+      allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner());
+    }
+
+    // --- Direct Reader Correspondence ---
+
+    match /letters/{letterId} {
+      allow read, list: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId) || isAppOwner());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.reader.id) || isAppOwner());
+      allow delete: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId) || isAppOwner());
+    }
+
+    // --- Prose Highlights Node ---
+
+    match /annotations/{annotationId} {
+      allow read, list: if resource.data.visibility == 'public' || (isSignedIn() && (isOwner(resource.data.userId) || isAppOwner()));
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
+      allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
+    }
+
+    // --- Temporary Visual Signals ---
+
+    match /statusUpdates/{statusId} {
+      allow get: if isAppOwner() || (isSignedIn() && resource.data.authorId == request.auth.uid) || (resource.data.status == 'published' && resource.data.isHidden == false);
+      allow list: if true;
+      allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
+      allow update: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId));
+      allow delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId));
+    }
+
+    // --- Community Questions Node ---
+
+    match /questions/{questionId} {
+      allow read, list: if resource.data.status == 'answered' || (isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.asker.id) || isAppOwner()));
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isOwner(resource.data.authorId) || isAppOwner());
+      allow delete: if isSignedIn() && (isOwner(resource.data.authorId) || isAppOwner());
+    }
+
+    // --- Author Polls Node ---
+
+    match /polls/{pollId} {
+      allow read, list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId));
+    }
+
+    // --- Community Feed Node ---
+
+    match /feedPosts/{postId} {
+      allow read, list: if true;
+      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
+      allow update: if isSignedIn() && (isAppOwner() || isOwner(resource.data.author.id) || request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount', 'commentsCount', 'isHidden']));
+      allow delete: if isAppOwner() || isOwner(resource.data.author.id);
+    }
+    
+    // --- Official Transmissions Node ---
 
     match /broadcasts/{broadcastId} {
       allow read, list: if true;
       allow create, delete: if isAppOwner();
       allow update: if isSignedIn() && (isAppOwner() || request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'commentsCount']));
     }
-
-    match /feedPosts/{postId} {
-      allow read, list: if true;
-      allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
-      allow update: if isSignedIn() && (isAppOwner() || isOwner(resource.data.author.id) || request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount', 'commentsCount']));
-      allow delete: if isAppOwner() || isOwner(resource.data.author.id);
-    }
-    
-    // Notifications, Prompts, Letters, Annotations, Questions, Polls (Restored from stable version)
-    match /notifications/{notificationId} { allow read, list, update, delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner()); allow create: if isSignedIn(); }
-    match /prompts/{promptId} { allow read, list: if resource.data.isArchived == false || isAppOwner(); allow create: if isSignedIn(); allow update, delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner()); }
-    match /letters/{letterId} { allow read, list: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId) || isAppOwner()); allow create: if isSignedIn(); allow update, delete: if isSignedIn() && (isOwner(resource.data.authorId) || isAppOwner()); }
-    match /annotations/{annotationId} { allow read, list: if resource.data.visibility == 'public' || (isSignedIn() && (isOwner(resource.data.userId) || isAppOwner())); allow create: if isSignedIn(); allow update, delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner()); }
-    match /statusUpdates/{statusId} { allow get: if isAppOwner() || (isSignedIn() && resource.data.authorId == request.auth.uid) || (resource.data.status == 'published' && resource.data.isHidden == false); allow list: if isAppOwner() || (request.query.filters.visibility == 'public'); allow create: if isSignedIn() && isOwner(request.resource.data.authorId); allow update, delete: if isAppOwner() || (isSignedIn() && isOwner(resource.data.authorId)); }
   }
 }
