@@ -678,7 +678,7 @@ function MessagesClient() {
                                 onPointerUp={() => clearTimeout(longPressTimerRef.current!)}
                                 onPointerLeave={() => clearTimeout(longPressTimerRef.current!)}
                                 className={cn(
-                                    "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative transform-gpu active:scale-[0.98]",
+                                    "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative transform-gpu active:scale-[0.98] select-none touch-none",
                                     isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'hover:bg-muted/50'
                                 )}
                             >
@@ -749,7 +749,7 @@ function MessagesClient() {
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><MoreHorizontal className="h-5 w-5" /></Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="rounded-2xl w-56 border-none shadow-3xl p-2">
+                                <DropdownMenuContent align="end" className="rounded-2xl w-56 border-none shadow-3xl p-2 z-50">
                                     <DropdownMenuItem onClick={() => router.push(`/profile/${getOtherParticipant(activeConversation)?.id}`)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
                                         <User className="h-4 w-4" /> View Profile
                                     </DropdownMenuItem>
@@ -848,32 +848,32 @@ function MessagesClient() {
                                                             )}
                                                         </div>
                                                     </DropdownMenuTrigger>
-                                                    <DropdownMenuContent className="rounded-2xl border-none shadow-3xl p-1 bg-background/95 backdrop-blur-3xl">
+                                                    <DropdownMenuContent className="rounded-2xl border-none shadow-3xl p-1 bg-background/95 backdrop-blur-3xl z-50">
                                                         <div className="flex gap-1 p-2 border-b border-white/5">
                                                             {REACTION_OPTIONS.map(e => (
                                                                 <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-9 w-9 hover:scale-125 transition-transform flex items-center justify-center text-xl">{e}</button>
                                                             ))}
                                                         </div>
-                                                        <DropdownMenuItem onClick={() => setReplyingTo(msg)} className="gap-2 rounded-xl">
+                                                        <DropdownMenuItem onClick={() => setReplyingTo(msg)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
                                                             <Reply className="h-4 w-4" /> Reply
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleForward(msg.content)} className="gap-2 rounded-xl">
+                                                        <DropdownMenuItem onClick={() => handleForward(msg.content)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
                                                             <Forward className="h-4 w-4" /> Forward
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleTogglePinMessage(msg)} className="gap-2 rounded-xl">
+                                                        <DropdownMenuItem onClick={() => handleTogglePinMessage(msg)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
                                                             <Pin className="h-4 w-4" /> {msg.isPinned ? 'Unpin' : 'Pin'}
                                                         </DropdownMenuItem>
                                                         {isMe && !msg.isUnsent && (
                                                             <>
-                                                                <DropdownMenuItem onClick={() => { setEditingMessage(msg); setNewMessageContent(msg.content); }} className="gap-2 rounded-xl">
+                                                                <DropdownMenuItem onClick={() => { setEditingMessage(msg); setNewMessageContent(msg.content); }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
                                                                     <Edit3 className="h-4 w-4" /> Edit
                                                                 </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handleUnsend(msg.id)} className="gap-2 rounded-xl text-destructive">
+                                                                <DropdownMenuItem onClick={() => handleUnsend(msg.id)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs text-destructive">
                                                                     <X className="h-4 w-4" /> Unsend
                                                                 </DropdownMenuItem>
                                                             </>
                                                         )}
-                                                        <DropdownMenuItem onClick={() => handleDeleteForMe(msg.id)} className="gap-2 rounded-xl text-destructive">
+                                                        <DropdownMenuItem onClick={() => handleDeleteForMe(msg.id)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs text-destructive">
                                                             <Trash2 className="h-4 w-4" /> Remove for me
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
