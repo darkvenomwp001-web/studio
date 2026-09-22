@@ -125,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [requiresPasswordSetup, setRequiresPasswordSetup] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [fcmToken, setFcmToken] = useState<string | null>(null);
+  const [isSwitchingIdentities, setIsSwitchingIdentities] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -163,24 +164,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchAccount = useCallback(async (account: SavedIdentity) => {
     if (authLoading) return;
     setAuthLoading(true);
+    setIsSwitchingIdentities(true);
     try {
         if (account.email && account.password) {
             await signOut(auth);
             sessionStorage.removeItem(USER_STORAGE_NAME);
             await firebaseSignInWithEmailAndPassword(auth, account.email, account.password);
-            showIsland({ title: `Switched to @${account.username}`, type: 'success' });
+            showIsland({ title: `Persona Swapped`, description: `@${account.username} is active.`, type: 'success' });
             router.push(DEFAULT_HOME_PATH);
         } else {
             await signOut(auth);
             sessionStorage.removeItem(USER_STORAGE_NAME);
             router.push(`/auth/signin?hint=${account.username}`);
-            showIsland({ title: `Enter password for @${account.username}`, type: 'info' });
+            showIsland({ title: `Identity required`, description: `Sign in as @${account.username}`, type: 'info' });
         }
     } catch (e: any) {
         toast({ title: "Failed to switch accounts", description: e.message, variant: "destructive" });
         router.push(DEFAULT_LOGIN_PATH);
     } finally {
         setAuthLoading(false);
+        setIsSwitchingIdentities(false);
     }
   }, [router, showIsland, toast, authLoading]);
 
@@ -192,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const hasSeenToast = sessionStorage.getItem(toastId);
               if (!hasSeenToast) {
                 showIsland({
-                  title: "Achievement Unlocked!",
+                  title: "Archive Milestone Unlocked!",
                   description: latestAchievement.name,
                   type: 'success'
                 });
@@ -255,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               xp: firestoreUserData.xp || 0,
               achievements: firestoreUserData.achievements || [],
               messagingPreference: firestoreUserData.messagingPreference || 'everyone',
+              privacySettings: firestoreUserData.privacySettings || { lastSeen: 'everyone', onlineStatus: 'everyone', profilePhoto: 'everyone', stories: 'everyone', readReceipts: true },
               notificationSettings: firestoreUserData.notificationSettings || { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false },
               followersCount: firestoreUserData.followersCount || 0,
               followingCount: firestoreUserData.followingIds?.length || 0,
@@ -291,7 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const isAnonymous = firebaseUser.isAnonymous;
             const username = isAnonymous ? `Guest${firebaseUser.uid.substring(0, 6)}` : firebaseUser.displayName?.replace(/\s/g, '').toLowerCase() || firebaseUser.email?.split('@')[0].toLowerCase() || `user_${firebaseUser.uid.substring(0, 5)}`;
             const displayName = isAnonymous ? 'A Mysterious Guest' : (firebaseUser.displayName || username);
-            const newUserProfile: any = { id: firebaseUser.uid, username, displayName, email: firebaseUser.email || '', emailVerified: firebaseUser.emailVerified, avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`, bio: isAnonymous ? 'Just visiting!' : 'New to DVHIDEOUT!', messagingPreference: 'everyone', level: 1, xp: 0, achievements: [], notificationSettings: { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false }, followersCount: 0, followingCount: 0, followingIds: [], closeFriendIds: [], fcmTokens: [], readingList: [], readerSettings: { swipeToNavigate: true, navigationStyle: 'horizontal', autoNextChapter: false }, isAnonymous, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+            const newUserProfile: any = { id: firebaseUser.uid, username, displayName, email: firebaseUser.email || '', emailVerified: firebaseUser.emailVerified, avatarUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${displayName.charAt(0).toUpperCase()}`, bio: isAnonymous ? 'Just visiting!' : 'New to DVHIDEOUT!', messagingPreference: 'everyone', privacySettings: { lastSeen: 'everyone', onlineStatus: 'everyone', profilePhoto: 'everyone', stories: 'everyone', readReceipts: true }, level: 1, xp: 0, achievements: [], notificationSettings: { emailOnNewFollower: true, emailOnCommentReply: true, emailOnNewLetter: true, emailOnNews: false }, followersCount: 0, followingCount: 0, followingIds: [], closeFriendIds: [], fcmTokens: [], readingList: [], readerSettings: { swipeToNavigate: true, navigationStyle: 'horizontal', autoNextChapter: false }, isAnonymous, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
             setDoc(userRef, newUserProfile, { merge: true }).catch(async (serverError) => {
                 errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'create', requestResourceData: newUserProfile }));
             });
@@ -338,7 +342,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUnreadConversationsCount(count);
         });
 
-        getRedirectResult(auth).then((result) => { if (result) showIsland({ title: "Welcome back!", type: 'success' }); }).catch(console.error);
+        getRedirectResult(auth).then((result) => { if (result) showIsland({ title: "Archival Access Restored", type: 'success' }); }).catch(console.error);
       } else {
         setUser(null);
         setLoading(false);
@@ -358,7 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [handleAchievementUnlock, toast, showIsland, addSavedAccount]);
 
   useEffect(() => {
-    if (loading || authLoading) return;
+    if (loading || authLoading || isSwitchingIdentities) return;
     const isAuthRoute = AUTH_PAGES.includes(pathname);
     const isAuthenticated = user && !user.isAnonymous;
     
@@ -373,7 +377,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push(DEFAULT_LOGIN_PATH);
         }
     }
-  }, [user, loading, authLoading, pathname, router, searchParams]);
+  }, [user, loading, authLoading, pathname, router, searchParams, isSwitchingIdentities]);
 
   const addNotification = useCallback(async (notificationData: Omit<NotificationType, 'id' | 'timestamp' | 'isRead'>) => {
     const newNotifData = { ...notificationData, timestamp: serverTimestamp(), isRead: false };
@@ -429,7 +433,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     provider.setCustomParameters({ prompt: 'select_account' });
     try {
       await signInWithPopup(auth, provider);
-      showIsland({ title: "Authenticated", type: 'success' });
+      showIsland({ title: "Verified", type: 'success' });
     } catch (error: any) {
       if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
         try { await signInWithRedirect(auth, provider); } catch (redirectError: any) {
@@ -451,7 +455,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email, 
         password: passwordOne 
       });
-      showIsland({ title: "Account Created", type: 'success' });
+      showIsland({ title: "Identity Formed", description: `Welcome, @${username}`, type: 'success' });
     } catch (error: any) {
       toast({ title: "Sign Up Error", description: error.message, variant: "destructive" });
     } finally { setAuthLoading(false); }
@@ -469,7 +473,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email = snapshot.docs[0].data().email;
             username = snapshot.docs[0].data().username;
         }
-        else throw new Error("No user found with that handle.");
+        else throw new Error("No creator found with that handle.");
       }
       const res = await firebaseSignInWithEmailAndPassword(auth, email, passwordOne);
       addSavedAccount({ 
@@ -478,7 +482,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email, 
         password: passwordOne 
       });
-      showIsland({ title: "Welcome back!", type: 'success' });
+      showIsland({ title: "Archives Restored", type: 'success' });
     } catch (error: any) {
       toast({ title: "Sign In Error", description: error.message, variant: "destructive" });
     } finally { setAuthLoading(false); }
@@ -498,7 +502,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSavedAccounts([]);
       }
       router.push('/auth/signin');
-      showIsland({ title: "Signed out", type: 'info' });
+      showIsland({ title: "Session terminated", type: 'info' });
     } catch (error) { console.error(error); } finally { setAuthLoading(false); }
   }, [user, router, showIsland]);
 
@@ -519,7 +523,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             commentsSnapshot.forEach(d => batch.update(d.ref, { user: newSummary }));
             await batch.commit();
         }
-        showIsland({ title: "Profile updated", type: 'success' });
+        showIsland({ title: "Identity recalibrated", type: 'success' });
     } catch (serverError: any) {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update', requestResourceData: updateData }));
     }
@@ -532,7 +536,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await reauthenticateWithCredential(auth.currentUser, credential);
       await updateFirebaseEmail(auth.currentUser, newEmail);
       await updateUserProfile({ email: newEmail });
-      showIsland({ title: "Email updated", type: 'success' });
+      showIsland({ title: "Signal email updated", type: 'success' });
       return true;
     } catch (error: any) {
       toast({ title: "Update failed", description: error.message, variant: "destructive" });
@@ -546,7 +550,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await reauthenticateWithCredential(auth.currentUser, credential);
       await updateFirebasePassword(auth.currentUser, newPasswordVal);
-      showIsland({ title: "Password updated", type: 'success' });
+      showIsland({ title: "Access code updated", type: 'success' });
       return true;
     } catch (error: any) {
       toast({ title: "Update failed", description: error.message, variant: "destructive" });
@@ -557,7 +561,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sendPasswordResetFirebase = useCallback(async (email: string) => {
     try {
       await sendPasswordResetEmail(auth, email);
-      showIsland({ title: "Reset link sent", type: 'info' });
+      showIsland({ title: "Reset signal emitted", type: 'info' });
       return true;
     } catch (error: any) {
       toast({ title: "Action failed", description: error.message, variant: "destructive" });
@@ -576,11 +580,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await addNotification({
               userId: targetUserId,
               type: 'new_follower',
-              message: `started following you.`,
+              message: `began tracking your archive.`,
               link: `/profile/${user.id}`,
               actor: { id: user.id, username: user.username, displayName: user.displayName || user.username, avatarUrl: user.avatarUrl }
           });
-          showIsland({ title: "Following", type: 'success' });
+          showIsland({ title: "Archive connected", type: 'success' });
       })
       .catch(async (error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `users/${targetUserId}`, operation: 'update' }));
@@ -593,7 +597,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     batch.update(doc(db, 'users', user.id), { followingIds: arrayRemove(targetUserId) });
     batch.update(doc(db, 'users', targetUserId), { followersCount: increment(-1) });
     batch.commit()
-      .then(() => showIsland({ title: "Unfollowed", type: 'info' }))
+      .then(() => showIsland({ title: "Signal severed", type: 'info' }))
       .catch(async (error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `users/${targetUserId}`, operation: 'update' }));
       });
@@ -603,7 +607,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const item: ReadingListItem = { id: story.id, title: story.title, author: story.author, chapters: story.chapters, lastUpdated: story.lastUpdated, coverImageUrl: story.coverImageUrl, status: story.status };
     updateDoc(doc(db, 'users', user.id), { readingList: arrayUnion(item) })
-        .then(() => showIsland({ title: "Saved to Library", type: 'success' }))
+        .then(() => showIsland({ title: "Manuscript Archived", type: 'success' }))
         .catch(async (error) => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `users/${user.id}`, operation: 'update', requestResourceData: { readingList: 'arrayUnion' } }));
         });
@@ -614,7 +618,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const itemToRemove = user.readingList?.find(i => i.id === storyId);
     if (itemToRemove) {
         updateDoc(doc(db, 'users', user.id), { readingList: arrayRemove(itemToRemove) })
-            .then(() => showIsland({ title: "Removed from Library", type: 'info' }))
+            .then(() => showIsland({ title: "Archive entry removed", type: 'info' }))
             .catch(async (error) => {
                 errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `users/${user.id}`, operation: 'update', requestResourceData: { readingList: 'arrayRemove' } }));
             });
@@ -626,7 +630,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             await updateFirebasePassword(auth.currentUser, password);
             setRequiresPasswordSetup(false);
-            showIsland({ title: "Password complete", type: 'success' });
+            showIsland({ title: "Credentials finalized", type: 'success' });
             return true;
         } catch (error: any) {
             toast({ title: "Action failed", description: error.message, variant: "destructive" });

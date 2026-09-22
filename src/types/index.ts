@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type WritingStatus = 
@@ -225,6 +224,7 @@ export interface Message {
     isEdited?: boolean;
     deletedFor?: string[]; // Array of UIDs who deleted for themselves
     isPinned?: boolean;
+    isUnsent?: boolean;
 }
 
 export type ReactionType = 'like' | 'love' | 'haha' | 'sad' | 'angry' | 'happy';
@@ -297,6 +297,16 @@ export interface StatusUpdate {
     mediaTransform?: { scale: number; rotation: number; x: number; y: number };
     reactionsCount?: number;
     reactionCounts?: Record<string, number>;
+    textOverlayStyle?: {
+        font?: 'sans' | 'serif' | 'mono';
+        alignment?: 'left' | 'center' | 'right';
+        background?: 'none' | 'translucent' | 'solid';
+        color?: string;
+    };
+    textOverlayPosition?: { x: number, y: number };
+    textOverlayTransform?: { scale: number, rotation: number };
+    songUrl?: string;
+    spotifyUrl?: string;
 }
 
 export interface CarouselSlide {
@@ -307,4 +317,11 @@ export interface CarouselSlide {
     order: number;
     isActive: boolean;
     createdAt: any;
+}
+
+export interface TextOverlayStyle {
+    font: 'sans' | 'serif' | 'mono';
+    alignment: 'left' | 'center' | 'right';
+    background: 'none' | 'translucent' | 'solid';
+    color: string;
 }

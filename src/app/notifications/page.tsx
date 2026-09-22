@@ -42,9 +42,11 @@ import {
   Forward,
   Clock,
   Music,
-  Disc
+  Disc,
+  Link as LinkIcon,
+  Timer
 } from 'lucide-react';
-import { formatDistanceToNow, isToday, isThisWeek, format } from 'date-fns';
+import { formatDistanceToNow, isToday, isThisWeek, format, isYesterday } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType, Song } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -64,7 +66,8 @@ import {
   getDocs,
   deleteDoc,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  increment
 } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -115,6 +118,16 @@ const parseSafeDate = (timestamp: any): Date | null => {
     return isNaN(date.getTime()) ? null : date;
 };
 
+const formatPreciseTimestamp = (timestamp: any) => {
+    const date = parseSafeDate(timestamp);
+    if (!date) return '';
+    const now = new Date();
+    if (isToday(date)) return format(date, 'h:mm a');
+    if (isYesterday(date)) return 'Yesterday ' + format(date, 'h:mm a');
+    if (isThisWeek(date)) return format(date, 'EEEE h:mm a');
+    return format(date, 'MMM d, yyyy, h:mm a');
+};
+
 const CHAT_THEMES = [
     { name: 'Classic', color: 'hsl(var(--primary))' },
     { name: 'Rose', color: '#f43f5e' },
@@ -123,6 +136,8 @@ const CHAT_THEMES = [
     { name: 'Amber', color: '#f59e0b' },
     { name: 'Violet', color: '#8b5cf6' },
 ];
+
+const REACTION_OPTIONS = ['❤️', '👍', '😂', '😮', '😢', '😡', '🔥', '✨'];
 
 function NotificationsList() {
     const { user, notifications, markNotificationAsRead, markAllNotificationsAsRead } = useAuth();
@@ -284,14 +299,15 @@ function MessagesClient() {
   const [otherUserTyping, setOtherUserTyping] = useState<boolean>(false);
   
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [viewMode, setViewMode] = useState<'chat' | 'media'>('chat');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -345,11 +361,10 @@ function MessagesClient() {
   useEffect(() => {
     if (!activeConversation?.id) { setMessages([]); return; }
     setIsLoadingMessages(true);
-    const q = query(collection(db, 'conversations', activeConversation.id, 'messages'), orderBy('timestamp', 'asc'), limit(100));
+    const q = query(collection(db, 'conversations', activeConversation.id, 'messages'), orderBy('timestamp', 'asc'), limit(200));
     const unsub = onSnapshot(q, 
       (snapshot) => {
         const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
-        // Filter out messages deleted for me locally
         setMessages(fetched.filter(m => !m.deletedFor?.includes(currentUser?.id || '')));
         setIsLoadingMessages(false);
       },
@@ -368,6 +383,7 @@ function MessagesClient() {
   const handleSelectConversation = (conversation: Conversation) => {
     setActiveConversation(conversation);
     setMobileView('chat');
+    setViewMode('chat');
     setReplyingTo(null);
     setEditingMessage(null);
   };
@@ -416,7 +432,8 @@ function MessagesClient() {
       mediaUrl: mediaUrl || null,
       replyTo: replyingTo ? { id: replyingTo.id, content: replyingTo.content, username: activeConversation.participantInfo[replyingTo.senderId].username } : null,
       reactions: {},
-      deletedFor: []
+      deletedFor: [],
+      isPinned: false
     };
 
     const convRef = doc(db, 'conversations', activeConversation.id);
@@ -452,6 +469,12 @@ function MessagesClient() {
     updateDoc(messageRef, { [`reactions.${currentUser.id}`]: emoji }).catch(() => {});
   };
 
+  const handleTogglePinMessage = async (message: Message) => {
+    if (!activeConversation) return;
+    const messageRef = doc(db, 'conversations', activeConversation.id, 'messages', message.id);
+    updateDoc(messageRef, { isPinned: !message.isPinned }).then(() => toast({ title: message.isPinned ? "Message unpinned" : "Message pinned" }));
+  };
+
   const handleSetTheme = async (color: string) => {
     if (!activeConversation) return;
     updateDoc(doc(db, 'conversations', activeConversation.id), { themeColor: color })
@@ -484,6 +507,11 @@ function MessagesClient() {
       if (!activeConversation || !currentUser) return;
       const result = await unsendMessage(activeConversation.id, messageId, currentUser.id);
       if (result.success) toast({ title: "Message unsent" });
+  };
+
+  const handleForward = (content: string) => {
+    setNewMessageContent(content);
+    toast({ title: "Message copied to draft" });
   };
 
   const getOtherParticipant = (conversation: Conversation): AppUserType | undefined => {
@@ -539,6 +567,13 @@ function MessagesClient() {
     setIsNewConversationDialogOpen(false);
   };
 
+  const handleThreadLongPress = (conv: Conversation) => {
+    if (window.navigator.vibrate) window.navigator.vibrate(50);
+    // This is triggered by a 5s hold. In prototyping we use a context menu or similar.
+    // For this implementation, the DropdownMenu already handles the "interior options".
+    // We strictly ensure regular tap opens the chat.
+  };
+
   const filteredMessages = useMemo(() => {
     if (!chatSearch.trim()) return messages;
     const term = chatSearch.toLowerCase();
@@ -553,6 +588,9 @@ function MessagesClient() {
         return other?.username.toLowerCase().includes(term) || other?.displayName?.toLowerCase().includes(term);
     });
   }, [conversations, sidebarSearch, currentUser]);
+
+  const pinnedMessages = messages.filter(m => m.isPinned);
+  const mediaMessages = messages.filter(m => m.type === 'image' || m.mediaUrl);
 
   return (
     <div className="flex h-[calc(100vh-14rem)] md:h-[800px] border-none sm:border rounded-none sm:rounded-[2rem] bg-card sm:shadow-3xl overflow-hidden mb-10 border-border/40 w-full max-w-7xl mx-auto transform-gpu">
@@ -624,6 +662,13 @@ function MessagesClient() {
                                 <DropdownMenuTrigger asChild>
                                     <div 
                                         onClick={() => handleSelectConversation(conv)}
+                                        onPointerDown={(e) => {
+                                            longPressTimerRef.current = setTimeout(() => {
+                                                handleThreadLongPress(conv);
+                                            }, 5000); // STRICT 5 SECOND HOLD
+                                        }}
+                                        onPointerUp={() => clearTimeout(longPressTimerRef.current!)}
+                                        onPointerLeave={() => clearTimeout(longPressTimerRef.current!)}
                                         className={cn(
                                             "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative transform-gpu active:scale-[0.98]",
                                             isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'hover:bg-muted/50'
@@ -661,6 +706,14 @@ function MessagesClient() {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => toggleIgnoreThread(conv.id, currentUser!.id, true)} className="gap-2 rounded-xl text-destructive">
                                         <BellOff className="h-4 w-4" /> Ignore
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive font-bold" onClick={() => {
+                                        if(confirm("Erase thread archive?")) {
+                                            deleteDoc(doc(db, 'conversations', conv.id));
+                                        }
+                                    }}>
+                                        <Trash2 className="h-4 w-4 mr-2" /> Delete Thread
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -702,15 +755,9 @@ function MessagesClient() {
                             </div>
                         </div>
                         <div className="flex items-center gap-1">
-                            <div className="relative group/search hidden sm:block">
-                                <Input 
-                                    placeholder="Find..." 
-                                    value={chatSearch} 
-                                    onChange={e => setChatSearch(e.target.value)} 
-                                    className="w-32 h-8 rounded-full bg-muted/40 border-none text-[10px] pr-8 focus:w-48 transition-all"
-                                />
-                                <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => setViewMode(viewMode === 'chat' ? 'media' : 'chat')} className="rounded-full font-bold text-[10px] uppercase tracking-widest">
+                                {viewMode === 'chat' ? 'Media' : 'Back to Chat'}
+                            </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><MoreHorizontal className="h-5 w-5" /></Button>
@@ -754,131 +801,185 @@ function MessagesClient() {
                         </div>
                     </header>
                     
-                    <ScrollArea className="flex-1 p-6">
-                        <div className="flex flex-col gap-1.5 pb-10">
-                            {filteredMessages.map((msg, index) => {
-                                const isMe = msg.senderId === currentUser?.id;
-                                const isNextSame = messages[index + 1]?.senderId === msg.senderId;
-                                const date = parseSafeDate(msg.timestamp);
+                    {viewMode === 'chat' ? (
+                        <>
+                            <ScrollArea className="flex-1 p-6">
+                                <div className="flex flex-col gap-1.5 pb-10">
+                                    {pinnedMessages.length > 0 && (
+                                        <div className="mb-6 p-3 bg-primary/5 border border-primary/10 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-primary mb-2 flex items-center gap-1.5"><Pin className="h-3 w-3 fill-current" /> Pinned Messages</p>
+                                            <div className="space-y-2">
+                                                {pinnedMessages.map(m => (
+                                                    <div key={m.id} className="text-xs truncate italic text-muted-foreground bg-background/50 p-2 rounded-xl">"{m.content}"</div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {filteredMessages.map((msg, index) => {
+                                        const isMe = msg.senderId === currentUser?.id;
+                                        const isNextSame = messages[index + 1]?.senderId === msg.senderId;
+                                        const date = parseSafeDate(msg.timestamp);
+                                        const showDateHeader = index === 0 || (date && parseSafeDate(messages[index-1]?.timestamp) && date.getTime() - parseSafeDate(messages[index-1].timestamp)!.getTime() > 30 * 60 * 1000);
 
-                                return (
-                                    <div key={msg.id} className={cn(
-                                        "flex flex-col max-w-[85%] sm:max-w-[70%] group animate-in slide-in-from-bottom-2 duration-300",
-                                        isMe ? "self-end items-end" : "self-start items-start",
-                                        !isNextSame && "mb-4"
-                                    )}>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <div className={cn(
-                                                    "p-4 text-sm shadow-sm transition-all transform-gpu hover:scale-[1.01] relative cursor-pointer",
-                                                    isMe ? "text-white rounded-2xl rounded-br-lg" : "bg-muted text-foreground rounded-2xl rounded-bl-lg",
-                                                )} style={{ backgroundColor: isMe ? (activeConversation.themeColor || 'hsl(var(--primary))') : undefined }}>
-                                                    {msg.replyTo && (
-                                                        <div className="bg-black/20 p-2 px-3 rounded-xl text-[10px] mb-2 border border-white/10 italic truncate">
-                                                            <Quote className="h-2 w-2 inline mr-1" />
-                                                            {msg.replyTo.content}
-                                                        </div>
-                                                    )}
-                                                    {msg.type === 'image' && msg.mediaUrl && (
-                                                        <div className="relative w-48 h-48 rounded-2xl overflow-hidden mb-2 shadow-lg border border-white/10">
-                                                            <NextImage src={msg.mediaUrl} alt="Visual" fill className="object-cover" />
-                                                        </div>
-                                                    )}
-                                                    <p className="whitespace-pre-line leading-relaxed">{msg.content}</p>
-                                                    <div className="flex items-center justify-between gap-4 mt-1 opacity-40 group-hover:opacity-100 transition-opacity">
-                                                        <span className="text-[8px] font-black uppercase tracking-widest">{date ? format(date, 'h:mm a') : '...'}</span>
-                                                        {msg.isEdited && <span className="text-[8px] font-black uppercase tracking-widest italic">Edited</span>}
-                                                    </div>
-                                                    {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                                                        <div className="absolute -bottom-2 right-0 flex gap-0.5 bg-background border border-border/40 rounded-full px-1.5 py-0.5 shadow-xl scale-90">
-                                                            {Array.from(new Set(Object.values(msg.reactions))).map((e, i) => <span key={i} className="text-xs">{e}</span>)}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent className="rounded-2xl border-none shadow-3xl p-1 bg-background/95 backdrop-blur-3xl">
-                                                <div className="flex gap-1 p-2 border-b border-white/5">
-                                                    {['❤️', '👍', '😂', '😮', '😢', '😡'].map(e => (
-                                                        <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-9 w-9 hover:scale-125 transition-transform flex items-center justify-center text-xl">{e}</button>
-                                                    ))}
-                                                </div>
-                                                <DropdownMenuItem onClick={() => setReplyingTo(msg)} className="gap-2 rounded-xl">
-                                                    <Reply className="h-4 w-4" /> Reply
-                                                </DropdownMenuItem>
-                                                {isMe && (
-                                                    <>
-                                                        <DropdownMenuItem onClick={() => { setEditingMessage(msg); setNewMessageContent(msg.content); }} className="gap-2 rounded-xl">
-                                                            <Edit3 className="h-4 w-4" /> Edit
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleUnsend(msg.id)} className="gap-2 rounded-xl text-destructive">
-                                                            <X className="h-4 w-4" /> Unsend
-                                                        </DropdownMenuItem>
-                                                    </>
+                                        return (
+                                            <div key={msg.id} className={cn(
+                                                "flex flex-col max-w-[85%] sm:max-w-[70%] group animate-in slide-in-from-bottom-2 duration-300",
+                                                isMe ? "self-end items-end" : "self-start items-start",
+                                                !isNextSame && "mb-4"
+                                            )}>
+                                                {showDateHeader && date && (
+                                                    <div className="self-center my-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">{formatPreciseTimestamp(msg.timestamp)}</div>
                                                 )}
-                                                <DropdownMenuItem onClick={() => handleDeleteForMe(msg.id)} className="gap-2 rounded-xl text-destructive">
-                                                    <Trash2 className="h-4 w-4" /> Remove for me
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                );
-                            })}
-                            <div ref={messagesEndRef} />
-                        </div>
-                    </ScrollArea>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <div className={cn(
+                                                            "p-4 text-sm shadow-sm transition-all transform-gpu hover:scale-[1.01] relative cursor-pointer",
+                                                            isMe ? "text-white rounded-2xl rounded-br-lg" : "bg-muted text-foreground rounded-2xl rounded-bl-lg",
+                                                            msg.isUnsent && "italic opacity-60 bg-muted/40 text-muted-foreground"
+                                                        )} style={{ backgroundColor: (!isMe || msg.isUnsent) ? undefined : (activeConversation.themeColor || 'hsl(var(--primary))') }}>
+                                                            {msg.replyTo && (
+                                                                <div className="bg-black/20 p-2 px-3 rounded-xl text-[10px] mb-2 border border-white/10 italic truncate">
+                                                                    <Quote className="h-2 w-2 inline mr-1" />
+                                                                    {msg.replyTo.content}
+                                                                </div>
+                                                            )}
+                                                            {msg.type === 'image' && msg.mediaUrl && (
+                                                                <div className="relative w-48 h-48 rounded-2xl overflow-hidden mb-2 shadow-lg border border-white/10">
+                                                                    <NextImage src={msg.mediaUrl} alt="Visual" fill className="object-cover" />
+                                                                </div>
+                                                            )}
+                                                            <p className="whitespace-pre-line leading-relaxed">{msg.isUnsent ? 'Message unsent' : msg.content}</p>
+                                                            {!msg.isUnsent && (
+                                                                <div className="flex items-center justify-between gap-4 mt-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                                                                    <span className="text-[8px] font-black uppercase tracking-widest">{date ? format(date, 'h:mm a') : '...'}</span>
+                                                                    {msg.isEdited && <span className="text-[8px] font-black uppercase tracking-widest italic">Edited</span>}
+                                                                    {msg.isPinned && <Pin className="h-2.5 w-2.5 fill-current" />}
+                                                                </div>
+                                                            )}
+                                                            {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                                                                <div className="absolute -bottom-2 right-0 flex gap-0.5 bg-background border border-border/40 rounded-full px-1.5 py-0.5 shadow-xl scale-90">
+                                                                    {Array.from(new Set(Object.values(msg.reactions))).map((e, i) => <span key={i} className="text-xs">{e}</span>)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent className="rounded-2xl border-none shadow-3xl p-1 bg-background/95 backdrop-blur-3xl">
+                                                        <div className="flex gap-1 p-2 border-b border-white/5">
+                                                            {REACTION_OPTIONS.map(e => (
+                                                                <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-9 w-9 hover:scale-125 transition-transform flex items-center justify-center text-xl">{e}</button>
+                                                            ))}
+                                                        </div>
+                                                        <DropdownMenuItem onClick={() => setReplyingTo(msg)} className="gap-2 rounded-xl">
+                                                            <Reply className="h-4 w-4" /> Reply
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleForward(msg.content)} className="gap-2 rounded-xl">
+                                                            <Forward className="h-4 w-4" /> Forward
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleTogglePinMessage(msg)} className="gap-2 rounded-xl">
+                                                            <Pin className="h-4 w-4" /> {msg.isPinned ? 'Unpin' : 'Pin'}
+                                                        </DropdownMenuItem>
+                                                        {isMe && !msg.isUnsent && (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => { setEditingMessage(msg); setNewMessageContent(msg.content); }} className="gap-2 rounded-xl">
+                                                                    <Edit3 className="h-4 w-4" /> Edit
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleUnsend(msg.id)} className="gap-2 rounded-xl text-destructive">
+                                                                    <X className="h-4 w-4" /> Unsend
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                        <DropdownMenuItem onClick={() => handleDeleteForMe(msg.id)} className="gap-2 rounded-xl text-destructive">
+                                                            <Trash2 className="h-4 w-4" /> Remove for me
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
+                                        );
+                                    })}
+                                    <div ref={messagesEndRef} />
+                                </div>
+                            </ScrollArea>
 
-                    <footer className="p-4 border-t bg-card/40 backdrop-blur-xl relative transform-gpu">
-                        {replyingTo && (
-                            <div className="absolute bottom-full left-0 right-0 bg-muted/90 backdrop-blur-xl p-3 px-6 flex items-center justify-between border-t animate-in slide-in-from-bottom-2 duration-300">
-                                <div className="truncate">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-primary">Replying to @{activeConversation.participantInfo[replyingTo.senderId].username}</p>
-                                    <p className="text-xs text-muted-foreground truncate italic">"{replyingTo.content}"</p>
-                                </div>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/10" onClick={() => setReplyingTo(null)}><X className="h-3 w-3"/></Button>
-                            </div>
-                        )}
-                        {editingMessage && (
-                             <div className="absolute bottom-full left-0 right-0 bg-primary/10 backdrop-blur-xl p-3 px-6 flex items-center justify-between border-t animate-in slide-in-from-bottom-2 duration-300">
-                                <div className="truncate">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-primary">Editing Message</p>
-                                </div>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/10" onClick={() => { setEditingMessage(null); setNewMessageContent(''); }}><X className="h-3 w-3"/></Button>
-                            </div>
-                        )}
-                        
-                        <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center gap-3 w-full">
-                            <div className="flex shrink-0 gap-1">
-                                <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => mediaInputRef.current?.click()} disabled={isSendingMessage}><ImageIcon className="h-5 w-5" /></Button>
-                                <input type="file" ref={mediaInputRef} className="hidden" accept="image/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
-                                <Button type="button" variant="ghost" size="icon" className={cn("h-10 w-10 rounded-full text-primary", isRecording && "bg-red-500 text-white animate-pulse")} onClick={() => setIsRecording(!isRecording)}><Mic className="h-5 w-5" /></Button>
-                            </div>
-                            
-                            <div className="flex-1 relative group">
-                                {imageFile && (
-                                    <div className="absolute bottom-full mb-3 left-0 p-2 bg-background border border-border/40 rounded-2xl shadow-3xl flex items-center gap-2 animate-in zoom-in-95">
-                                        <div className="relative w-14 h-14 rounded-xl overflow-hidden"><NextImage src={URL.createObjectURL(imageFile)} alt="Preview" fill className="object-cover"/></div>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-muted/40" onClick={() => setImageFile(null)}><X className="h-3 w-3"/></Button>
+                            <footer className="p-4 border-t bg-card/40 backdrop-blur-xl relative transform-gpu">
+                                {replyingTo && (
+                                    <div className="absolute bottom-full left-0 right-0 bg-muted/90 backdrop-blur-xl p-3 px-6 flex items-center justify-between border-t animate-in slide-in-from-bottom-2 duration-300">
+                                        <div className="truncate">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-primary">Replying to @{activeConversation.participantInfo[replyingTo.senderId].username}</p>
+                                            <p className="text-xs text-muted-foreground truncate italic">"{replyingTo.content}"</p>
+                                        </div>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/10" onClick={() => setReplyingTo(null)}><X className="h-3 w-3"/></Button>
                                     </div>
                                 )}
-                                <Input 
-                                    placeholder={editingMessage ? "Save edit..." : "Archive your thought..."} 
-                                    className="h-12 bg-background/50 border-none rounded-2xl shadow-inner px-5 focus-visible:ring-primary/40 text-sm" 
-                                    value={newMessageContent} 
-                                    onChange={(e) => {
-                                        setNewMessageContent(e.target.value);
-                                        if (activeConversation && currentUser) {
-                                            const r = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
-                                            if (e.target.value.trim()) set(r, true); else remove(r);
-                                        }
-                                    }} 
-                                />
+                                {editingMessage && (
+                                     <div className="absolute bottom-full left-0 right-0 bg-primary/10 backdrop-blur-xl p-3 px-6 flex items-center justify-between border-t animate-in slide-in-from-bottom-2 duration-300">
+                                        <div className="truncate">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-primary">Editing Message</p>
+                                        </div>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/10" onClick={() => { setEditingMessage(null); setNewMessageContent(''); }}><X className="h-3 w-3"/></Button>
+                                    </div>
+                                )}
+                                
+                                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center gap-3 w-full">
+                                    <div className="flex shrink-0 gap-1">
+                                        <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => mediaInputRef.current?.click()} disabled={isSendingMessage}><ImageIcon className="h-5 w-5" /></Button>
+                                        <input type="file" ref={mediaInputRef} className="hidden" accept="image/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
+                                    </div>
+                                    
+                                    <div className="flex-1 relative group">
+                                        {imageFile && (
+                                            <div className="absolute bottom-full mb-3 left-0 p-2 bg-background border border-border/40 rounded-2xl shadow-3xl flex items-center gap-2 animate-in zoom-in-95">
+                                                <div className="relative w-14 h-14 rounded-xl overflow-hidden"><NextImage src={URL.createObjectURL(imageFile)} alt="Preview" fill className="object-cover"/></div>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-muted/40" onClick={() => setImageFile(null)}><X className="h-3 w-3"/></Button>
+                                            </div>
+                                        )}
+                                        <Input 
+                                            placeholder={editingMessage ? "Save edit..." : "Archive your thought..."} 
+                                            className="h-12 bg-background/50 border-none rounded-2xl shadow-inner px-5 focus-visible:ring-primary/40 text-sm" 
+                                            value={newMessageContent} 
+                                            onChange={(e) => {
+                                                setNewMessageContent(e.target.value);
+                                                if (activeConversation && currentUser) {
+                                                    const r = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
+                                                    if (e.target.value.trim()) set(r, true); else remove(r);
+                                                }
+                                            }} 
+                                        />
+                                    </div>
+                                    
+                                    <Button type="submit" disabled={isSendingMessage || (!newMessageContent.trim() && !imageFile)} className="rounded-full h-12 w-12 bg-primary shadow-xl shadow-primary/30 shrink-0 transform-gpu active:scale-90" style={{ background: activeConversation.themeColor }}>
+                                        {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                                    </Button>
+                                </form>
+                            </footer>
+                        </>
+                    ) : (
+                        <ScrollArea className="flex-1 p-6">
+                            <div className="space-y-8 pb-20">
+                                <div className="space-y-4">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">Visual Gallery</h4>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {mediaMessages.map(m => (
+                                            <div key={m.id} className="relative aspect-square rounded-xl overflow-hidden border border-border/40 bg-muted">
+                                                <NextImage src={m.mediaUrl!} alt="Archive" fill className="object-cover" />
+                                            </div>
+                                        ))}
+                                        {mediaMessages.length === 0 && <p className="col-span-3 text-center py-10 text-xs italic text-muted-foreground">No visuals archived yet.</p>}
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">Archived Songs</h4>
+                                    <div className="grid gap-2">
+                                        {messages.filter(m => m.songUrl).map(m => (
+                                            <div key={m.id} className="rounded-xl border border-border/40 p-2 bg-muted/20">
+                                                <SpotifyPlayer trackUrl={m.songUrl} />
+                                            </div>
+                                        ))}
+                                        {messages.filter(m => m.songUrl).length === 0 && <p className="text-center py-10 text-xs italic text-muted-foreground">No tracks shared.</p>}
+                                    </div>
+                                </div>
                             </div>
-                            
-                            <Button type="submit" disabled={isSendingMessage || (!newMessageContent.trim() && !imageFile)} className="rounded-full h-12 w-12 bg-primary shadow-xl shadow-primary/30 shrink-0 transform-gpu active:scale-90" style={{ background: activeConversation.themeColor }}>
-                                {isSendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-                            </Button>
-                        </form>
-                    </footer>
+                        </ScrollArea>
+                    )}
                 </>
             ) : (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 opacity-20 transform-gpu animate-in fade-in duration-1000">
