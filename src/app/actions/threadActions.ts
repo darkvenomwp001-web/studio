@@ -139,3 +139,25 @@ export async function editSentMessage(threadId: string, messageId: string, userI
         return { success: false, error: e.message };
     }
 }
+
+/**
+ * Update a thread post content (feed posts).
+ */
+export async function updateThreadPost(postId: string, newContent: string, userId: string) {
+    if (!userId) return { success: false, error: 'Auth required' };
+    const ref = doc(db, 'feedPosts', postId);
+    try {
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return { success: false, error: 'Post not found' };
+        if (snap.data().author.id !== userId) return { success: false, error: 'Unauthorized' };
+        
+        await updateDoc(ref, {
+            content: newContent,
+            updatedAt: serverTimestamp()
+        });
+        revalidatePath('/');
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
