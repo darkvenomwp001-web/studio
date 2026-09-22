@@ -10,6 +10,7 @@ import Link from 'next/link';
 /**
  * OfflineOverlay - A high-fidelity signal interruption node.
  * Appears globally when navigator.onLine is false, except on the Library page.
+ * Provides a Wattpad-style immersive transition into offline archival mode.
  */
 export default function OfflineOverlay() {
     const [isOffline, setIsOffline] = useState(false);
@@ -24,7 +25,7 @@ export default function OfflineOverlay() {
         window.addEventListener('offline', handleOffline);
 
         // Initial check
-        if (!navigator.onLine) setIsOffline(true);
+        if (typeof navigator !== 'undefined' && !navigator.onLine) setIsOffline(true);
 
         return () => {
             window.removeEventListener('online', handleOnline);
@@ -48,7 +49,7 @@ export default function OfflineOverlay() {
             </div>
 
             <div className="max-w-md w-full space-y-10 text-center relative">
-                <div className="relative inline-block">
+                <div className="relative inline-block scale-90 sm:scale-100 transition-transform">
                     <div className="p-8 rounded-[2.5rem] bg-card border border-border/40 shadow-2xl transform-gpu transition-all">
                         <WifiOff className="h-16 w-16 text-muted-foreground/30 mx-auto mb-2 animate-pulse" />
                         <div className="absolute -top-2 -right-2 p-2 bg-destructive text-white rounded-full shadow-lg ring-4 ring-background">
@@ -65,9 +66,9 @@ export default function OfflineOverlay() {
                 </div>
 
                 <div className="grid gap-4 pt-4">
-                    <Link href="/library">
+                    <Link href="/library" className="w-full">
                         <Button 
-                            className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-primary/20 gap-3 group"
+                            className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-primary/20 gap-3 group transition-all active:scale-95"
                         >
                             <Database className="h-4 w-4 group-hover:scale-110 transition-transform" />
                             Access Offline Library
@@ -77,7 +78,7 @@ export default function OfflineOverlay() {
                     
                     <Button 
                         variant="ghost" 
-                        className="w-full h-14 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] gap-2 border border-transparent hover:bg-muted/50"
+                        className="w-full h-14 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] gap-2 border border-transparent hover:bg-muted/50 transition-all"
                         onClick={() => window.location.reload()}
                     >
                         <RefreshCw className="h-4 w-4" />

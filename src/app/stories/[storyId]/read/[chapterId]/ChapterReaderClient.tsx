@@ -87,7 +87,8 @@ import {
   Scaling,
   MousePointer,
   Tally3,
-  ShieldAlert
+  ShieldAlert,
+  WifiOff
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -145,6 +146,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [accessReason, setAccessReason] = useState<'locked' | 'scheduled' | 'exclusive' | 'none'>('none');
   const [isVoting, setIsVoting] = useState(false);
   const [activeReaders, setActiveReaders] = useState(1);
+  const [isOffline, setIsOffline] = useState(false);
 
   // Disclaimer System State
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
@@ -200,6 +202,18 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     content: '',
     editable: false,
   });
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    setIsOffline(!navigator.onLine);
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (editor && currentChapter) {
@@ -275,7 +289,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   // STRICT VIEW COUNT SYSTEM (24-Hour Check)
   useEffect(() => {
-    if (!story?.id || !currentChapter?.id || !isAccessGranted) return;
+    if (!story?.id || !currentChapter?.id || !isAccessGranted || isOffline) return;
 
     const now = Date.now();
     const twentyFourHours = 24 * 60 * 60 * 1000;
@@ -318,7 +332,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             errorEmitter.emit('permission-error', permissionError);
         });
     }
-  }, [story?.id, currentChapter?.id, isAccessGranted]);
+  }, [story?.id, currentChapter?.id, isAccessGranted, isOffline]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -340,7 +354,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   const sortedChapters = useMemo(() => {
       if (!story) return [];
-      return [...story.chapters].sort((a,b)=>a.order - b.order);
+      return [...story.chapters].sort((a,b) => a.order - b.order);
   }, [story]);
 
   const nextChapterId = useMemo(() => {
@@ -412,6 +426,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   }, [autoScrollSpeed]);
 
   useEffect(() => {
+    if (isOffline) return;
     const statusRef = ref(rtdb, 'status');
     const unsubscribe = onValue(statusRef, (snapshot) => {
         const data = snapshot.val() || {};
@@ -422,7 +437,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         setActiveReaders(Math.max(1, readers));
     });
     return () => unsubscribe();
-  }, [pathname]);
+  }, [pathname, isOffline]);
 
   useEffect(() => {
     if (!storyId || !chapterId) { setIsLoading(false); return; }
@@ -476,7 +491,10 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   };
 
   const handleVoteClick = async () => {
-    if (!currentUser || !story || !currentChapter || isVoting) return;
+    if (!currentUser || !story || !currentChapter || isVoting || isOffline) {
+        if (isOffline) toast({ title: "Offline", description: "Votes require a signal to sync." });
+        return;
+    }
     setIsVoting(true);
     if (isHapticFeedback && window.navigator.vibrate) window.navigator.vibrate(10);
     const wasVoting = currentChapter?.voterIds?.includes(currentUser.id) || false;
@@ -501,6 +519,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   const handleLibraryAction = () => {
     if (!story || !currentUser) { router.push('/auth/signin'); return; }
+    if (isOffline) { toast({ title: "Offline", description: "Archive changes require a signal." }); return; }
     if (isHapticFeedback && window.navigator.vibrate) window.navigator.vibrate(5);
     const isInLib = currentUser.readingList?.some(item => item && item.id === story.id);
     if (isInLib) removeFromLibrary(story.id);
@@ -523,7 +542,10 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   }, [editor, story?.id, currentChapter?.id, router]);
 
   const saveAnnotation = async () => {
-    if (!currentUser || !story || !currentChapter || !selectedText.trim()) return;
+    if (!currentUser || !story || !currentChapter || !selectedText.trim() || isOffline) {
+        if (isOffline) toast({ title: "Offline", description: "Highlights require a signal to sync." });
+        return;
+    }
     setIsSavingAnnotation(true);
     const annotationData: Omit<Annotation, 'id'> = {
         userId: currentUser.id,
@@ -628,8 +650,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         'fixed top-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl md:max-w-2xl bg-card/70 backdrop-blur-3xl border border-white/10 p-2.5 flex items-center justify-between transition-all duration-700 transform-gpu rounded-full shadow-2xl',
         controlsVisible && !isInteractionLocked ? 'translate-y-0 opacity-100' : '-translate-y-24 opacity-0 scale-95'
       )}>
-        <div className="flex items-center ml-1">
+        <div className="flex items-center ml-1 gap-1">
             <Link href="/" passHref><Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-primary/10"><Home className="h-5 w-5" /></Button></Link>
+            {isOffline && (
+                <div className="bg-destructive/10 text-destructive p-2 rounded-full border border-destructive/20 animate-pulse hidden xs:flex">
+                    <WifiOff className="h-3.5 w-3.5" />
+                </div>
+            )}
         </div>
         
         <div className="truncate text-center mx-2 flex-1 flex flex-col items-center">
@@ -895,7 +922,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
         {isAccessGranted ? (
             <div className="relative" onClick={handleManuscriptClick}>
-                {editor && (
+                {editor && !isOffline && (
                     <BubbleMenu 
                         editor={editor} 
                         shouldShow={({ editor }) => editor ? !editor.state.selection.empty : false}
@@ -909,7 +936,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 )}
                 <article className={articleClasses}>
                     <div className="text-center mb-20 space-y-4 px-6 animate-in slide-in-from-top-6 duration-1000">
-                        <Badge variant="outline" className="rounded-full px-5 py-1.5 font-black text-[10px] uppercase tracking-[0.4em] bg-primary/5 text-primary border-primary/20 shadow-sm">Part {currentChapter?.order}</Badge>
+                        <div className="flex items-center justify-center gap-3">
+                            <Badge variant="outline" className="rounded-full px-5 py-1.5 font-black text-[10px] uppercase tracking-[0.4em] bg-primary/5 text-primary border-primary/20 shadow-sm">Part {currentChapter?.order}</Badge>
+                            {isOffline && (
+                                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 gap-1.5 rounded-full px-3 py-1 font-black text-[8px] uppercase tracking-widest">
+                                    <WifiOff className="h-3 w-3" />
+                                    Offline
+                                </Badge>
+                            )}
+                        </div>
                         <h2 className="font-headline text-5xl md:text-8xl font-bold tracking-tighter leading-none text-foreground">{currentChapter?.title}</h2>
                         
                         <div className="flex items-center justify-center gap-8 mt-6 text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground/40 animate-in fade-in slide-in-from-top-4 duration-1000 delay-500">
@@ -944,18 +979,18 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             <Button variant="ghost" size="icon" className="h-12 w-12 md:h-14 md:w-14 rounded-full transition-all active:scale-90" onClick={() => prevChapterId && router.push(`/stories/${storyId}/read/${prevChapterId}`)} disabled={!prevChapterId}><ArrowLeft className="h-6 w-6" /></Button>
             
             <div className="flex items-center gap-1 bg-muted/40 rounded-full p-1 border border-white/5 shadow-inner">
-                <Button variant="ghost" size="sm" className="rounded-full h-10 md:h-12 px-5 gap-2.5 hover:bg-primary/10 hover:text-primary transition-all active:scale-95" onClick={handleVoteClick} disabled={isVoting}>
+                <Button variant="ghost" size="sm" className="rounded-full h-10 md:h-12 px-5 gap-2.5 hover:bg-primary/10 hover:text-primary transition-all active:scale-95" onClick={handleVoteClick} disabled={isVoting || isOffline}>
                     <ThumbsUp className={cn("h-5 w-5", currentChapter?.voterIds?.includes(currentUser?.id || '') && "fill-primary text-primary")} />
                     <span className="text-xs font-black">{formatCompactNumber(currentChapter?.votes || 0)}</span>
                 </Button>
-                <Link href={`/stories/${storyId}/read/${chapterId}/comments`} passHref>
-                    <Button variant="ghost" size="sm" className="rounded-full h-10 md:h-12 px-5 gap-2.5 hover:bg-primary/10 hover:text-primary transition-all active:scale-95">
+                <Link href={isOffline ? '#' : `/stories/${storyId}/read/${chapterId}/comments`} passHref onClick={(e) => isOffline && e.preventDefault()}>
+                    <Button variant="ghost" size="sm" className={cn("rounded-full h-10 md:h-12 px-5 gap-2.5 hover:bg-primary/10 hover:text-primary transition-all active:scale-95", isOffline && "opacity-50 cursor-not-allowed")}>
                         <MessageSquare className="h-5 w-5" />
                         <span className="text-xs font-black">{formatCompactNumber(currentChapter?.commentsCount || 0)}</span>
                     </Button>
                 </Link>
                 <div className="w-px h-6 bg-border/40 mx-1" />
-                <Button variant="ghost" size="icon" className={cn("rounded-full h-10 md:h-12 w-10 md:w-12 transition-all active:scale-95", isInLibrary ? "text-primary bg-primary/5" : "")} onClick={handleLibraryAction}>
+                <Button variant="ghost" size="icon" className={cn("rounded-full h-10 md:h-12 w-10 md:w-12 transition-all active:scale-95", isInLibrary ? "text-primary bg-primary/5" : "")} onClick={handleLibraryAction} disabled={isOffline}>
                     {isInLibrary ? <BookmarkCheck className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                 </Button>
             </div>
@@ -1007,11 +1042,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
                   <Button 
                     onClick={saveAnnotation} 
-                    disabled={isSavingAnnotation} 
+                    disabled={isSavingAnnotation || isOffline} 
                     className="w-full h-16 rounded-[2rem] bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-primary/30 transition-all hover:scale-[1.01] active:scale-95 border-none"
                   >
                       {isSavingAnnotation ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <Sparkles className="h-5 w-5 mr-3" />}
-                      Save to Collection
+                      {isOffline ? 'Sync unavailable offline' : 'Save to Collection'}
                   </Button>
               </div>
           </SheetContent>

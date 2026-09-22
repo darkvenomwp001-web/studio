@@ -102,9 +102,9 @@ export default function Header() {
         <div className="flex items-center gap-4 flex-shrink-0 origin-left">
           <Logo />
           {!isOnline && (
-            <Badge variant="outline" className="hidden sm:flex rounded-full bg-destructive/10 text-destructive border-destructive/20 gap-1.5 animate-in fade-in duration-1000 h-6 px-2.5">
+            <Badge variant="outline" className="flex rounded-full bg-destructive/10 text-destructive border-destructive/20 gap-1.5 animate-in fade-in duration-1000 h-6 px-2.5">
                <WifiOff className="h-3 w-3" />
-               <span className="text-[8px] font-black uppercase tracking-widest">Signal Lost</span>
+               <span className="text-[8px] font-black uppercase tracking-widest hidden xs:inline">Signal Lost</span>
             </Badge>
           )}
         </div>

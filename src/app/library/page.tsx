@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
-import { Loader2, Library, BookOpen, Search, Grid, List, DownloadCloud, CheckCircle2 } from 'lucide-react';
+import { Loader2, Library, BookOpen, Search, Grid, List, DownloadCloud, CheckCircle2, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import YourStoryCard from '@/components/shared/YourStoryCard';
 import { useState, useMemo, useEffect } from 'react';
@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 export default function LibraryPage() {
     const { user, loading } = useAuth();
@@ -27,8 +28,22 @@ export default function LibraryPage() {
     const [isSyncingAll, setIsSyncingAll] = useState(false);
     const [existingStoryIds, setExistingStoryIds] = useState<Set<string>>(new Set());
     const [isVerifying, setIsVerifying] = useState(true);
+    const [isOffline, setIsOffline] = useState(false);
 
     const readingList = user?.readingList || [];
+
+    // Connectivity Sentry Node
+    useEffect(() => {
+        const handleOnline = () => setIsOffline(false);
+        const handleOffline = () => setIsOffline(true);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        setIsOffline(!navigator.onLine);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
 
     // Archive Verification Node: Ensures ghosts of deleted stories are removed from view
     useEffect(() => {
@@ -49,6 +64,7 @@ export default function LibraryPage() {
                     for (let i = 0; i < ids.length; i += 30) {
                         const chunk = ids.slice(i, i + 30);
                         const q = query(storiesRef, where(documentId(), 'in', chunk));
+                        // Firestore cache handles this automatically if offline
                         const snap = await getDocs(q);
                         snap.docs.forEach(d => results.add(d.id));
                     }
@@ -144,7 +160,15 @@ export default function LibraryPage() {
                             <div className="flex items-center justify-between">
                                 <div className="space-y-1">
                                     <h1 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">Saved Stories</h1>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">My Personal Archive</p>
+                                    <div className="flex items-center gap-3">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">My Personal Archive</p>
+                                        {isOffline && (
+                                            <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 gap-1.5 rounded-full px-3 py-1 font-black text-[9px] uppercase tracking-widest animate-pulse">
+                                                <WifiOff className="h-3 w-3" />
+                                                Offline Archive
+                                            </Badge>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <span className="hidden sm:inline-block text-[11px] font-black uppercase tracking-widest text-primary">Library</span>
@@ -152,7 +176,7 @@ export default function LibraryPage() {
                                         variant="outline" 
                                         size="sm" 
                                         onClick={handleSyncAll} 
-                                        disabled={isSyncingAll || filteredAndSortedList.length === 0}
+                                        disabled={isSyncingAll || filteredAndSortedList.length === 0 || isOffline}
                                         className="rounded-full gap-2 border-primary/20 hover:border-primary hover:bg-primary/5 font-black text-[9px] uppercase tracking-widest h-9 px-4 shadow-sm transition-all active:scale-95"
                                     >
                                         {isSyncingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <DownloadCloud className="h-3 w-3" />}
