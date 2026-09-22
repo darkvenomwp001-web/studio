@@ -45,7 +45,8 @@ import {
   EyeOff,
   History,
   Mic,
-  ChevronDown
+  ChevronDown,
+  Save
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, format, isYesterday } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -90,6 +91,17 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -1042,17 +1054,29 @@ function MessagesClient() {
                         Ignore Signal
                     </Button>
                     <DropdownMenuSeparator className="bg-border/10 mx-2" />
-                    <Button 
-                        variant="ghost" 
-                        className="w-full justify-start rounded-2xl h-12 gap-3 font-bold text-xs uppercase tracking-widest text-destructive hover:bg-destructive/10 hover:text-destructive" 
-                        onClick={() => {
-                            if (!mgmtMenuConv) return;
-                            if (confirm("Erase thread archive?")) handleDeleteThread(mgmtMenuConv.id);
-                        }}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                        Erase Thread
-                    </Button>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button 
+                                variant="ghost" 
+                                className="w-full justify-start rounded-2xl h-12 gap-3 font-bold text-xs uppercase tracking-widest text-destructive hover:bg-destructive/10 hover:text-destructive" 
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                Erase Thread
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="rounded-3xl border-none shadow-3xl">
+                            <AlertDialogHeader>
+                                <AlertDialogTitle className="font-headline text-2xl font-bold text-destructive">Erase Thread Archive?</AlertDialogTitle>
+                                <AlertDialogDescription className="text-sm leading-relaxed">This will permanently remove the thread from your view. This cannot be undone.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter className="mt-4">
+                                <AlertDialogCancel className="rounded-full px-8 font-bold">Cancel</AlertDialogCancel>
+                                <AlertDialogAction className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold" onClick={() => mgmtMenuConv && handleDeleteThread(mgmtMenuConv.id)}>
+                                    Delete Archive
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                     <Button variant="ghost" className="w-full justify-start rounded-2xl h-12 gap-3 font-bold text-xs uppercase tracking-widest" onClick={() => setMgmtMenuConv(null)}>
                         <ChevronDown className="h-4 w-4 opacity-40" />
                         Collapse Menu
