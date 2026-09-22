@@ -43,7 +43,8 @@ import {
   Disc,
   Link as LinkIcon,
   EyeOff,
-  History
+  History,
+  Mic
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, format, isYesterday } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -779,7 +780,11 @@ function MessagesClient() {
                                         <Edit3 className="h-4 w-4" /> Edit Nicknames
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={handleMute} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                        <BellOff className="h-4 w-4" /> {activeConversation.mutedBy?.includes(currentUser?.id || '') ? 'Unmute' : 'Mute Alerts'}
+                                        {activeConversation.mutedBy?.includes(currentUser?.id || '') ? (
+                                            <><Volume2 className="h-4 w-4" /> Unmute Alerts</>
+                                        ) : (
+                                            <><VolumeX className="h-4 w-4" /> Mute Alerts</>
+                                        )}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator className="bg-border/10 mx-2" />
                                     <DropdownMenuItem onSelect={e => e.preventDefault()} className="rounded-xl px-3 py-2">
@@ -926,6 +931,7 @@ function MessagesClient() {
                                 <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center gap-3 w-full">
                                     <div className="flex shrink-0 gap-1">
                                         <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => mediaInputRef.current?.click()} disabled={isSendingMessage}><ImageIcon className="h-5 w-5" /></Button>
+                                        <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => toast({ title: "Voice recording feature coming soon" })} disabled={isSendingMessage}><Mic className="h-5 w-5" /></Button>
                                         <input type="file" ref={mediaInputRef} className="hidden" accept="image/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
                                     </div>
                                     
@@ -1046,6 +1052,10 @@ function MessagesClient() {
                     >
                         <Trash2 className="h-4 w-4" />
                         Erase Thread
+                    </Button>
+                    <Button variant="ghost" className="w-full justify-start rounded-2xl h-12 gap-3 font-bold text-xs uppercase tracking-widest" onClick={() => setMgmtMenuConv(null)}>
+                        <ChevronDown className="h-4 w-4 opacity-40" />
+                        Collapse Menu
                     </Button>
                 </div>
             </DialogContent>
