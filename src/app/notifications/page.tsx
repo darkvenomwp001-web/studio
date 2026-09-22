@@ -674,6 +674,7 @@ function MessagesClient() {
                             <div 
                                 key={conv.id}
                                 onPointerDown={(e) => {
+                                    setIsLongPressing(false); 
                                     longPressTimerRef.current = setTimeout(() => {
                                         handleThreadLongPress(conv);
                                     }, 5000); 
@@ -682,21 +683,21 @@ function MessagesClient() {
                                     if (longPressTimerRef.current) {
                                         clearTimeout(longPressTimerRef.current);
                                         longPressTimerRef.current = null;
-                                        if (!isLongPressing) {
-                                            handleSelectConversation(conv);
-                                        }
                                     }
-                                    setIsLongPressing(false);
+                                }}
+                                onClick={() => {
+                                    if (!isLongPressing) {
+                                        handleSelectConversation(conv);
+                                    }
                                 }}
                                 onPointerLeave={() => {
                                     if (longPressTimerRef.current) {
                                         clearTimeout(longPressTimerRef.current);
                                         longPressTimerRef.current = null;
                                     }
-                                    setIsLongPressing(false);
                                 }}
                                 className={cn(
-                                    "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative transform-gpu active:scale-[0.98] select-none touch-none",
+                                    "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative transform-gpu active:scale-[0.98] select-none touch-pan-y",
                                     isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'hover:bg-muted/50'
                                 )}
                             >
