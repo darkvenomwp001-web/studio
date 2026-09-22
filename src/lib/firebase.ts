@@ -6,30 +6,19 @@ import { getMessaging, isSupported } from 'firebase/messaging';
 import { getDatabase } from 'firebase/database';
 
 const firebaseConfig: FirebaseOptions = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, 
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL, 
+  apiKey: "AIzaSyAzj27wW_-2PNyQdJI6GEIhSUTXn4JtDbU",
+  authDomain: "darvenom-official.firebaseapp.com",
+  databaseURL: "https://darvenom-official-default-rtdb.firebaseio.com",
+  projectId: "darvenom-official",
+  storageBucket: "darvenom-official.firebasestorage.app",
+  messagingSenderId: "183243030955",
+  appId: "1:183243030955:web:20ea7cf53bb43ee71852ee",
+  measurementId: "G-FRS2XNDF56",
 };
 
 // Singleton pattern to initialize and get Firebase app
 const getFirebaseApp = () => {
   if (getApps().length === 0) {
-    if (
-      !firebaseConfig.apiKey ||
-      !firebaseConfig.authDomain ||
-      !firebaseConfig.projectId
-    ) {
-      if (typeof window === 'undefined') {
-        throw new Error('Firebase environment variables are not set. Deployment will fail.');
-      }
-      console.error("Firebase config is missing. The app cannot connect to Firebase.");
-      return null;
-    }
     return initializeApp(firebaseConfig);
   }
   return getApp();
