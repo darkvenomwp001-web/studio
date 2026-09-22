@@ -31,7 +31,7 @@ service cloud.firestore {
 
       allow update: if isAppOwner()
                     || (isSignedIn() && isOwner(userId))
-                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['followersCount', 'followingIds', 'closeFriendIds']));
+                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['followersCount', 'followingIds', 'closeFriendIds', 'appearanceSettings', 'readerSettings', 'privacySettings', 'fcmTokens', 'readingList']));
 
       allow delete: if isAppOwner();
     }
@@ -97,7 +97,7 @@ service cloud.firestore {
       allow create: if isSignedIn();
     }
 
-    // Conversations & Messages (Threads)
+    // Conversations & Messages (Threads Hub)
     match /conversations/{conversationId} {
       allow read: if isSignedIn() && (request.auth.uid in resource.data.participantIds || isAppOwner());
       allow create: if isSignedIn() && request.auth.uid in request.resource.data.participantIds;
@@ -106,7 +106,10 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read, create: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds || isAppOwner());
-        allow update: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds || isAppOwner());
+        allow update: if isSignedIn() && (
+          request.auth.uid == resource.data.senderId 
+          || request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
+        );
         allow delete: if isSignedIn() && (request.auth.uid == resource.data.senderId || isAppOwner());
       }
     }
@@ -117,7 +120,9 @@ service cloud.firestore {
                     || (isSignedIn() && resource.data.authorId == request.auth.uid)
                     || (resource.data.status == 'published' && resource.data.isHidden == false);
       
-      allow list: if true;
+      allow list: if isAppOwner() || (
+        request.query.filters.visibility == 'public'
+      );
       
       allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
       
