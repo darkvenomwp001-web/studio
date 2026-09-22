@@ -207,31 +207,31 @@ function SearchResults() {
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-0 pb-32 animate-in fade-in duration-700 overflow-x-hidden">
-      {/* High-Fidelity Floating Search Header */}
-      <div className="sticky top-6 z-40 mx-4 md:mx-auto max-w-4xl bg-card/70 backdrop-blur-3xl border border-white/10 p-5 space-y-5 rounded-[2.5rem] shadow-[0_30px_70px_rgba(0,0,0,0.5)] transform-gpu transition-all">
-        <div className="relative group w-full">
-          <SearchIcon className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors duration-300" />
+      {/* High-Fidelity Floating Search Header - Refined Pill Design */}
+      <div className="sticky top-6 z-40 mx-4 md:mx-auto max-w-5xl bg-card/80 backdrop-blur-3xl border border-white/10 p-2 flex flex-col md:flex-row items-center gap-3 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] transform-gpu transition-all">
+        <div className="relative group w-full md:w-[350px] lg:w-[450px]">
+          <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40 group-focus-within:text-primary transition-colors duration-300" />
           <Input 
-              placeholder="Search for stories or authors" 
-              className="pl-14 w-full h-16 rounded-full bg-black/30 border-none shadow-[inset_0_2px_10px_rgba(0,0,0,0.4)] text-base md:text-lg focus-visible:ring-primary/20 transition-all duration-500"
+              placeholder="Search stories or authors..." 
+              className="pl-12 w-full h-11 rounded-full bg-black/20 border-none shadow-inner text-sm focus-visible:ring-primary/20 transition-all"
               value={searchTerm}
               onChange={handleInputChange}
           />
           {searchTerm && (
-              <button className="absolute right-6 top-1/2 -translate-y-1/2 h-10 w-10 flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-colors" onClick={handleClear}>
-                  <X className="h-6 w-6" />
+              <button className="absolute right-4 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-colors" onClick={handleClear}>
+                  <X className="h-5 w-5" />
               </button>
           )}
         </div>
 
-        <div className="flex items-center gap-4 w-full px-2">
+        <div className="flex items-center gap-2 flex-1 w-full md:w-auto px-1 overflow-hidden">
             <ScrollArea className="flex-1 whitespace-nowrap scrollbar-hide">
-                <div className="flex items-center gap-8 px-1">
+                <div className="flex items-center gap-3 px-1">
                     <button 
                         onClick={() => handleGenreClick('all')}
                         className={cn(
-                            "text-[10px] md:text-xs font-black uppercase tracking-[0.2em] transition-all pb-3 border-b-2",
-                            activeGenre === 'all' ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"
+                            "text-[9px] font-black uppercase tracking-widest transition-all h-9 flex items-center px-4 rounded-full border border-transparent shadow-sm",
+                            activeGenre === 'all' ? "bg-primary text-white shadow-primary/20" : "text-muted-foreground hover:bg-muted/50"
                         )}
                     >
                         Explore All
@@ -241,8 +241,8 @@ function SearchResults() {
                             key={genre} 
                             onClick={() => handleGenreClick(genre)}
                             className={cn(
-                                "text-[10px] md:text-xs font-black uppercase tracking-[0.2em] transition-all pb-3 border-b-2",
-                                activeGenre === genre ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"
+                                "text-[9px] font-black uppercase tracking-widest transition-all h-9 flex items-center px-4 rounded-full border border-transparent shadow-sm",
+                                activeGenre === genre ? "bg-primary text-white shadow-primary/20" : "text-muted-foreground hover:bg-muted/50"
                             )}
                         >
                             {genre}
@@ -252,39 +252,41 @@ function SearchResults() {
                 <ScrollBar orientation="horizontal" className="hidden" />
             </ScrollArea>
             
-            <Popover>
-                <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full flex-shrink-0 bg-white/5 hover:bg-primary/10 hover:text-primary transition-all shadow-sm">
-                        <ChevronDown className="h-5 w-5" />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[90vw] sm:w-[450px] p-6 rounded-[2.5rem] border-none shadow-3xl bg-card/95 backdrop-blur-3xl" align="end" sideOffset={16}>
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between px-1">
-                            <h4 className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">Library Categories</h4>
-                            {activeGenre !== 'all' && (
-                                <button onClick={() => handleGenreClick('all')} className="text-[10px] font-black uppercase text-primary hover:underline">Reset</button>
-                            )}
+            <div className="flex items-center gap-1 shrink-0">
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-white/5 hover:bg-primary/10 transition-all shrink-0">
+                            <ChevronDown className="h-4 w-4" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[90vw] sm:w-[450px] p-6 rounded-[2.5rem] border-none shadow-3xl bg-card/95 backdrop-blur-3xl" align="end" sideOffset={16}>
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between px-1">
+                                <h4 className="font-bold text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">Library Categories</h4>
+                                {activeGenre !== 'all' && (
+                                    <button onClick={() => handleGenreClick('all')} className="text-[10px] font-black uppercase text-primary hover:underline">Reset</button>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2.5">
+                                {GENRES.map(genre => (
+                                    <Button
+                                        key={genre}
+                                        variant={activeGenre === genre ? 'default' : 'outline'}
+                                        size="sm"
+                                        className={cn(
+                                            "justify-start h-11 text-[9px] font-black uppercase tracking-widest rounded-xl px-4 border-border/40 transition-all",
+                                            activeGenre === genre ? "shadow-lg shadow-primary/30" : "hover:bg-primary/5 hover:text-primary hover:border-primary/40"
+                                        )}
+                                        onClick={() => handleGenreClick(genre)}
+                                    >
+                                        {genre}
+                                    </Button>
+                                ))}
+                            </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2.5">
-                            {GENRES.map(genre => (
-                                <Button
-                                    key={genre}
-                                    variant={activeGenre === genre ? 'default' : 'outline'}
-                                    size="sm"
-                                    className={cn(
-                                        "justify-start h-11 text-[9px] font-black uppercase tracking-widest rounded-xl px-4 border-border/40 transition-all",
-                                        activeGenre === genre ? "shadow-lg shadow-primary/30" : "hover:bg-primary/5 hover:text-primary hover:border-primary/40"
-                                    )}
-                                    onClick={() => handleGenreClick(genre)}
-                                >
-                                    {genre}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
-                </PopoverContent>
-            </Popover>
+                    </PopoverContent>
+                </Popover>
+            </div>
         </div>
       </div>
 
