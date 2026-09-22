@@ -54,14 +54,14 @@ service cloud.firestore {
       // Support for Archive, Ignore, Pin, Nicknames, and Theme
       allow update: if isSignedIn() && (request.auth.uid in resource.data.participantIds || isAppOwner());
       allow delete: if isSignedIn() && (request.auth.uid in resource.data.participantIds || isAppOwner());
-    }
 
-    match /conversations/{threadId}/messages/{messageId} {
-      allow read: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
-      allow create: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
-      // Support for Edit, Unsend, Pin, and "Delete for Me"
-      allow update: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
-      allow delete: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
+        allow create: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
+        // Support for Edit, Unsend, and "Delete for Me"
+        allow update: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
+        allow delete: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(threadId)).data.participantIds || isAppOwner());
+      }
     }
 
     // --- Official Transmissions Node ---
@@ -70,6 +70,15 @@ service cloud.firestore {
       allow read, list: if true;
       allow create, delete: if isAppOwner();
       allow update: if isSignedIn() && (isAppOwner() || request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'commentsCount']));
+
+      match /reactions/{userId} {
+        allow read: if true;
+        allow write: if isSignedIn() && isOwner(userId);
+      }
+      match /comments/{commentId} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
     }
 
     // --- Community Feed Node ---
@@ -79,9 +88,18 @@ service cloud.firestore {
       allow create: if isSignedIn() && isOwner(request.resource.data.author.id);
       allow update: if isSignedIn() && (isAppOwner() || isOwner(resource.data.author.id) || request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactionsCount', 'reactionCounts', 'repostCount', 'commentsCount', 'isHidden']));
       allow delete: if isAppOwner() || isOwner(resource.data.author.id);
+
+      match /reactions/{userId} {
+        allow read: if true;
+        allow write: if isSignedIn() && isOwner(userId);
+      }
+      match /comments/{commentId} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
     }
     
-    // --- Archival Activity Hub ---
+    // --- Archival Activity Node ---
 
     match /notifications/{notificationId} {
       allow read, list, update: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
@@ -89,7 +107,7 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
     }
 
-    // --- Writing Challenges Hub ---
+    // --- Writing Challenges Node ---
 
     match /prompts/{promptId} {
       allow read, list: if resource.data.isArchived == false || isAppOwner();
@@ -98,7 +116,7 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (isOwner(resource.data.author.id) || isAppOwner());
     }
 
-    // --- Direct Correspondence Hub ---
+    // --- Direct Reader Correspondence ---
 
     match /letters/{letterId} {
       allow read, list: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId) || isAppOwner());
@@ -107,16 +125,25 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (isOwner(resource.data.reader.id) || isOwner(resource.data.authorId) || isAppOwner());
     }
 
-    // --- Prose Highlights Hub ---
+    // --- Prose Highlights Node ---
 
     match /annotations/{annotationId} {
       allow read, list: if resource.data.visibility == 'public' || (isSignedIn() && (isOwner(resource.data.userId) || isAppOwner()));
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
       allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAppOwner());
+
+      match /reactions/{userId} {
+        allow read: if true;
+        allow write: if isSignedIn() && isOwner(userId);
+      }
+      match /comments/{commentId} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
     }
 
-    // --- Community Inquiry Hub ---
+    // --- Community Questions Node ---
 
     match /questions/{questionId} {
       allow read, list: if resource.data.status == 'answered' || (isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.asker.id) || isAppOwner()));
@@ -125,7 +152,7 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (isOwner(resource.data.authorId) || isAppOwner());
     }
 
-    // --- Interactive Poll Hub ---
+    // --- Author Polls Node ---
 
     match /polls/{pollId} {
       allow read, list: if true;

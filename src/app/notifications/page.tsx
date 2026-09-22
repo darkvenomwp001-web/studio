@@ -304,6 +304,7 @@ function MessagesClient() {
   
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [viewMode, setViewMode] = useState<'chat' | 'media'>('chat');
+  const [mgmtMenuConv, setMgmtMenuConv] = useState<Conversation | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -514,6 +515,27 @@ function MessagesClient() {
     toast({ title: "Message copied to draft" });
   };
 
+  const handleThreadLongPress = (conv: Conversation) => {
+    if (window.navigator.vibrate) window.navigator.vibrate(50);
+    setMgmtMenuConv(conv);
+  };
+
+  const handleDeleteThread = async (convId: string) => {
+    if (!currentUser) return;
+    deleteDoc(doc(db, 'conversations', convId))
+        .then(() => {
+            if (activeConversation?.id === convId) {
+                setActiveConversation(null);
+                setMobileView('list');
+            }
+            showIsland({ title: "Thread Erased", type: 'success' });
+            setMgmtMenuConv(null);
+        })
+        .catch(async (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `conversations/${convId}`, operation: 'delete' }));
+        });
+  };
+
   const getOtherParticipant = (conversation: Conversation): AppUserType | undefined => {
     if (!currentUser) return undefined;
     const otherId = conversation.participantIds.find(id => id !== currentUser.id);
@@ -565,13 +587,6 @@ function MessagesClient() {
       }
     }
     setIsNewConversationDialogOpen(false);
-  };
-
-  const handleThreadLongPress = (conv: Conversation) => {
-    if (window.navigator.vibrate) window.navigator.vibrate(50);
-    // This is triggered by a 5s hold. In prototyping we use a context menu or similar.
-    // For this implementation, the DropdownMenu already handles the "interior options".
-    // We strictly ensure regular tap opens the chat.
   };
 
   const filteredMessages = useMemo(() => {
@@ -658,65 +673,43 @@ function MessagesClient() {
                         const nickname = conv.nicknames?.[other?.id || ''];
 
                         return (
-                            <DropdownMenu key={conv.id}>
-                                <DropdownMenuTrigger asChild>
-                                    <div 
-                                        onClick={() => handleSelectConversation(conv)}
-                                        onPointerDown={(e) => {
-                                            longPressTimerRef.current = setTimeout(() => {
-                                                handleThreadLongPress(conv);
-                                            }, 5000); // STRICT 5 SECOND HOLD
-                                        }}
-                                        onPointerUp={() => clearTimeout(longPressTimerRef.current!)}
-                                        onPointerLeave={() => clearTimeout(longPressTimerRef.current!)}
-                                        className={cn(
-                                            "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative transform-gpu active:scale-[0.98]",
-                                            isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'hover:bg-muted/50'
-                                        )}
-                                    >
-                                        <div className="relative">
-                                            <Avatar className="h-14 w-14 border-2 border-background shadow-md">
-                                                <AvatarImage src={other?.avatarUrl} />
-                                                <AvatarFallback className="bg-muted text-primary font-bold">{other?.username.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                                            </Avatar>
-                                            {isOnline && <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-center mb-0.5">
-                                                <h3 className="font-black text-sm truncate">{nickname ? nickname : `@${other?.username || 'user'}`}</h3>
-                                                <span className={cn("text-[9px] font-bold uppercase tracking-tighter opacity-60", isActive ? "text-white/80" : "text-muted-foreground")}>
-                                                    {date ? formatDistanceToNow(date, { addSuffix: false }) : ''}
-                                                </span>
-                                            </div>
-                                            <p className={cn("text-xs truncate", isActive ? "text-white/70" : "text-muted-foreground", isUnread && "font-black text-foreground")}>
-                                                {conv.lastMessage?.content || 'Started a thread'}
-                                            </p>
-                                        </div>
-                                        {isUnread && !isActive && (
-                                            <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--primary),0.5)]"></div>
-                                        )}
+                            <div 
+                                key={conv.id}
+                                onClick={() => handleSelectConversation(conv)}
+                                onPointerDown={(e) => {
+                                    longPressTimerRef.current = setTimeout(() => {
+                                        handleThreadLongPress(conv);
+                                    }, 5000); // 5 SECOND HOLD FOR MGMT MENU
+                                }}
+                                onPointerUp={() => clearTimeout(longPressTimerRef.current!)}
+                                onPointerLeave={() => clearTimeout(longPressTimerRef.current!)}
+                                className={cn(
+                                    "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative transform-gpu active:scale-[0.98]",
+                                    isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'hover:bg-muted/50'
+                                )}
+                            >
+                                <div className="relative">
+                                    <Avatar className="h-14 w-14 border-2 border-background shadow-md">
+                                        <AvatarImage src={other?.avatarUrl} />
+                                        <AvatarFallback className="bg-muted text-primary font-bold">{other?.username.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+                                    </Avatar>
+                                    {isOnline && <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-center mb-0.5">
+                                        <h3 className="font-black text-sm truncate">{nickname ? nickname : `@${other?.username || 'user'}`}</h3>
+                                        <span className={cn("text-[9px] font-bold uppercase tracking-tighter opacity-60", isActive ? "text-white/80" : "text-muted-foreground")}>
+                                            {date ? formatDistanceToNow(date, { addSuffix: false }) : ''}
+                                        </span>
                                     </div>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent className="rounded-2xl w-48 border-none shadow-3xl">
-                                    <DropdownMenuItem onClick={() => togglePinThread(conv.id, currentUser!.id, !conv.pinnedBy?.includes(currentUser!.id))} className="gap-2 rounded-xl">
-                                        <Pin className="h-4 w-4" /> {conv.pinnedBy?.includes(currentUser!.id) ? 'Unpin' : 'Pin'}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => toggleArchiveThread(conv.id, currentUser!.id, true)} className="gap-2 rounded-xl">
-                                        <Archive className="h-4 w-4" /> Archive
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => toggleIgnoreThread(conv.id, currentUser!.id, true)} className="gap-2 rounded-xl text-destructive">
-                                        <BellOff className="h-4 w-4" /> Ignore
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-destructive font-bold" onClick={() => {
-                                        if(confirm("Erase thread archive?")) {
-                                            deleteDoc(doc(db, 'conversations', conv.id));
-                                        }
-                                    }}>
-                                        <Trash2 className="h-4 w-4 mr-2" /> Delete Thread
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                    <p className={cn("text-xs truncate", isActive ? "text-white/70" : "text-muted-foreground", isUnread && "font-black text-foreground")}>
+                                        {conv.lastMessage?.content || 'Started a thread'}
+                                    </p>
+                                </div>
+                                {isUnread && !isActive && (
+                                    <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--primary),0.5)]"></div>
+                                )}
+                            </div>
                         );
                     })}
                 </div>
@@ -768,9 +761,9 @@ function MessagesClient() {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
                                         const nick = prompt("Set nickname for other user:");
-                                        if (nick !== null) handleSetNickname(getOtherParticipant(activeConversation)?.id || '', nick);
+                                        if (nick !== null) handleSetNickname(activeConversation.id, getOtherParticipant(activeConversation)?.id || '', nick);
                                     }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                        <Edit3 className="h-4 w-4" /> Nicknames
+                                        <Edit3 className="h-4 w-4" /> Edit Nicknames
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={handleMute} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
                                         <BellOff className="h-4 w-4" /> {activeConversation.mutedBy?.includes(currentUser?.id || '') ? 'Unmute' : 'Mute Alerts'}
@@ -778,7 +771,7 @@ function MessagesClient() {
                                     <DropdownMenuSeparator className="bg-border/10 mx-2" />
                                     <DropdownMenuItem onSelect={e => e.preventDefault()} className="rounded-xl px-3 py-2">
                                         <div className="flex flex-col gap-2 w-full">
-                                            <p className="text-[9px] font-black uppercase opacity-60">Visual Theme</p>
+                                            <p className="text-[9px] font-black uppercase opacity-60">Chat Theme</p>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {CHAT_THEMES.map(t => (
                                                     <button key={t.name} onClick={() => handleSetTheme(t.color)} className="h-5 w-5 rounded-full border border-white/20 hover:scale-110 transition-transform" style={{ background: t.color }} title={t.name} />
@@ -788,13 +781,11 @@ function MessagesClient() {
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator className="bg-border/10 mx-2" />
                                     <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2 rounded-xl h-10 px-3 font-bold text-xs" onClick={() => {
-                                        if(confirm("Erase thread archives?")) {
-                                            deleteDoc(doc(db, 'conversations', activeConversation.id))
-                                                .then(() => { setActiveConversation(null); setMobileView('list'); })
-                                                .catch(async e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `conversations/${activeConversation.id}`, operation: 'delete' })));
+                                        if(confirm("Erase thread archive?")) {
+                                            handleDeleteThread(activeConversation.id);
                                         }
                                     }}>
-                                        <Trash2 className="h-4 w-4" /> Erase History
+                                        <Trash2 className="h-4 w-4" /> Delete Thread
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -988,6 +979,65 @@ function MessagesClient() {
                 </div>
             )}
         </main>
+
+        {/* THREAD MGMT POP-UP (5S HOLD GATEWAY) */}
+        <Dialog open={!!mgmtMenuConv} onOpenChange={(o) => !o && setMgmtMenuConv(null)}>
+            <DialogContent className="rounded-[2.5rem] max-w-xs p-0 overflow-hidden border-none shadow-3xl bg-background/95 backdrop-blur-3xl animate-in zoom-in-95 duration-300">
+                <DialogHeader className="p-6 bg-muted/30 border-b">
+                    <DialogTitle className="text-xl font-headline font-bold">Management Hub</DialogTitle>
+                </DialogHeader>
+                <div className="p-2 space-y-1">
+                    <Button 
+                        variant="ghost" 
+                        className="w-full justify-start rounded-2xl h-12 gap-3 font-bold text-xs uppercase tracking-widest" 
+                        onClick={() => {
+                            if (!mgmtMenuConv || !currentUser) return;
+                            togglePinThread(mgmtMenuConv.id, currentUser.id, !mgmtMenuConv.pinnedBy?.includes(currentUser.id));
+                            setMgmtMenuConv(null);
+                        }}
+                    >
+                        <Pin className="h-4 w-4 text-primary" />
+                        {mgmtMenuConv?.pinnedBy?.includes(currentUser?.id || '') ? 'Unpin Signal' : 'Pin to Top'}
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        className="w-full justify-start rounded-2xl h-12 gap-3 font-bold text-xs uppercase tracking-widest" 
+                        onClick={() => {
+                            if (!mgmtMenuConv || !currentUser) return;
+                            toggleArchiveThread(mgmtMenuConv.id, currentUser.id, true);
+                            setMgmtMenuConv(null);
+                        }}
+                    >
+                        <Archive className="h-4 w-4 text-accent" />
+                        Archive Discussion
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        className="w-full justify-start rounded-2xl h-12 gap-3 font-bold text-xs uppercase tracking-widest text-destructive hover:bg-destructive/10 hover:text-destructive" 
+                        onClick={() => {
+                            if (!mgmtMenuConv || !currentUser) return;
+                            toggleIgnoreThread(mgmtMenuConv.id, currentUser.id, true);
+                            setMgmtMenuConv(null);
+                        }}
+                    >
+                        <BellOff className="h-4 w-4" />
+                        Ignore Signal
+                    </Button>
+                    <DropdownMenuSeparator className="bg-border/10 mx-2" />
+                    <Button 
+                        variant="ghost" 
+                        className="w-full justify-start rounded-2xl h-12 gap-3 font-bold text-xs uppercase tracking-widest text-destructive hover:bg-destructive/10 hover:text-destructive" 
+                        onClick={() => {
+                            if (!mgmtMenuConv) return;
+                            if (confirm("Erase thread archive?")) handleDeleteThread(mgmtMenuConv.id);
+                        }}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                        Erase Thread
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
 
         <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
             <DialogContent className="rounded-3xl border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
