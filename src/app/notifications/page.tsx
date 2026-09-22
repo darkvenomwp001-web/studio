@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useTransition, useMemo, Suspense } from 'react';
@@ -94,6 +93,8 @@ import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import SpotifyPlayer from '@/components/shared/SpotifyPlayer';
+import Header from '@/components/layout/Header';
+import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import { toggleArchiveThread, toggleIgnoreThread, togglePinThread, setThreadNickname, unsendMessage, deleteMessageForMe, editSentMessage } from '@/app/actions/threadActions';
 
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -211,7 +212,7 @@ function NotificationsList() {
                                                 key={notif.id}
                                                 onClick={() => handleNotificationClick(notif)}
                                                 className={cn(
-                                                    "p-4 rounded-3xl cursor-pointer transition-all duration-300 flex items-center gap-4 group relative",
+                                                    "p-4 rounded-2xl cursor-pointer transition-all duration-300 flex items-center gap-4 group relative",
                                                     !notif.isRead ? 'bg-primary/5 border border-primary/10 shadow-sm' : 'hover:bg-muted/30 border border-transparent'
                                                 )}
                                             >
@@ -554,7 +555,7 @@ function MessagesClient() {
   }, [conversations, sidebarSearch, currentUser]);
 
   return (
-    <div className="flex h-[calc(100vh-14rem)] md:h-[800px] border-none sm:border rounded-none sm:rounded-[3rem] bg-card sm:shadow-3xl overflow-hidden mb-10 border-border/40 w-full max-w-7xl mx-auto transform-gpu">
+    <div className="flex h-[calc(100vh-14rem)] md:h-[800px] border-none sm:border rounded-none sm:rounded-[2rem] bg-card sm:shadow-3xl overflow-hidden mb-10 border-border/40 w-full max-w-7xl mx-auto transform-gpu">
         <aside className={cn(
             "w-full md:w-[360px] border-r flex flex-col bg-background/40 backdrop-blur-xl transition-all duration-300",
             mobileView === 'chat' ? 'hidden md:flex' : 'flex'
@@ -624,7 +625,7 @@ function MessagesClient() {
                                     <div 
                                         onClick={() => handleSelectConversation(conv)}
                                         className={cn(
-                                            "flex items-center gap-4 p-4 cursor-pointer rounded-[2rem] transition-all group relative transform-gpu active:scale-[0.98]",
+                                            "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative transform-gpu active:scale-[0.98]",
                                             isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'hover:bg-muted/50'
                                         )}
                                     >
@@ -651,7 +652,7 @@ function MessagesClient() {
                                         )}
                                     </div>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent className="rounded-[1.5rem] w-48 border-none shadow-3xl">
+                                <DropdownMenuContent className="rounded-2xl w-48 border-none shadow-3xl">
                                     <DropdownMenuItem onClick={() => togglePinThread(conv.id, currentUser!.id, !conv.pinnedBy?.includes(currentUser!.id))} className="gap-2 rounded-xl">
                                         <Pin className="h-4 w-4" /> {conv.pinnedBy?.includes(currentUser!.id) ? 'Unpin' : 'Pin'}
                                     </DropdownMenuItem>
@@ -714,7 +715,7 @@ function MessagesClient() {
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><MoreHorizontal className="h-5 w-5" /></Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="rounded-[1.5rem] w-56 border-none shadow-3xl p-2">
+                                <DropdownMenuContent align="end" className="rounded-2xl w-56 border-none shadow-3xl p-2">
                                     <DropdownMenuItem onClick={() => router.push(`/profile/${getOtherParticipant(activeConversation)?.id}`)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
                                         <User className="h-4 w-4" /> View Profile
                                     </DropdownMenuItem>
@@ -770,7 +771,7 @@ function MessagesClient() {
                                             <DropdownMenuTrigger asChild>
                                                 <div className={cn(
                                                     "p-4 text-sm shadow-sm transition-all transform-gpu hover:scale-[1.01] relative cursor-pointer",
-                                                    isMe ? "text-white rounded-[2rem] rounded-br-lg" : "bg-muted text-foreground rounded-[2rem] rounded-bl-lg",
+                                                    isMe ? "text-white rounded-2xl rounded-br-lg" : "bg-muted text-foreground rounded-2xl rounded-bl-lg",
                                                 )} style={{ backgroundColor: isMe ? (activeConversation.themeColor || 'hsl(var(--primary))') : undefined }}>
                                                     {msg.replyTo && (
                                                         <div className="bg-black/20 p-2 px-3 rounded-xl text-[10px] mb-2 border border-white/10 italic truncate">
@@ -795,7 +796,7 @@ function MessagesClient() {
                                                     )}
                                                 </div>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent className="rounded-[1.5rem] border-none shadow-3xl p-1 bg-background/95 backdrop-blur-3xl">
+                                            <DropdownMenuContent className="rounded-2xl border-none shadow-3xl p-1 bg-background/95 backdrop-blur-3xl">
                                                 <div className="flex gap-1 p-2 border-b border-white/5">
                                                     {['❤️', '👍', '😂', '😮', '😢', '😡'].map(e => (
                                                         <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-9 w-9 hover:scale-125 transition-transform flex items-center justify-center text-xl">{e}</button>
@@ -888,7 +889,7 @@ function MessagesClient() {
         </main>
 
         <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
-            <DialogContent className="rounded-[3rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
+            <DialogContent className="rounded-3xl border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
                 <DialogHeader className="mb-6">
                     <DialogTitle className="text-3xl font-headline font-bold">New Thread</DialogTitle>
                     <DialogDescription className="text-xs font-black uppercase tracking-widest opacity-60">Signal a fellow creator</DialogDescription>
