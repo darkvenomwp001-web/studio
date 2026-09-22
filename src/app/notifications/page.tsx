@@ -44,7 +44,8 @@ import {
   Link as LinkIcon,
   EyeOff,
   History,
-  Mic
+  Mic,
+  ChevronDown
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, format, isYesterday } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -89,7 +90,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useDynamicIsland } from '@/context/DynamicIslandContext';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
