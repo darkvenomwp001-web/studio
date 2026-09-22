@@ -85,7 +85,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import StatusFeature from '@/components/status/StatusFeature';
 import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -199,37 +199,40 @@ function NotificationsList() {
                             <div key={group} className="space-y-3">
                                 <h3 className="font-black text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60 px-1">{group}</h3>
                                 <div className="space-y-2">
-                                    {notifs.map((notif) => (
-                                        <div
-                                            key={notif.id}
-                                            onClick={() => handleNotificationClick(notif)}
-                                            className={cn(
-                                                "p-4 rounded-3xl cursor-pointer transition-all duration-300 flex items-center gap-4 group relative",
-                                                !notif.isRead ? 'bg-primary/5 border border-primary/10 shadow-sm' : 'hover:bg-muted/30 border border-transparent'
-                                            )}
-                                        >
-                                            <div className="relative flex-shrink-0">
-                                                <Avatar className="h-12 w-12 border-2 border-background shadow-md group-hover:scale-105 transition-transform">
-                                                    <AvatarImage src={notif.actor.avatarUrl} />
-                                                    <AvatarFallback className="bg-muted text-primary font-bold">{notif.actor.username.substring(0, 1).toUpperCase()}</AvatarFallback>
-                                                </Avatar>
-                                                <div className="absolute -bottom-1 -right-1 bg-card p-1 rounded-full shadow-lg ring-2 ring-background">
-                                                    {getNotificationIcon(notif.type)}
+                                    {notifs.map((notif) => {
+                                        const date = parseSafeDate(notif.timestamp);
+                                        return (
+                                            <div
+                                                key={notif.id}
+                                                onClick={() => handleNotificationClick(notif)}
+                                                className={cn(
+                                                    "p-4 rounded-3xl cursor-pointer transition-all duration-300 flex items-center gap-4 group relative",
+                                                    !notif.isRead ? 'bg-primary/5 border border-primary/10 shadow-sm' : 'hover:bg-muted/30 border border-transparent'
+                                                )}
+                                            >
+                                                <div className="relative flex-shrink-0">
+                                                    <Avatar className="h-12 w-12 border-2 border-background shadow-md group-hover:scale-105 transition-transform">
+                                                        <AvatarImage src={notif.actor.avatarUrl} />
+                                                        <AvatarFallback className="bg-muted text-primary font-bold">{notif.actor.username.substring(0, 1).toUpperCase()}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="absolute -bottom-1 -right-1 bg-card p-1 rounded-full shadow-lg ring-2 ring-background">
+                                                        {getNotificationIcon(notif.type)}
+                                                    </div>
                                                 </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm leading-snug text-foreground/90 font-medium">
+                                                        <span className="font-black text-foreground">{notif.actor.displayName || `@${notif.actor.username}`}</span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
+                                                    </p>
+                                                    <p className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-tight mt-1">
+                                                        {date ? formatDistanceToNow(date, { addSuffix: true }) : 'Just now'}
+                                                    </p>
+                                                </div>
+                                                {!notif.isRead && (
+                                                    <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
+                                                )}
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm leading-snug text-foreground/90 font-medium">
-                                                    <span className="font-black text-foreground">{notif.actor.displayName || `@${notif.actor.username}`}</span> {notif.message.replace(`${notif.actor.displayName || notif.actor.username}`, '').trim()}
-                                                </p>
-                                                <p className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-tight mt-1">
-                                                    {notif.timestamp ? formatDistanceToNow(parseSafeDate(notif.timestamp)!, { addSuffix: true }) : 'Just now'}
-                                                </p>
-                                            </div>
-                                            {!notif.isRead && (
-                                                <div className="w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
-                                            )}
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                          )
@@ -302,21 +305,51 @@ function MessagesClient() {
   useEffect(() => {
     if (!currentUser?.id) return;
     const q = query(collection(db, 'conversations'), where('participantIds', 'array-contains', currentUser.id), orderBy('updatedAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
-      setConversations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Conversation)));
-      setIsLoadingConversations(false);
-    });
+    return onSnapshot(q, 
+      (snapshot) => {
+        setConversations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Conversation)));
+        setIsLoadingConversations(false);
+      },
+      async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'conversations',
+          operation: 'list',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+        setIsLoadingConversations(false);
+      }
+    );
   }, [currentUser]);
 
   useEffect(() => {
     if (!activeConversation?.id) { setMessages([]); return; }
     setIsLoadingMessages(true);
     const q = query(collection(db, 'conversations', activeConversation.id, 'messages'), orderBy('timestamp', 'asc'), limit(100));
-    return onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
-      setIsLoadingMessages(false);
-    });
-  }, [activeConversation]);
+    const unsub = onSnapshot(q, 
+      (snapshot) => {
+        setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
+        setIsLoadingMessages(false);
+      },
+      async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: `conversations/${activeConversation.id}/messages`,
+          operation: 'list',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+        setIsLoadingMessages(false);
+      }
+    );
+
+    // Mark as Read Protocol
+    if (currentUser && activeConversation.lastMessage?.senderId !== currentUser.id && activeConversation.lastMessage?.isRead === false) {
+        updateDoc(doc(db, 'conversations', activeConversation.id), { 'lastMessage.isRead': true })
+            .catch(async (error) => {
+                 // Silent catch, standard read updates don't block UI
+            });
+    }
+
+    return () => unsub();
+  }, [activeConversation, currentUser]);
 
   const handleSelectConversation = (conversation: Conversation) => {
     setActiveConversation(conversation);
@@ -329,26 +362,47 @@ function MessagesClient() {
     if (!currentUser || !activeConversation || !finalContent.trim()) return;
 
     setIsSendingMessage(true);
+    const messageData = {
+      senderId: currentUser.id,
+      content: finalContent.trim(),
+      timestamp: serverTimestamp(),
+      type: 'text',
+    };
+
+    const convRef = doc(db, 'conversations', activeConversation.id);
+    const messagesColRef = collection(convRef, 'messages');
+
     try {
       const typingRef = ref(rtdb, `typing/${activeConversation.id}/${currentUser.id}`);
       remove(typingRef);
-      const messageRef = await addDoc(collection(db, 'conversations', activeConversation.id, 'messages'), {
-        senderId: currentUser.id,
-        content: finalContent.trim(),
-        timestamp: serverTimestamp(),
-        type: 'text',
-      });
-      await updateDoc(doc(db, 'conversations', activeConversation.id), {
-        lastMessage: { id: messageRef.id, content: finalContent.trim(), senderId: currentUser.id, timestamp: serverTimestamp(), isRead: false },
+      
+      const messageRef = await addDoc(messagesColRef, messageData);
+      
+      await updateDoc(convRef, {
+        lastMessage: { 
+          id: messageRef.id, 
+          content: finalContent.trim(), 
+          senderId: currentUser.id, 
+          timestamp: serverTimestamp(), 
+          isRead: false 
+        },
         updatedAt: serverTimestamp(),
       });
       setNewMessageContent('');
-    } catch (error) { toast({ title: "Failed to send", variant: "destructive" }); }
+    } catch (error: any) { 
+        const permissionError = new FirestorePermissionError({
+            path: `conversations/${activeConversation.id}/messages`,
+            operation: 'create',
+            requestResourceData: messageData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+    }
     finally { setIsSendingMessage(false); }
   };
   
   const getOtherParticipant = (conversation: Conversation): AppUserType | undefined => {
-    const otherId = conversation.participantIds.find(id => id !== currentUser?.id);
+    if (!currentUser) return undefined;
+    const otherId = conversation.participantIds.find(id => id !== currentUser.id);
     return otherId ? (conversation.participantInfo[otherId] as any) : undefined;
   };
 
@@ -359,6 +413,8 @@ function MessagesClient() {
       const q = query(collection(db, 'users'), where('username', '>=', searchTerm.trim().toLowerCase()), where('username', '<=', searchTerm.trim().toLowerCase() + '\uf8ff'), limit(5));
       const snapshot = await getDocs(q);
       setSearchedUsers(snapshot.docs.filter(d => d.id !== currentUser.id).map(d => ({ id: d.id, ...d.data() } as UserSummary)));
+    } catch (error) {
+        // Handle search error silently
     } finally { setIsSearchingUsers(false); }
   };
   
@@ -378,23 +434,60 @@ function MessagesClient() {
     if (!snap.empty) {
       handleSelectConversation({ id: snap.docs[0].id, ...snap.docs[0].data() } as Conversation);
     } else {
-      const newConv = await addDoc(collection(db, 'conversations'), {
+      const newConvData = {
         participantIds: participants,
-        participantInfo: { [currentUser.id]: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl }, [targetUser.id]: targetUser },
+        participantInfo: { 
+            [currentUser.id]: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl }, 
+            [targetUser.id]: { id: targetUser.id, username: targetUser.username, avatarUrl: targetUser.avatarUrl, displayName: targetUser.displayName } 
+        },
         updatedAt: serverTimestamp(),
-        lastMessage: { id: '', content: 'Thread started.', senderId: '', timestamp: serverTimestamp() },
+        lastMessage: { id: '', content: 'Thread started.', senderId: '', timestamp: serverTimestamp(), isRead: true },
         isGroup: false,
-      });
-      handleSelectConversation({ id: newConv.id, participantIds: participants } as any);
+      };
+
+      try {
+        const newConv = await addDoc(collection(db, 'conversations'), newConvData);
+        handleSelectConversation({ id: newConv.id, ...newConvData } as any);
+      } catch (error) {
+        const permissionError = new FirestorePermissionError({
+            path: 'conversations',
+            operation: 'create',
+            requestResourceData: newConvData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      }
     }
     setIsNewConversationDialogOpen(false);
+  };
+
+  const handleDeleteConversation = async (convId: string) => {
+      if (!confirm("Are you sure you want to delete this thread?")) return;
+      const convRef = doc(db, 'conversations', convId);
+      deleteDoc(convRef)
+        .then(() => {
+            toast({ title: "Thread deleted" });
+            if (activeConversation?.id === convId) {
+                setActiveConversation(null);
+                setMobileView('list');
+            }
+        })
+        .catch(async (error) => {
+            const permissionError = new FirestorePermissionError({
+                path: convRef.path,
+                operation: 'delete',
+            } satisfies SecurityRuleContext);
+            errorEmitter.emit('permission-error', permissionError);
+        });
   };
 
   const filteredConversations = useMemo(() => {
     if (!sidebarSearch.trim()) return conversations;
     const term = sidebarSearch.toLowerCase();
-    return conversations.filter(conv => getOtherParticipant(conv)?.username.toLowerCase().includes(term));
-  }, [conversations, sidebarSearch]);
+    return conversations.filter(conv => {
+        const other = getOtherParticipant(conv);
+        return other?.username.toLowerCase().includes(term) || other?.displayName?.toLowerCase().includes(term);
+    });
+  }, [conversations, sidebarSearch, currentUser]);
 
   return (
     <div className="flex h-[calc(100vh-14rem)] md:h-[800px] border-none sm:border rounded-none sm:rounded-[3rem] bg-card sm:shadow-3xl overflow-hidden mb-10 border-border/40 w-full max-w-7xl mx-auto">
@@ -424,8 +517,9 @@ function MessagesClient() {
                     {filteredConversations.map(conv => {
                         const other = getOtherParticipant(conv);
                         const isActive = activeConversation?.id === conv.id;
-                        const isUnread = conv.lastMessage?.senderId !== currentUser?.id && !conv.lastMessage?.isRead;
+                        const isUnread = conv.lastMessage?.senderId !== currentUser?.id && conv.lastMessage?.isRead === false;
                         const isOnline = other ? userStatuses[other.id] === 'online' : false;
+                        const date = parseSafeDate(conv.updatedAt);
 
                         return (
                             <div 
@@ -439,15 +533,15 @@ function MessagesClient() {
                                 <div className="relative">
                                     <Avatar className="h-14 w-14 border-2 border-background shadow-md">
                                         <AvatarImage src={other?.avatarUrl} />
-                                        <AvatarFallback className="bg-muted text-primary font-bold">{other?.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                        <AvatarFallback className="bg-muted text-primary font-bold">{other?.username.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
                                     </Avatar>
                                     {isOnline && <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse" />}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
-                                        <h3 className="font-black text-sm truncate">@{other?.username}</h3>
+                                        <h3 className="font-black text-sm truncate">@{other?.username || 'user'}</h3>
                                         <span className={cn("text-[9px] font-bold uppercase tracking-tighter opacity-60", isActive ? "text-white/80" : "text-muted-foreground")}>
-                                            {conv.updatedAt ? formatDistanceToNow(parseSafeDate(conv.updatedAt)!, { addSuffix: false }) : ''}
+                                            {date ? formatDistanceToNow(date, { addSuffix: false }) : ''}
                                         </span>
                                     </div>
                                     <p className={cn("text-xs truncate", isActive ? "text-white/70" : "text-muted-foreground", isUnread && "font-black text-foreground")}>
@@ -460,6 +554,9 @@ function MessagesClient() {
                             </div>
                         );
                     })}
+                    {filteredConversations.length === 0 && !isLoadingConversations && (
+                        <div className="text-center py-10 opacity-30 italic text-xs">No active threads.</div>
+                    )}
                 </div>
             </ScrollArea>
         </aside>
@@ -487,7 +584,7 @@ function MessagesClient() {
                                 </Link>
                             )}
                             <div className="truncate">
-                                <h3 className="font-black text-sm md:text-base truncate">@{getOtherParticipant(activeConversation)?.username}</h3>
+                                <h3 className="font-black text-sm md:text-base truncate">@{getOtherParticipant(activeConversation)?.username || 'user'}</h3>
                                 <p className="text-[9px] font-black uppercase tracking-widest text-primary leading-none">
                                     {otherUserTyping ? "Writing..." : (userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? "Online" : "Away")}
                                 </p>
@@ -495,7 +592,16 @@ function MessagesClient() {
                         </div>
                         <div className="flex items-center gap-1">
                             <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><Phone className="h-5 w-5" /></Button>
-                            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><MoreHorizontal className="h-5 w-5" /></Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><MoreHorizontal className="h-5 w-5" /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="rounded-xl w-48">
+                                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2" onClick={() => handleDeleteConversation(activeConversation.id)}>
+                                        <Trash2 className="h-4 w-4" /> Delete Thread
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </header>
                     
