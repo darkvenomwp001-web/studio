@@ -41,7 +41,9 @@ import {
   Forward,
   Clock,
   Disc,
-  Link as LinkIcon
+  Link as LinkIcon,
+  EyeOff,
+  History
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, format, isYesterday } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType } from '@/types';
@@ -299,6 +301,7 @@ function MessagesClient() {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [viewMode, setViewMode] = useState<'chat' | 'media'>('chat');
   const [mgmtMenuConv, setMgmtMenuConv] = useState<Conversation | null>(null);
+  const [isLongPressing, setIsLongPressing] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -512,6 +515,7 @@ function MessagesClient() {
   const handleThreadLongPress = (conv: Conversation) => {
     if (window.navigator.vibrate) window.navigator.vibrate(50);
     setMgmtMenuConv(conv);
+    setIsLongPressing(true);
   };
 
   const handleDeleteThread = async (convId: string) => {
@@ -669,14 +673,28 @@ function MessagesClient() {
                         return (
                             <div 
                                 key={conv.id}
-                                onClick={() => handleSelectConversation(conv)}
                                 onPointerDown={(e) => {
                                     longPressTimerRef.current = setTimeout(() => {
                                         handleThreadLongPress(conv);
-                                    }, 5000); // 5 SECOND HOLD FOR MGMT MENU
+                                    }, 5000); 
                                 }}
-                                onPointerUp={() => clearTimeout(longPressTimerRef.current!)}
-                                onPointerLeave={() => clearTimeout(longPressTimerRef.current!)}
+                                onPointerUp={() => {
+                                    if (longPressTimerRef.current) {
+                                        clearTimeout(longPressTimerRef.current);
+                                        longPressTimerRef.current = null;
+                                        if (!isLongPressing) {
+                                            handleSelectConversation(conv);
+                                        }
+                                    }
+                                    setIsLongPressing(false);
+                                }}
+                                onPointerLeave={() => {
+                                    if (longPressTimerRef.current) {
+                                        clearTimeout(longPressTimerRef.current);
+                                        longPressTimerRef.current = null;
+                                    }
+                                    setIsLongPressing(false);
+                                }}
                                 className={cn(
                                     "flex items-center gap-4 p-4 cursor-pointer rounded-2xl transition-all group relative transform-gpu active:scale-[0.98] select-none touch-none",
                                     isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'hover:bg-muted/50'
@@ -755,7 +773,7 @@ function MessagesClient() {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
                                         const nick = prompt("Set nickname for other user:");
-                                        if (nick !== null) handleSetNickname(activeConversation.id, getOtherParticipant(activeConversation)?.id || '', nick);
+                                        if (nick !== null) handleSetNickname(getOtherParticipant(activeConversation)?.id || '', nick);
                                     }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
                                         <Edit3 className="h-4 w-4" /> Edit Nicknames
                                     </DropdownMenuItem>
@@ -1076,8 +1094,14 @@ export default function UnifiedInboxPage() {
     const searchParams = useSearchParams();
     const defaultTab = searchParams.get('tab') || 'messages'; 
 
+    useEffect(() => {
+        if (!loading && !user) {
+            router.push('/auth/signin');
+        }
+    }, [user, loading, router]);
+
     if (loading) return <div className="flex flex-col justify-center items-center min-h-screen gap-4 transform-gpu"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Syncing Communications...</p></div>;
-    if (!user) { router.push('/auth/signin'); return null; }
+    if (!user) return null;
 
     return (
         <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
