@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -31,7 +32,7 @@ service cloud.firestore {
 
       allow update: if isAppOwner()
                     || (isSignedIn() && isOwner(userId))
-                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['followersCount', 'followingIds', 'closeFriendIds', 'appearanceSettings', 'readerSettings', 'privacySettings', 'fcmTokens', 'readingList']));
+                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['followersCount', 'followingIds', 'closeFriendIds']));
 
       allow delete: if isAppOwner();
     }
@@ -106,11 +107,7 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read, create: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds || isAppOwner());
-        allow update: if isSignedIn() && (
-          request.auth.uid == resource.data.senderId 
-          || request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
-        );
-        allow delete: if isSignedIn() && (request.auth.uid == resource.data.senderId || isAppOwner());
+        allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.senderId || isAppOwner());
       }
     }
     
@@ -197,7 +194,7 @@ service cloud.firestore {
 
     // Questions & Polls
     match /questions/{questionId} {
-      allow read, list: if resource.data.status == 'answered' || (isSignedIn() && (isOwner(resource.data.authorId) || isOwner(resource.data.asker.id) || isAppOwner()));
+      allow read, list: if resource.data.status == 'answered' || (isSignedIn() && (isOwner(resource.data.authorId) || isAppOwner()));
       allow create: if isSignedIn() && isOwner(request.resource.data.asker.id);
       allow update, delete: if isSignedIn() && (isOwner(resource.data.authorId) || isAppOwner());
     }

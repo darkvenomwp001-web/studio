@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
@@ -751,7 +752,7 @@ function MessagesClient() {
                                     setIsLongPressing(false); 
                                     longPressTimerRef.current = setTimeout(() => {
                                         handleThreadLongPress(conv);
-                                    }, 5000); 
+                                    }, 3000); 
                                 }}
                                 onPointerUp={() => {
                                     if (longPressTimerRef.current) {
