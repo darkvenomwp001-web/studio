@@ -109,6 +109,7 @@ service cloud.firestore {
         allow update: if isSignedIn() && (
           request.auth.uid == resource.data.senderId 
           || request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
+          || isAppOwner()
         );
         allow delete: if isSignedIn() && (request.auth.uid == resource.data.senderId || isAppOwner());
       }

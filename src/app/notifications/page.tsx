@@ -810,13 +810,25 @@ function MessagesClient() {
                                         </div>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator className="bg-border/10 mx-2" />
-                                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2 rounded-xl h-10 px-3 font-bold text-xs" onClick={() => {
-                                        if(confirm("Erase thread archive?")) {
-                                            handleDeleteThread(activeConversation.id);
-                                        }
-                                    }}>
-                                        <Trash2 className="h-4 w-4" /> Delete Thread
-                                    </DropdownMenuItem>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2 rounded-xl h-10 px-3 font-bold text-xs" onSelect={e => e.preventDefault()}>
+                                                <Trash2 className="h-4 w-4" /> Erase Thread
+                                            </DropdownMenuItem>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent className="rounded-3xl border-none shadow-3xl">
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle className="font-headline text-2xl font-bold text-destructive">Erase Thread Archive?</AlertDialogTitle>
+                                                <AlertDialogDescription className="text-sm leading-relaxed">This will permanently remove the thread from your view. This cannot be undone.</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter className="mt-4">
+                                                <AlertDialogCancel className="rounded-full px-8 font-bold">Cancel</AlertDialogCancel>
+                                                <AlertDialogAction className="bg-destructive hover:bg-destructive/90 rounded-full px-8 font-bold" onClick={() => activeConversation && handleDeleteThread(activeConversation.id)}>
+                                                    Delete Archive
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
