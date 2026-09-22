@@ -1,7 +1,3 @@
-// This file is for server-side Firebase initialization.
-// It's a copy of firebase.ts but without client-side specific code like 'getMessaging'.
-// This is to prevent bundling issues with Next.js Server Actions.
-
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';

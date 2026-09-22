@@ -194,7 +194,6 @@ export default function ReactionButton({ postId, authorId, parentCollection = 'f
                     [`reactionCounts.${type}`]: increment(1)
                 });
                 
-                // Trigger Notification
                 if (authorId && authorId !== user.id) {
                     addNotification({
                         userId: authorId,

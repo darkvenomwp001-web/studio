@@ -16,54 +16,61 @@ const firebaseConfig: FirebaseOptions = {
   databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL, 
 };
 
-// Initialize Firebase
-let app;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApp();
-}
-
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const rtdb = getDatabase(app);
-
-// Enable Firestore Offline Persistence
-if (typeof window !== 'undefined') {
-    enableIndexedDbPersistence(db).catch((err) => {
-        if (err.code === 'failed-precondition') {
-            console.warn('Persistence failed: Multiple tabs open');
-        } else if (err.code === 'unimplemented') {
-            console.warn('Persistence failed: Browser does not support it');
-        }
-    });
-}
-
-/**
- * Utility to clear the local Firestore IndexedDB persistence.
- * This is useful for resolving "hanging" loads or data inconsistencies.
- */
-export const clearFirestoreCache = async () => {
-    if (typeof window !== 'undefined') {
-        try {
-            await clearIndexedDbPersistence(db);
-            return true;
-        } catch (e) {
-            console.error("Failed to clear persistence:", e);
-            throw e;
-        }
+// Singleton pattern to initialize and get Firebase app
+const getFirebaseApp = () => {
+  if (getApps().length === 0) {
+    if (
+      !firebaseConfig.apiKey ||
+      !firebaseConfig.authDomain ||
+      !firebaseConfig.projectId
+    ) {
+      if (typeof window === 'undefined') {
+        throw new Error('Firebase environment variables are not set. Deployment will fail.');
+      }
+      console.error("Firebase config is missing. The app cannot connect to Firebase.");
+      return null;
     }
-    return false;
+    return initializeApp(firebaseConfig);
+  }
+  return getApp();
 };
 
-// Only initialize messaging on the client
-export const getMessagingInstance = async () => {
-    const isMessagingSupported = await isSupported();
-    if (typeof window !== 'undefined' && isMessagingSupported) {
-        return getMessaging(app);
+const app = getFirebaseApp();
+
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;
+export const storage = app ? getStorage(app) : null;
+export const rtdb = app ? getDatabase(app) : null;
+
+if (db && typeof window !== 'undefined') {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn('Firestore persistence failed: multiple tabs open.');
+    } else if (err.code === 'unimplemented') {
+      console.warn('Firestore persistence failed: browser does not support it.');
     }
-    return null;
+  });
+}
+
+export const clearFirestoreCache = async () => {
+  if (db && typeof window !== 'undefined') {
+    try {
+      await clearIndexedDbPersistence(db);
+      return true;
+    } catch (e) {
+      console.error("Failed to clear Firestore persistence:", e);
+      return false;
+    }
+  }
+  return false;
+};
+
+export const getMessagingInstance = async () => {
+  const appInstance = getFirebaseApp();
+  if (appInstance && typeof window !== 'undefined' && (await isSupported())) {
+    return getMessaging(appInstance);
+  }
+  return null;
 };
 
 export default app;
