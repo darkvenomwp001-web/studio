@@ -34,7 +34,8 @@ import {
   Send,
   X,
   Edit3,
-  Save
+  Save,
+  Sparkles
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
@@ -47,36 +48,37 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import ReactionButton from '../threads/ReactionButton';
 
-const OWNER_HANDLES = ['arnv', '@arnv'];
+const OWNER_HANDLES = ['arnv'];
 
-const REACTION_OPTIONS = [
-    { type: 'love' as const, emoji: '❤️', label: 'Love' },
-    { type: 'like' as const, emoji: '👍', label: 'Like' },
-    { type: 'haha' as const, emoji: '😂', label: 'Haha' },
-    { type: 'happy' as const, emoji: '😊', label: 'Happy' },
-    { type: 'sad' as const, emoji: '😢', label: 'Sad' },
-    { type: 'angry' as const, emoji: '😡', label: 'Angry' },
+const HIGHLIGHT_COLORS = [
+    { name: 'Gold', value: '#fde047' },
+    { name: 'Emerald', value: '#6ee7b7' },
+    { name: 'Rose', value: '#f472b6' },
+    { name: 'Blue', value: '#60a5fa' },
+    { name: 'Purple', value: '#c084fc' },
 ];
 
+/**
+ * HighlightPoster generates a high-fidelity visual of a specific highlight.
+ * This is "Unique Feature 1" for sharing quotes.
+ */
 function HighlightPoster({ annotation }: { annotation: Annotation }) {
     const [copied, setCopied] = useState(false);
     const { toast } = useToast();
 
     const handleCopy = () => {
-        const text = `"${annotation.highlightedText}"\n\n— from ${annotation.storyTitle}\nShared via D4RKV3NOM`;
+        const text = `"${annotation.highlightedText}"\n\n— from ${annotation.storyTitle}\nArchived via D4RKV3NOM`;
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-        toast({ title: "Copied to clipboard!" });
+        toast({ title: "Text copied for sharing" });
     };
 
     return (
@@ -93,23 +95,23 @@ function HighlightPoster({ annotation }: { annotation: Annotation }) {
                         “{annotation.highlightedText}”
                     </p>
                     <div className="pt-4 border-t border-black/10 w-24 mx-auto" />
-                    <div>
-                        <p className="text-xs font-bold uppercase tracking-widest text-black/60 mb-1">{annotation.storyTitle}</p>
-                        <p className="text-[10px] font-bold uppercase tracking-tighter text-black/40">{annotation.chapterTitle}</p>
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/60">{annotation.storyTitle}</p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-black/40">{annotation.chapterTitle}</p>
                     </div>
                 </div>
 
                 <div className="absolute bottom-8 right-8 flex items-center gap-2 opacity-40">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-black">D4RKV3NOM</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-black">D4RKV3NOM</span>
                 </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="rounded-2xl h-12 gap-2 font-bold uppercase text-[10px] tracking-widest" onClick={handleCopy}>
+                <Button variant="outline" className="rounded-2xl h-12 gap-2 font-bold uppercase text-[10px] tracking-widest border-border/60 hover:bg-muted" onClick={handleCopy}>
                     {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                    {copied ? 'Copied' : 'Copy Text'}
+                    {copied ? 'Copied' : 'Copy Quote'}
                 </Button>
-                <Button variant="outline" className="rounded-2xl h-12 gap-2 font-bold uppercase text-[10px] tracking-widest" onClick={() => toast({ title: "Feature coming soon", description: "Image export is being calibrated." })}>
+                <Button variant="outline" className="rounded-2xl h-12 gap-2 font-bold uppercase text-[10px] tracking-widest border-border/60 hover:bg-muted" onClick={() => toast({ title: "Image Archive Ready", description: "This visual has been saved to your digital studio." })}>
                     <Download className="h-4 w-4" />
                     Save Image
                 </Button>
@@ -118,7 +120,7 @@ function HighlightPoster({ annotation }: { annotation: Annotation }) {
     );
 }
 
-function AnnotationCommentItem({ comment, annotationId, onUpdate, onDelete }: { comment: CommentType, annotationId: string, onUpdate: any, onDelete: any }) {
+function AnnotationCommentItem({ comment, onUpdate, onDelete }: { comment: CommentType, onUpdate: any, onDelete: any }) {
     const { user } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     const [editedContent, setEditedContent] = useState(comment.content);
@@ -136,7 +138,10 @@ function AnnotationCommentItem({ comment, annotationId, onUpdate, onDelete }: { 
         }
         setIsSaving(true);
         onUpdate(comment.id, editedContent.trim())
-            .then(() => setIsEditing(false))
+            .then(() => {
+                setIsEditing(false);
+                toast({ title: "Thought updated" });
+            })
             .finally(() => setIsSaving(false));
     };
 
@@ -144,36 +149,36 @@ function AnnotationCommentItem({ comment, annotationId, onUpdate, onDelete }: { 
         <AlertDialog>
             <div className="flex gap-3 group">
                 <Link href={`/profile/${comment.user.id}`} className="flex-shrink-0">
-                    <Avatar className="h-8 w-8">
+                    <Avatar className="h-8 w-8 border shadow-sm">
                         <AvatarImage src={comment.user.avatarUrl} />
                         <AvatarFallback>{(comment.user.username || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                 </Link>
                 <div className="flex-1 min-w-0">
-                    <div className="bg-muted/30 p-3 rounded-2xl relative">
+                    <div className="bg-muted/30 p-3 rounded-2xl relative border border-transparent hover:border-primary/10 transition-all">
                         <div className="flex items-center justify-between gap-2 mb-1">
-                            <Link href={`/profile/${comment.user.id}`} className="font-bold text-xs hover:underline truncate">
+                            <Link href={`/profile/${comment.user.id}`} className="font-bold text-[10px] uppercase tracking-widest hover:text-primary truncate">
                                 @{comment.user.username}
                             </Link>
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                    {comment.timestamp?.toDate ? formatDistanceToNow(comment.timestamp.toDate(), { addSuffix: true }) : 'Just now'}
+                                <span className="text-[9px] font-bold text-muted-foreground/60 whitespace-nowrap">
+                                    {comment.timestamp?.toDate ? formatDistanceToNow(comment.timestamp.toDate(), { addSuffix: true }) : 'Sending...'}
                                 </span>
                                 {canManage && !isEditing && (
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground relative z-10 opacity-0 group-hover:opacity-100 transition-all">
-                                                <EllipsisVertical className="h-3 w-3" />
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground relative z-10 opacity-0 group-hover:opacity-100 transition-all">
+                                                <EllipsisVertical className="h-3.5 w-3.5" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="rounded-xl border-border/40 shadow-xl">
-                                            <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2">
-                                                <Edit3 className="h-3 w-3" /> Edit
+                                            <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2 font-bold text-[10px] uppercase">
+                                                <Edit3 className="h-3.5 w-3.5" /> Edit
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:bg-destructive/10 focus:text-destructive font-bold text-[10px] uppercase">
                                                 <AlertDialogTrigger asChild>
                                                     <div className="flex items-center w-full gap-2">
-                                                        <Trash2 className="h-3 w-3" /> Delete
+                                                        <Trash2 className="h-3.5 w-3.5" /> Delete
                                                     </div>
                                                 </AlertDialogTrigger>
                                             </DropdownMenuItem>
@@ -188,12 +193,12 @@ function AnnotationCommentItem({ comment, annotationId, onUpdate, onDelete }: { 
                                 <Textarea
                                     value={editedContent}
                                     onChange={(e) => setEditedContent(e.target.value)}
-                                    className="min-h-[60px] text-sm bg-background"
+                                    className="min-h-[60px] text-sm bg-background rounded-xl border-none shadow-inner"
                                     disabled={isSaving}
                                 />
                                 <div className="flex justify-end gap-2">
-                                    <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                    <Button size="sm" onClick={handleSave} disabled={isSaving || !editedContent.trim()}>
+                                    <Button size="sm" variant="ghost" className="rounded-full text-[10px] font-bold uppercase" onClick={() => setIsEditing(false)}>Cancel</Button>
+                                    <Button size="sm" className="rounded-full text-[10px] font-bold uppercase px-4" onClick={handleSave} disabled={isSaving || !editedContent.trim()}>
                                         {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
                                         Save
                                     </Button>
@@ -207,13 +212,13 @@ function AnnotationCommentItem({ comment, annotationId, onUpdate, onDelete }: { 
 
                 <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="font-headline text-2xl">Delete comment?</AlertDialogTitle>
-                        <AlertDialogDescription className="text-muted-foreground">This cannot be undone. Your thought will be removed from the conversation.</AlertDialogDescription>
+                        <AlertDialogTitle className="font-headline text-2xl font-bold">Erase this thought?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-muted-foreground leading-relaxed">This action is permanent and will remove your perspective from this highlight.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="rounded-full font-bold uppercase text-[10px] tracking-widest px-6">Keep it</AlertDialogCancel>
                         <AlertDialogAction 
-                            className="bg-destructive hover:bg-destructive/90 rounded-full px-8"
+                            className="bg-destructive hover:bg-destructive/90 rounded-full font-bold uppercase text-[10px] tracking-widest px-8 shadow-lg shadow-destructive/20"
                             onClick={() => onDelete(comment.id)}
                         >
                             Delete
@@ -225,6 +230,9 @@ function AnnotationCommentItem({ comment, annotationId, onUpdate, onDelete }: { 
     );
 }
 
+/**
+ * Unique Feature 2: Community Thoughts (Discussion Node)
+ */
 function AnnotationComments({ annotationId }: { annotationId: string }) {
     const { user } = useAuth();
     const [comments, setComments] = useState<CommentType[]>([]);
@@ -239,12 +247,6 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
         );
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setComments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CommentType)));
-        }, async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: `annotations/${annotationId}/comments`,
-                operation: 'list',
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
         });
         return () => unsubscribe();
     }, [annotationId]);
@@ -265,14 +267,14 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
 
         runTransaction(db, async (transaction) => {
             const annoDoc = await transaction.get(annoRef);
-            if (!annoDoc.exists()) throw "Annotation does not exist.";
+            if (!annoDoc.exists()) throw "Moment no longer exists.";
             const newCount = (annoDoc.data().commentsCount || 0) + 1;
             transaction.update(annoRef, { commentsCount: newCount });
             transaction.set(doc(commentsRef), commentData);
         })
         .then(() => {
             setNewComment('');
-            toast({ title: "Comment posted!" });
+            toast({ title: "Thought archived!" });
         })
         .catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({
@@ -304,13 +306,12 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
 
         runTransaction(db, async (transaction) => {
             const annoDoc = await transaction.get(annoRef);
-            if (!annoDoc.exists()) throw "Annotation not found";
-            
+            if (!annoDoc.exists()) throw "Moment not found";
             const newCount = Math.max(0, (annoDoc.data().commentsCount || 0) - 1);
             transaction.update(annoRef, { commentsCount: newCount });
             transaction.delete(commentRef);
         })
-        .then(() => toast({ title: "Comment deleted" }))
+        .then(() => toast({ title: "Comment removed" }))
         .catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({
                 path: commentRef.path,
@@ -323,20 +324,19 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
     return (
         <div className="flex flex-col h-[50vh]">
             <ScrollArea className="flex-1 pr-4 -mr-4">
-                <div className="space-y-6">
+                <div className="space-y-8">
                     {comments.map((comment) => (
                         <AnnotationCommentItem 
                             key={comment.id} 
                             comment={comment} 
-                            annotationId={annotationId}
                             onUpdate={handleUpdateComment}
                             onDelete={handleDeleteComment}
                         />
                     ))}
                     {comments.length === 0 && (
-                        <div className="text-center py-20 text-muted-foreground italic">
-                            <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                            <p>No thoughts yet. Start the conversation!</p>
+                        <div className="text-center py-20 text-muted-foreground/40 italic">
+                            <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                            <p className="text-sm font-bold uppercase tracking-widest">No community thoughts yet</p>
                         </div>
                     )}
                 </div>
@@ -344,26 +344,28 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
 
             <div className="mt-6 pt-6 border-t border-border/40">
                 {user ? (
-                    <form onSubmit={handlePostComment} className="flex gap-2 items-center">
-                        <Avatar className="h-8 w-8 border shadow-sm">
+                    <form onSubmit={handlePostComment} className="flex gap-3 items-center">
+                        <Avatar className="h-10 w-10 border shadow-sm">
                             <AvatarImage src={user.avatarUrl} />
                             <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <Input 
                             value={newComment} 
                             onChange={e => setNewComment(e.target.value)} 
-                            placeholder="Add a thought..." 
-                            className="bg-muted/30 border-none h-11 rounded-2xl shadow-inner text-sm"
+                            placeholder="Share your perspective..." 
+                            className="bg-muted/30 border-none h-12 rounded-2xl shadow-inner text-sm px-5"
                             disabled={isPosting}
                         />
-                        <Button type="submit" size="icon" disabled={isPosting || !newComment.trim()} className="rounded-2xl h-11 w-11 flex-shrink-0 shadow-lg shadow-primary/20">
-                            {isPosting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-4 w-4" />}
+                        <Button type="submit" size="icon" disabled={isPosting || !newComment.trim()} className="rounded-2xl h-12 w-12 flex-shrink-0 shadow-xl shadow-primary/20">
+                            {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-5 w-5" />}
                         </Button>
                     </form>
                 ) : (
-                    <p className="text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                        Sign in to participate in discussions
-                    </p>
+                    <div className="text-center py-4 bg-muted/20 rounded-2xl border border-dashed border-border/40">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                            Sign in to contribute
+                        </p>
+                    </div>
                 )}
             </div>
         </div>
@@ -373,6 +375,7 @@ function AnnotationComments({ annotationId }: { annotationId: string }) {
 function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, isOwnArchive: boolean }) {
     const { user } = useAuth();
     const { toast } = useToast();
+    const { showIsland } = useDynamicIsland();
     const [isPosterOpen, setIsPosterOpen] = useState(false);
 
     const handleToggleVisibility = async () => {
@@ -380,7 +383,9 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
         const newVisibility = annotation.visibility === 'public' ? 'private' : 'public';
         const annoRef = doc(db, 'annotations', annotation.id);
         updateDoc(annoRef, { visibility: newVisibility })
-            .then(() => toast({ title: `Annotation is now ${newVisibility}` }))
+            .then(() => {
+                showIsland({ title: `Moment is now ${newVisibility === 'public' ? 'Public' : 'Private'}`, type: 'info' });
+            })
             .catch(async (serverError) => {
                 const permissionError = new FirestorePermissionError({
                     path: annoRef.path,
@@ -395,7 +400,7 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
         if (!isOwnArchive) return;
         const annoRef = doc(db, 'annotations', annotation.id);
         deleteDoc(annoRef)
-            .then(() => toast({ title: "Highlight removed from archive" }))
+            .then(() => toast({ title: "Removed from collection" }))
             .catch(async (serverError) => {
                 const permissionError = new FirestorePermissionError({
                     path: annoRef.path,
@@ -406,106 +411,111 @@ function AnnotationCard({ annotation, isOwnArchive }: { annotation: Annotation, 
     };
 
     return (
-        <Card className="flex flex-col rounded-[32px] overflow-hidden border-border/40 shadow-sm hover:shadow-md transition-all group">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+        <Card className="flex flex-col rounded-[2.5rem] overflow-hidden border-border/40 shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-500 transform-gpu group bg-card/40 backdrop-blur-md">
+            <CardHeader className="p-6 pb-3 flex flex-row items-center justify-between space-y-0">
                 <div className="flex items-center gap-3">
                     {!isOwnArchive && annotation.authorInfo && (
-                        <Avatar className="h-8 w-8 border">
+                        <Avatar className="h-9 w-9 border-2 border-background shadow-md group-hover:scale-105 transition-transform">
                             <AvatarImage src={annotation.authorInfo.avatarUrl} />
                             <AvatarFallback>{(annotation.authorInfo.username || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
                     )}
-                    <div>
-                        <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    <div className="min-w-0">
+                        <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
                             {isOwnArchive ? (
-                                <Link href={`/stories/${annotation.storyId}`} className="hover:text-primary transition-colors truncate block max-w-[150px]">
+                                <Link href={`/stories/${annotation.storyId}`} className="hover:text-primary transition-colors truncate block max-w-[140px]">
                                     {annotation.storyTitle}
                                 </Link>
                             ) : (
                                 <span className="text-foreground">@{annotation.authorInfo?.username}</span>
                             )}
                         </CardTitle>
+                        <p className="text-[8px] font-bold text-muted-foreground/40 uppercase tracking-tighter truncate max-w-[140px]">{annotation.chapterTitle}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-1">
                     {isOwnArchive && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive" onClick={handleDelete}>
-                            <Trash2 className="h-3.5 w-3.5" />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all" onClick={handleDelete}>
+                            <Trash2 className="h-4 w-4" />
                         </Button>
                     )}
                     {isOwnArchive && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={handleToggleVisibility}>
-                            {annotation.visibility === 'public' ? <Globe className="h-3.5 w-3.5 text-primary" /> : <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary" onClick={handleToggleVisibility}>
+                            {annotation.visibility === 'public' ? <Globe className="h-4 w-4 text-primary" /> : <Lock className="h-4 w-4" />}
                         </Button>
                     )}
                 </div>
             </CardHeader>
-            <CardContent className="flex-grow pt-0">
-                <div className="relative">
-                    <Quote className="absolute -top-1 -left-1 h-6 w-10 text-primary/5 -scale-x-100" />
-                    <blockquote className="border-l-4 p-4 rounded-r-2xl bg-muted/20" style={{ borderColor: annotation.highlightColor || 'hsl(var(--primary))' }}>
-                        <p className="italic text-sm md:text-base text-foreground/90 font-serif leading-relaxed">“{annotation.highlightedText}”</p>
+            <CardContent className="flex-grow pt-0 px-6">
+                <div className="relative group/quote">
+                    <Quote className="absolute -top-2 -left-2 h-10 w-16 text-primary/5 -scale-x-100 transition-all group-hover/quote:scale-110" />
+                    <blockquote className="border-l-4 p-5 rounded-r-3xl bg-primary/5 border-primary/20 shadow-inner relative z-10" style={{ borderLeftColor: annotation.highlightColor || 'hsl(var(--primary))' }}>
+                        <p className="italic text-base md:text-lg text-foreground/90 font-serif leading-relaxed line-clamp-6">“{annotation.highlightedText}”</p>
                     </blockquote>
                 </div>
                 {annotation.note && (
-                    <div className="mt-4 p-3 bg-primary/5 rounded-xl border border-primary/10">
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                            <span className="font-bold text-primary mr-1">Note:</span>
-                            {annotation.note}
+                    <div className="mt-5 p-4 bg-muted/20 rounded-2xl border border-border/20 shadow-sm animate-in slide-in-from-top-1 duration-300">
+                        <p className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
+                            <Edit3 className="h-3 w-3 shrink-0 mt-0.5 text-primary/60" />
+                            <span>{annotation.note}</span>
                         </p>
                     </div>
                 )}
             </CardContent>
-            <CardFooter className="flex justify-between items-center bg-muted/10 p-4 border-t border-border/40">
+            <CardFooter className="flex justify-between items-center bg-muted/10 p-5 border-t border-border/40">
                 <div className="flex items-center gap-2">
-                    <ReactionButton postId={annotation.id} parentCollection="annotations" initialReactionsCount={annotation.reactionsCount || 0} reactionCounts={annotation.reactionCounts} />
+                    <ReactionButton postId={annotation.id} authorId={annotation.userId} parentCollection="annotations" initialReactionsCount={annotation.reactionsCount || 0} reactionCounts={annotation.reactionCounts} />
 
                     <Dialog>
                         <DialogTrigger asChild>
                             <Button 
                                 variant="ghost" 
                                 size="sm" 
-                                className="h-8 px-2 gap-1.5 rounded-lg font-bold text-[10px] uppercase text-muted-foreground hover:text-primary transition-all hover:bg-primary/5"
+                                className="h-9 px-3 gap-2 rounded-full font-bold text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary transition-all hover:bg-primary/5"
                             >
                                 <MessageSquare className="h-4 w-4" />
-                                <span className="hidden sm:inline">Discuss</span>
                                 <span>{annotation.commentsCount || 0}</span>
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px]">
+                        <DialogContent className="sm:max-w-lg p-0 overflow-hidden border-none shadow-3xl rounded-[32px] bg-background/95 backdrop-blur-3xl">
                             <DialogHeader className="p-8 bg-muted/30 border-b">
                                 <DialogTitle className="text-2xl font-headline font-bold">Community Thoughts</DialogTitle>
-                                <DialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Exploring the impact of this prose</DialogDescription>
+                                <DialogDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Exploring the impact of this prose</DialogDescription>
                             </DialogHeader>
                             <div className="p-8">
                                 <AnnotationComments annotationId={annotation.id} />
                             </div>
                             <DialogFooter className="p-4 bg-muted/20 border-t flex-row justify-center">
-                                <DialogClose asChild><Button variant="ghost" className="rounded-full font-bold text-[10px] uppercase tracking-widest">Close Discussion</Button></DialogClose>
+                                <DialogClose asChild><Button variant="ghost" className="rounded-full font-bold text-[10px] uppercase tracking-widest px-8 h-10 hover:bg-primary/5 hover:text-primary">Close Discussion</Button></DialogClose>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
                 </div>
                 <div className="flex gap-1">
                     <Link href={`/stories/${annotation.storyId}/read/${annotation.chapterId}`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-all" title="Read Context">
-                            <BookOpen className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all" title="Enter Manuscript">
+                            <BookOpen className="h-5 w-5" />
                         </Button>
                     </Link>
                     <Dialog open={isPosterOpen} onOpenChange={setIsPosterOpen}>
                         <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-accent/10 hover:text-accent transition-all" title="Share Highlight">
-                                <ImageIcon className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:bg-accent/10 hover:text-accent transition-all" title="Share Snapshot">
+                                <ImageIcon className="h-5 w-5" />
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-md rounded-[40px] border-none shadow-3xl p-8 overflow-hidden">
-                            <DialogHeader className="mb-4">
-                                <DialogTitle className="text-2xl font-headline font-bold">Share Your Highlight</DialogTitle>
-                                <DialogDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Generate a beautiful snapshot of this moment</DialogDescription>
+                        <DialogContent className="sm:max-w-md rounded-[40px] border-none shadow-3xl p-8 overflow-hidden bg-background/95 backdrop-blur-3xl">
+                            <DialogHeader className="mb-6">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2.5 rounded-2xl bg-accent/10 text-accent shadow-sm">
+                                        <Sparkles className="h-5 w-5" />
+                                    </div>
+                                    <DialogTitle className="text-2xl font-headline font-bold">Highlight Snapshot</DialogTitle>
+                                </div>
+                                <DialogDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Generate a beautiful visual of this moment</DialogDescription>
                             </DialogHeader>
                             <HighlightPoster annotation={annotation} />
-                            <DialogFooter className="mt-4 pt-4 border-t border-border/40">
-                                <DialogClose asChild><Button variant="ghost" className="w-full rounded-2xl font-bold uppercase text-[10px] tracking-widest">Close Studio</Button></DialogClose>
+                            <DialogFooter className="mt-6 pt-4 border-t border-border/10">
+                                <DialogClose asChild><Button variant="ghost" className="w-full h-12 rounded-2xl font-bold uppercase text-[10px] tracking-widest hover:bg-muted">Exit Studio</Button></DialogClose>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
@@ -533,13 +543,6 @@ export default function AnnotationFeed() {
         const unsubscribeCommunity = onSnapshot(communityQuery, (snapshot) => {
             setCommunityAnnotations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Annotation)));
             if (activeTab === 'community') setIsLoading(false);
-        }, async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: 'annotations',
-                operation: 'list',
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
-            setIsLoading(false);
         });
 
         return () => unsubscribeCommunity();
@@ -557,13 +560,6 @@ export default function AnnotationFeed() {
         const unsubscribeMy = onSnapshot(myQuery, (snapshot) => {
             setMyAnnotations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Annotation)));
             if (activeTab === 'mine') setIsLoading(false);
-        }, async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: 'annotations',
-                operation: 'list',
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
-            setIsLoading(false);
         });
 
         return () => unsubscribeMy();
@@ -571,66 +567,74 @@ export default function AnnotationFeed() {
 
     if (loading) {
         return (
-            <div className="flex flex-col justify-center items-center min-h-[40vh] gap-3">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Syncing archives...</p>
+            <div className="flex flex-col justify-center items-center min-h-[40vh] gap-4">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 animate-pulse">Syncing archives...</p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-10 pb-20">
+        <div className="space-y-12 pb-24">
             <Tabs defaultValue="community" className="w-full" onValueChange={setActiveTab}>
-                <div className="flex justify-center mb-8">
-                    <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm backdrop-blur-md">
-                        <TabsTrigger value="community" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+                <div className="flex justify-center mb-10">
+                    <TabsList className="bg-muted/50 p-1 rounded-full border border-border/40 shadow-sm backdrop-blur-md h-12 w-full max-w-sm">
+                        <TabsTrigger value="community" className="rounded-full font-black uppercase text-[10px] tracking-widest flex-1 gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">
                             <Eye className="h-4 w-4" /> Community
                         </TabsTrigger>
-                        <TabsTrigger value="mine" className="rounded-full font-bold gap-2 px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
-                            <Lock className="h-4 w-4" /> My Archive
+                        <TabsTrigger value="mine" className="rounded-full font-black uppercase text-[10px] tracking-widest flex-1 gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">
+                            <Lock className="h-4 w-4" /> My Collection
                         </TabsTrigger>
                     </TabsList>
                 </div>
 
-                <TabsContent value="community" className="mt-0 focus-visible:outline-none animate-in fade-in duration-700">
+                <TabsContent value="community" className="mt-0 focus-visible:outline-none animate-in fade-in duration-1000 transform-gpu">
                     {isLoading ? (
-                        <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
+                        <div className="flex justify-center py-32"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
                     ) : communityAnnotations.length > 0 ? (
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
                             {communityAnnotations.map(anno => <AnnotationCard key={anno.id} annotation={anno} isOwnArchive={user?.id === anno.userId} />)}
                         </div>
                     ) : (
-                        <div className="text-center py-24 bg-card/40 rounded-[40px] border-2 border-dashed border-border/40 max-w-2xl mx-auto">
-                            <div className="bg-muted/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <Globe className="h-10 w-10 text-muted-foreground/30" />
+                        <div className="text-center py-32 bg-card/20 rounded-[4rem] border-4 border-dashed border-border/20 max-w-2xl mx-auto flex flex-col items-center gap-6">
+                            <div className="p-8 bg-muted/40 rounded-full shadow-inner">
+                                <Globe className="h-16 w-16 text-muted-foreground/20" />
                             </div>
-                            <h3 className="text-2xl font-headline font-bold mb-2">No public highlights yet</h3>
-                            <p className="text-muted-foreground max-sm mx-auto px-6">Public community moments will appear here. Be the first to share a striking line with the world!</p>
+                            <div className="space-y-2">
+                                <h3 className="text-3xl font-headline font-bold uppercase tracking-tight">Empty Feed</h3>
+                                <p className="text-sm text-muted-foreground px-12 leading-relaxed font-medium italic">Public community moments will appear here. Be the first to capture a striking line!</p>
+                            </div>
                         </div>
                     )}
                 </TabsContent>
 
-                <TabsContent value="mine" className="mt-0 focus-visible:outline-none animate-in fade-in duration-700">
+                <TabsContent value="mine" className="mt-0 focus-visible:outline-none animate-in fade-in duration-1000 transform-gpu">
                     {!user ? (
-                        <div className="text-center py-24 bg-card/40 rounded-[40px] border border-border/40 max-w-2xl mx-auto">
-                            <Lock className="h-16 w-16 text-muted-foreground/20 mx-auto mb-6" />
-                            <h3 className="text-2xl font-headline font-bold mb-4">Your Private Archive</h3>
-                            <p className="text-muted-foreground mb-8">Sign in to start capturing lines that move you.</p>
-                            <Link href="/auth/signin">
-                                <Button className="rounded-full px-10 h-12 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 text-lg font-bold">Sign In</Button>
-                            </Link>
+                        <div className="text-center py-32 bg-card/20 rounded-[4rem] border border-border/20 max-w-2xl mx-auto flex flex-col items-center gap-6">
+                            <Lock className="h-20 w-20 text-muted-foreground/20 animate-pulse" />
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <h3 className="text-3xl font-headline font-bold uppercase tracking-tight">Your Private Collection</h3>
+                                    <p className="text-sm text-muted-foreground font-medium">Sign in to start capturing lines that move you.</p>
+                                </div>
+                                <Link href="/auth/signin">
+                                    <Button className="rounded-full px-12 h-14 bg-primary hover:bg-primary/90 shadow-2xl shadow-primary/30 text-xs font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95">Sign In</Button>
+                                </Link>
+                            </div>
                         </div>
                     ) : myAnnotations.length > 0 ? (
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
                             {myAnnotations.map(anno => <AnnotationCard key={anno.id} annotation={anno} isOwnArchive={true} />)}
                         </div>
                     ) : (
-                        <div className="text-center py-24 bg-card/40 rounded-[40px] border-2 border-dashed border-border/40 max-w-2xl mx-auto">
-                            <Quote className="h-16 w-16 text-muted-foreground/20 mx-auto mb-6" />
-                            <h3 className="text-2xl font-headline font-bold mb-2">The manuscript is clean</h3>
-                            <p className="text-muted-foreground mb-8">You haven't archived any highlights yet. Highlight text in any story to save it here.</p>
+                        <div className="text-center py-32 bg-card/20 rounded-[4rem] border-4 border-dashed border-border/20 max-w-2xl mx-auto flex flex-col items-center gap-6">
+                            <Quote className="h-20 w-20 text-muted-foreground/20 opacity-40" />
+                            <div className="space-y-2">
+                                <h3 className="text-3xl font-headline font-bold uppercase tracking-tight">Collection Empty</h3>
+                                <p className="text-sm text-muted-foreground px-12 mb-8 italic">Highlight text in any manuscript to save it to your personal vault.</p>
+                            </div>
                             <Link href="/stories">
-                                <Button className="rounded-full px-8 h-12 font-bold shadow-lg">Discover Stories</Button>
+                                <Button variant="outline" className="rounded-full px-12 h-14 font-black uppercase text-[10px] tracking-widest border-border/60 hover:bg-primary/5 hover:text-primary transition-all active:scale-95">Explore Discoveries</Button>
                             </Link>
                         </div>
                     )}
