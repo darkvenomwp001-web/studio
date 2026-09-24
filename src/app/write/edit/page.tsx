@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition, Suspense, useRef } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   Save, 
@@ -17,10 +17,14 @@ import {
   Type,
   Plus,
   X,
-  Sparkles,
   Send,
   AlertTriangle,
   Edit,
+  Sparkles,
+  StickyNote,
+  Music,
+  Users,
+  Search
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { 
@@ -28,13 +32,15 @@ import {
   onSnapshot, 
   updateDoc, 
   serverTimestamp, 
+  addDoc,
+  collection
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { EditorContent, useEditor } from '@tiptap/react';
+import { EditorContent, useEditor, BubbleMenu } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
@@ -43,13 +49,12 @@ import FontFamily from '@tiptap/extension-font-family';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
-function ChapterEditor() {
+export default function ChapterEditor() {
   const { user, addNotification } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -63,12 +68,19 @@ function ChapterEditor() {
   const [chapterTitle, setChapterTitle] = useState('');
   const [warningTags, setWarningTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
-  const [saveStatus, setSaveStatus] = useState<'Saved' | 'Saving...' | 'Unsaved Changes'>('Saved');
+  
+  // Custom Font/Size State
+  const [customFont, setCustomFont] = useState('Inter');
+  const [customSize, setCustomSize] = useState('16');
+
+  // Reader Experience State
+  const [authorNotes, setAuthorNotes] = useState('');
+  const [atmosphere, setAtmosphere] = useState('');
+  const [featuredCast, setFeaturedCast] = useState('');
+
   const [showPublishPopup, setShowPublishPopup] = useState(false);
   const [isSaving, startSavingTransition] = useTransition();
   const [isPublishing, setIsPublishing] = useState(false);
-
-  const initialContentSet = useRef(false);
 
   const editor = useEditor({
     extensions: [
@@ -81,9 +93,6 @@ function ChapterEditor() {
       }),
     ],
     content: '',
-    onUpdate: () => {
-      setSaveStatus('Unsaved Changes');
-    },
   });
 
   useEffect(() => {
@@ -92,18 +101,18 @@ function ChapterEditor() {
     const storyRef = doc(db, 'stories', storyId);
     const unsubscribe = onSnapshot(storyRef, (docSnap) => {
       if (docSnap.exists()) {
-        const data = { id: docSnap.id, ...docSnap.data() };
-        setStoryDetails(data);
+        const data = docSnap.data();
+        setStoryDetails({ id: docSnap.id, ...data });
         
         const chapter = data.chapters?.find((c: any) => c.id === chapterId);
         if (chapter) {
           setChapterDetails(chapter);
           setChapterTitle(chapter.title || '');
           setWarningTags(chapter.warningTags || []);
-          if (!initialContentSet.current && chapter.content) {
-            editor.commands.setContent(chapter.content);
-            initialContentSet.current = true;
-          }
+          setAuthorNotes(chapter.authorNotes || '');
+          setAtmosphere(chapter.atmosphere || '');
+          setFeaturedCast(chapter.featuredCast || '');
+          editor.commands.setContent(chapter.content || '');
         }
       }
     });
@@ -113,9 +122,7 @@ function ChapterEditor() {
   const handleSave = async (silent = false) => {
     if (!storyDetails || !chapterId || !editor) return;
 
-    setSaveStatus('Saving...');
     const currentContent = editor.getHTML();
-    
     const updatedChapters = storyDetails.chapters.map((ch: any) => {
       if (ch.id === chapterId) {
         return {
@@ -123,6 +130,9 @@ function ChapterEditor() {
           title: chapterTitle,
           content: currentContent,
           warningTags: warningTags,
+          authorNotes,
+          atmosphere,
+          featuredCast,
           updatedAt: new Date().toISOString()
         };
       }
@@ -134,10 +144,8 @@ function ChapterEditor() {
         chapters: updatedChapters,
         lastUpdated: serverTimestamp()
       });
-      setSaveStatus('Saved');
-      if (!silent) toast({ title: "Draft Saved", className: "bg-primary text-white" });
+      if (!silent) toast({ title: "Draft Saved" });
     } catch (error) {
-      setSaveStatus('Unsaved Changes');
       toast({ title: "Save Failed", variant: "destructive" });
     }
   };
@@ -153,7 +161,10 @@ function ChapterEditor() {
           ...ch,
           title: chapterTitle,
           content: currentContent,
-          warningTags: warningTags,
+          warningTags,
+          authorNotes,
+          atmosphere,
+          featuredCast,
           status: 'Published',
           updatedAt: new Date().toISOString()
         };
@@ -167,18 +178,18 @@ function ChapterEditor() {
         lastUpdated: serverTimestamp()
       });
       
-      // Notify (Wattpad style notification)
       if (user) {
-        await addNotification({
+        await addDoc(collection(db, 'notifications'), {
             userId: user.id,
             type: 'story_update',
-            message: `"${storyDetails.title}": ${chapterTitle} is now published!`,
-            link: `/stories/${storyDetails.id}/read/${chapterId}`,
-            actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+            message: `${storyDetails.title}: ${chapterTitle} is now published!`,
+            link: `/notifications`,
+            timestamp: serverTimestamp(),
+            isRead: false,
+            actor: { id: user.id, username: user.username, avatarUrl: user.avatarUrl }
         });
       }
 
-      setSaveStatus('Saved');
       setShowPublishPopup(true);
     } catch (error) {
       toast({ title: "Publishing Failed", variant: "destructive" });
@@ -191,167 +202,204 @@ function ChapterEditor() {
     if (tagInput.trim() && !warningTags.includes(tagInput.trim())) {
       setWarningTags([...warningTags, tagInput.trim()]);
       setTagInput('');
-      setSaveStatus('Unsaved Changes');
     }
   };
 
-  const removeTag = (tag: string) => {
-    setWarningTags(warningTags.filter(t => t !== tag));
-    setSaveStatus('Unsaved Changes');
+  const applyCustomFont = () => {
+    editor?.chain().focus().setFontFamily(customFont).run();
   };
 
-  if (!storyDetails || !chapterDetails) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Accessing Manuscript...</p>
-      </div>
-    );
-  }
+  if (!storyDetails || !chapterDetails) return null;
 
   return (
-    <div className="min-h-screen bg-background pb-32 flex flex-col relative">
-      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b p-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => router.push(`/write/edit-details?storyId=${storyId}`)} className="rounded-full">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <p className="text-[10px] font-black opacity-60 uppercase tracking-widest flex items-center gap-2">
-                Manuscript Hub
-              </p>
-              <p className="text-xs font-bold text-muted-foreground truncate max-w-[200px]">{storyDetails.title}</p>
-            </div>
+    <div className="min-h-screen bg-background pb-32 flex flex-col items-center">
+      <header className="w-full max-w-5xl p-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1">
+             <Input 
+                value={chapterTitle} 
+                onChange={e => setChapterTitle(e.target.value)}
+                placeholder="Part Title..." 
+                className="text-center border-none bg-transparent text-3xl md:text-5xl font-headline font-bold h-auto p-0 mb-2 focus-visible:ring-0 placeholder:opacity-20 shadow-none"
+              />
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-9 w-9 rounded-full hover:bg-primary/10"
-              onClick={() => handleSave()}
-              disabled={saveStatus === 'Saved' || isSaving}
-            >
-              <Save className={cn("h-4 w-4", saveStatus !== 'Saved' && "text-primary animate-pulse")} />
-            </Button>
-            <Button 
-              onClick={handlePublish} 
-              disabled={isPublishing}
-              className="rounded-full bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest px-4"
-            >
-              {isPublishing ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Send className="h-3 w-3 mr-2" />}
-              Publish
-            </Button>
-          </div>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-2">
+           {warningTags.map(tag => (
+              <Badge key={tag} variant="secondary" className="gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight bg-red-500/10 text-red-500 border-red-500/20">
+                 {tag}
+                 <button onClick={() => setWarningTags(warningTags.filter(t => t !== tag))}><X className="h-3 w-3" /></button>
+              </Badge>
+           ))}
+           <Input 
+             value={tagInput}
+             onChange={e => setTagInput(e.target.value)}
+             onKeyDown={e => e.key === 'Enter' && addTag()}
+             placeholder="+ Add Warning Tag..."
+             className="w-40 h-7 border-none bg-muted/50 rounded-full text-[10px] px-3 focus-visible:ring-0 text-center"
+           />
         </div>
       </header>
 
-      <main className="flex-1 max-w-3xl mx-auto w-full px-4 pt-10 pb-32">
-        <Input 
-          value={chapterTitle} 
-          onChange={e => { setChapterTitle(e.target.value); setSaveStatus('Unsaved Changes'); }}
-          placeholder="Part Title..." 
-          className="text-center border-none bg-transparent text-3xl md:text-5xl font-headline font-bold h-auto p-0 mb-4 focus-visible:ring-0 placeholder:opacity-20 shadow-none"
-        />
-        
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex items-center justify-center gap-2">
-            <AlertTriangle className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Warning Tags</span>
-          </div>
-          <div className="flex flex-wrap justify-center gap-2 min-h-[32px] w-full max-w-xl">
-             {warningTags.map(tag => (
-                <Badge key={tag} variant="secondary" className="gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight bg-primary/5 text-primary border-primary/20">
-                   {tag}
-                   <button onClick={() => removeTag(tag)} className="hover:text-destructive transition-colors"><X className="h-3 w-3" /></button>
-                </Badge>
-             ))}
-             <div className="inline-flex items-center gap-1">
-                <Input 
-                   value={tagInput}
-                   onChange={e => setTagInput(e.target.value)}
-                   onKeyDown={e => e.key === 'Enter' && addTag()}
-                   placeholder="Add tag (e.g. Gore)..."
-                   className="h-7 border-none bg-transparent text-[10px] focus-visible:ring-0 shadow-none p-0 w-32 text-center"
-                />
-             </div>
-          </div>
-        </div>
-
-        <div className="prose dark:prose-invert max-w-none min-h-[500px]">
-          <EditorContent editor={editor} className="outline-none" />
-        </div>
+      <main className="w-full max-w-3xl flex-1 px-4">
+        <EditorContent editor={editor} className="min-h-[500px] prose dark:prose-invert max-w-none" />
       </main>
 
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 p-2 bg-card/80 backdrop-blur-xl border border-white/10 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom-10 duration-500">
-          <div className="flex items-center gap-0.5 px-1">
-             <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().toggleBold().run()} className={cn("h-10 w-10 rounded-full", editor?.isActive('bold') && "bg-primary/20 text-primary")}><Bold className="h-4 w-4" /></Button>
-             <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().toggleItalic().run()} className={cn("h-10 w-10 rounded-full", editor?.isActive('italic') && "bg-primary/20 text-primary")}><Italic className="h-4 w-4" /></Button>
-             <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().toggleUnderline().run()} className={cn("h-10 w-10 rounded-full", editor?.isActive('underline') && "bg-primary/20 text-primary")}><UnderlineIcon className="h-4 w-4" /></Button>
-          </div>
+      {/* Floating Dynamic-Pill Toolbar */}
+      <footer className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 p-2 bg-card/80 backdrop-blur-xl border border-white/10 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom-10">
+        
+        {/* Style Tools */}
+        <div className="flex items-center gap-0.5 px-1">
+          <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().toggleBold().run()} className={cn("h-10 w-10 rounded-full", editor?.isActive('bold') && "text-primary bg-primary/10")}>
+            <Bold className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().toggleItalic().run()} className={cn("h-10 w-10 rounded-full", editor?.isActive('italic') && "text-primary bg-primary/10")}>
+            <Italic className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().toggleUnderline().run()} className={cn("h-10 w-10 rounded-full", editor?.isActive('underline') && "text-primary bg-primary/10")}>
+            <UnderlineIcon className="h-5 w-5" />
+          </Button>
+        </div>
 
-          <Separator orientation="vertical" className="h-6 bg-border/40" />
+        <Separator orientation="vertical" className="h-8 bg-white/10" />
 
-          <div className="flex items-center gap-0.5 px-1">
-             <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().setTextAlign('left').run()} className={cn("h-10 w-10 rounded-full", editor?.isActive({ textAlign: 'left' }) && "bg-primary/20 text-primary")}><AlignLeft className="h-4 w-4" /></Button>
-             <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().setTextAlign('center').run()} className={cn("h-10 w-10 rounded-full", editor?.isActive({ textAlign: 'center' }) && "bg-primary/20 text-primary")}><AlignCenter className="h-4 w-4" /></Button>
-             <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().setTextAlign('right').run()} className={cn("h-10 w-10 rounded-full", editor?.isActive({ textAlign: 'right' }) && "bg-primary/20 text-primary")}><AlignRight className="h-4 w-4" /></Button>
-             <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().setTextAlign('justify').run()} className={cn("h-10 w-10 rounded-full", editor?.isActive({ textAlign: 'justify' }) && "bg-primary/20 text-primary")}><AlignJustify className="h-4 w-4" /></Button>
-          </div>
+        {/* Alignment Dropdown */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary">
+              {editor?.isActive({ textAlign: 'center' }) ? <AlignCenter className="h-5 w-5" /> : 
+               editor?.isActive({ textAlign: 'right' }) ? <AlignRight className="h-5 w-5" /> : 
+               editor?.isActive({ textAlign: 'justify' }) ? <AlignJustify className="h-5 w-5" /> : 
+               <AlignLeft className="h-5 w-5" />}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-12 p-1 flex flex-col gap-1 rounded-2xl border-white/10 bg-background/90" side="top">
+            <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().setTextAlign('left').run()} className={cn("h-10 w-10 rounded-xl", editor?.isActive({ textAlign: 'left' }) && "text-primary bg-primary/10")}><AlignLeft className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().setTextAlign('center').run()} className={cn("h-10 w-10 rounded-xl", editor?.isActive({ textAlign: 'center' }) && "text-primary bg-primary/10")}><AlignCenter className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().setTextAlign('right').run()} className={cn("h-10 w-10 rounded-xl", editor?.isActive({ textAlign: 'right' }) && "text-primary bg-primary/10")}><AlignRight className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().setTextAlign('justify').run()} className={cn("h-10 w-10 rounded-xl", editor?.isActive({ textAlign: 'justify' }) && "text-primary bg-primary/10")}><AlignJustify className="h-5 w-5" /></Button>
+          </PopoverContent>
+        </Popover>
 
-          <Separator orientation="vertical" className="h-6 bg-border/40" />
+        {/* Custom Font & Size */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary">
+              <Type className="h-5 w-5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-4 rounded-2xl border-white/10 bg-background/90 space-y-4" side="top">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Font Name</Label>
+              <div className="flex gap-2">
+                <Input 
+                  value={customFont} 
+                  onChange={e => setCustomFont(e.target.value)} 
+                  className="h-8 text-xs bg-muted/20 border-none rounded-lg"
+                  placeholder="e.g. Arial, Serif..."
+                />
+                <Button size="sm" variant="secondary" className="h-8 rounded-lg text-[10px]" onClick={applyCustomFont}>Apply</Button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Text Size (px)</Label>
+              <Input 
+                type="number"
+                value={customSize} 
+                onChange={e => setCustomSize(e.target.value)} 
+                className="h-8 text-xs bg-muted/20 border-none rounded-lg"
+              />
+            </div>
+          </PopoverContent>
+        </Popover>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary"><Type className="h-4 w-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="rounded-2xl p-2 w-40 border-none shadow-3xl">
-               <DropdownMenuItem onClick={() => editor?.chain().focus().setFontFamily('Inter').run()} className="rounded-xl font-sans">Sans Serif</DropdownMenuItem>
-               <DropdownMenuItem onClick={() => editor?.chain().focus().setFontFamily('serif').run()} className="rounded-xl font-serif">Serif</DropdownMenuItem>
-               <DropdownMenuItem onClick={() => editor?.chain().focus().setFontFamily('monospace').run()} className="rounded-xl font-mono">Monospace</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-      </div>
+        {/* Reader Experience Tools */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary bg-primary/10">
+              <Sparkles className="h-5 w-5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-4 rounded-3xl border-white/10 bg-background/95 space-y-6 shadow-3xl" side="top">
+            <div className="space-y-2">
+               <div className="flex items-center gap-2 text-primary">
+                  <StickyNote className="h-4 w-4" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Author's Notes</span>
+               </div>
+               <Textarea 
+                 value={authorNotes}
+                 onChange={e => setAuthorNotes(e.target.value)}
+                 className="text-xs bg-muted/20 border-none rounded-xl resize-none h-20"
+                 placeholder="A quick note for readers..."
+               />
+            </div>
+            <div className="space-y-2">
+               <div className="flex items-center gap-2 text-blue-500">
+                  <Music className="h-4 w-4" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Atmosphere</span>
+               </div>
+               <Input 
+                 value={atmosphere}
+                 onChange={e => setAtmosphere(e.target.value)}
+                 className="h-8 text-xs bg-muted/20 border-none rounded-lg"
+                 placeholder="Soundtrack or mood..."
+               />
+            </div>
+            <div className="space-y-2">
+               <div className="flex items-center gap-2 text-purple-500">
+                  <Users className="h-4 w-4" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Featured Cast</span>
+               </div>
+               <Input 
+                 value={featuredCast}
+                 onChange={e => setFeaturedCast(e.target.value)}
+                 className="h-8 text-xs bg-muted/20 border-none rounded-lg"
+                 placeholder="Characters in this part..."
+               />
+            </div>
+          </PopoverContent>
+        </Popover>
 
+        <Separator orientation="vertical" className="h-8 bg-white/10 mx-1" />
+
+        <div className="flex items-center gap-1 px-1">
+          <Button variant="ghost" size="icon" onClick={() => handleSave()} className="h-10 w-10 rounded-full hover:text-primary">
+            <Save className="h-5 w-5" />
+          </Button>
+          <Button onClick={handlePublish} disabled={isPublishing} className="rounded-full bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest px-4 shadow-lg shadow-primary/20">
+            {isPublishing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Publish'}
+          </Button>
+        </div>
+      </footer>
+
+      {/* Success Celebration Popup */}
       {showPublishPopup && (
         <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
            <div className="relative mb-8">
               <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-150 animate-pulse" />
-              <div className="relative bg-card p-8 rounded-[3rem] shadow-2xl border border-primary/20 transform-gpu animate-in zoom-in-95 duration-700">
+              <div className="relative bg-card p-10 rounded-[3rem] shadow-2xl border border-primary/20 transform-gpu animate-in zoom-in-95 duration-700">
                  <CheckCircle className="h-20 w-20 text-primary mx-auto mb-6" />
-                 <h2 className="text-2xl md:text-4xl font-headline font-bold mb-2 uppercase tracking-tighter leading-none">
-                    {storyDetails.title}:
+                 <h2 className="text-2xl md:text-3xl font-headline font-bold mb-1 uppercase tracking-tight">
+                    {storyDetails.title}
                  </h2>
-                 <p className="text-xl md:text-2xl font-bold text-muted-foreground uppercase tracking-widest mb-8">
+                 <p className="text-xl md:text-2xl font-bold text-muted-foreground uppercase tracking-widest mb-10">
                     {chapterTitle} IS NOW PUBLISHED
                  </p>
                  <Button 
-                    onClick={() => router.push(`/write/edit-details?storyId=${storyId}`)}
+                    onClick={() => { setShowPublishPopup(false); router.push(`/write/edit-details?storyId=${storyId}`); }}
                     className="rounded-full px-12 h-14 bg-primary hover:bg-primary/90 text-white font-black uppercase text-sm tracking-widest shadow-2xl shadow-primary/30 flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-95"
                  >
                     <Plus className="h-5 w-5" />
-                    Add Another Part
+                    Add Another Chapter
                  </Button>
               </div>
            </div>
-           <button 
-              onClick={() => setShowPublishPopup(false)}
-              className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground hover:text-foreground transition-colors"
-           >
-              Dismiss
-           </button>
         </div>
       )}
     </div>
   );
 }
-
-function EditPage() {
-  return (
-    <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
-      <ChapterEditor />
-    </Suspense>
-  );
-}
-
-export default EditPage;
