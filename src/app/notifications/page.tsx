@@ -119,7 +119,6 @@ import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import { toggleArchiveThread, toggleIgnoreThread, togglePinThread, setThreadNickname, unsendMessage, deleteMessageForMe, editSentMessage } from '@/app/actions/threadActions';
 import SongSearch from '@/components/status/SongSearch';
 import StatusViewer from '@/components/status/StatusViewer';
-import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: NodeJS.Timeout;
@@ -234,7 +233,7 @@ function NotificationsList() {
                     )}
                 </div>
                 <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
                     <Input 
                         placeholder="Search activity..." 
                         className="pl-10 bg-muted/30 border-none h-11 rounded-2xl focus-visible:ring-primary/20" 
@@ -316,7 +315,7 @@ function MessagesClient() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   
-  const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
+  const [isAddMutualsDialogOpen, setIsAddMutualsDialogOpen] = useState(false);
   const [searchUsername, setSearchUsername] = useState('');
   const [searchedUsers, setSearchedUsers] = useState<UserSummary[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
@@ -735,7 +734,7 @@ function MessagesClient() {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'conversations', operation: 'create', requestResourceData: newConvData }));
       }
     }
-    setIsNewConversationDialogOpen(false);
+    setIsAddMutualsDialogOpen(false);
   };
 
   const filteredMessages = useMemo(() => {
@@ -780,14 +779,14 @@ function MessagesClient() {
             <div className="p-6 space-y-6">
                 <div className="flex justify-between items-center">
                     <h2 className="text-3xl font-headline font-bold tracking-tight">Threads</h2>
-                    <Button variant="outline" size="icon" className="rounded-full shadow-sm" onClick={() => setIsNewConversationDialogOpen(true)}>
+                    <Button variant="outline" size="icon" className="rounded-full shadow-sm" onClick={() => setIsAddMutualsDialogOpen(true)}>
                         <Plus className="h-5 w-5" />
                     </Button>
                 </div>
                 <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
                     <Input 
-                        placeholder="Find threads..." 
+                        placeholder="Search threads..." 
                         className="pl-10 h-11 rounded-2xl bg-muted/30 border-none focus-visible:ring-primary/40" 
                         value={sidebarSearch}
                         onChange={(e) => setSidebarSearch(e.target.value)}
@@ -862,7 +861,7 @@ function MessagesClient() {
                                     longPressTimerRef.current = setTimeout(() => {
                                         setIsLongPressing(conv.id);
                                         handleThreadLongPress(conv);
-                                    }, 2000); 
+                                    }, 500); 
                                 }}
                                 onPointerUp={() => {
                                     if (longPressTimerRef.current) {
@@ -1397,7 +1396,7 @@ function MessagesClient() {
                             setMgmtMenuConv(null);
                         }}
                     >
-                        <BellOff className="h-4 w-4" />
+                        <BellRing className="h-4 w-4" />
                         Ignore Chat
                     </Button>
                     <DropdownMenuSeparator className="bg-border/10 mx-2" />
@@ -1486,7 +1485,7 @@ function MessagesClient() {
             </DialogContent>
         </Dialog>
 
-        <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
+        <Dialog open={isAddMutualsDialogOpen} onOpenChange={setIsAddMutualsDialogOpen}>
             <DialogContent className="rounded-3xl border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
                 <DialogHeader className="mb-6">
                     <DialogTitle className="text-3xl font-headline font-bold">Add Mutuals</DialogTitle>
@@ -1555,7 +1554,7 @@ function InboxContent() {
             <div className="max-w-7xl mx-auto space-y-10 pt-10 pb-32">
                 <Tabs defaultValue={defaultTab} className="w-full">
                     <div className="flex justify-center mb-10 px-4">
-                        <TabsList className="h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-md w-full max-w-sm">
+                        <TabsList className="h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-md h-12 w-full max-w-sm">
                             <TabsTrigger value="messages" className="rounded-full font-black uppercase text-[10px] tracking-widest flex-1 gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">
                                 <MessageSquare className="h-4 w-4" /> Threads
                             </TabsTrigger>
