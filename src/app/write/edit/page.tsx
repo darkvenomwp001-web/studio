@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useTransition, Suspense, useRef } from 'react';
+import { useState, useEffect, useTransition, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   Save, 
   Loader2, 
   ArrowLeft, 
   CheckCircle, 
-  Undo,
-  Redo,
   Bold,
   Italic,
   Underline as UnderlineIcon,
@@ -19,12 +17,10 @@ import {
   Type,
   Plus,
   X,
-  History,
   Sparkles,
   Send,
   AlertTriangle,
-  ChevronRight,
-  Check
+  Edit,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { 
@@ -96,8 +92,7 @@ function ChapterEditor() {
     const storyRef = doc(db, 'stories', storyId);
     const unsubscribe = onSnapshot(storyRef, (docSnap) => {
       if (docSnap.exists()) {
-        const data = docSnap.id ? { id: docSnap.id, ...docSnap.data() } : null;
-        if (!data) return;
+        const data = { id: docSnap.id, ...docSnap.data() };
         setStoryDetails(data);
         
         const chapter = data.chapters?.find((c: any) => c.id === chapterId);
@@ -140,10 +135,10 @@ function ChapterEditor() {
         lastUpdated: serverTimestamp()
       });
       setSaveStatus('Saved');
-      if (!silent) toast({ title: "Draft Archived", className: "bg-primary text-white" });
+      if (!silent) toast({ title: "Draft Saved", className: "bg-primary text-white" });
     } catch (error) {
       setSaveStatus('Unsaved Changes');
-      toast({ title: "Sync Failed", variant: "destructive" });
+      toast({ title: "Save Failed", variant: "destructive" });
     }
   };
 
@@ -177,7 +172,7 @@ function ChapterEditor() {
         await addNotification({
             userId: user.id,
             type: 'story_update',
-            message: `"${storyDetails.title}": ${chapterTitle} is now live!`,
+            message: `"${storyDetails.title}": ${chapterTitle} is now published!`,
             link: `/stories/${storyDetails.id}/read/${chapterId}`,
             actor: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
         });
@@ -216,7 +211,6 @@ function ChapterEditor() {
 
   return (
     <div className="min-h-screen bg-background pb-32 flex flex-col relative">
-      {/* Top Bar */}
       <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b p-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -231,45 +225,54 @@ function ChapterEditor() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-             <Badge variant="outline" className={cn(
-                "h-6 px-3 rounded-full text-[10px] font-bold uppercase",
-                saveStatus === 'Saved' ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
-             )}>
-                {saveStatus}
-             </Badge>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-9 w-9 rounded-full hover:bg-primary/10"
+              onClick={() => handleSave()}
+              disabled={saveStatus === 'Saved' || isSaving}
+            >
+              <Save className={cn("h-4 w-4", saveStatus !== 'Saved' && "text-primary animate-pulse")} />
+            </Button>
+            <Button 
+              onClick={handlePublish} 
+              disabled={isPublishing}
+              className="rounded-full bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest px-4"
+            >
+              {isPublishing ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Send className="h-3 w-3 mr-2" />}
+              Publish
+            </Button>
           </div>
         </div>
       </header>
 
-      {/* Editor Surface */}
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 pt-10 pb-32">
         <Input 
           value={chapterTitle} 
           onChange={e => { setChapterTitle(e.target.value); setSaveStatus('Unsaved Changes'); }}
           placeholder="Part Title..." 
-          className="border-none bg-transparent text-3xl md:text-5xl font-headline font-bold h-auto p-0 mb-4 focus-visible:ring-0 placeholder:opacity-20 shadow-none"
+          className="text-center border-none bg-transparent text-3xl md:text-5xl font-headline font-bold h-auto p-0 mb-4 focus-visible:ring-0 placeholder:opacity-20 shadow-none"
         />
         
-        {/* Warning Tags Section */}
-        <div className="mb-8 space-y-3">
-          <div className="flex items-center gap-2 px-1">
-             <AlertTriangle className="h-3 w-3 text-muted-foreground" />
-             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Advisory Tags</span>
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <div className="flex items-center justify-center gap-2">
+            <AlertTriangle className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Warning Tags</span>
           </div>
-          <div className="flex flex-wrap gap-2 min-h-[32px] p-2 rounded-xl bg-muted/20 border border-dashed border-border/40">
+          <div className="flex flex-wrap justify-center gap-2 min-h-[32px] w-full max-w-xl">
              {warningTags.map(tag => (
                 <Badge key={tag} variant="secondary" className="gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight bg-primary/5 text-primary border-primary/20">
                    {tag}
                    <button onClick={() => removeTag(tag)} className="hover:text-destructive transition-colors"><X className="h-3 w-3" /></button>
                 </Badge>
              ))}
-             <div className="flex items-center gap-1 flex-1">
+             <div className="inline-flex items-center gap-1">
                 <Input 
                    value={tagInput}
                    onChange={e => setTagInput(e.target.value)}
                    onKeyDown={e => e.key === 'Enter' && addTag()}
                    placeholder="Add tag (e.g. Gore)..."
-                   className="h-7 border-none bg-transparent text-[10px] focus-visible:ring-0 shadow-none p-0"
+                   className="h-7 border-none bg-transparent text-[10px] focus-visible:ring-0 shadow-none p-0 w-32 text-center"
                 />
              </div>
           </div>
@@ -280,8 +283,7 @@ function ChapterEditor() {
         </div>
       </main>
 
-      {/* Floating Bottom Toolbar */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 bg-card/80 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl animate-in slide-in-from-bottom-10 duration-500">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 p-2 bg-card/80 backdrop-blur-xl border border-white/10 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom-10 duration-500">
           <div className="flex items-center gap-0.5 px-1">
              <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().toggleBold().run()} className={cn("h-10 w-10 rounded-full", editor?.isActive('bold') && "bg-primary/20 text-primary")}><Bold className="h-4 w-4" /></Button>
              <Button variant="ghost" size="icon" onClick={() => editor?.chain().focus().toggleItalic().run()} className={cn("h-10 w-10 rounded-full", editor?.isActive('italic') && "bg-primary/20 text-primary")}><Italic className="h-4 w-4" /></Button>
@@ -309,39 +311,15 @@ function ChapterEditor() {
                <DropdownMenuItem onClick={() => editor?.chain().focus().setFontFamily('monospace').run()} className="rounded-xl font-mono">Monospace</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <Separator orientation="vertical" className="h-6 bg-border/40" />
-
-          <div className="flex items-center gap-1.5 pl-1 pr-2">
-             <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => handleSave()} 
-                disabled={saveStatus === 'Saved' || isSaving} 
-                className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-90"
-             >
-                {saveStatus === 'Saving...' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-             </Button>
-
-             <Button 
-                onClick={handlePublish} 
-                disabled={isPublishing} 
-                className="h-10 px-5 rounded-full bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20 gap-2 transition-all active:scale-95"
-             >
-                {isPublishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                Publish
-             </Button>
-          </div>
       </div>
 
-      {/* Publish Success Popup */}
       {showPublishPopup && (
         <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
            <div className="relative mb-8">
               <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-150 animate-pulse" />
               <div className="relative bg-card p-8 rounded-[3rem] shadow-2xl border border-primary/20 transform-gpu animate-in zoom-in-95 duration-700">
                  <CheckCircle className="h-20 w-20 text-primary mx-auto mb-6" />
-                 <h2 className="text-3xl md:text-5xl font-headline font-bold mb-2 uppercase tracking-tighter leading-none">
+                 <h2 className="text-2xl md:text-4xl font-headline font-bold mb-2 uppercase tracking-tighter leading-none">
                     {storyDetails.title}:
                  </h2>
                  <p className="text-xl md:text-2xl font-bold text-muted-foreground uppercase tracking-widest mb-8">
@@ -368,14 +346,12 @@ function ChapterEditor() {
   );
 }
 
-export default function EditPage() {
+function EditPage() {
   return (
-    <Suspense fallback={
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="animate-spin text-primary h-12 w-12" />
-      </div>
-    }>
+    <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin text-primary" /></div>}>
       <ChapterEditor />
     </Suspense>
   );
 }
+
+export default EditPage;
