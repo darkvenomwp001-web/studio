@@ -51,7 +51,8 @@ import {
   Music,
   Camera,
   Heart,
-  Maximize2
+  Maximize2,
+  Download
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, format, isYesterday } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType, Song, StatusUpdate } from '@/types';
@@ -320,14 +321,17 @@ function MessagesClient() {
   const [isUploading, setIsUploading] = useState(false);
   
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [viewMode, setViewMode] = useState<'chat' | 'media'>('chat');
+  const [viewMode, setViewMode] = useState<'chat' | 'media' | 'audio' | 'links'>('chat');
   const [mgmtMenuConv, setMgmtMenuConv] = useState<Conversation | null>(null);
-  const [isLongPressing, setIsLongPressing] = useState(false);
+  const [isLongPressing, setIsLongPressing] = useState<string | null>(null);
   
   // Statuses Logic
   const [statusMap, setStatusMap] = useState<Map<string, StatusUpdate[]>>(new Map());
   const [isStatusViewerOpen, setIsStatusViewerOpen] = useState(false);
   const [selectedUserForStatus, setSelectedUserForStatus] = useState<AppUserType | null>(null);
+
+  // Full Screen Media Preview
+  const [fullScreenMedia, setFullScreenMedia] = useState<string | null>(null);
 
   // Real-time Voice Recording Hub
   const [isRecording, setIsRecording] = useState(false);
@@ -518,7 +522,6 @@ function MessagesClient() {
     } finally { setIsSendingMessage(false); }
   };
 
-  // Real-time Voice Logic
   const startRecording = async () => {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -805,9 +808,9 @@ function MessagesClient() {
                             <div 
                                 key={conv.id}
                                 onPointerDown={() => {
-                                    setIsLongPressing(false);
+                                    setIsLongPressing(null);
                                     longPressTimerRef.current = setTimeout(() => {
-                                        setIsLongPressing(true);
+                                        setIsLongPressing(conv.id);
                                         handleThreadLongPress(conv);
                                     }, 2000); 
                                 }}
@@ -892,14 +895,35 @@ function MessagesClient() {
                             </div>
                         </div>
                         <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => setViewMode(viewMode === 'chat' ? 'media' : 'chat')} className="rounded-full font-bold text-[10px] uppercase tracking-widest">
-                                {viewMode === 'chat' ? 'Media Vault' : 'Prose Stream'}
-                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 relative">
+                                        <Archive className="h-5 w-5" />
+                                        {viewMode !== 'chat' && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full" />}
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-3xl p-2 w-48 bg-background/95 backdrop-blur-3xl">
+                                    <DropdownMenuItem onClick={() => setViewMode('media')} className="gap-3 rounded-xl h-11 px-3 font-bold text-xs uppercase tracking-widest">
+                                        <ImageIcon className="h-4 w-4" /> Media
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setViewMode('audio')} className="gap-3 rounded-xl h-11 px-3 font-bold text-xs uppercase tracking-widest">
+                                        <Volume2 className="h-4 w-4" /> Audio Archives
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setViewMode('links')} className="gap-3 rounded-xl h-11 px-3 font-bold text-xs uppercase tracking-widest">
+                                        <LinkIcon className="h-4 w-4" /> Link Repository
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator className="bg-white/5" />
+                                    <DropdownMenuItem onClick={() => setViewMode('chat')} className="gap-3 rounded-xl h-11 px-3 font-bold text-xs uppercase tracking-widest">
+                                        <MessageSquare className="h-4 w-4" /> Prose Stream
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10"><MoreHorizontal className="h-5 w-5" /></Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="rounded-2xl w-56 border-none shadow-3xl p-2 z-50">
+                                <DropdownMenuContent align="end" className="rounded-2xl w-56 border-none shadow-3xl p-2 z-50 bg-background/95 backdrop-blur-3xl">
                                     <DropdownMenuItem onClick={() => router.push(`/profile/${getOtherParticipant(activeConversation)?.id}`)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
                                         <User className="h-4 w-4" /> View Profile
                                     </DropdownMenuItem>
@@ -985,11 +1009,11 @@ function MessagesClient() {
                                                     <DropdownMenuTrigger asChild>
                                                         <div 
                                                             onPointerDown={() => {
-                                                                setIsLongPressing(false);
+                                                                setIsLongPressing(null);
                                                                 longPressTimerRef.current = setTimeout(() => {
-                                                                    setIsLongPressing(true);
-                                                                    if (window.navigator.vibrate) window.navigator.vibrate(20);
-                                                                }, 500); 
+                                                                    setIsLongPressing(msg.id);
+                                                                    if (window.navigator.vibrate) window.navigator.vibrate(50);
+                                                                }, 2000); 
                                                             }}
                                                             onPointerUp={() => {
                                                                 if (longPressTimerRef.current) {
@@ -998,11 +1022,13 @@ function MessagesClient() {
                                                                 }
                                                             }}
                                                             className={cn(
-                                                                "p-4 text-sm shadow-sm transition-all transform-gpu hover:scale-[1.01] relative cursor-pointer select-none touch-none",
-                                                                isMe ? "text-white rounded-2xl rounded-br-lg" : "bg-muted text-foreground rounded-2xl rounded-bl-lg",
-                                                                msg.isUnsent && "italic opacity-60 bg-muted/40 text-muted-foreground"
+                                                                "p-3.5 text-sm transition-all transform-gpu relative cursor-pointer select-none touch-none",
+                                                                isMe ? "text-white rounded-[1.25rem] rounded-br-[0.25rem]" : "bg-muted text-foreground rounded-[1.25rem] rounded-bl-[0.25rem]",
+                                                                msg.isUnsent && "italic opacity-60 bg-muted/40 text-muted-foreground",
+                                                                isLongPressing === msg.id && "scale-105 shadow-[0_0_25px_rgba(var(--primary),0.4)] ring-2 ring-primary ring-offset-2 ring-offset-background",
+                                                                msg.type === 'image' && "bg-transparent p-0 overflow-hidden shadow-none border-none"
                                                             )} 
-                                                            style={{ backgroundColor: (!isMe || msg.isUnsent) ? undefined : (activeConversation.themeColor || 'hsl(var(--primary))') }}
+                                                            style={{ backgroundColor: (msg.type === 'image' || !isMe || msg.isUnsent) ? undefined : (activeConversation.themeColor || 'hsl(var(--primary))') }}
                                                         >
                                                             {msg.replyTo && (
                                                                 <div className="bg-black/20 p-2 px-3 rounded-xl text-[10px] mb-2 border border-white/10 italic truncate">
@@ -1011,7 +1037,7 @@ function MessagesClient() {
                                                                 </div>
                                                             )}
                                                             {msg.type === 'image' && msg.mediaUrl && (
-                                                                <div className="relative w-48 h-48 rounded-2xl overflow-hidden mb-2 shadow-lg border border-white/10 group/img">
+                                                                <div className="relative w-48 sm:w-64 aspect-square rounded-2xl overflow-hidden shadow-xl border border-white/10 group/img" onClick={() => setFullScreenMedia(msg.mediaUrl!)}>
                                                                     <NextImage src={msg.mediaUrl} alt="Visual" fill className="object-cover transition-transform group-hover/img:scale-105" />
                                                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                                                                         <Maximize2 className="h-6 w-6 text-white" />
@@ -1031,8 +1057,10 @@ function MessagesClient() {
                                                                     <SpotifyPlayer trackUrl={msg.mediaUrl} />
                                                                 </div>
                                                             )}
-                                                            <p className="whitespace-pre-line text-sm leading-relaxed">{msg.isUnsent ? 'Signal retracted' : msg.content}</p>
-                                                            {!msg.isUnsent && (
+                                                            {!msg.isUnsent && msg.type !== 'image' && <p className="whitespace-pre-line text-sm leading-relaxed">{msg.content}</p>}
+                                                            {msg.isUnsent && <p className="whitespace-pre-line text-sm leading-relaxed italic opacity-70">Retracted signal</p>}
+                                                            
+                                                            {!msg.isUnsent && msg.type !== 'image' && (
                                                                 <div className="flex items-center justify-between gap-4 mt-1 opacity-40 group-hover:opacity-100 transition-opacity">
                                                                     <span className="text-[8px] font-black uppercase tracking-widest">{date ? format(date, 'h:mm a') : '...'}</span>
                                                                     {msg.isEdited && <span className="text-[8px] font-black uppercase tracking-widest italic">Recalibrated</span>}
@@ -1046,34 +1074,31 @@ function MessagesClient() {
                                                             )}
                                                         </div>
                                                     </DropdownMenuTrigger>
-                                                    <DropdownMenuContent className="rounded-2xl border-none shadow-3xl p-1 bg-background/95 backdrop-blur-3xl z-50 animate-in zoom-in-95 duration-200">
+                                                    <DropdownMenuContent className="rounded-2xl border-none shadow-3xl p-1 bg-background/95 backdrop-blur-3xl z-50 animate-in zoom-in-95 duration-200" onPointerDown={(e) => e.stopPropagation()}>
                                                         <div className="flex gap-1 p-2 border-b border-white/5">
                                                             {REACTION_OPTIONS.map(e => (
-                                                                <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-9 w-9 hover:scale-125 transition-transform flex items-center justify-center text-xl active:scale-90">{e}</button>
+                                                                <button key={e} onClick={() => { handleReaction(msg.id, e); setIsLongPressing(null); }} className="h-9 w-9 hover:scale-125 transition-transform flex items-center justify-center text-xl active:scale-90">{e}</button>
                                                             ))}
                                                         </div>
-                                                        <DropdownMenuItem onClick={() => setReplyingTo(msg)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                                            <Reply className="h-4 w-4" /> Respond
+                                                        <DropdownMenuItem onClick={() => { setReplyingTo(msg); setIsLongPressing(null); }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs uppercase tracking-widest">
+                                                            <Reply className="h-4 w-4" /> Reply
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleForward(msg.content)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                                            <Forward className="h-4 w-4" /> Re-transmit
+                                                        <DropdownMenuItem onClick={() => { handleForward(msg.content); setIsLongPressing(null); }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs uppercase tracking-widest">
+                                                            <Forward className="h-4 w-4" /> Forward
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleTogglePinMessage(msg)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                                            <Pin className="h-4 w-4" /> {msg.isPinned ? 'Unpin' : 'Anchor to Thread'}
+                                                        <DropdownMenuItem onClick={() => { handleTogglePinMessage(msg); setIsLongPressing(null); }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs uppercase tracking-widest">
+                                                            <Pin className="h-4 w-4" /> {msg.isPinned ? 'Unpin' : 'Pin'}
                                                         </DropdownMenuItem>
                                                         {isMe && !msg.isUnsent && (
                                                             <>
-                                                                <DropdownMenuItem onClick={() => { setEditingMessage(msg); setNewMessageContent(msg.content); }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                                                    <Edit3 className="h-4 w-4" /> Recalibrate
+                                                                <DropdownMenuItem onClick={() => { setEditingMessage(msg); setNewMessageContent(msg.content); setIsLongPressing(null); }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs uppercase tracking-widest">
+                                                                    <Edit3 className="h-4 w-4" /> Edit
                                                                 </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handleUnsend(msg.id)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs text-destructive">
-                                                                    <X className="h-4 w-4" /> Retract Signal
+                                                                <DropdownMenuItem onClick={() => { handleUnsend(msg.id); setIsLongPressing(null); }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs uppercase tracking-widest text-destructive">
+                                                                    <X className="h-4 w-4" /> Unsend
                                                                 </DropdownMenuItem>
                                                             </>
                                                         )}
-                                                        <DropdownMenuItem onClick={() => handleDeleteForMe(msg.id)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs text-destructive">
-                                                            <Trash2 className="h-4 w-4" /> Purge Local Copy
-                                                        </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </div>
@@ -1165,29 +1190,72 @@ function MessagesClient() {
                         </>
                     ) : (
                         <ScrollArea className="flex-1 p-6">
-                            <div className="space-y-8 pb-20">
-                                <div className="space-y-4">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">Visual Vault</h4>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {mediaMessages.map(m => (
-                                            <div key={m.id} className="relative aspect-square rounded-xl overflow-hidden border border-border/40 bg-muted hover:scale-105 transition-transform duration-500 cursor-pointer">
-                                                <NextImage src={m.mediaUrl!} alt="Archive" fill className="object-cover" />
-                                            </div>
-                                        ))}
-                                        {mediaMessages.length === 0 && <p className="col-span-3 text-center py-10 text-xs italic text-muted-foreground">No visuals archived yet.</p>}
+                            <div className="space-y-10 pb-20">
+                                {viewMode === 'media' && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 px-2">
+                                            <ImageIcon className="h-3.5 w-3.5" />
+                                            Identity Archives
+                                        </h4>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {mediaMessages.map(m => (
+                                                <div key={m.id} className="relative aspect-square rounded-xl overflow-hidden border border-border/40 bg-muted hover:scale-105 transition-transform duration-500 cursor-pointer shadow-sm group/archive" onClick={() => setFullScreenMedia(m.mediaUrl!)}>
+                                                    <NextImage src={m.mediaUrl!} alt="Archive" fill className="object-cover" />
+                                                    <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/archive:opacity-100 transition-opacity" />
+                                                </div>
+                                            ))}
+                                            {mediaMessages.length === 0 && <p className="col-span-3 text-center py-10 text-xs italic text-muted-foreground opacity-40">No visuals archived yet.</p>}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">Audio Archives</h4>
-                                    <div className="grid gap-2">
-                                        {messages.filter(m => m.type === 'music').map(m => (
-                                            <div key={m.id} className="rounded-xl border border-border/40 p-2 bg-muted/20 hover:bg-muted/40 transition-colors">
-                                                <SpotifyPlayer trackUrl={m.mediaUrl} />
-                                            </div>
-                                        ))}
-                                        {messages.filter(m => m.type === 'music').length === 0 && <p className="text-center py-10 text-xs italic text-muted-foreground">No tracks shared.</p>}
+                                )}
+                                
+                                {viewMode === 'audio' && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 px-2">
+                                            <Volume2 className="h-3.5 w-3.5" />
+                                            Audio Archives
+                                        </h4>
+                                        <div className="grid gap-3">
+                                            {messages.filter(m => m.type === 'music' || m.type === 'audio').map(m => (
+                                                <div key={m.id} className="rounded-2xl border border-border/40 p-3 bg-muted/20 hover:bg-muted/40 transition-colors shadow-sm">
+                                                    {m.type === 'music' ? <SpotifyPlayer trackUrl={m.mediaUrl} /> : (
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center text-primary"><Volume2 className="h-5 w-5" /></div>
+                                                            <audio controls src={m.mediaUrl} className="h-8 flex-1 opacity-80" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {messages.filter(m => m.type === 'music' || m.type === 'audio').length === 0 && <p className="text-center py-10 text-xs italic text-muted-foreground opacity-40">No frequency archived.</p>}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
+
+                                {viewMode === 'links' && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 px-2">
+                                            <LinkIcon className="h-3.5 w-3.5" />
+                                            Link Repository
+                                        </h4>
+                                        <div className="grid gap-2">
+                                            {messages.filter(m => m.content.includes('http')).map(m => {
+                                                const url = m.content.match(/(https?:\/\/[^\s]+)/)?.[0];
+                                                return (
+                                                    <div key={m.id} className="p-4 rounded-2xl bg-muted/20 border border-border/40 hover:bg-primary/5 transition-all shadow-sm group">
+                                                        <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3">
+                                                            <div className="flex items-center gap-3 truncate">
+                                                                <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center text-muted-foreground"><LinkIcon className="h-4 w-4" /></div>
+                                                                <span className="text-xs font-bold truncate text-foreground group-hover:text-primary transition-colors">{url}</span>
+                                                            </div>
+                                                            <ChevronDown className="h-4 w-4 -rotate-90 text-muted-foreground" />
+                                                        </a>
+                                                    </div>
+                                                );
+                                            })}
+                                            {messages.filter(m => m.content.includes('http')).length === 0 && <p className="text-center py-10 text-xs italic text-muted-foreground opacity-40">No external nodes shared.</p>}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </ScrollArea>
                     )}
@@ -1208,6 +1276,23 @@ function MessagesClient() {
             onNext={() => setIsStatusViewerOpen(false)} 
             onPrev={() => setIsStatusViewerOpen(false)} 
         />
+
+        <Dialog open={!!fullScreenMedia} onOpenChange={(o) => !o && setFullScreenMedia(null)}>
+            <DialogContent className="max-w-4xl p-0 overflow-hidden border-none bg-black/95 backdrop-blur-2xl">
+                <DialogHeader className="sr-only">
+                    <DialogTitle>Visual Archive</DialogTitle>
+                </DialogHeader>
+                <div className="relative w-full h-[80vh] flex items-center justify-center p-4">
+                    {fullScreenMedia && <NextImage src={fullScreenMedia} alt="Archive" width={1600} height={1600} className="object-contain w-full h-full rounded-2xl" />}
+                    
+                    <div className="absolute top-6 right-6 flex flex-col gap-3">
+                        <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-white/10 text-white hover:bg-white/20 shadow-xl" onClick={() => setFullScreenMedia(null)}><X className="h-6 w-6" /></Button>
+                        <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-white/10 text-white hover:bg-white/20 shadow-xl" onClick={() => handleForward(fullScreenMedia!)} title="Forward Signal"><Forward className="h-6 w-6" /></Button>
+                        <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-white/10 text-white hover:bg-white/20 shadow-xl" title="Save to Device"><Download className="h-6 w-6" /></Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
 
         <Dialog open={!!mgmtMenuConv} onOpenChange={(o) => !o && setMgmtMenuConv(null)}>
             <DialogContent className="rounded-[2.5rem] max-w-xs p-0 overflow-hidden border-none shadow-3xl bg-background/95 backdrop-blur-3xl animate-in zoom-in-95 duration-300">
@@ -1286,7 +1371,7 @@ function MessagesClient() {
         <Dialog open={isMusicToolActive} onOpenChange={setIsMusicToolActive}>
             <DialogContent className="rounded-3xl border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
                 <DialogHeader className="mb-6">
-                    <DialogTitle className="text-3xl font-headline font-bold">Share Frequency</DialogTitle>
+                    <DialogTitle className="text-3xl font-headline font-bold">Music Share</DialogTitle>
                     <DialogDescription className="text-[8px] font-bold uppercase tracking-widest opacity-60">Archive a track in the stream</DialogDescription>
                 </DialogHeader>
                 <SongSearch onSongSelect={(song) => {
