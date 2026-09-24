@@ -24,7 +24,8 @@ import {
     ArrowLeft,
     HelpCircle,
     Heart,
-    Star
+    Star,
+    Archive
 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -104,7 +105,7 @@ export default function SettingsHubPage() {
           <Card className="rounded-[2.5rem] border-none shadow-xl bg-card/40 backdrop-blur-sm overflow-hidden">
             <CardContent className="p-2">
                 <SettingsLink href="/settings/profile" icon={UserCog} title="Edit Profile" description="Update your name, photo, and bio." iconColor="text-blue-500" bgColor="bg-blue-500/10" />
-                <SettingsLink href="/settings/account" icon={KeyRound} title="Email & Password" description="Manage your login credentials." iconColor="text-orange-500" bgColor="bg-orange-500/10" />
+                <SettingsLink href="/settings/account" icon={KeyRound} title="Email & Password" description="Manage your login credentials." iconColor="text-orange-500" bgColor="bg-orange-400/10" />
                 <SettingsLink href="/settings/safety" icon={Shield} title="Safety" description="Blocked users and safety filters." iconColor="text-red-500" bgColor="bg-red-500/10" />
             </CardContent>
           </Card>
@@ -131,6 +132,7 @@ export default function SettingsHubPage() {
                 <SettingsLink href="/settings/messaging" icon={MessageCircle} title="Chat" description="Control who can message you." iconColor="text-green-500" bgColor="bg-green-500/10" />
                 <SettingsLink href="/settings/reader" icon={BookMarked} title="Reading" description="Customize your reader mode." iconColor="text-orange-400" bgColor="bg-orange-400/10" />
                 <SettingsLink href="/settings/appearance" icon={Palette} title="Style" description="Change colors and themes." iconColor="text-pink-500" bgColor="bg-pink-500/10" />
+                <SettingsLink href="/settings/archives" icon={Archive} title="Archives & Hidden" description="View your retracted and hidden archival nodes." iconColor="text-purple-400" bgColor="bg-purple-400/10" />
             </CardContent>
           </Card>
         </section>
