@@ -23,8 +23,9 @@ import {
     Maximize2, 
     BoxSelect, 
     Library,
-    HeartPulse,
-    X
+    Contrast,
+    Activity,
+    Layers
 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTheme } from 'next-themes';
@@ -42,33 +43,11 @@ const accentColors = [
     { id: 'matcha', name: 'Matcha Latte', emoji: '🍵' },
     { id: 'lavender', name: 'Lavender Haze', emoji: '🔮' },
     { id: 'honey', name: 'Golden Honey', emoji: '🍯' },
-    
-    // 25 Filipino Colors
     { id: 'ube-overload', name: 'Ube Overload', emoji: '🍦' },
-    { id: 'matcha-diet', name: 'Matcha Diet', emoji: '🥗' },
     { id: 'kalamansi-shot', name: 'Kalamansi Shot', emoji: '🍋' },
-    { id: 'bagoong-sili', name: 'Bagoong with Sili', emoji: '🌶️' },
-    { id: 'halo-halo', name: 'Halo-Halo Special', emoji: '🍧' },
-    { id: 'taho-warmth', name: 'Taho in the Morning', emoji: '🥤' },
-    { id: 'sorbetes-pink', name: 'Sorbetes Pink', emoji: '🍨' },
-    { id: 'puto-bumbong', name: 'Puto Bumbong', emoji: '🍮' },
-    { id: 'kwek-kwek', name: 'Kwek-Kwek Orange', emoji: '🍡' },
-    { id: 'sago-gulaman', name: 'Sago at Gulaman', emoji: '🧋' },
-    { id: 'dirty-ice-cream', name: 'Dirty Ice Cream', emoji: '🍦' },
-    { id: 'adobo-sauce', name: 'Adobo Sauce', emoji: '🍲' },
-    { id: 'lechon-skin', name: 'Lechon Skin', emoji: '🥓' },
-    { id: 'mango-graham', name: 'Mango Graham', emoji: '🍰' },
-    { id: 'bibingka-glow', name: 'Bibingka Glow', emoji: '🥧' },
-    { id: 'isaw-burn', name: 'Isaw Burn', emoji: '🍢' },
-    { id: 'balut-soup', name: 'Balut Soup', emoji: '🥚' },
-    { id: 'siomai-rice', name: 'Siomai Rice', emoji: '🥟' },
-    { id: 'kalamay-sticky', name: 'Kalamay Sticky', emoji: '🍮' },
-    { id: 'chocnut', name: 'Chocnut Crumble', emoji: '🍫' },
-    { id: 'ice-scramble', name: 'Ice Scramble', emoji: '🍧' },
-    { id: 'kandila', name: 'Kandila Vibes', emoji: '🕯️' },
-    { id: 'guhit-tadhana', name: 'Guhit ng Tadhana', emoji: '🖋️' },
-    { id: 'shanghai-gold', name: 'Lumpia Shanghai', emoji: '🌯' },
-    { id: 'pancit-canton', name: 'Pancit Canton', emoji: '🍜' },
+    { id: 'halo-halo', name: 'Halo-Halo', emoji: '🍧' },
+    { id: 'taho-warmth', name: 'Taho Warmth', emoji: '🥤' },
+    { id: 'chocnut', name: 'Chocnut', emoji: '🍫' },
 ];
 
 export default function AppearanceSettingsPage() {
@@ -84,7 +63,8 @@ export default function AppearanceSettingsPage() {
     glassmorphism: true,
     oledMode: false,
     motionLevel: 'full',
-    autoDim: false,
+    vignetteMode: false,
+    highContrast: false,
     parchmentMode: false,
     cornerStyle: 'rounded',
     ambientSound: 'none'
@@ -105,14 +85,13 @@ export default function AppearanceSettingsPage() {
             appearanceSettings: updated
         });
     } catch (error) {
-        console.error("Failed to update appearance:", error);
-        toast({ title: "Update Failed", description: "Your preference wasn't saved.", variant: "destructive" });
+        toast({ title: "Update Failed", variant: "destructive" });
     }
   };
 
   if (loading && !user) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)]">
+      <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -120,223 +99,110 @@ export default function AppearanceSettingsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-10 py-10 px-4 pb-32 animate-in fade-in duration-700">
-      <header className="flex items-center justify-between">
-        <div className="space-y-1">
-            <Button variant="ghost" onClick={() => router.push('/settings')} className="mb-2 -ml-2 text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
-            </Button>
-            <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground flex items-center gap-4">
-                <Palette className="h-10 w-10 text-primary" /> Visual Styles
-            </h1>
-            <p className="text-muted-foreground text-sm font-medium">Choose your favorite colors and reading preferences.</p>
-        </div>
-        {(authLoading) && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
+      <header className="flex flex-col space-y-2">
+        <Button variant="ghost" onClick={() => router.push('/settings')} className="w-fit -ml-2 text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Settings
+        </Button>
+        <h1 className="text-3xl md:text-5xl font-headline font-bold text-foreground flex items-center gap-4">
+            <Palette className="h-10 w-10 text-primary" /> Visual Styles
+        </h1>
+        <p className="text-muted-foreground text-sm font-medium">Redesign your archive with custom themes and effects.</p>
       </header>
 
-      <div className="grid lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-7 space-y-8">
-            <section className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                    <div className="h-1 w-6 bg-primary rounded-full" />
-                    <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">App Interface</h2>
-                </div>
-                
-                <Card className="border-border/40 shadow-sm bg-card/50 backdrop-blur-xl">
-                    <CardHeader className="pb-4">
-                        <CardTitle className="text-lg flex items-center gap-2"><Monitor className="h-4 w-4 text-primary" /> Theme</CardTitle>
-                        <CardDescription>Choose how the interface looks for you.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-3">
-                            {['light', 'dark', 'system'].map((t) => (
-                                <div key={t}>
-                                    <RadioGroupItem value={t} id={`theme-${t}`} className="peer sr-only" />
-                                    <Label htmlFor={`theme-${t}`} className="flex flex-col items-center justify-center rounded-2xl border-2 border-muted bg-background p-5 hover:bg-accent cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 transition-all shadow-sm">
-                                        {t === 'light' ? <Sun className="mb-2 h-5 w-5 text-orange-500" /> : t === 'dark' ? <Moon className="mb-2 h-5 w-5 text-blue-500" /> : <Monitor className="mb-2 h-5 w-5" />}
-                                        <span className="capitalize text-[10px] font-bold uppercase tracking-widest">{t}</span>
-                                    </Label>
-                                </div>
-                            ))}
-                        </RadioGroup>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-border/40 shadow-xl overflow-hidden bg-card/40 backdrop-blur-sm">
-                    <CardHeader className="pb-4 bg-muted/20 border-b border-border/40">
-                        <CardTitle className="text-lg flex items-center gap-2"><Coffee className="h-4 w-4 text-primary" /> Main Colors</CardTitle>
-                        <CardDescription>Choose your favorite main color for the app.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                        <ScrollArea className="h-[360px] pr-4 -mr-4">
-                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 pb-4">
-                                {accentColors.map((acc) => (
-                                    <button
-                                        key={acc.id}
-                                        onClick={() => updateAppearance('accentColor', acc.id)}
-                                        className={cn(
-                                            "flex flex-col items-center gap-2 p-4 rounded-[2rem] border-2 transition-all relative group overflow-hidden",
-                                            localSettings.accentColor === acc.id 
-                                                ? "border-primary bg-primary/5 shadow-inner" 
-                                                : "border-transparent bg-muted/30 hover:bg-muted/50"
-                                        )}
-                                    >
-                                        <span className="text-3xl filter drop-shadow-md group-hover:scale-125 transition-transform duration-300 transform-gpu">{acc.emoji}</span>
-                                        <span className="text-[9px] uppercase tracking-tighter font-black text-center leading-none opacity-80">{acc.name}</span>
-                                        {localSettings.accentColor === acc.id && (
-                                            <div className="absolute top-2 right-2 bg-primary text-primary-foreground p-0.5 rounded-full shadow-lg animate-in zoom-in-50 duration-300">
-                                                <Check className="h-2 w-2" />
-                                            </div>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
-            </section>
-
-            <section className="space-y-4 pt-4">
-                <div className="flex items-center gap-2 mb-2">
-                    <div className="h-1 w-6 bg-accent rounded-full" />
-                    <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Reading Experience</h2>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-6">
-                    <Card className="border-border/40 shadow-md bg-card/30">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2"><Library className="h-4 w-4 text-amber-600" /> Parchment Mode</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <p className="text-xs text-muted-foreground leading-relaxed">Adds a soft paper texture to reduce eye strain when reading manuscripts.</p>
-                            <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-dashed border-border/60">
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Enable Texture</span>
-                                <Switch checked={localSettings.parchmentMode} onCheckedChange={(v) => updateAppearance('parchmentMode', v)} />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-border/40 shadow-md bg-card/30">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2"><Music className="h-4 w-4 text-purple-500" /> Environment Sounds</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <p className="text-xs text-muted-foreground">Turn on background sounds to help you focus while reading.</p>
-                            <RadioGroup value={localSettings.ambientSound} onValueChange={(v: any) => updateAppearance('ambientSound', v)} className="grid grid-cols-3 gap-2">
-                                {['none', 'lofi', 'rain'].map(s => (
-                                    <Label key={s} htmlFor={`snd-${s}`} className="flex flex-col items-center justify-center p-2 rounded-xl border-2 border-transparent bg-muted/40 cursor-pointer transition-all hover:bg-muted/60 data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">
-                                        <RadioGroupItem value={s} id={`snd-${s}`} className="sr-only" />
-                                        <span className="text-[9px] font-bold uppercase tracking-tighter">{s === 'none' ? <X className="h-4 w-4 mb-1" /> : s === 'lofi' ? <Music className="h-4 w-4 mb-1 text-primary" /> : <Wind className="h-4 w-4 mb-1 text-blue-500" />}</span>
-                                        <span className="text-[8px] font-bold uppercase">{s}</span>
-                                    </Label>
-                                ))}
-                            </RadioGroup>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                <Card className="border-border/40 shadow-md bg-card/30">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-center gap-2"><BoxSelect className="h-4 w-4 text-green-500" /> Corner Style</CardTitle>
-                        <CardDescription>Choose how rounded you want buttons and cards to be.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <RadioGroup value={localSettings.cornerStyle} onValueChange={(v: any) => updateAppearance('cornerStyle', v)} className="grid grid-cols-3 gap-4">
-                            {[
-                                { id: 'minimal', label: 'Minimal', desc: 'Square edges' },
-                                { id: 'rounded', label: 'Rounded', desc: 'Normal' },
-                                { id: 'organic', label: 'Organic', desc: 'Very round' },
-                            ].map(s => (
-                                <div key={s.id}>
-                                    <RadioGroupItem value={s.id} id={`radius-${s.id}`} className="sr-only" />
-                                    <Label htmlFor={`radius-${s.id}`} className="flex flex-col items-center justify-center rounded-2xl border-2 border-muted bg-background p-4 hover:bg-accent cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 transition-all shadow-sm group">
-                                        <div className={cn(
-                                            "w-8 h-8 border-2 border-muted-foreground/30 mb-2 transition-all group-hover:border-primary",
-                                            s.id === 'minimal' ? 'rounded-none' : s.id === 'rounded' ? 'rounded-lg' : 'rounded-2xl'
-                                        )} />
-                                        <span className="text-[10px] font-bold uppercase mb-0.5">{s.label}</span>
-                                        <span className="text-[8px] text-muted-foreground/60 text-center leading-none">{s.desc}</span>
-                                    </Label>
-                                </div>
-                            ))}
-                        </RadioGroup>
-                    </CardContent>
-                </Card>
-            </section>
-        </div>
-
-        <div className="lg:col-span-5 space-y-8">
-            <section className="sticky top-24 space-y-6">
-                <div className="flex items-center gap-2 mb-2">
-                    <div className="h-1 w-6 bg-green-500 rounded-full" />
-                    <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Preview</h2>
-                </div>
-                
-                <Card className={cn(
-                    "border-border/40 shadow-2xl overflow-hidden transition-all duration-700 transform-gpu",
-                    localSettings.glassmorphism && "bg-card/40 backdrop-blur-3xl",
-                    localSettings.parchmentMode && "parchment-mode",
-                    localSettings.cornerStyle === 'minimal' ? 'rounded-none' : localSettings.cornerStyle === 'organic' ? 'rounded-[3rem]' : 'rounded-3xl'
-                )}>
-                    <CardHeader className="p-8 pb-4">
-                        <Badge className="w-fit mb-4 bg-primary text-primary-foreground font-bold text-[9px] uppercase tracking-[0.2em]">Sample Manuscript</Badge>
-                        <CardTitle className="text-2xl font-headline font-bold leading-tight">The Midnight Adventure</CardTitle>
-                        <CardDescription>How it will look when reading...</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-8 pt-0 space-y-6">
-                        <p className={cn(
-                            "text-base leading-relaxed text-foreground/80",
-                            localSettings.fontFamily === 'serif' ? 'font-serif' : 'font-sans'
-                        )}>
-                            "The rain drummed against the library windows, echoing the rhythmic ticking of a clock that shouldn't have been there. She reached for the glowing volume, her fingers brushing the worn parchment..."
-                        </p>
-                        <div className="flex items-center gap-3">
-                            <Button className="rounded-full px-6 h-10 font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">Read Now</Button>
-                            <Button variant="ghost" className="rounded-full h-10 w-10"><HeartPulse className="h-4 w-4 text-red-500"/></Button>
-                        </div>
-                    </CardContent>
-                    <footer className="p-6 bg-muted/20 border-t border-border/20 flex items-center justify-between">
-                         <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-primary/20" />
-                            <div className="space-y-1">
-                                <div className="h-2 w-12 bg-muted rounded-full" />
-                                <div className="h-1.5 w-8 bg-muted/40 rounded-full" />
-                            </div>
-                         </div>
-                         <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-                    </footer>
-                </Card>
-
-                <Card className="border-border/40 shadow-md bg-card/20">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest"><Wand2 className="h-4 w-4 text-primary" /> Visual Effects</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-0 divide-y divide-border/20">
-                        {[
-                            { id: 'glassmorphism', label: 'Blur Effects', desc: 'Glass-like appearance', icon: Wand2 },
-                            { id: 'oledMode', label: 'True Black', desc: 'Deep black for AMOLED screens', icon: Moon },
-                            { id: 'autoDim', label: 'Auto-Dim', desc: 'Darken menus while reading', icon: EyeOff },
-                        ].map(item => (
-                            <div key={item.id} className="flex items-center justify-between py-4">
-                                <div className="space-y-0.5">
-                                    <Label className="text-sm font-bold cursor-pointer" htmlFor={item.id}>{item.label}</Label>
-                                    <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{item.desc}</p>
-                                </div>
-                                <Switch id={item.id} checked={(localSettings as any)[item.id]} onCheckedChange={(v) => updateAppearance(item.id, v)} />
+      <div className="grid md:grid-cols-2 gap-8">
+        <div className="space-y-8">
+            <Card className="rounded-[2rem] border-border/40 shadow-xl bg-card/50 backdrop-blur-xl">
+                <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2"><Monitor className="h-4 w-4 text-primary" /> Master Theme</CardTitle>
+                    <CardDescription>Global lighting calibration.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-3">
+                        {['light', 'dark', 'system'].map((t) => (
+                            <div key={t}>
+                                <RadioGroupItem value={t} id={`theme-${t}`} className="peer sr-only" />
+                                <Label htmlFor={`theme-${t}`} className="flex flex-col items-center justify-center rounded-2xl border-2 border-muted bg-background p-4 hover:bg-accent cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 transition-all">
+                                    {t === 'light' ? <Sun className="mb-1 h-5 w-5 text-orange-500" /> : t === 'dark' ? <Moon className="mb-1 h-5 w-5 text-blue-500" /> : <Monitor className="mb-1 h-5 w-5" />}
+                                    <span className="capitalize text-[10px] font-bold uppercase">{t}</span>
+                                </Label>
                             </div>
                         ))}
-                    </CardContent>
-                </Card>
-            </section>
+                    </RadioGroup>
+                </CardContent>
+            </Card>
+
+            <Card className="rounded-[2rem] border-border/40 shadow-xl bg-card/50 backdrop-blur-xl">
+                <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2"><Layers className="h-4 w-4 text-primary" /> Color Calibration</CardTitle>
+                    <CardDescription>Choose your unique signal color.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ScrollArea className="h-48">
+                        <div className="grid grid-cols-4 gap-2 pr-4">
+                            {accentColors.map((acc) => (
+                                <button
+                                    key={acc.id}
+                                    onClick={() => updateAppearance('accentColor', acc.id)}
+                                    className={cn(
+                                        "flex flex-col items-center gap-1 p-3 rounded-2xl border-2 transition-all",
+                                        localSettings.accentColor === acc.id ? "border-primary bg-primary/5" : "border-transparent bg-muted/30"
+                                    )}
+                                >
+                                    <span className="text-2xl">{acc.emoji}</span>
+                                    <span className="text-[8px] uppercase font-black truncate w-full text-center">{acc.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                </CardContent>
+            </Card>
+        </div>
+
+        <div className="space-y-8">
+            <Card className="rounded-[2rem] border-border/40 shadow-xl bg-card/50 backdrop-blur-xl">
+                <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2"><Wand2 className="h-4 w-4 text-primary" /> Vital Effects</CardTitle>
+                    <CardDescription>Unique visual enhancements for your session.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/40">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="vignette" className="text-sm font-bold block">Dynamic Vignette</Label>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Soft focus edges for immersion</p>
+                        </div>
+                        <Switch id="vignette" checked={localSettings.vignetteMode} onCheckedChange={(v) => updateAppearance('vignetteMode', v)} />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/40">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="contrast" className="text-sm font-bold block">High Contrast</Label>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Sharpen text and signal nodes</p>
+                        </div>
+                        <Switch id="contrast" checked={localSettings.highContrast} onCheckedChange={(v) => updateAppearance('highContrast', v)} />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/40">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="motion" className="text-sm font-bold block">Reduced Motion</Label>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Minimize animations for comfort</p>
+                        </div>
+                        <Switch id="motion" checked={localSettings.motionLevel === 'reduced'} onCheckedChange={(v) => updateAppearance('motionLevel', v ? 'reduced' : 'full')} />
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/40">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="glass" className="text-sm font-bold block">Glassmorphism</Label>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Morphic blur effects on menus</p>
+                        </div>
+                        <Switch id="glass" checked={localSettings.glassmorphism} onCheckedChange={(v) => updateAppearance('glassmorphism', v)} />
+                    </div>
+                </CardContent>
+            </Card>
         </div>
       </div>
       
-      <footer className="pt-10 flex flex-col sm:flex-row gap-4">
-        <Button variant="outline" className="flex-1 h-14 rounded-2xl font-bold uppercase text-xs tracking-widest shadow-sm hover:bg-muted/50" onClick={() => router.push('/')}>
-            Back to Home
-        </Button>
-        <Button className="flex-1 h-14 rounded-2xl font-bold uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 shadow-2xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95" onClick={() => router.push('/settings')}>
-            Back to Settings
-        </Button>
+      <footer className="pt-10 text-center">
+        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">Visual Calibration Hub & bull; D4RKV3NOM Core</p>
       </footer>
     </div>
   );
