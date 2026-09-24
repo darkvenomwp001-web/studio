@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useTransition, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, useEffect, useTransition, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import CharacterCount from '@tiptap/extension-character-count';
@@ -30,8 +30,8 @@ import {
   Eye,
   Hash,
   ArrowLeft,
-  ImageIcon,
-  Camera
+  Camera,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,10 +43,14 @@ import {
   PopoverContent, 
   PopoverTrigger 
 } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import Image from 'next/image';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
 
 const SUGGESTED_FONTS = [
   { name: 'Inter', value: 'var(--font-inter)' },
@@ -59,11 +63,11 @@ const SUGGESTED_FONTS = [
   { name: 'Playfair Display', value: 'Playfair Display, serif' },
 ];
 
-export default function ChapterEditorPage() {
+export default function ChapterEditorPage({ searchParams }: { searchParams: Promise<{ storyId: string, chapterId: string }> }) {
+  const { storyId, chapterId } = React.use(searchParams);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const storyId = searchParams.get('storyId');
-  const chapterId = searchParams.get('chapterId');
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const [storyDetails, setStoryDetails] = useState<any>(null);
   const [title, setTitle] = useState('');
@@ -123,7 +127,7 @@ export default function ChapterEditorPage() {
   const wordCount = editor?.storage.characterCount.words() || 0;
 
   const handleUpdateField = async (fieldName: string, value: any) => {
-    if (!storyId || !chapterId) return;
+    if (!storyId || !chapterId || !storyDetails) return;
     const storyRef = doc(db, 'stories', storyId);
     const updatedChapters = storyDetails.chapters.map((c: any) => {
       if (c.id === chapterId) return { ...c, [fieldName]: value };
@@ -141,8 +145,9 @@ export default function ChapterEditorPage() {
   };
 
   const handlePublish = async () => {
+    if (!storyId || !chapterId || !storyDetails) return;
     setIsPublishing(true);
-    const storyRef = doc(db, 'stories', storyId!);
+    const storyRef = doc(db, 'stories', storyId);
     const updatedChapters = storyDetails.chapters.map((c: any) => {
       if (c.id === chapterId) return { ...c, content: editor?.getHTML(), status: 'Published' };
       return c;
@@ -151,7 +156,7 @@ export default function ChapterEditorPage() {
     await updateDoc(storyRef, { chapters: updatedChapters, lastUpdated: serverTimestamp() });
     
     await addDoc(collection(db, 'notifications'), {
-      userId: 'arnv',
+      userId: storyDetails.author.id,
       actor: { id: user?.id || 'anon', username: user?.username || 'Guest', avatarUrl: user?.avatarUrl || '' },
       type: 'story_update',
       message: `${storyDetails.title}: ${title} is now published!`,
