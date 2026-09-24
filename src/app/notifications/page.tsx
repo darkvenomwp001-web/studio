@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
@@ -48,10 +49,12 @@ import {
   ChevronDown,
   Save,
   Square,
-  Music
+  Music,
+  Camera,
+  Heart
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, format, isYesterday } from 'date-fns';
-import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType, Song } from '@/types';
+import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType, Song, StatusUpdate } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { db, rtdb } from '@/lib/firebase';
@@ -71,7 +74,8 @@ import {
   deleteDoc,
   arrayUnion,
   arrayRemove,
-  increment
+  increment,
+  Timestamp
 } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -112,6 +116,7 @@ import Header from '@/components/layout/Header';
 import BottomNavigationBar from '@/components/layout/BottomNavigationBar';
 import { toggleArchiveThread, toggleIgnoreThread, togglePinThread, setThreadNickname, unsendMessage, deleteMessageForMe, editSentMessage } from '@/app/actions/threadActions';
 import SongSearch from '@/components/status/SongSearch';
+import StatusViewer from '@/components/status/StatusViewer';
 
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: NodeJS.Timeout;
@@ -318,6 +323,11 @@ function MessagesClient() {
   const [viewMode, setViewMode] = useState<'chat' | 'media'>('chat');
   const [mgmtMenuConv, setMgmtMenuConv] = useState<Conversation | null>(null);
   const [isLongPressing, setIsLongPressing] = useState(false);
+  
+  // Statuses Logic
+  const [statusMap, setStatusMap] = useState<Map<string, StatusUpdate[]>>(new Map());
+  const [isStatusViewerOpen, setIsStatusViewerOpen] = useState(false);
+  const [selectedUserForStatus, setSelectedUserForStatus] = useState<AppUserType | null>(null);
 
   // Real-time Voice Recording Hub
   const [isRecording, setIsRecording] = useState(false);
@@ -359,6 +369,27 @@ function MessagesClient() {
     });
     return () => unsub();
   }, [currentUser, conversations]);
+
+  // Status Updates Listener
+  useEffect(() => {
+    if (!currentUser) return;
+    const now = Timestamp.now();
+    const q = query(
+        collection(db, 'statusUpdates'), 
+        where('status', '==', 'published'),
+        where('expiresAt', '>', now),
+        where('isHidden', '==', false)
+    );
+    return onSnapshot(q, (snap) => {
+        const smap = new Map<string, StatusUpdate[]>();
+        snap.docs.forEach(doc => {
+            const data = { id: doc.id, ...doc.data() } as StatusUpdate;
+            if (!smap.has(data.authorId)) smap.set(data.authorId, []);
+            smap.get(data.authorId)!.push(data);
+        });
+        setStatusMap(smap);
+    });
+  }, [currentUser]);
 
   useEffect(() => {
     if (!activeConversation || !currentUser) return;
@@ -590,6 +621,11 @@ function MessagesClient() {
     setMgmtMenuConv(conv);
   };
 
+  const handleShowStatus = (userToView: AppUserType) => {
+    setSelectedUserForStatus(userToView);
+    setIsStatusViewerOpen(true);
+  }
+
   const handleDeleteThread = async (convId: string) => {
     if (!currentUser) return;
     deleteDoc(doc(db, 'conversations', convId))
@@ -691,7 +727,7 @@ function MessagesClient() {
         )}>
             <div className="p-6 space-y-6">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-3xl font-headline font-bold tracking-tight">Threads</h2>
+                    <h2 className="text-3xl font-headline font-bold tracking-tight">Signal Hub</h2>
                     <Button variant="outline" size="icon" className="rounded-full shadow-sm" onClick={() => setIsNewConversationDialogOpen(true)}>
                         <Plus className="h-5 w-5" />
                     </Button>
@@ -710,29 +746,46 @@ function MessagesClient() {
                     <ScrollArea className="w-full whitespace-nowrap scrollbar-hide">
                         <div className="flex gap-4 px-1 pb-2">
                             {currentUser && (
-                                <div className="flex flex-col items-center gap-1.5 cursor-pointer group" onClick={() => router.push(`/profile/${currentUser.id}`)}>
+                                <div className="flex flex-col items-center gap-1.5 cursor-pointer group" onClick={() => router.push('/status/create')}>
                                     <div className="relative">
-                                        <Avatar className="h-14 w-14 border-2 border-primary/20 p-0.5 group-hover:scale-105 transition-transform">
-                                            <AvatarImage src={currentUser.avatarUrl} />
-                                            <AvatarFallback className="font-bold">{currentUser.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm" />
+                                        <div className={cn(
+                                            "w-14 h-14 p-0.5 rounded-full",
+                                            statusMap.has(currentUser.id) ? "bg-gradient-to-tr from-orange-500 via-pink-500 to-primary" : "border-2 border-primary/20"
+                                        )}>
+                                            <Avatar className="h-full w-full border-2 border-background group-hover:scale-105 transition-transform">
+                                                <AvatarImage src={currentUser.avatarUrl} />
+                                                <AvatarFallback className="font-bold">{currentUser.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                        </div>
+                                        <div className="absolute bottom-0 right-0 w-5 h-5 bg-primary text-white rounded-full flex items-center justify-center border-2 border-background shadow-md">
+                                            <Plus className="h-3 w-3" />
+                                        </div>
                                     </div>
-                                    <span className="text-[9px] font-black uppercase tracking-tighter opacity-60">My Status</span>
+                                    <span className="text-[9px] font-black uppercase tracking-tighter opacity-60">Story Updates</span>
                                 </div>
                             )}
-                            {onlineFriends.map(friend => (
-                                <div key={friend.id} className="flex flex-col items-center gap-1.5 cursor-pointer group" onClick={() => router.push(`/profile/${friend.id}`)}>
-                                    <div className="relative">
-                                        <Avatar className="h-14 w-14 border-2 border-background shadow-md group-hover:scale-105 transition-transform">
-                                            <AvatarImage src={friend.avatarUrl} />
-                                            <AvatarFallback className="font-bold">{friend.username.substring(0,1).toUpperCase()}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse" />
+                            {onlineFriends.map(friend => {
+                                const hasStatus = statusMap.has(friend.id);
+                                return (
+                                    <div key={friend.id} className="flex flex-col items-center gap-1.5 cursor-pointer group" onClick={() => hasStatus ? handleShowStatus(friend as any) : router.push(`/profile/${friend.id}`)}>
+                                        <div className="relative">
+                                            <div className={cn(
+                                                "w-14 h-14 p-0.5 rounded-full transition-all duration-500",
+                                                hasStatus ? "bg-gradient-to-tr from-orange-500 via-pink-500 to-primary animate-pulse" : ""
+                                            )}>
+                                                <Avatar className="h-full w-full border-2 border-background shadow-md group-hover:scale-105 transition-transform">
+                                                    <AvatarImage src={friend.avatarUrl} />
+                                                    <AvatarFallback className="font-bold">{friend.username.substring(0,1).toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                            </div>
+                                            {userStatuses[friend.id] === 'online' && (
+                                                <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm" />
+                                            )}
+                                        </div>
+                                        <span className="text-[9px] font-black uppercase tracking-tighter truncate w-14 text-center">@{friend.username}</span>
                                     </div>
-                                    <span className="text-[9px] font-black uppercase tracking-tighter truncate w-14 text-center">@{friend.username}</span>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                         <ScrollBar orientation="horizontal" className="hidden" />
                     </ScrollArea>
@@ -756,15 +809,9 @@ function MessagesClient() {
                                     longPressTimerRef.current = setTimeout(() => {
                                         setIsLongPressing(true);
                                         handleThreadLongPress(conv);
-                                    }, 3000); // 3-second long press gateway
+                                    }, 2000); 
                                 }}
                                 onPointerUp={() => {
-                                    if (longPressTimerRef.current) {
-                                        clearTimeout(longPressTimerRef.current);
-                                        longPressTimerRef.current = null;
-                                    }
-                                }}
-                                onPointerLeave={() => {
                                     if (longPressTimerRef.current) {
                                         clearTimeout(longPressTimerRef.current);
                                         longPressTimerRef.current = null;
@@ -781,10 +828,15 @@ function MessagesClient() {
                                 )}
                             >
                                 <div className="relative">
-                                    <Avatar className="h-14 w-14 border-2 border-background shadow-md">
-                                        <AvatarImage src={other?.avatarUrl} />
-                                        <AvatarFallback className="bg-muted text-primary font-bold">{other?.username.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-                                    </Avatar>
+                                    <div className={cn(
+                                        "w-14 h-14 p-0.5 rounded-full transition-all duration-500",
+                                        other && statusMap.has(other.id) ? "bg-gradient-to-tr from-orange-500 via-pink-500 to-primary" : ""
+                                    )}>
+                                        <Avatar className="h-full w-full border-2 border-background shadow-md">
+                                            <AvatarImage src={other?.avatarUrl} />
+                                            <AvatarFallback className="bg-muted text-primary font-bold">{other?.username.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+                                        </Avatar>
+                                    </div>
                                     {isOnline && <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background shadow-sm animate-pulse" />}
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -835,13 +887,13 @@ function MessagesClient() {
                                     {activeConversation.nicknames?.[getOtherParticipant(activeConversation)?.id || ''] || `@${getOtherParticipant(activeConversation)?.username || 'user'}`}
                                 </h3>
                                 <p className="text-[9px] font-black uppercase tracking-widest text-primary leading-none">
-                                    {otherUserTyping ? "Typing..." : (userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? "Online" : "Away")}
+                                    {otherUserTyping ? "Digital Syncing..." : (userStatuses[getOtherParticipant(activeConversation)?.id || ''] === 'online' ? "Online Now" : "Archive Mode")}
                                 </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-1">
                             <Button variant="ghost" size="sm" onClick={() => setViewMode(viewMode === 'chat' ? 'media' : 'chat')} className="rounded-full font-bold text-[10px] uppercase tracking-widest">
-                                {viewMode === 'chat' ? 'Media' : 'Back to Chat'}
+                                {viewMode === 'chat' ? 'Media Vault' : 'Prose Stream'}
                             </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -906,7 +958,7 @@ function MessagesClient() {
                                 <div className="flex flex-col gap-1.5 pb-10">
                                     {pinnedMessages.length > 0 && (
                                         <div className="mb-6 p-3 bg-primary/5 border border-primary/10 rounded-2xl animate-in fade-in slide-in-from-top-2">
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-primary mb-2 flex items-center gap-1.5"><Pin className="h-3 w-3 fill-current" /> Pinned Messages</p>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-primary mb-2 flex items-center gap-1.5"><Pin className="h-3 w-3 fill-current" /> Pinned Transmissions</p>
                                             <div className="space-y-2">
                                                 {pinnedMessages.map(m => (
                                                     <div key={m.id} className="text-xs truncate italic text-muted-foreground bg-background/50 p-2 rounded-xl">"{m.content}"</div>
@@ -922,7 +974,7 @@ function MessagesClient() {
 
                                         return (
                                             <div key={msg.id} className={cn(
-                                                "flex flex-col max-w-[85%] sm:max-w-[70%] group animate-in slide-in-from-bottom-2 duration-300",
+                                                "flex flex-col max-w-[85%] sm:max-w-[70%] group animate-in slide-in-from-bottom-2 duration-300 transform-gpu",
                                                 isMe ? "self-end items-end" : "self-start items-start",
                                                 !isNextSame && "mb-4"
                                             )}>
@@ -931,11 +983,27 @@ function MessagesClient() {
                                                 )}
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <div className={cn(
-                                                            "p-4 text-sm shadow-sm transition-all transform-gpu hover:scale-[1.01] relative cursor-pointer",
-                                                            isMe ? "text-white rounded-2xl rounded-br-lg" : "bg-muted text-foreground rounded-2xl rounded-bl-lg",
-                                                            msg.isUnsent && "italic opacity-60 bg-muted/40 text-muted-foreground"
-                                                        )} style={{ backgroundColor: (!isMe || msg.isUnsent) ? undefined : (activeConversation.themeColor || 'hsl(var(--primary))') }}>
+                                                        <div 
+                                                            onPointerDown={() => {
+                                                                setIsLongPressing(false);
+                                                                longPressTimerRef.current = setTimeout(() => {
+                                                                    setIsLongPressing(true);
+                                                                    if (window.navigator.vibrate) window.navigator.vibrate(20);
+                                                                }, 500); // 0.5s for TikTok style reaction trigger
+                                                            }}
+                                                            onPointerUp={() => {
+                                                                if (longPressTimerRef.current) {
+                                                                    clearTimeout(longPressTimerRef.current);
+                                                                    longPressTimerRef.current = null;
+                                                                }
+                                                            }}
+                                                            className={cn(
+                                                                "p-4 text-sm shadow-sm transition-all transform-gpu hover:scale-[1.01] relative cursor-pointer select-none touch-none",
+                                                                isMe ? "text-white rounded-2xl rounded-br-lg" : "bg-muted text-foreground rounded-2xl rounded-bl-lg",
+                                                                msg.isUnsent && "italic opacity-60 bg-muted/40 text-muted-foreground"
+                                                            )} 
+                                                            style={{ backgroundColor: (!isMe || msg.isUnsent) ? undefined : (activeConversation.themeColor || 'hsl(var(--primary))') }}
+                                                        >
                                                             {msg.replyTo && (
                                                                 <div className="bg-black/20 p-2 px-3 rounded-xl text-[10px] mb-2 border border-white/10 italic truncate">
                                                                     <Quote className="h-2 w-2 inline mr-1" />
@@ -943,8 +1011,11 @@ function MessagesClient() {
                                                                 </div>
                                                             )}
                                                             {msg.type === 'image' && msg.mediaUrl && (
-                                                                <div className="relative w-48 h-48 rounded-2xl overflow-hidden mb-2 shadow-lg border border-white/10">
-                                                                    <NextImage src={msg.mediaUrl} alt="Visual" fill className="object-cover" />
+                                                                <div className="relative w-48 h-48 rounded-2xl overflow-hidden mb-2 shadow-lg border border-white/10 group/img">
+                                                                    <NextImage src={msg.mediaUrl} alt="Visual" fill className="object-cover transition-transform group-hover/img:scale-105" />
+                                                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                                        <Maximize2 className="h-6 w-6 text-white" />
+                                                                    </div>
                                                                 </div>
                                                             )}
                                                             {msg.type === 'audio' && msg.mediaUrl && (
@@ -960,11 +1031,11 @@ function MessagesClient() {
                                                                     <SpotifyPlayer trackUrl={msg.mediaUrl} />
                                                                 </div>
                                                             )}
-                                                            <p className="whitespace-pre-line text-sm leading-relaxed">{msg.isUnsent ? 'Message unsent' : msg.content}</p>
+                                                            <p className="whitespace-pre-line text-sm leading-relaxed">{msg.isUnsent ? 'Signal retracted' : msg.content}</p>
                                                             {!msg.isUnsent && (
                                                                 <div className="flex items-center justify-between gap-4 mt-1 opacity-40 group-hover:opacity-100 transition-opacity">
                                                                     <span className="text-[8px] font-black uppercase tracking-widest">{date ? format(date, 'h:mm a') : '...'}</span>
-                                                                    {msg.isEdited && <span className="text-[8px] font-black uppercase tracking-widest italic">Edited</span>}
+                                                                    {msg.isEdited && <span className="text-[8px] font-black uppercase tracking-widest italic">Recalibrated</span>}
                                                                     {msg.isPinned && <Pin className="h-2.5 w-2.5 fill-current" />}
                                                                 </div>
                                                             )}
@@ -975,33 +1046,33 @@ function MessagesClient() {
                                                             )}
                                                         </div>
                                                     </DropdownMenuTrigger>
-                                                    <DropdownMenuContent className="rounded-2xl border-none shadow-3xl p-1 bg-background/95 backdrop-blur-3xl z-50">
+                                                    <DropdownMenuContent className="rounded-2xl border-none shadow-3xl p-1 bg-background/95 backdrop-blur-3xl z-50 animate-in zoom-in-95 duration-200">
                                                         <div className="flex gap-1 p-2 border-b border-white/5">
                                                             {REACTION_OPTIONS.map(e => (
-                                                                <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-9 w-9 hover:scale-125 transition-transform flex items-center justify-center text-xl">{e}</button>
+                                                                <button key={e} onClick={() => handleReaction(msg.id, e)} className="h-9 w-9 hover:scale-125 transition-transform flex items-center justify-center text-xl active:scale-90">{e}</button>
                                                             ))}
                                                         </div>
                                                         <DropdownMenuItem onClick={() => setReplyingTo(msg)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                                            <Reply className="h-4 w-4" /> Reply
+                                                            <Reply className="h-4 w-4" /> Respond
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => handleForward(msg.content)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                                            <Forward className="h-4 w-4" /> Forward
+                                                            <Forward className="h-4 w-4" /> Re-transmit
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => handleTogglePinMessage(msg)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                                            <Pin className="h-4 w-4" /> {msg.isPinned ? 'Unpin' : 'Pin'}
+                                                            <Pin className="h-4 w-4" /> {msg.isPinned ? 'Unpin' : 'Anchor to Thread'}
                                                         </DropdownMenuItem>
                                                         {isMe && !msg.isUnsent && (
                                                             <>
                                                                 <DropdownMenuItem onClick={() => { setEditingMessage(msg); setNewMessageContent(msg.content); }} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs">
-                                                                    <Edit3 className="h-4 w-4" /> Edit
+                                                                    <Edit3 className="h-4 w-4" /> Recalibrate
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => handleUnsend(msg.id)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs text-destructive">
-                                                                    <X className="h-4 w-4" /> Unsend
+                                                                    <X className="h-4 w-4" /> Retract Signal
                                                                 </DropdownMenuItem>
                                                             </>
                                                         )}
                                                         <DropdownMenuItem onClick={() => handleDeleteForMe(msg.id)} className="gap-2 rounded-xl h-10 px-3 font-bold text-xs text-destructive">
-                                                            <Trash2 className="h-4 w-4" /> Remove for me
+                                                            <Trash2 className="h-4 w-4" /> Purge Local Copy
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -1016,7 +1087,7 @@ function MessagesClient() {
                                 {replyingTo && (
                                     <div className="absolute bottom-full left-0 right-0 bg-muted/90 backdrop-blur-xl p-3 px-6 flex items-center justify-between border-t animate-in slide-in-from-bottom-2 duration-300">
                                         <div className="truncate">
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-primary">Replying to @{activeConversation.participantInfo[replyingTo.senderId].username}</p>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-primary">Responding to @{activeConversation.participantInfo[replyingTo.senderId].username}</p>
                                             <p className="text-xs text-muted-foreground truncate italic">"{replyingTo.content}"</p>
                                         </div>
                                         <button className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center" onClick={() => setReplyingTo(null)}><X className="h-3 w-3"/></button>
@@ -1025,7 +1096,7 @@ function MessagesClient() {
                                 {editingMessage && (
                                      <div className="absolute bottom-full left-0 right-0 bg-primary/10 backdrop-blur-xl p-3 px-6 flex items-center justify-between border-t animate-in slide-in-from-bottom-2 duration-300">
                                         <div className="truncate">
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-primary">Editing Message</p>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-primary">Recalibrating Transmission</p>
                                         </div>
                                         <button className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center" onClick={() => { setEditingMessage(null); setNewMessageContent(''); }}><X className="h-3 w-3"/></button>
                                     </div>
@@ -1038,7 +1109,7 @@ function MessagesClient() {
                                             type="button" 
                                             variant="ghost" 
                                             size="icon" 
-                                            className={cn("h-10 w-10 rounded-full text-primary transition-all", isRecording ? "bg-red-500/20 text-red-500 scale-125" : "hover:bg-primary/10")} 
+                                            className={cn("h-10 w-10 rounded-full text-primary transition-all", isRecording ? "bg-red-500/20 text-red-500 scale-125 shadow-lg" : "hover:bg-primary/10")} 
                                             onPointerDown={(e) => { e.preventDefault(); startRecording(); }}
                                             onPointerUp={(e) => { e.preventDefault(); stopRecording(); }}
                                             disabled={isSendingMessage}
@@ -1051,7 +1122,7 @@ function MessagesClient() {
                                     
                                     <div className="flex-1 relative group">
                                         {isRecording && (
-                                            <div className="absolute inset-0 bg-background/95 rounded-2xl flex items-center justify-between px-4 animate-in fade-in duration-300 z-10">
+                                            <div className="absolute inset-0 bg-background/95 rounded-2xl flex items-center justify-between px-4 animate-in fade-in duration-300 z-10 shadow-inner">
                                                 <div className="flex items-center gap-3 text-red-500">
                                                     <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
                                                     <span className="text-xs font-black font-mono">{formatDuration(recordingDuration)}</span>
@@ -1061,12 +1132,19 @@ function MessagesClient() {
                                         )}
                                         {imageFile && (
                                             <div className="absolute bottom-full mb-3 left-0 p-2 bg-background border border-border/40 rounded-2xl shadow-3xl flex items-center gap-2 animate-in zoom-in-95">
-                                                <div className="relative w-14 h-14 rounded-xl overflow-hidden"><NextImage src={URL.createObjectURL(imageFile)} alt="Preview" fill className="object-cover"/></div>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-muted/40" onClick={() => setImageFile(null)}><X className="h-3 w-3"/></Button>
+                                                <div className="relative w-14 h-14 rounded-xl overflow-hidden shadow-md">
+                                                    <NextImage src={URL.createObjectURL(imageFile)} alt="Preview" fill className="object-cover"/>
+                                                </div>
+                                                <div className="pr-2">
+                                                    <p className="text-[8px] font-black uppercase text-primary mb-1">Visual Ready</p>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-muted/40" onClick={() => setImageFile(null)}>
+                                                        <X className="h-3 w-3 text-destructive"/>
+                                                    </Button>
+                                                </div>
                                             </div>
                                         )}
                                         <Input 
-                                            placeholder={editingMessage ? "Save edit..." : "Archive your thought..."} 
+                                            placeholder={editingMessage ? "Save update..." : "Transmit your thought..."} 
                                             className="h-12 bg-background/50 border-none rounded-2xl shadow-inner px-5 focus-visible:ring-primary/40 text-sm" 
                                             value={newMessageContent} 
                                             onChange={(e) => {
@@ -1089,10 +1167,10 @@ function MessagesClient() {
                         <ScrollArea className="flex-1 p-6">
                             <div className="space-y-8 pb-20">
                                 <div className="space-y-4">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">Visual Gallery</h4>
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">Visual Vault</h4>
                                     <div className="grid grid-cols-3 gap-2">
                                         {mediaMessages.map(m => (
-                                            <div key={m.id} className="relative aspect-square rounded-xl overflow-hidden border border-border/40 bg-muted">
+                                            <div key={m.id} className="relative aspect-square rounded-xl overflow-hidden border border-border/40 bg-muted hover:scale-105 transition-transform duration-500 cursor-pointer">
                                                 <NextImage src={m.mediaUrl!} alt="Archive" fill className="object-cover" />
                                             </div>
                                         ))}
@@ -1100,10 +1178,10 @@ function MessagesClient() {
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">Archived Music</h4>
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">Audio Archives</h4>
                                     <div className="grid gap-2">
                                         {messages.filter(m => m.type === 'music').map(m => (
-                                            <div key={m.id} className="rounded-xl border border-border/40 p-2 bg-muted/20">
+                                            <div key={m.id} className="rounded-xl border border-border/40 p-2 bg-muted/20 hover:bg-muted/40 transition-colors">
                                                 <SpotifyPlayer trackUrl={m.mediaUrl} />
                                             </div>
                                         ))}
@@ -1117,15 +1195,24 @@ function MessagesClient() {
             ) : (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 opacity-20 transform-gpu animate-in fade-in duration-1000">
                     <MessageSquare className="h-40 w-40 mb-10 text-primary/40" />
-                    <h2 className="text-3xl font-headline font-bold uppercase tracking-widest text-center">Select a Discussion Thread</h2>
+                    <h2 className="text-3xl font-headline font-bold uppercase tracking-widest text-center">Open a Stream</h2>
                 </div>
             )}
         </main>
 
+        <StatusViewer 
+            isOpen={isStatusViewerOpen} 
+            onOpenChange={setIsStatusViewerOpen} 
+            selectedUser={selectedUserForStatus} 
+            userStatuses={selectedUserForStatus ? statusMap.get(selectedUserForStatus.id) || [] : []} 
+            onNext={() => setIsStatusViewerOpen(false)} 
+            onPrev={() => setIsStatusViewerOpen(false)} 
+        />
+
         <Dialog open={!!mgmtMenuConv} onOpenChange={(o) => !o && setMgmtMenuConv(null)}>
             <DialogContent className="rounded-[2.5rem] max-w-xs p-0 overflow-hidden border-none shadow-3xl bg-background/95 backdrop-blur-3xl animate-in zoom-in-95 duration-300">
                 <DialogHeader className="p-6 bg-muted/30 border-b">
-                    <DialogTitle className="text-xl font-headline font-bold">Management Hub</DialogTitle>
+                    <DialogTitle className="text-xl font-headline font-bold">Signal Management</DialogTitle>
                 </DialogHeader>
                 <div className="p-2 space-y-1">
                     <Button 
@@ -1138,7 +1225,7 @@ function MessagesClient() {
                         }}
                     >
                         <Pin className="h-4 w-4 text-primary" />
-                        {mgmtMenuConv?.pinnedBy?.includes(currentUser?.id || '') ? 'Unpin Signal' : 'Pin to Top'}
+                        {mgmtMenuConv?.pinnedBy?.includes(currentUser?.id || '') ? 'Unpin Signal' : 'Anchor to Top'}
                     </Button>
                     <Button 
                         variant="ghost" 
@@ -1150,7 +1237,7 @@ function MessagesClient() {
                         }}
                     >
                         <Archive className="h-4 w-4 text-accent" />
-                        Archive Discussion
+                        Archive Stream
                     </Button>
                     <Button 
                         variant="ghost" 
@@ -1172,13 +1259,13 @@ function MessagesClient() {
                                 className="w-full justify-start rounded-2xl h-12 gap-3 font-bold text-xs uppercase tracking-widest text-destructive hover:bg-destructive/10 hover:text-destructive" 
                             >
                                 <Trash2 className="h-4 w-4" />
-                                Erase Thread
+                                Erase Archive
                             </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent className="rounded-3xl border-none shadow-3xl">
                             <AlertDialogHeader>
-                                <AlertDialogTitle className="font-headline text-2xl font-bold text-destructive">Erase Thread Archive?</AlertDialogTitle>
-                                <AlertDialogDescription className="text-sm leading-relaxed">This will permanently remove the thread from your view. This cannot be undone.</AlertDialogDescription>
+                                <AlertDialogTitle className="font-headline text-2xl font-bold text-destructive">Erase Signal Archive?</AlertDialogTitle>
+                                <AlertDialogDescription className="text-sm leading-relaxed">This will permanently remove the stream from your device. This cannot be undone.</AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter className="mt-4">
                                 <AlertDialogCancel className="rounded-full px-8 font-bold">Cancel</AlertDialogCancel>
@@ -1199,8 +1286,8 @@ function MessagesClient() {
         <Dialog open={isMusicToolActive} onOpenChange={setIsMusicToolActive}>
             <DialogContent className="rounded-3xl border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
                 <DialogHeader className="mb-6">
-                    <DialogTitle className="text-3xl font-headline font-bold">Share Music</DialogTitle>
-                    <DialogDescription className="text-[8px] font-bold uppercase tracking-widest opacity-60">Archive a song in the thread</DialogDescription>
+                    <DialogTitle className="text-3xl font-headline font-bold">Share Frequency</DialogTitle>
+                    <DialogDescription className="text-[8px] font-bold uppercase tracking-widest opacity-60">Archive a track in the stream</DialogDescription>
                 </DialogHeader>
                 <SongSearch onSongSelect={(song) => {
                     if (song) {
@@ -1214,8 +1301,8 @@ function MessagesClient() {
         <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
             <DialogContent className="rounded-3xl border-none shadow-3xl bg-background/95 backdrop-blur-3xl p-8 max-w-md">
                 <DialogHeader className="mb-6">
-                    <DialogTitle className="text-3xl font-headline font-bold">New Thread</DialogTitle>
-                    <DialogDescription className="text-xs font-black uppercase tracking-widest opacity-60">Signal a fellow creator</DialogDescription>
+                    <DialogTitle className="text-3xl font-headline font-bold">New Signal</DialogTitle>
+                    <DialogDescription className="text-xs font-black uppercase tracking-widest opacity-60">Connect with a fellow creator</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-6">
                     <div className="relative group">
@@ -1272,7 +1359,7 @@ function InboxContent() {
                     <div className="flex justify-center mb-10 px-4">
                         <TabsList className="h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-md w-full max-w-sm">
                             <TabsTrigger value="messages" className="rounded-full font-black uppercase text-[10px] tracking-widest flex-1 gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">
-                                <MessageSquare className="h-4 w-4" /> Threads
+                                <MessageSquare className="h-4 w-4" /> Signals
                             </TabsTrigger>
                             <TabsTrigger value="notifications" className="rounded-full font-black uppercase text-[10px] tracking-widest flex-1 gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">
                                 <Bell className="h-4 w-4" /> Activity
