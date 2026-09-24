@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { 
@@ -14,9 +14,10 @@ import {
   increment, 
   serverTimestamp, 
   deleteDoc,
-  runTransaction
+  runTransaction,
+  Timestamp
 } from 'firebase/firestore';
-import type { Annotation, Comment as CommentType, ReactionType } from '@/types';
+import type { Annotation, Comment as CommentType } from '@/types';
 import { 
   Loader2, 
   Quote, 
@@ -54,21 +55,10 @@ import { formatDistanceToNow } from 'date-fns';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import ReactionButton from '../threads/ReactionButton';
+import { useDynamicIsland } from '@/context/DynamicIslandContext';
 
 const OWNER_HANDLES = ['arnv'];
 
-const HIGHLIGHT_COLORS = [
-    { name: 'Gold', value: '#fde047' },
-    { name: 'Emerald', value: '#6ee7b7' },
-    { name: 'Rose', value: '#f472b6' },
-    { name: 'Blue', value: '#60a5fa' },
-    { name: 'Purple', value: '#c084fc' },
-];
-
-/**
- * HighlightPoster generates a high-fidelity visual of a specific highlight.
- * This is "Unique Feature 1" for sharing quotes.
- */
 function HighlightPoster({ annotation }: { annotation: Annotation }) {
     const [copied, setCopied] = useState(false);
     const { toast } = useToast();
@@ -230,9 +220,6 @@ function AnnotationCommentItem({ comment, onUpdate, onDelete }: { comment: Comme
     );
 }
 
-/**
- * Unique Feature 2: Community Thoughts (Discussion Node)
- */
 function AnnotationComments({ annotationId }: { annotationId: string }) {
     const { user } = useAuth();
     const [comments, setComments] = useState<CommentType[]>([]);
