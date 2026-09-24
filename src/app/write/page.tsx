@@ -27,7 +27,7 @@ import {
 } from 'firebase/firestore';
 import DashboardStoryCard from '@/components/shared/DashboardStoryCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
+import { cn, formatCompactNumber } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 
 function DashboardContent() {
