@@ -227,6 +227,15 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
             )}>
             {story.summary || "This author hasn't provided a summary for this manuscript yet."}
             </p>
+            {story.summary && story.summary.length > 250 && (
+                <Button 
+                    variant="link" 
+                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} 
+                    className="p-0 h-auto text-primary font-black uppercase text-[10px] tracking-widest mt-2 hover:no-underline"
+                >
+                    {isDescriptionExpanded ? "Show Less" : "See More"}
+                </Button>
+            )}
         </div>
       </div>
 
@@ -270,9 +279,7 @@ export default function StoryOverviewClient({ storyId }: { storyId: string }) {
         )}
       </div>
 
-      <footer className="pt-10 pb-20 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">&bull; End of Overview &bull;</p>
-      </footer>
+      <div className="pt-10 pb-20" />
     </div>
   );
 }
