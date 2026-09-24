@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
@@ -51,7 +50,8 @@ import {
   Square,
   Music,
   Camera,
-  Heart
+  Heart,
+  Maximize2
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isThisWeek, format, isYesterday } from 'date-fns';
 import type { NotificationType, Conversation, Message, UserSummary, User as AppUserType, Song, StatusUpdate } from '@/types';
@@ -727,7 +727,7 @@ function MessagesClient() {
         )}>
             <div className="p-6 space-y-6">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-3xl font-headline font-bold tracking-tight">Signal Hub</h2>
+                    <h2 className="text-3xl font-headline font-bold tracking-tight">Threads</h2>
                     <Button variant="outline" size="icon" className="rounded-full shadow-sm" onClick={() => setIsNewConversationDialogOpen(true)}>
                         <Plus className="h-5 w-5" />
                     </Button>
@@ -989,7 +989,7 @@ function MessagesClient() {
                                                                 longPressTimerRef.current = setTimeout(() => {
                                                                     setIsLongPressing(true);
                                                                     if (window.navigator.vibrate) window.navigator.vibrate(20);
-                                                                }, 500); // 0.5s for TikTok style reaction trigger
+                                                                }, 500); 
                                                             }}
                                                             onPointerUp={() => {
                                                                 if (longPressTimerRef.current) {
