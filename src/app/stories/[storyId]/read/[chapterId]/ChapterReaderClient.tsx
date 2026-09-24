@@ -174,6 +174,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   const [isLineFocus, setIsLineFocus] = useState(false);
   const [isParchmentMode, setIsParchmentMode] = useState(false);
   const [isInteractionLocked, setIsInteractionLocked] = useState(false);
+  const [isZenFocus, setIsZenFocus] = useState(false);
 
   // Type Improvements states
   const [letterSpacing, setLetterSpacing] = useState<'normal' | 'wide'>('normal');
@@ -221,40 +222,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
 
-  // UNBREAKABLE ANTI-PLAGIARISM SYSTEM
-  useEffect(() => {
-    const blockAction = (e: Event) => {
-      e.preventDefault();
-      if (!hasShownCopyAlert.current) {
-        showIsland({
-          title: "Content Protected",
-          description: "Manuscripts are protected from unauthorized copying.",
-          type: 'error',
-          icon: <ShieldAlert className="h-4 w-4 text-red-500" />
-        });
-        hasShownCopyAlert.current = true;
-      }
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'x')) {
-        blockAction(e);
-      }
-    };
-
-    document.addEventListener('copy', blockAction);
-    document.addEventListener('cut', blockAction);
-    document.addEventListener('contextmenu', blockAction);
-    document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('copy', blockAction);
-      document.removeEventListener('cut', blockAction);
-      document.removeEventListener('contextmenu', blockAction);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [showIsland]);
-
   // Reading Time Estimation
   const wordCount = useMemo(() => editor?.storage.characterCount.words() || 0, [editor?.storage.characterCount.words()]);
   const totalMinutes = useMemo(() => Math.max(1, Math.round(wordCount / 225)), [wordCount]);
@@ -287,52 +254,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     };
   }, [ambientSound, isLoading, atmosphereVolume]);
 
-  // STRICT VIEW COUNT SYSTEM (24-Hour Check)
-  useEffect(() => {
-    if (!story?.id || !currentChapter?.id || !isAccessGranted || isOffline) return;
-
-    const now = Date.now();
-    const twentyFourHours = 24 * 60 * 60 * 1000;
-    const viewToken = `view_v3_${story.id}_${currentChapter.id}`;
-    const lastViewedTime = localStorage.getItem(viewToken);
-
-    let shouldTally = false;
-    if (!lastViewedTime) {
-        shouldTally = true;
-    } else {
-        const timeDiff = now - parseInt(lastViewedTime, 10);
-        if (timeDiff > twentyFourHours) {
-            shouldTally = true;
-        }
-    }
-
-    if (shouldTally) {
-        const storyRef = doc(db, 'stories', story.id);
-        
-        const updatedChapters = story.chapters.map(ch => {
-            if (ch.id === currentChapter.id) {
-                return { ...ch, views: (ch.views || 0) + 1 };
-            }
-            return ch;
-        });
-
-        updateDoc(storyRef, { 
-            views: increment(1),
-            chapters: updatedChapters 
-        })
-        .then(() => { 
-            localStorage.setItem(viewToken, now.toString()); 
-        })
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: storyRef.path,
-                operation: 'update',
-                requestResourceData: { views: 'increment' },
-            } satisfies SecurityRuleContext);
-            errorEmitter.emit('permission-error', permissionError);
-        });
-    }
-  }, [story?.id, currentChapter?.id, isAccessGranted, isOffline]);
+  // Real-time Search Logic
+  const filteredChapters = useMemo(() => {
+    if (!story || !searchTerm.trim()) return story?.chapters || [];
+    const term = searchTerm.toLowerCase();
+    return story.chapters.filter(ch => 
+        ch.title.toLowerCase().includes(term) || 
+        ch.content.toLowerCase().includes(term)
+    );
+  }, [story, searchTerm]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -367,7 +297,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       return [...sortedChapters].reverse().find(c => c.order < (currentChapter.order || 0))?.id;
   }, [sortedChapters, currentChapter]);
 
-  // HIGH-VELOCITY FLICK SYSTEM (TikTok Style)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isInteractionLocked) return;
     touchStartY.current = e.targetTouches[0].clientY;
@@ -381,26 +310,14 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     const diffY = touchStartY.current - touchEndY;
     const diffX = touchStartX.current - touchEndX;
 
-    const threshold = 120; // Velocity threshold for flick
+    const threshold = 120;
     const isAtBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 50;
     const isAtTop = window.scrollY <= 50;
 
-    // Check for Vertical Flick
     if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > threshold) {
         if (diffY > 0 && isAtBottom && nextChapterId) {
             router.push(`/stories/${storyId}/read/${nextChapterId}`);
-            if (window.navigator.vibrate) window.navigator.vibrate(10);
         } else if (diffY < 0 && isAtTop && prevChapterId) {
-            router.push(`/stories/${storyId}/read/${prevChapterId}`);
-            if (window.navigator.vibrate) window.navigator.vibrate(10);
-        }
-    }
-
-    // Horizontal Swipe Support
-    if (currentUser?.readerSettings?.swipeToNavigate && Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > threshold) {
-        if (diffX > 0 && nextChapterId) {
-            router.push(`/stories/${storyId}/read/${nextChapterId}`);
-        } else if (diffX < 0 && prevChapterId) {
             router.push(`/stories/${storyId}/read/${prevChapterId}`);
         }
     }
@@ -424,20 +341,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     const interval = setInterval(() => { window.scrollBy({ top: 1, behavior: 'auto' }); }, 100 / autoScrollSpeed);
     return () => clearInterval(interval);
   }, [autoScrollSpeed]);
-
-  useEffect(() => {
-    if (isOffline) return;
-    const statusRef = ref(rtdb, 'status');
-    const unsubscribe = onValue(statusRef, (snapshot) => {
-        const data = snapshot.val() || {};
-        let readers = 0;
-        Object.keys(data).forEach(uid => {
-            if (data[uid].state === 'online' && data[uid].active_path === pathname) readers++;
-        });
-        setActiveReaders(Math.max(1, readers));
-    });
-    return () => unsubscribe();
-  }, [pathname, isOffline]);
 
   useEffect(() => {
     if (!storyId || !chapterId) { setIsLoading(false); return; }
@@ -487,16 +390,11 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       const disclaimerKey = `disclaimer-seen-${storyId}`;
       sessionStorage.setItem(disclaimerKey, 'true');
       setIsDisclaimerOpen(false);
-      showIsland({ title: "Welcome", description: "Manuscript entry granted.", type: 'success' });
   };
 
   const handleVoteClick = async () => {
-    if (!currentUser || !story || !currentChapter || isVoting || isOffline) {
-        if (isOffline) toast({ title: "Offline", description: "Votes require a signal to sync." });
-        return;
-    }
+    if (!currentUser || !story || !currentChapter || isVoting || isOffline) return;
     setIsVoting(true);
-    if (isHapticFeedback && window.navigator.vibrate) window.navigator.vibrate(10);
     const wasVoting = currentChapter?.voterIds?.includes(currentUser.id) || false;
     const newVoterIds = wasVoting ? currentChapter?.voterIds!.filter(id => id !== currentUser.id) : [...(currentChapter?.voterIds || []), currentUser.id];
     const newVoteCount = wasVoting ? Math.max(0, (currentChapter?.votes || 0) - 1) : (currentChapter?.votes || 0) + 1;
@@ -519,8 +417,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
   const handleLibraryAction = () => {
     if (!story || !currentUser) { router.push('/auth/signin'); return; }
-    if (isOffline) { toast({ title: "Offline", description: "Archive changes require a signal." }); return; }
-    if (isHapticFeedback && window.navigator.vibrate) window.navigator.vibrate(5);
     const isInLib = currentUser.readingList?.some(item => item && item.id === story.id);
     if (isInLib) removeFromLibrary(story.id);
     else addToLibrary(story);
@@ -542,10 +438,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   }, [editor, story?.id, currentChapter?.id, router]);
 
   const saveAnnotation = async () => {
-    if (!currentUser || !story || !currentChapter || !selectedText.trim() || isOffline) {
-        if (isOffline) toast({ title: "Offline", description: "Highlights require a signal to sync." });
-        return;
-    }
+    if (!currentUser || !story || !currentChapter || !selectedText.trim() || isOffline) return;
     setIsSavingAnnotation(true);
     const annotationData: Omit<Annotation, 'id'> = {
         userId: currentUser.id,
@@ -565,14 +458,13 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     try {
         await addDoc(collection(db, 'annotations'), annotationData);
         editor?.chain().focus().setHighlight({ color: selectedColor }).run();
-        showIsland({ title: "Highlight saved", type: 'success' });
         setIsAnnotationDialogOpen(false);
     } catch (error) { toast({ title: "Failed to save" }); } finally { setIsSavingAnnotation(false); }
   };
 
   const articleClasses = cn(
       "prose dark:prose-invert max-w-none pt-8 pb-0 px-4 sm:px-6 md:px-12 selection:bg-primary/40 transition-all duration-500 transform-gpu",
-      isFocusMode && "zen-mode",
+      isZenFocus && "zen-mode",
       isParchmentMode && "parchment-mode",
       isVignette && "vignette-fx",
       isEyeStrainGuard && "eye-guard-active",
@@ -608,12 +500,8 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         background: hsla(var(--primary), 0.05);
         border-radius: 0.5rem;
     }
-    .eye-guard-active {
-        filter: sepia(0.2) saturate(0.8);
-    }
-    .high-contrast-active {
-        filter: contrast(1.25) saturate(1.1);
-    }
+    .eye-guard-active { filter: sepia(0.2) saturate(0.8); }
+    .high-contrast-active { filter: contrast(1.25) saturate(1.1); }
     .vignette-fx::before {
         content: '';
         position: fixed;
@@ -623,13 +511,19 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         box-shadow: inset 0 0 150px rgba(0,0,0,0.5);
         transition: opacity 0.5s;
     }
-    .ProseMirror {
-        padding-bottom: 0 !important;
-        outline: none !important;
+    /* Wattpad style paragraph comments icon */
+    .ProseMirror p { position: relative; }
+    .ProseMirror p::after {
+        content: '💬';
+        position: absolute;
+        bottom: 0;
+        right: -24px;
+        font-size: 12px;
+        opacity: 0.3;
+        cursor: pointer;
+        transition: opacity 0.3s;
     }
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    * { -webkit-touch-callout: none; }
+    .ProseMirror p:hover::after { opacity: 1; }
   `;
 
   if (isLoading || !editor) return <div className="flex justify-center items-center h-screen bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -641,8 +535,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     <TooltipProvider delayDuration={300}>
     <div className={cn(
         "relative min-h-screen bg-background text-foreground transition-colors duration-700 transform-gpu",
-        isNightPortalActive && "dark night-portal",
-        isFocusMode && "zen-focus-mode"
+        isNightPortalActive && "dark night-portal"
     )} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       
       {/* Floating Pill Header */}
@@ -652,11 +545,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
       )}>
         <div className="flex items-center ml-1 gap-1">
             <Link href="/" passHref><Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-primary/10"><Home className="h-5 w-5" /></Button></Link>
-            {isOffline && (
-                <div className="bg-destructive/10 text-destructive p-2 rounded-full border border-destructive/20 animate-pulse hidden xs:flex">
-                    <WifiOff className="h-3.5 w-3.5" />
-                </div>
-            )}
         </div>
         
         <div className="truncate text-center mx-2 flex-1 flex flex-col items-center">
@@ -670,184 +558,121 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
         <div className="flex items-center gap-1 mr-1">
             <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-primary/10" onClick={() => setIsTocOpen(true)}><ListOrdered className="h-5 w-5" /></Button>
+            
+            {/* Redesigned Reading Improvements Hub */}
             <Popover>
                 <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-primary/10 relative">
-                        <Palette className="h-5 w-5" />
-                        {(fontSize !== 'base' || lineHeight !== 'normal' || ambientSound !== 'none' || isEyeStrainGuard || isHighContrast) && <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-primary rounded-full ring-2 ring-background" />}
+                        <Zap className="h-5 w-5" />
+                        {(isZenFocus || isEyeStrainGuard || isHighContrast || isLineFocus || isParchmentMode) && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full" />}
                     </Button>
                 </PopoverTrigger>
+                <PopoverContent className="w-fit p-2 bg-background/95 backdrop-blur-3xl border border-white/10 shadow-3xl rounded-3xl mt-4 flex flex-col gap-2" align="center">
+                    <div className="grid grid-cols-3 gap-2">
+                        <Button 
+                            variant={isZenFocus ? 'default' : 'ghost'} 
+                            size="icon" 
+                            className="h-12 w-12 rounded-2xl" 
+                            onClick={() => setIsZenFocus(!isZenFocus)}
+                            title="Zen Focus Mode"
+                        >
+                            <Sparkles className="h-5 w-5" />
+                        </Button>
+                        <Button 
+                            variant={isEyeStrainGuard ? 'default' : 'ghost'} 
+                            size="icon" 
+                            className="h-12 w-12 rounded-2xl" 
+                            onClick={() => setIsEyeStrainGuard(!isEyeStrainGuard)}
+                            title="Eye Strain Guard"
+                        >
+                            <ShieldCheck className="h-5 w-5" />
+                        </Button>
+                        <Button 
+                            variant={isHighContrast ? 'default' : 'ghost'} 
+                            size="icon" 
+                            className="h-12 w-12 rounded-2xl" 
+                            onClick={() => setIsHighContrast(!isHighContrast)}
+                            title="High Contrast"
+                        >
+                            <Contrast className="h-5 w-5" />
+                        </Button>
+                        <Button 
+                            variant={isLineFocus ? 'default' : 'ghost'} 
+                            size="icon" 
+                            className="h-12 w-12 rounded-2xl" 
+                            onClick={() => setIsLineFocus(!isLineFocus)}
+                            title="Line Focus Ruler"
+                        >
+                            <Scaling className="h-5 w-5" />
+                        </Button>
+                        <Button 
+                            variant={isParchmentMode ? 'default' : 'ghost'} 
+                            size="icon" 
+                            className="h-12 w-12 rounded-2xl" 
+                            onClick={() => setIsParchmentMode(!isParchmentMode)}
+                            title="Parchment Mode"
+                        >
+                            <BookOpen className="h-5 w-5" />
+                        </Button>
+                        <Button 
+                            variant={isInteractionLocked ? 'default' : 'ghost'} 
+                            size="icon" 
+                            className="h-12 w-12 rounded-2xl text-red-500" 
+                            onClick={() => {
+                                setIsInteractionLocked(!isInteractionLocked);
+                                if (!isInteractionLocked) setControlsVisible(false);
+                            }}
+                            title="Lock Interaction"
+                        >
+                            <Lock className="h-5 w-5" />
+                        </Button>
+                    </div>
+                </PopoverContent>
+            </Popover>
+
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-primary/10"><Palette className="h-5 w-5" /></Button>
+                </PopoverTrigger>
                 <PopoverContent className="w-[90vw] max-w-sm p-6 bg-background/95 backdrop-blur-3xl border border-white/10 shadow-3xl rounded-[2.5rem] mt-4" align="center">
-                    <Tabs defaultValue="vibe" className="w-full">
-                        <TabsList className="grid w-full grid-cols-3 bg-muted/40 p-1 rounded-2xl h-11 mb-6 border border-white/5">
-                            <TabsTrigger value="vibe" className="rounded-xl text-[10px] font-black uppercase tracking-widest">Vibe</TabsTrigger>
+                    <Tabs defaultValue="type" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2 bg-muted/40 p-1 rounded-2xl h-11 mb-6 border border-white/5">
                             <TabsTrigger value="type" className="rounded-xl text-[10px] font-black uppercase tracking-widest">Type</TabsTrigger>
                             <TabsTrigger value="sound" className="rounded-xl text-[10px] font-black uppercase tracking-widest">Atmos</TabsTrigger>
                         </TabsList>
                         
-                        <TabsContent value="vibe" className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
-                            <div className="space-y-3">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Theme Hub</Label>
-                                <RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-2">
-                                    {['light', 'dark', 'system'].map(t => (
-                                        <Label key={t} htmlFor={t} className="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-transparent bg-muted/30 cursor-pointer transition-all hover:bg-muted/50 data-[state=checked]:border-primary data-[state=checked]:bg-primary/5">
-                                            <RadioGroupItem value={t} id={t} className="sr-only" />
-                                            {t === 'light' ? <Sun className="h-4 w-4 mb-1 text-orange-500" /> : t === 'dark' ? <Moon className="h-4 w-4 mb-1 text-blue-500" /> : <Monitor className="h-4 w-4 mb-1" />}
-                                            <span className="text-[9px] font-black uppercase tracking-tighter">{t}</span>
-                                        </Label>
-                                    ))}
-                                </RadioGroup>
-                            </div>
-                            
-                            <Separator className="opacity-10" />
-
-                            <div className="space-y-3">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Reading Improvements</Label>
-                                <div className="grid gap-2">
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
-                                        <div className="flex items-center gap-3">
-                                            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                                            <Label htmlFor="eye-strain" className="text-[10px] font-bold uppercase">Strain Guard</Label>
-                                        </div>
-                                        <Switch id="eye-strain" checked={isEyeStrainGuard} onCheckedChange={setIsEyeStrainGuard} className="scale-75" />
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
-                                        <div className="flex items-center gap-3">
-                                            <Contrast className="h-3.5 w-3.5 text-primary" />
-                                            <Label htmlFor="high-contrast" className="text-[10px] font-bold uppercase">Contrast</Label>
-                                        </div>
-                                        <Switch id="high-contrast" checked={isHighContrast} onCheckedChange={setIsHighContrast} className="scale-75" />
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
-                                        <div className="flex items-center gap-3">
-                                            <Eye className="h-3.5 w-3.5 text-primary" />
-                                            <Label htmlFor="line-focus" className="text-[10px] font-bold uppercase">Line Focus</Label>
-                                        </div>
-                                        <Switch id="line-focus" checked={isLineFocus} onCheckedChange={setIsLineFocus} className="scale-75" />
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
-                                        <div className="flex items-center gap-3">
-                                            <BookOpen className="h-3.5 w-3.5 text-primary" />
-                                            <Label htmlFor="parchment" className="text-[10px] font-bold uppercase">Parchment</Label>
-                                        </div>
-                                        <Switch id="parchment" checked={isParchmentMode} onCheckedChange={setIsParchmentMode} className="scale-75" />
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
-                                        <div className="flex items-center gap-3">
-                                            <Lock className="h-3.5 w-3.5 text-red-500" />
-                                            <Label htmlFor="freeze" className="text-[10px] font-bold uppercase">Freeze Interaction</Label>
-                                        </div>
-                                        <Switch id="freeze" checked={isInteractionLocked} onCheckedChange={setIsInteractionLocked} className="scale-75" />
-                                    </div>
-                                </div>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="type" className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                        <TabsContent value="type" className="space-y-6">
                             <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Font Family</Label>
-                                    <RadioGroup value={fontFamily} onValueChange={(v: any) => setFontFamily(v)} className="flex gap-2">
-                                        {['sans', 'serif'].map(f => (
-                                            <div key={f} className="flex-1">
-                                                <RadioGroupItem value={f} id={`font-${f}`} className="sr-only" />
-                                                <Label htmlFor={`font-${f}`} className={cn("flex items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-[10px] font-black uppercase tracking-widest shadow-sm", fontFamily === f ? "bg-primary text-white border-primary" : "bg-muted/30 border-transparent hover:bg-muted/50")}>{f}</Label>
-                                            </div>
-                                        ))}
-                                    </RadioGroup>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Font Size</Label>
-                                    <RadioGroup value={fontSize} onValueChange={(v: any) => setFontSize(v)} className="grid grid-cols-4 gap-1.5">
-                                        {['sm', 'base', 'lg', 'xl'].map(s => (
-                                            <div key={s}>
-                                                <RadioGroupItem value={s} id={`size-${s}`} className="sr-only" />
-                                                <Label htmlFor={`size-${s}`} className={cn("flex items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-[10px] font-black uppercase shadow-sm", fontSize === s ? "bg-primary text-white border-primary" : "bg-muted/30 border-transparent hover:bg-muted/50")}>{s}</Label>
-                                            </div>
-                                        ))}
-                                    </RadioGroup>
-                                </div>
-
-                                <Separator className="opacity-10" />
-
-                                <div className="space-y-3">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Layout Controls</Label>
-                                    <div className="grid gap-4">
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between px-1"><span className="text-[9px] font-bold uppercase">Line Height</span></div>
-                                            <RadioGroup value={lineHeight} onValueChange={(v: any) => setLineHeight(v)} className="grid grid-cols-3 gap-2">
-                                                {['tight', 'normal', 'loose'].map(l => (
-                                                    <div key={l}>
-                                                        <RadioGroupItem value={l} id={`lh-${l}`} className="sr-only" />
-                                                        <Label htmlFor={`lh-${l}`} className={cn("flex items-center justify-center h-9 rounded-xl border transition-all cursor-pointer text-[8px] font-black uppercase tracking-tighter", lineHeight === l ? "bg-primary/20 text-primary border-primary/30" : "bg-muted/30 border-transparent")}>{l}</Label>
-                                                    </div>
-                                                ))}
-                                            </RadioGroup>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between px-1"><span className="text-[9px] font-bold uppercase">Letter Spacing</span></div>
-                                            <div className="flex gap-2">
-                                                <Button variant={letterSpacing === 'normal' ? 'default' : 'outline'} size="sm" className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase" onClick={() => setLetterSpacing('normal')}>Normal</Button>
-                                                <Button variant={letterSpacing === 'wide' ? 'default' : 'outline'} size="sm" className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase tracking-widest" onClick={() => setLetterSpacing('wide')}>Wide</Button>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between px-1"><span className="text-[9px] font-bold uppercase">Layout Width</span></div>
-                                            <div className="flex gap-2">
-                                                <Button variant={layoutWidth === 'normal' ? 'default' : 'outline'} size="sm" className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase" onClick={() => setLayoutWidth('normal')}>Normal</Button>
-                                                <Button variant={layoutWidth === 'wide' ? 'default' : 'outline'} size="sm" className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase" onClick={() => setLayoutWidth('wide')}>Wide</Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="sound" className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
-                             <div className="space-y-4">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Atmosphere Hub</Label>
-                                <RadioGroup value={ambientSound} onValueChange={(v: any) => setAmbientSound(v)} className="grid grid-cols-3 gap-2">
-                                    {[
-                                        { id: 'none', icon: VolumeX, label: 'Silent' },
-                                        { id: 'lofi', icon: Coffee, label: 'Lo-fi' },
-                                        { id: 'rain', icon: CloudRain, label: 'Rain' }
-                                    ].map(s => (
-                                        <Label key={s.id} htmlFor={`sound-${s.id}`} className={cn(
-                                            "flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all cursor-pointer gap-1.5 shadow-sm",
-                                            ambientSound === s.id ? "border-primary bg-primary/5" : "border-transparent bg-muted/30 hover:bg-muted/50"
-                                        )}>
-                                            <RadioGroupItem value={s.id} id={`sound-${s.id}`} className="sr-only" />
-                                            <s.icon className={cn("h-4 w-4", ambientSound === s.id ? "text-primary" : "text-muted-foreground")} />
-                                            <span className="text-[8px] font-black uppercase tracking-tighter">{s.label}</span>
+                                <RadioGroup value={fontFamily} onValueChange={(v: any) => setFontFamily(v)} className="flex gap-2">
+                                    {['sans', 'serif'].map(f => (
+                                        <Label key={f} htmlFor={`font-${f}`} className={cn("flex-1 flex items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-[10px] font-black uppercase tracking-widest", fontFamily === f ? "bg-primary text-white border-primary" : "bg-muted/30 border-transparent hover:bg-muted/50")}>
+                                            <RadioGroupItem value={f} id={`font-${f}`} className="sr-only" />
+                                            {f}
                                         </Label>
                                     ))}
                                 </RadioGroup>
-
-                                <Separator className="opacity-10" />
-
-                                <div className="space-y-4">
-                                    <div className="space-y-2 px-1">
-                                        <div className="flex justify-between items-center"><span className="text-[10px] font-black uppercase tracking-widest">Environment Volume</span><span className="text-[10px] font-mono">{atmosphereVolume}%</span></div>
-                                        <Slider value={[atmosphereVolume]} onValueChange={([v]) => setAtmosphereVolume(v)} max={100} step={1} className="py-2" />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
-                                            <div className="flex items-center gap-3">
-                                                <Zap className="h-3.5 w-3.5 text-primary" />
-                                                <Label htmlFor="haptic" className="text-[10px] font-bold uppercase">Haptics</Label>
-                                            </div>
-                                            <Switch id="haptic" checked={isHapticFeedback} onCheckedChange={setIsHapticFeedback} className="scale-75" />
-                                        </div>
-                                        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
-                                            <div className="flex items-center gap-3">
-                                                <Maximize2 className="h-3.5 w-3.5 text-primary" />
-                                                <Label htmlFor="vignette" className="text-[10px] font-bold uppercase">Vignette</Label>
-                                            </div>
-                                            <Switch id="vignette" checked={isVignette} onCheckedChange={setIsVignette} className="scale-75" />
-                                        </div>
-                                    </div>
-                                </div>
+                                <RadioGroup value={fontSize} onValueChange={(v: any) => setFontSize(v)} className="grid grid-cols-4 gap-1.5">
+                                    {['sm', 'base', 'lg', 'xl'].map(s => (
+                                        <Label key={s} htmlFor={`size-${s}`} className={cn("flex items-center justify-center h-10 rounded-xl border transition-all cursor-pointer text-[10px] font-black uppercase", fontSize === s ? "bg-primary text-white border-primary" : "bg-muted/30 border-transparent hover:bg-muted/50")}>
+                                            <RadioGroupItem value={s} id={`size-${s}`} className="sr-only" />
+                                            {s}
+                                        </Label>
+                                    ))}
+                                </RadioGroup>
                             </div>
+                        </TabsContent>
+
+                        <TabsContent value="sound" className="space-y-4">
+                            <RadioGroup value={ambientSound} onValueChange={(v: any) => setAmbientSound(v)} className="grid grid-cols-3 gap-2">
+                                {[{ id: 'none', icon: VolumeX, label: 'Silent' }, { id: 'lofi', icon: Coffee, label: 'Lo-fi' }, { id: 'rain', icon: CloudRain, label: 'Rain' }].map(s => (
+                                    <Label key={s.id} htmlFor={`sound-${s.id}`} className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all cursor-pointer gap-1.5 shadow-sm", ambientSound === s.id ? "border-primary bg-primary/5" : "border-transparent bg-muted/30 hover:bg-muted/50")}>
+                                        <RadioGroupItem value={s.id} id={`sound-${s.id}`} className="sr-only" />
+                                        <s.icon className={cn("h-4 w-4", ambientSound === s.id ? "text-primary" : "text-muted-foreground")} />
+                                        <span className="text-[8px] font-black uppercase tracking-tighter">{s.label}</span>
+                                    </Label>
+                                ))}
+                            </RadioGroup>
+                            <Slider value={[atmosphereVolume]} onValueChange={([v]) => setAtmosphereVolume(v)} max={100} step={1} className="py-2" />
                         </TabsContent>
                     </Tabs>
                 </PopoverContent>
@@ -857,32 +682,29 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
 
       <Sheet open={isTocOpen} onOpenChange={setIsTocOpen}>
           <SheetContent side="right" className="w-[85vw] sm:w-96 p-0 border-none shadow-3xl bg-background/95 backdrop-blur-3xl flex flex-col">
-              <Tabs defaultValue="chapters" className="h-full flex flex-col">
-                  <SheetHeader className="p-6 bg-muted/30 border-b flex-shrink-0">
-                      <SheetTitle className="sr-only">Story Navigation</SheetTitle>
-                      <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-2xl h-11 mb-2">
-                          <TabsTrigger value="chapters" className="rounded-xl text-[10px] font-black uppercase tracking-widest gap-2">Chapters</TabsTrigger>
-                          <TabsTrigger value="search" className="rounded-xl text-[10px] font-black uppercase tracking-widest gap-2">Search</TabsTrigger>
-                      </TabsList>
-                  </SheetHeader>
-                  <TabsContent value="chapters" className="flex-1 overflow-hidden">
-                      <ScrollArea className="h-full">
-                          <div className="p-4 space-y-1">
-                              {sortedChapters.map(ch => (
-                                  <Link key={ch.id} href={`/stories/${story.id}/read/${ch.id}`} onClick={() => setIsTocOpen(false)} className={cn("flex items-center gap-3 p-4 rounded-2xl transition-all border border-transparent", ch.id === chapterId ? "bg-primary/10 text-primary border-primary/20 shadow-inner" : "hover:bg-primary/5")}>
-                                      <span className={cn("text-[10px] font-black w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm", ch.id === chapterId ? "bg-primary text-white" : "bg-muted")}>{ch.order}</span>
-                                      <div className="flex-1 min-w-0"><span className={cn("text-sm font-bold truncate block", ch.id === chapterId ? "text-primary" : "text-foreground")}>{ch.title}</span></div>
-                                      {ch.id === chapterId && <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />}
-                                  </Link>
-                              ))}
-                          </div>
-                      </ScrollArea>
-                  </TabsContent>
-                  <TabsContent value="search" className="flex-1 overflow-hidden flex flex-col">
-                      <div className="p-4 bg-muted/20 border-b"><Input placeholder="Search within story..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-12 rounded-2xl bg-background border-none shadow-inner" /></div>
-                      <ScrollArea className="flex-1"><div className="p-10 text-center text-muted-foreground font-black uppercase text-[10px] tracking-widest opacity-40">Search hub...</div></ScrollArea>
-                  </TabsContent>
-              </Tabs>
+              <div className="p-6 bg-muted/30 border-b flex-shrink-0">
+                  <div className="relative group mb-4">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                      <Input 
+                        placeholder="Search manuscript..." 
+                        value={searchTerm} 
+                        onChange={e => setSearchTerm(e.target.value)} 
+                        className="pl-10 h-12 rounded-2xl bg-background border-none shadow-inner text-sm focus-visible:ring-primary/20"
+                      />
+                  </div>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-primary px-1">Manuscript Node Index</h3>
+              </div>
+              <ScrollArea className="flex-1">
+                  <div className="p-4 space-y-1">
+                      {filteredChapters.sort((a,b) => a.order - b.order).map(ch => (
+                          <Link key={ch.id} href={`/stories/${story.id}/read/${ch.id}`} onClick={() => setIsTocOpen(false)} className={cn("flex items-center gap-3 p-4 rounded-2xl transition-all border border-transparent", ch.id === chapterId ? "bg-primary/10 text-primary border-primary/20 shadow-inner" : "hover:bg-primary/5")}>
+                              <span className={cn("text-[10px] font-black w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm", ch.id === chapterId ? "bg-primary text-white" : "bg-muted")}>{ch.order}</span>
+                              <div className="flex-1 min-w-0"><span className={cn("text-sm font-bold truncate block", ch.id === chapterId ? "text-primary" : "text-foreground")}>{ch.title}</span></div>
+                          </Link>
+                      ))}
+                      {filteredChapters.length === 0 && <p className="text-center py-10 text-[10px] font-black uppercase opacity-40">No entries identified</p>}
+                  </div>
+              </ScrollArea>
           </SheetContent>
       </Sheet>
 
@@ -891,9 +713,7 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
             <AlertDialogContent className="max-w-xl rounded-[3rem] border-none shadow-3xl p-0 overflow-hidden bg-background/95 backdrop-blur-3xl">
                 <AlertDialogHeader className="p-10 bg-muted/30 border-b">
                     <div className="flex items-center gap-4">
-                        <div className="p-4 bg-primary/10 rounded-2xl">
-                            <ShieldCheck className="h-8 w-8 text-primary" />
-                        </div>
+                        <div className="p-4 bg-primary/10 rounded-2xl"><ShieldCheck className="h-8 w-8 text-primary" /></div>
                         <div>
                             <AlertDialogTitle className="font-headline text-3xl font-bold">Disclaimer</AlertDialogTitle>
                             <AlertDialogDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Important Information</AlertDialogDescription>
@@ -902,64 +722,34 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                 </AlertDialogHeader>
                 <div className="p-10">
                     <ScrollArea className="h-[40vh] pr-4 -mr-4">
-                        <div className="prose dark:prose-invert max-w-none">
-                            <p className="whitespace-pre-line text-lg text-foreground/80 leading-relaxed italic font-medium">
-                                {story.disclaimer}
-                            </p>
-                        </div>
+                        <p className="whitespace-pre-line text-lg text-foreground/80 leading-relaxed italic font-medium">{story.disclaimer}</p>
                     </ScrollArea>
                 </div>
-                <AlertDialogFooter className="p-8 bg-muted/20 border-t flex flex-col gap-3 sm:flex-row sm:justify-end">
-                    <Button 
-                        onClick={handleAcceptDisclaimer}
-                        className="w-full sm:w-auto rounded-full px-12 h-14 bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs tracking-widest shadow-2xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95 border-none"
-                    >
-                        I Accept
-                    </Button>
-                </AlertDialogFooter>
+                <AlertDialogFooter className="p-8 bg-muted/20 border-t"><Button onClick={handleAcceptDisclaimer} className="rounded-full px-12 h-14 bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs tracking-widest shadow-2xl">I Accept</Button></AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
 
         {isAccessGranted ? (
             <div className="relative" onClick={handleManuscriptClick}>
-                {editor && !isOffline && (
+                {editor && (
                     <BubbleMenu 
                         editor={editor} 
                         shouldShow={({ editor }) => editor ? !editor.state.selection.empty : false}
-                        tippyOptions={{ duration: 150, zIndex: 10000, appendTo: 'parent' }}
                         className="flex items-center gap-1.5 p-1.5 bg-card/95 backdrop-blur-3xl border border-white/20 rounded-full shadow-3xl transform-gpu animate-in zoom-in-95 duration-200"
                     >
-                        <Button variant="ghost" size="icon" onClick={() => handleAnnotationAction('highlight')} className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-95 flex items-center justify-center" title="Highlight"><Highlighter className="h-5 w-5" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleAnnotationAction('highlight')} className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all"><Highlighter className="h-5 w-5" /></Button>
                         <div className="w-px h-6 bg-border/40 mx-0.5" />
-                        <Button variant="ghost" size="icon" onClick={() => handleAnnotationAction('comment')} className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all active:scale-95 flex items-center justify-center" title="Discuss Selection"><MessageSquare className="h-5 w-5" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleAnnotationAction('comment')} className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary transition-all"><MessageSquare className="h-5 w-5" /></Button>
                     </BubbleMenu>
                 )}
                 <article className={articleClasses}>
                     <div className="text-center mb-20 space-y-4 px-6 animate-in slide-in-from-top-6 duration-1000">
-                        <div className="flex items-center justify-center gap-3">
-                            <Badge variant="outline" className="rounded-full px-5 py-1.5 font-black text-[10px] uppercase tracking-[0.4em] bg-primary/5 text-primary border-primary/20 shadow-sm">Part {currentChapter?.order}</Badge>
-                            {isOffline && (
-                                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 gap-1.5 rounded-full px-3 py-1 font-black text-[8px] uppercase tracking-widest">
-                                    <WifiOff className="h-3 w-3" />
-                                    Offline
-                                </Badge>
-                            )}
-                        </div>
+                        <Badge variant="outline" className="rounded-full px-5 py-1.5 font-black text-[10px] uppercase tracking-[0.4em] bg-primary/5 text-primary border-primary/20 shadow-sm">Part {currentChapter?.order}</Badge>
                         <h2 className="font-headline text-5xl md:text-8xl font-bold tracking-tighter leading-none text-foreground">{currentChapter?.title}</h2>
-                        
-                        <div className="flex items-center justify-center gap-8 mt-6 text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground/40 animate-in fade-in slide-in-from-top-4 duration-1000 delay-500">
-                            <div className="flex items-center gap-2.5">
-                                <Eye className="h-4 w-4 text-primary/30" />
-                                <span>{formatCompactNumber(currentChapter?.views || 0)} Reads</span>
-                            </div>
-                            <div className="flex items-center gap-2.5">
-                                <ThumbsUp className="h-4 w-4 text-primary/30" />
-                                <span>{formatCompactNumber(currentChapter?.votes || 0)} Votes</span>
-                            </div>
-                            <div className="flex items-center gap-2.5">
-                                <Timer className="h-4 w-4 text-primary/30" />
-                                <span>{totalMinutes} MIN READ</span>
-                            </div>
+                        <div className="flex items-center justify-center gap-8 mt-6 text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground/40">
+                            <div className="flex items-center gap-2.5"><Eye className="h-4 w-4 text-primary/30" /><span>{formatCompactNumber(currentChapter?.views || 0)} Reads</span></div>
+                            <div className="flex items-center gap-2.5"><ThumbsUp className="h-4 w-4 text-primary/30" /><span>{formatCompactNumber(currentChapter?.votes || 0)} Votes</span></div>
+                            <div className="flex items-center gap-2.5"><Timer className="h-4 w-4 text-primary/30" /><span>{totalMinutes} MIN READ</span></div>
                         </div>
                     </div>
                     <EditorContent editor={editor} />
@@ -970,84 +760,31 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
         )}
       </main>
 
-      {/* Floating Action Pill Footer */}
       <footer className={cn(
         'fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl md:max-w-3xl px-4 transition-all duration-700 transform-gpu',
         controlsVisible && !isInteractionLocked ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 scale-95'
       )}>
         <div className="bg-card/70 backdrop-blur-3xl border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.5)] rounded-[2.5rem] p-2 flex items-center justify-between">
-            <Button variant="ghost" size="icon" className="h-12 w-12 md:h-14 md:w-14 rounded-full transition-all active:scale-90" onClick={() => prevChapterId && router.push(`/stories/${storyId}/read/${prevChapterId}`)} disabled={!prevChapterId}><ArrowLeft className="h-6 w-6" /></Button>
-            
+            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full transition-all active:scale-90" onClick={() => prevChapterId && router.push(`/stories/${storyId}/read/${prevChapterId}`)} disabled={!prevChapterId}><ArrowLeft className="h-6 w-6" /></Button>
             <div className="flex items-center gap-1 bg-muted/40 rounded-full p-1 border border-white/5 shadow-inner">
-                <Button variant="ghost" size="sm" className="rounded-full h-10 md:h-12 px-5 gap-2.5 hover:bg-primary/10 hover:text-primary transition-all active:scale-95" onClick={handleVoteClick} disabled={isVoting || isOffline}>
-                    <ThumbsUp className={cn("h-5 w-5", currentChapter?.voterIds?.includes(currentUser?.id || '') && "fill-primary text-primary")} />
-                    <span className="text-xs font-black">{formatCompactNumber(currentChapter?.votes || 0)}</span>
-                </Button>
-                <Link href={isOffline ? '#' : `/stories/${storyId}/read/${chapterId}/comments`} passHref onClick={(e) => isOffline && e.preventDefault()}>
-                    <Button variant="ghost" size="sm" className={cn("rounded-full h-10 md:h-12 px-5 gap-2.5 hover:bg-primary/10 hover:text-primary transition-all active:scale-95", isOffline && "opacity-50 cursor-not-allowed")}>
-                        <MessageSquare className="h-5 w-5" />
-                        <span className="text-xs font-black">{formatCompactNumber(currentChapter?.commentsCount || 0)}</span>
-                    </Button>
-                </Link>
+                <Button variant="ghost" size="sm" className="rounded-full h-10 md:h-12 px-5 gap-2.5 transition-all" onClick={handleVoteClick} disabled={isVoting || isOffline}><ThumbsUp className={cn("h-5 w-5", currentChapter?.voterIds?.includes(currentUser?.id || '') && "fill-primary text-primary")} /><span className="text-xs font-black">{formatCompactNumber(currentChapter?.votes || 0)}</span></Button>
+                <Link href={isOffline ? '#' : `/stories/${storyId}/read/${chapterId}/comments`} passHref><Button variant="ghost" size="sm" className="rounded-full h-10 md:h-12 px-5 gap-2.5"><MessageSquare className="h-5 w-5" /><span className="text-xs font-black">{formatCompactNumber(currentChapter?.commentsCount || 0)}</span></Button></Link>
                 <div className="w-px h-6 bg-border/40 mx-1" />
-                <Button variant="ghost" size="icon" className={cn("rounded-full h-10 md:h-12 w-10 md:w-12 transition-all active:scale-95", isInLibrary ? "text-primary bg-primary/5" : "")} onClick={handleLibraryAction} disabled={isOffline}>
-                    {isInLibrary ? <BookmarkCheck className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-                </Button>
+                <Button variant="ghost" size="icon" className={cn("rounded-full h-10 md:h-12 w-10 md:w-12", isInLibrary ? "text-primary bg-primary/5" : "")} onClick={handleLibraryAction}>{isInLibrary ? <BookmarkCheck className="h-5 w-5" /> : <Plus className="h-5 w-5" />}</Button>
             </div>
-
-            <Button variant="ghost" size="icon" className="h-12 w-12 md:h-14 md:w-14 rounded-full transition-all active:scale-90" onClick={() => nextChapterId && router.push(`/stories/${storyId}/read/${nextChapterId}`)} disabled={!nextChapterId}><ArrowRight className="h-6 w-6" /></Button>
+            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full transition-all active:scale-90" onClick={() => nextChapterId && router.push(`/stories/${storyId}/read/${nextChapterId}`)} disabled={!nextChapterId}><ArrowRight className="h-6 w-6" /></Button>
         </div>
       </footer>
       
       <Sheet open={isAnnotationDialogOpen} onOpenChange={setIsAnnotationDialogOpen}>
           <SheetContent side="bottom" className="h-auto max-h-[85vh] rounded-t-[3rem] border-none shadow-3xl bg-background/95 backdrop-blur-3xl">
               <div className="mx-auto w-16 h-1.5 rounded-full bg-muted/40 mb-8" />
-              <SheetHeader className="text-left mb-8">
-                  <SheetTitle className="font-headline text-3xl font-bold">Save Highlight</SheetTitle>
-                  <SheetDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Save this line to your collection</SheetDescription>
-              </SheetHeader>
-              
+              <SheetHeader className="text-left mb-8"><SheetTitle className="font-headline text-3xl font-bold">Save Highlight</SheetTitle><SheetDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Save this line to your collection</SheetDescription></SheetHeader>
               <div className="space-y-8 pb-12">
-                  <div className="p-8 rounded-[2rem] bg-primary/5 border border-primary/10 shadow-inner relative group/quote overflow-hidden">
-                      <Quote className="absolute -top-4 -right-4 h-24 w-24 text-primary/5 -scale-x-100 transition-transform group-hover/quote:scale-110" />
-                      <p className="italic text-lg md:text-xl leading-relaxed text-foreground/90 font-serif relative z-10">"{selectedText}"</p>
-                  </div>
-
-                  <div className="space-y-3">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Note (Optional)</Label>
-                      <Textarea 
-                        value={annotationNote} 
-                        onChange={e => setAnnotationNote(e.target.value)} 
-                        placeholder="Add a thought..." 
-                        className="bg-muted/20 border-none rounded-2xl text-base p-6 min-h-[120px] shadow-inner focus-visible:ring-primary/20"
-                      />
-                  </div>
-
-                  <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Highlight Color</Label>
-                      <div className="flex gap-4 px-2">
-                          {HIGHLIGHT_COLORS.map(color => (
-                              <button 
-                                key={color.value} 
-                                onClick={() => setSelectedColor(color.value)}
-                                className={cn(
-                                    "w-12 h-12 rounded-full border-[3px] transition-all duration-500 transform-gpu hover:scale-110 shadow-lg",
-                                    selectedColor === color.value ? "border-primary scale-110 shadow-primary/20" : "border-transparent opacity-60"
-                                )}
-                                style={{ backgroundColor: color.value }}
-                              />
-                          ))}
-                      </div>
-                  </div>
-
-                  <Button 
-                    onClick={saveAnnotation} 
-                    disabled={isSavingAnnotation || isOffline} 
-                    className="w-full h-16 rounded-[2rem] bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-primary/30 transition-all hover:scale-[1.01] active:scale-95 border-none"
-                  >
-                      {isSavingAnnotation ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <Sparkles className="h-5 w-5 mr-3" />}
-                      {isOffline ? 'Sync unavailable offline' : 'Save to Collection'}
-                  </Button>
+                  <div className="p-8 rounded-[2rem] bg-primary/5 border border-primary/10 shadow-inner relative overflow-hidden"><Quote className="absolute -top-4 -right-4 h-24 w-24 text-primary/5 -scale-x-100" /><p className="italic text-lg md:text-xl text-foreground/90 font-serif relative z-10">"{selectedText}"</p></div>
+                  <div className="space-y-3"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Note (Optional)</Label><Textarea value={annotationNote} onChange={e => setAnnotationNote(e.target.value)} placeholder="Add a thought..." className="bg-muted/20 border-none rounded-2xl text-base p-6 min-h-[120px] shadow-inner focus-visible:ring-primary/20" /></div>
+                  <div className="space-y-4"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Highlight Color</Label><div className="flex gap-4 px-2">{HIGHLIGHT_COLORS.map(color => (<button key={color.value} onClick={() => setSelectedColor(color.value)} className={cn("w-12 h-12 rounded-full border-[3px] transition-all", selectedColor === color.value ? "border-primary scale-110 shadow-primary/20" : "border-transparent opacity-60")} style={{ backgroundColor: color.value }} />))}</div></div>
+                  <Button onClick={saveAnnotation} disabled={isSavingAnnotation || isOffline} className="w-full h-16 rounded-[2rem] bg-primary text-white font-black uppercase text-xs tracking-widest shadow-2xl">{isSavingAnnotation ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <Sparkles className="h-5 w-5 mr-3" />}Save to Collection</Button>
               </div>
           </SheetContent>
       </Sheet>
