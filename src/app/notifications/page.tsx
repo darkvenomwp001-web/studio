@@ -172,6 +172,15 @@ function NotificationsList() {
         if (notification.link) router.push(notification.link);
     };
 
+    const handleMarkAllRead = async () => {
+        try {
+            await markAllNotificationsAsRead();
+            toast({ title: "Activity cleared" });
+        } catch (error) {
+            toast({ title: "Failed to clear activity", variant: "destructive"});
+        }
+    };
+
     const getNotificationIcon = (type: NotificationType['type']) => {
         switch (type) {
             case 'new_follower': return <UserPlus className="h-4 w-4 text-blue-500" />;
@@ -1136,7 +1145,7 @@ function MessagesClient() {
                                             {isRecording ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-5 w-5" />}
                                         </Button>
                                         <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary hover:bg-primary/10" onClick={() => setIsMusicToolActive(true)} disabled={isSendingMessage}><Music className="h-5 w-5" /></Button>
-                                        <input type="file" ref={mediaInputRef} className="hidden" accept="image/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
+                                        <input type="file" ref={mediaInputRef} className="hidden" accept="image/*,video/*" onChange={e => { if(e.target.files?.[0]) setImageFile(e.target.files[0]); }} />
                                     </div>
                                     
                                     <div className="flex-1 relative group">
@@ -1416,10 +1425,20 @@ function MessagesClient() {
 }
 
 function InboxContent() {
-    const { user, loading } = useAuth();
+    const { user, loading, markAllNotificationsAsRead } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { toast } = useToast();
     const defaultTab = searchParams.get('tab') || 'messages'; 
+
+    const handleMarkAllRead = async () => {
+        try {
+            await markAllNotificationsAsRead();
+            toast({ title: "Activity cleared" });
+        } catch (error) {
+            toast({ title: "Failed to clear activity", variant: "destructive"});
+        }
+    };
 
     useEffect(() => {
         if (!loading && !user) {
@@ -1429,10 +1448,6 @@ function InboxContent() {
 
     if (loading) return <div className="flex flex-col justify-center items-center min-h-screen gap-4 transform-gpu"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Syncing Communications...</p></div>;
     if (!user) return null;
-
-    const handleMarkAllRead = async () => {
-        // defined in context
-    };
 
     return (
         <>
