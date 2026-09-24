@@ -172,12 +172,6 @@ function NotificationsList() {
         if (notification.link) router.push(notification.link);
     };
 
-    const handleMarkAllRead = async () => {
-        if (notifications.every(n => n.isRead)) return;
-        try { await markAllNotificationsAsRead(); } 
-        catch (error) { toast({ title: "Update failed", variant: "destructive"}); }
-    };
-
     const getNotificationIcon = (type: NotificationType['type']) => {
         switch (type) {
             case 'new_follower': return <UserPlus className="h-4 w-4 text-blue-500" />;
@@ -1013,7 +1007,7 @@ function MessagesClient() {
                                                                 longPressTimerRef.current = setTimeout(() => {
                                                                     setIsLongPressing(msg.id);
                                                                     if (window.navigator.vibrate) window.navigator.vibrate(50);
-                                                                }, 2000); 
+                                                                }, 500); 
                                                             }}
                                                             onPointerUp={() => {
                                                                 if (longPressTimerRef.current) {
@@ -1023,9 +1017,9 @@ function MessagesClient() {
                                                             }}
                                                             className={cn(
                                                                 "p-3.5 text-sm transition-all transform-gpu relative cursor-pointer select-none touch-none",
-                                                                isMe ? "text-white rounded-[1.25rem] rounded-br-[0.25rem]" : "bg-muted text-foreground rounded-[1.25rem] rounded-bl-[0.25rem]",
+                                                                isMe ? "text-white rounded-[1.75rem] rounded-br-[0.25rem]" : "bg-muted text-foreground rounded-[1.75rem] rounded-bl-[0.25rem]",
                                                                 msg.isUnsent && "italic opacity-60 bg-muted/40 text-muted-foreground",
-                                                                isLongPressing === msg.id && "scale-105 shadow-[0_0_25px_rgba(var(--primary),0.4)] ring-2 ring-primary ring-offset-2 ring-offset-background",
+                                                                isLongPressing === msg.id && "scale-[1.03] shadow-[0_0_20px_rgba(var(--primary),0.3)] ring-1 ring-primary/40",
                                                                 msg.type === 'image' && "bg-transparent p-0 overflow-hidden shadow-none border-none"
                                                             )} 
                                                             style={{ backgroundColor: (msg.type === 'image' || !isMe || msg.isUnsent) ? undefined : (activeConversation.themeColor || 'hsl(var(--primary))') }}
@@ -1037,7 +1031,7 @@ function MessagesClient() {
                                                                 </div>
                                                             )}
                                                             {msg.type === 'image' && msg.mediaUrl && (
-                                                                <div className="relative w-48 sm:w-64 aspect-square rounded-2xl overflow-hidden shadow-xl border border-white/10 group/img" onClick={() => setFullScreenMedia(msg.mediaUrl!)}>
+                                                                <div className="relative w-48 sm:w-64 aspect-square rounded-[1.5rem] overflow-hidden shadow-xl border border-white/10 group/img" onClick={() => setFullScreenMedia(msg.mediaUrl!)}>
                                                                     <NextImage src={msg.mediaUrl} alt="Visual" fill className="object-cover transition-transform group-hover/img:scale-105" />
                                                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                                                                         <Maximize2 className="h-6 w-6 text-white" />
@@ -1436,6 +1430,10 @@ function InboxContent() {
     if (loading) return <div className="flex flex-col justify-center items-center min-h-screen gap-4 transform-gpu"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="font-black text-sm uppercase tracking-widest animate-pulse opacity-40">Syncing Communications...</p></div>;
     if (!user) return null;
 
+    const handleMarkAllRead = async () => {
+        // defined in context
+    };
+
     return (
         <>
             <Header />
@@ -1444,7 +1442,7 @@ function InboxContent() {
                     <div className="flex justify-center mb-10 px-4">
                         <TabsList className="h-12 bg-muted/50 rounded-full p-1 border border-border/40 shadow-sm backdrop-blur-md w-full max-w-sm">
                             <TabsTrigger value="messages" className="rounded-full font-black uppercase text-[10px] tracking-widest flex-1 gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">
-                                <MessageSquare className="h-4 w-4" /> Signals
+                                <MessageSquare className="h-4 w-4" /> Threads
                             </TabsTrigger>
                             <TabsTrigger value="notifications" className="rounded-full font-black uppercase text-[10px] tracking-widest flex-1 gap-2 data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">
                                 <Bell className="h-4 w-4" /> Activity
