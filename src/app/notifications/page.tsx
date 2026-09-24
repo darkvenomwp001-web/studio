@@ -1346,9 +1346,9 @@ function MessagesClient() {
                     {fullScreenMedia && <NextImage src={fullScreenMedia} alt="Archive" width={1600} height={1600} className="object-contain w-full h-full rounded-2xl" />}
                     
                     <div className="absolute top-6 right-6 flex flex-col gap-3">
-                        <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-white/10 text-white hover:bg-white/20 shadow-xl" onClick={() => setFullScreenMedia(null)}><X className="h-6 w-6" /></Button>
-                        <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-white/10 text-white hover:bg-white/20 shadow-xl" onClick={() => handleForwardMessage({ id: 'temp', content: '', mediaUrl: fullScreenMedia!, type: 'image' } as any)} title="Forward"><Forward className="h-6 w-6" /></Button>
-                        <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-white/10 text-white hover:bg-white/20 shadow-xl" title="Save"><Download className="h-6 w-6" /></Button>
+                        <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-black/10 text-white hover:bg-white/20 shadow-xl" onClick={() => setFullScreenMedia(null)}><X className="h-6 w-6" /></Button>
+                        <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-black/10 text-white hover:bg-white/20 shadow-xl" onClick={() => handleForwardMessage({ id: 'temp', content: '', mediaUrl: fullScreenMedia!, type: 'image' } as any)} title="Forward"><Forward className="h-6 w-6" /></Button>
+                        <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-black/10 text-white hover:bg-white/20 shadow-xl" title="Save"><Download className="h-6 w-6" /></Button>
                     </div>
                 </div>
             </DialogContent>
