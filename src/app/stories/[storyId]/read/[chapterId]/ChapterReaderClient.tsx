@@ -91,7 +91,8 @@ import {
   Library,
   Bird,
   Trees,
-  CloudLightning
+  CloudLightning,
+  Hash
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -218,7 +219,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
   useEffect(() => {
     if (editor && currentChapter) {
       editor.commands.setContent(currentChapter.content, false);
-      // Scan for paragraph comments after content load
       scanParagraphComments();
     }
   }, [editor, currentChapter?.id, currentChapter?.content]);
@@ -239,12 +239,42 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     } catch (e) { console.error(e); }
   };
 
-  // Reading Time Estimation
+  useEffect(() => {
+    if (!editor) return;
+    
+    const scanDOM = () => {
+        const paragraphs = document.querySelectorAll('.ProseMirror p');
+        paragraphs.forEach(p => {
+            const text = p.textContent?.trim() || '';
+            if (!text) return;
+            
+            const count = paragraphCommentCounts[text];
+            if (count) {
+                p.setAttribute('data-has-comments', 'true');
+                if (!p.querySelector('.discussion-node')) {
+                    const node = document.createElement('div');
+                    node.className = 'discussion-node';
+                    node.innerHTML = `💬 <span class="text-[9px] font-black">${count}</span>`;
+                    node.onclick = (e) => {
+                        e.stopPropagation();
+                        router.push(`/stories/${storyId}/read/${chapterId}/comments?quote=${encodeURIComponent(text)}`);
+                    };
+                    p.appendChild(node);
+                }
+            } else {
+                p.removeAttribute('data-has-comments');
+                p.querySelector('.discussion-node')?.remove();
+            }
+        });
+    };
+
+    scanDOM();
+  }, [editor, paragraphCommentCounts, storyId, chapterId, router]);
+
   const wordCount = useMemo(() => editor?.storage.characterCount.words() || 0, [editor?.storage.characterCount.words()]);
   const totalMinutes = useMemo(() => Math.max(1, Math.round(wordCount / 225)), [wordCount]);
   const minutesLeft = useMemo(() => Math.max(0, Math.round(totalMinutes * (1 - readingProgress / 100))), [totalMinutes, readingProgress]);
 
-  // Audio Atmosphere Hub
   useEffect(() => {
     if (isLoading || ambientSound === 'none') {
         if (audioRef.current) audioRef.current.pause();
@@ -268,7 +298,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
     };
   }, [ambientSound, isLoading, atmosphereVolume]);
 
-  // Real-time Search Logic
   const filteredChapters = useMemo(() => {
     if (!story || !searchTerm.trim()) return story?.chapters || [];
     const term = searchTerm.toLowerCase();
@@ -649,15 +678,15 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                         </TabsContent>
 
                         <TabsContent value="sound" className="space-y-4">
-                            <div className="grid grid-cols-3 gap-2">
+                            <RadioGroup value={ambientSound} onValueChange={setAmbientSound} className="grid grid-cols-3 gap-2">
                                 {AMBIENT_SOUNDS.map(s => (
                                     <Label key={s.id} htmlFor={`sound-${s.id}`} className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all cursor-pointer gap-1.5 shadow-sm", ambientSound === s.id ? "border-primary bg-primary/5" : "border-transparent bg-muted/30 hover:bg-muted/50")}>
-                                        <RadioGroupItem value={s.id} id={`sound-${s.id}`} className="sr-only" onClick={() => setAmbientSound(s.id)} />
+                                        <RadioGroupItem value={s.id} id={`sound-${s.id}`} className="sr-only" />
                                         <s.icon className={cn("h-4 w-4", ambientSound === s.id ? "text-primary" : "text-muted-foreground")} />
                                         <span className="text-[8px] font-black uppercase tracking-tighter text-center leading-none">{s.label}</span>
                                     </Label>
                                 ))}
-                            </div>
+                            </RadioGroup>
                             <div className="pt-2 space-y-4">
                                 <div className="flex justify-between items-center"><Label className="text-[10px] font-bold uppercase tracking-widest opacity-60">Atmosphere Volume</Label><span className="text-[10px] font-black tabular-nums">{atmosphereVolume}%</span></div>
                                 <Slider value={[atmosphereVolume]} onValueChange={([v]) => setAtmosphereVolume(v)} max={100} step={1} className="py-2" />
@@ -730,16 +759,6 @@ export default function ChapterReaderClient({ storyId, chapterId }: { storyId: s
                     </div>
                     <div className="relative">
                         <EditorContent editor={editor} />
-                        {/* Discussion Node Helper: Wattpad Style paragraph triggers */}
-                        {editor && editor.state.doc.content.forEach((node, offset) => {
-                            if (node.type.name === 'paragraph') {
-                                const text = node.textContent;
-                                if (paragraphCommentCounts[text]) {
-                                    // Normally we would render actual React nodes here via a custom Tiptap extension, 
-                                    // but for this MVP, we use the established CSS approach with dynamic logic.
-                                }
-                            }
-                        })}
                     </div>
                 </article>
             </div>
