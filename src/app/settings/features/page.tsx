@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, BookOpen, MessageCircle, Image, Star, Quote, Palette, Mail, ShieldCheck, Library, UserCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 export default function FeaturesInfoPage() {
   const router = useRouter();
@@ -166,7 +167,7 @@ export default function FeaturesInfoPage() {
       </div>
       
       <footer className="pt-10 text-center">
-        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">Feature Repository & bull; D4RKV3NOM Protocol</p>
+        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">Feature Repository &bull; D4RKV3NOM Protocol</p>
       </footer>
     </div>
   );
