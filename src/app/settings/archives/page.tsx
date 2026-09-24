@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -28,7 +27,8 @@ import {
     MessageCircle, 
     Quote, 
     Sparkles,
-    Image as ImageIcon
+    Image as ImageIcon,
+    Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
