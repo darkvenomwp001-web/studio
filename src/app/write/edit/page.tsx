@@ -18,8 +18,6 @@ import {
   Plus,
   X,
   Send,
-  AlertTriangle,
-  Edit,
   Sparkles,
   StickyNote,
   Music,
@@ -35,11 +33,6 @@ import {
   addDoc,
   collection
 } from 'firebase/firestore';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
 import { EditorContent, useEditor, BubbleMenu } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -47,12 +40,14 @@ import TextAlign from '@tiptap/extension-text-align';
 import TextStyle from '@tiptap/extension-text-style';
 import FontFamily from '@tiptap/extension-font-family';
 import { useAuth } from '@/hooks/useAuth';
-import { cn } from '@/lib/utils';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 export default function ChapterEditor() {
   const { user, addNotification } = useAuth();
@@ -161,7 +156,7 @@ export default function ChapterEditor() {
           ...ch,
           title: chapterTitle,
           content: currentContent,
-          warningTags,
+          warningTags: warningTags,
           authorNotes,
           atmosphere,
           featuredCast,
@@ -218,12 +213,12 @@ export default function ChapterEditor() {
           <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="flex-1">
+          <div className="flex-1 text-center">
              <Input 
                 value={chapterTitle} 
                 onChange={e => setChapterTitle(e.target.value)}
                 placeholder="Part Title..." 
-                className="text-center border-none bg-transparent text-3xl md:text-5xl font-headline font-bold h-auto p-0 mb-2 focus-visible:ring-0 placeholder:opacity-20 shadow-none"
+                className="text-center border-none bg-transparent text-3xl md:text-5xl font-headline font-bold h-auto p-0 mb-4 focus-visible:ring-0 placeholder:opacity-20 shadow-none"
               />
           </div>
         </div>
@@ -320,7 +315,7 @@ export default function ChapterEditor() {
         {/* Reader Experience Tools */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary bg-primary/10">
+            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-primary">
               <Sparkles className="h-5 w-5" />
             </Button>
           </PopoverTrigger>
